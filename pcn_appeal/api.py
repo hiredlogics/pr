@@ -439,9 +439,11 @@ def upload_blobs(case_id: str, body: BlobsIn):
             rejected.append({"filename": label, "reason": "no readable content"})
             continue
         case.evidence[evidence_id] = EvidenceItem(evidence_id, "OTHER", doc.filename,
-                                                  text=doc.text, images=doc.images)
+                                                  text=doc.text, images=doc.images,
+                                                  storage_url=blob.url)
         case.audit.append({"event": "upload_read", "evidence": evidence_id,
                            "filename": doc.filename, "note": doc.note, "source": "blob",
+                           "storage_url": blob.url,
                            "chars": len(doc.text), "images": len(doc.images)})
 
     if not case.evidence:

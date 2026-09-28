@@ -19,7 +19,12 @@ CREATE TABLE evidence (
   case_id      uuid REFERENCES cases ON DELETE CASCADE,
   label        text NOT NULL,                        -- in-case id ("E1"); facts cite <label>#p<n>
   kind         text NOT NULL,
-  s3_key       text NOT NULL,                        -- encrypted object store (SSE-KMS)
+  filename     text,                                 -- what the customer called it
+  -- Where the file IS: a blob/object URL or key. Nullable because a document can
+  -- be read straight from a request body and never stored, but a null here means
+  -- the original is unrecoverable - which is a retention and evidence problem, not
+  -- a cosmetic one. Never put the filename in this column.
+  s3_key       text,
   sha256       text NOT NULL,                        -- tamper evidence
   ocr_text     text,
   special_category boolean DEFAULT false,            -- medical/disability docs: restricted access

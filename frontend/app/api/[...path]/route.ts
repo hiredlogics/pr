@@ -19,6 +19,12 @@ const HOP_BY_HOP = new Set([
   "upgrade",
   "host",
   "content-length",
+  // curl and some HTTP libraries add `Expect: 100-continue` once a body passes
+  // 1MB. Forwarding it makes undici's fetch throw NotSupportedError before the
+  // request leaves, which surfaced as "the appeal service is not responding" on
+  // a backend that was healthy. Browsers never send it, so this only ever broke
+  // non-browser clients.
+  "expect",
 ]);
 
 async function forward(req: NextRequest, path: string[]): Promise<Response> {
@@ -45,9 +51,24 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
     out.set("Cache-Control", "no-store");
 
     return new Response(upstream.body, { status: upstream.status, headers: out });
-  } catch {
+  } catch (err) {
+    // A bare `catch {}` here reported "not responding" for every failure,
+    // including ones the backend never saw, which sent debugging at the wrong
+    // component. The cause always goes to the server log; the client still gets
+    // a message it can show a customer.
+    console.error(`[proxy] ${req.method} ${target} failed:`, err);
     return Response.json(
-      { detail: { message: "The appeal service is not responding.", rejected: [] } },
+      {
+        detail: {
+          message: "The appeal service is not responding.",
+          rejected: [],
+          // undici wraps everything as "fetch failed"; the cause is the useful part.
+          reason:
+            process.env.NODE_ENV === "production"
+              ? undefined
+              : `${String(err)} | cause: ${String((err as { cause?: unknown })?.cause)}`,
+        },
+      },
       { status: 502 },
     );
   }

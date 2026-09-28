@@ -52,12 +52,17 @@ def save(case: CaseFile) -> None:
 
             for ev in case.evidence.values():
                 cur.execute("""
-                    INSERT INTO evidence (evidence_id, case_id, label, kind, s3_key, sha256, ocr_text)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO evidence (evidence_id, case_id, label, kind, s3_key, sha256,
+                                          ocr_text, filename)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (evidence_id) DO UPDATE SET
-                        kind = EXCLUDED.kind, ocr_text = EXCLUDED.ocr_text
+                        kind = EXCLUDED.kind, ocr_text = EXCLUDED.ocr_text,
+                        s3_key = EXCLUDED.s3_key, filename = EXCLUDED.filename
                 """, (_as_uuid(ev.evidence_id, case.case_id), case.case_id, ev.evidence_id,
-                      ev.kind, ev.filename, _sha(ev.text), ev.text))
+                      # s3_key is where the file IS; filename is what the customer
+                      # called it. Putting the filename in s3_key - as this did -
+                      # loses the only pointer back to the document.
+                      ev.kind, ev.storage_url, _sha(ev.text), ev.text, ev.filename))
 
             known = {r[0]: (r[1], r[2]) for r in cur.execute(
                 "SELECT name, value, fact_id FROM facts WHERE case_id = %s AND NOT superseded",
@@ -102,10 +107,11 @@ def load(case_id: str) -> CaseFile:
             raise KeyError(case_id)
         case = CaseFile(case_id, state=CaseState(row[0]), driver_status=DriverStatus(row[1]))
 
-        for label, kind, s3_key, ocr in conn.execute(
-                "SELECT label, kind, s3_key, ocr_text FROM evidence WHERE case_id = %s",
+        for label, kind, s3_key, ocr, filename in conn.execute(
+                "SELECT label, kind, s3_key, ocr_text, filename FROM evidence WHERE case_id = %s",
                 (case_id,)).fetchall():
-            case.evidence[label] = EvidenceItem(label, kind, s3_key, text=ocr or "")
+            case.evidence[label] = EvidenceItem(label, kind, filename or label,
+                                                text=ocr or "", storage_url=s3_key)
 
         for fact_id, name, value, status, kind, ref, excerpt, conf in conn.execute("""
                 SELECT fact_id, name, value, status, source_kind, source_ref, excerpt, confidence

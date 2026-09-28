@@ -1,21 +1,28 @@
-# core (reference implementation runs with just these)
+# Runtime dependencies. This file is what Vercel installs for the Python
+# function, so it holds only what the code actually imports - nothing here is
+# aspirational.
+#
+# Two things are deliberately absent:
+#
+#   weasyprint  PDF rendering. Draws through Pango and cairo, which are system
+#               libraries a serverless function cannot install, so including it
+#               would add bundle weight for an import that fails at runtime.
+#               It is in requirements-api.txt, which the container uses.
+#   temporalio, boto3, sqlalchemy, neo4j, opentelemetry
+#               Named in the architecture but not imported anywhere yet. Add
+#               them when something uses them.
+#
+# Local development wanting PDF output: pip install -r requirements-api.txt
 pyyaml>=6
 networkx>=3
 numpy>=1.26
-# production services
 fastapi>=0.115
-uvicorn[standard]>=0.30
+uvicorn[standard]>=0.30  # local server; unused on a function platform
 pydantic>=2.8
-sqlalchemy>=2.0
-psycopg[binary]>=3.2
-pgvector>=0.3
-openai>=1.40             # the only LLM provider
-temporalio>=1.7          # durable workflow orchestration (or celery+redis)
-boto3>=1.34              # S3 evidence storage
-pypdf>=5.0               # PDF text layer
-pymupdf>=1.24            # rasterise scanned PDF pages, normalise images to JPEG
 python-multipart>=0.0.9  # multipart file upload
-weasyprint>=62           # PDF rendering
-jinja2>=3.1
-opentelemetry-sdk>=1.26
-neo4j>=5.20              # optional - only if KG moves out of process
+openai>=1.40             # the only LLM provider
+pypdf>=5.0               # PDF text layer
+pymupdf>=1.24            # rasterise scanned pages, normalise images to JPEG
+jinja2>=3.1              # letterhead template
+psycopg[binary]>=3.2     # only used when DATABASE_URL is set
+pgvector>=0.3

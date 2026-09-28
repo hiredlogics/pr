@@ -88,6 +88,11 @@ class EvidenceItem:
     text: str = ""                 # OCR / extracted text
     doc_date: Optional[date] = None
     images: list[bytes] = field(default_factory=list)   # JPEG pages for the vision model
+    # Where the original file lives, when it was uploaded to object storage
+    # rather than read straight from a request body. Without this the document is
+    # gone the moment the process ends - the notice a customer's appeal rests on
+    # would not be retrievable if they later disputed what we read.
+    storage_url: Optional[str] = None
 
 
 @dataclass

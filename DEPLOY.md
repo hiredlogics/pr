@@ -1,5 +1,71 @@
 # Deploying
 
+## Quick path: both halves on Vercel (testing)
+
+Two Vercel projects from one repository, because the Next app and the Python
+function want different root directories.
+
+```bash
+npm i -g vercel && vercel login
+```
+
+**1. A database of its own.** In the Neon console, create a *branch* of the
+existing project. Do not use the production database: its `cases` table belongs
+to another application and `store init` would try to create over it.
+
+**2. The API project** (root = repository root):
+
+```bash
+vercel link --yes                      # name it e.g. pcn-appeal-api
+vercel env add OPENAI_API_KEY production
+vercel env add DATABASE_URL production            # the new Neon branch
+vercel env add BLOB_ALLOWED_HOSTS production      # public.blob.vercel-storage.com
+vercel env add LLM_PROVIDER production            # openai - fail loudly on a bad key
+vercel deploy --prod
+```
+
+Then initialise the schema once, from your machine against the same branch:
+
+```bash
+DATABASE_URL='<neon branch url>' python -m pcn_appeal.store init
+DATABASE_URL='<neon branch url>' python -m pcn_appeal.store sync
+```
+
+**3. The frontend project** (root = `frontend`):
+
+```bash
+cd frontend && vercel link --yes       # name it e.g. pcn-appeal
+vercel env add PCN_API_URL production             # https://<api project>.vercel.app
+vercel env add NEXT_PUBLIC_UPLOAD_MODE production # blob
+vercel deploy --prod
+```
+
+Add a Blob store to the frontend project in the dashboard; it sets
+`BLOB_READ_WRITE_TOKEN` for you.
+
+**The OpenAI key goes on the API project only.** The frontend never calls
+OpenAI - it proxies - so putting the key there would spread a secret for no
+reason, and a `NEXT_PUBLIC_` prefix would ship it to browsers.
+
+### What does not work on Vercel
+
+| | Why |
+|---|---|
+| **PDF download** | WeasyPrint needs Pango and cairo, which a function cannot install. The endpoint returns 503 with a reason; the letter text is unaffected. |
+| **Multipart upload over ~4.5MB** | Function request body cap. Use `NEXT_PUBLIC_UPLOAD_MODE=blob` so the browser uploads directly. |
+| **Cold starts** | The knowledge graph is built per instance. First request after idle is slow. |
+
+Verify after deploying:
+
+```bash
+curl https://<api project>.vercel.app/health
+```
+
+`provider` must read `openai` and `store` must read `postgres`. If `store` says
+`memory`, `DATABASE_URL` is not reaching the function and multi-step cases will
+break between requests.
+
+
 Two pieces, deployed separately:
 
 | Piece | Where | Why |
