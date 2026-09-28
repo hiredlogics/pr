@@ -41,15 +41,31 @@ class KnowledgeGraph:
         self.routes: dict[str, dict] = {}
         self.questions: dict[str, dict] = {}
         self.question_cfg: dict = {}
+        self.release_id: str | None = None
         self._load(data_dir)
+
+    @classmethod
+    def from_release(cls, release: dict) -> "KnowledgeGraph":
+        """Build from a published Postgres release (see store/kb_source.py).
+        The dicts are YAML-equivalent, so the graph is identical either way."""
+        self = cls.__new__(cls)
+        self.g = nx.MultiDiGraph()
+        self.modules, self.blocks, self.routes = {}, {}, {}
+        self.questions, self.question_cfg = {}, {}
+        self.release_id = release.get("release_id")
+        self._build(release["kb_modules"], release["routes"],
+                    release["building_blocks"], release["questions"])
+        return self
 
     # ------------------------------------------------------------------ load
     def _load(self, d: Path) -> None:
-        kb = yaml.safe_load((d / "kb_modules.yaml").read_text())
-        rt = yaml.safe_load((d / "routes.yaml").read_text())
-        bb = yaml.safe_load((d / "building_blocks.yaml").read_text())
-        qs = yaml.safe_load((d / "questions.yaml").read_text())
+        self._build(
+            yaml.safe_load((d / "kb_modules.yaml").read_text()),
+            yaml.safe_load((d / "routes.yaml").read_text()),
+            yaml.safe_load((d / "building_blocks.yaml").read_text()),
+            yaml.safe_load((d / "questions.yaml").read_text()))
 
+    def _build(self, kb: dict, rt: dict, bb: dict, qs: dict) -> None:
         self.routes = rt["routes"]
         self.max_secondary = rt.get("max_secondary_routes", 3)
         for r, meta in self.routes.items():

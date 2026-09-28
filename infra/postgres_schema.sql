@@ -17,6 +17,7 @@ CREATE TABLE cases (
 CREATE TABLE evidence (
   evidence_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   case_id      uuid REFERENCES cases ON DELETE CASCADE,
+  label        text NOT NULL,                        -- in-case id ("E1"); facts cite <label>#p<n>
   kind         text NOT NULL,
   s3_key       text NOT NULL,                        -- encrypted object store (SSE-KMS)
   sha256       text NOT NULL,                        -- tamper evidence
