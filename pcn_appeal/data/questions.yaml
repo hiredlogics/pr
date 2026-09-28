@@ -21,6 +21,84 @@ questions:
   permit_held:       {text: "Was a permit or permission to park held for this location?", type: bool}
   signage_issue_raised: {text: "Is there a specific problem with the signs (missing, hidden, damaged, unlit or contradictory)?", type: bool}
   disability_extra_time: {text: "Did any disability-related need mean extra time was needed? (No medical detail is needed.)", type: bool}
+
+  # ------------------------------------------------------------------ added
+  # Q-01: no question below contains the words "driver" or "driving", asks or
+  # implies who was at the wheel, or invites a first-person admission.
+  # Q-05: every disability/medical question is yes/no and requests no clinical detail.
+
+  # --- facts a new module needs but nothing previously supplied ---
+  no_parking_took_place: {text: "Did the vehicle leave the site without parking?", type: bool}
+  allocated_bay:     {text: "What bay or space number does the agreement identify, if any?", type: text}
+
+  # --- consideration / payment systems (KB-PAY-02/03, KB-KEY-02) ---
+  payment_attempt_failed: {text: "Was an attempt to pay unsuccessful because the payment facility did not work?", type: bool}
+  payment_failure_detail: {text: "What happened when the payment facility was used?", type: text}
+  vrm_entered_is_known_vehicle: {text: "Does the registration that was entered belong to another vehicle connected with the same household or business?", type: bool}
+
+  # --- ANPR / evidence integrity (KB-ANPR-02/03, KB-EV-01) ---
+  anpr_sequence_incomplete: {text: "Does the operator's set of images appear to be missing a capture, or to pair up records from separate visits?", type: bool}
+  anpr_discrepancy:  {text: "Is there a specific inconsistency in the operator's images, registration read or timestamps?", type: bool}
+  # Gates KB-ANPR-01. Every other module in the ANPR family has its own
+  # triggering fact; without this one KB-ANPR-01 fired on the mere presence of
+  # an entry time, so notices that never alleged an overstay were told their
+  # "alleged parking duration is disputed".
+  anpr_duration_disputed: {text: "Is the length of time the notice says the vehicle was parked disputed?", type: bool}
+  independent_evidence_contradicts: {text: "Does the evidence supplied conflict with the operator's account of the duration or the location?", type: bool}
+
+  # --- facts printed on the notice that the whole appeal hangs on ---
+  # Without these two the system does not weaken its argument, it loses whole
+  # families of them in silence: an unresolved trade association withholds every
+  # Code-based ground (R-01), and an unknown jurisdiction means PoFA Schedule 4
+  # "does not apply" and the PoFA route disappears. Both are printed on most
+  # notices, so asking is far better than giving up. NOT_SHOWN is a real answer,
+  # not a refusal to answer: it keeps the ground withheld, which is correct.
+  operator_ata:      {text: "Which trade association does the notice show (usually a BPA or IPC logo)?", type: choice, options: [BPA, IPC, NOT_SHOWN]}
+  site_postcode:     {text: "What is the postcode of the car park itself (not the address the notice was posted to)?", type: text}
+
+  # --- signage (KB-SIGN-02/03/04) ---
+  signage_issue_type: {text: "Which best describes the problem with the signs?", type: choice, options: [ENTRANCE, TERM_PROMINENCE, CONFLICTING, CHANGED_OR_DAMAGED, OTHER]}
+
+  # --- authorisation / genuine use (KB-AUTH-01/03, KB-CUST-01, KB-ACT-03) ---
+  authorisation_source: {text: "From whom was permission to park at this location obtained?", type: choice, options: [RESIDENT, EMPLOYER, HOTEL, BUSINESS, LANDHOLDER, OTHER, NONE]}
+  visitor_authorised: {text: "Was the vehicle present as a visitor with permission from a resident or host?", type: bool}
+  genuine_customer:  {text: "Was the visit connected with genuine use of the premises at this location?", type: bool}
+  customer_only_site: {text: "Do the site terms limit parking to customers of those premises?", type: bool}
+  collection_or_checkin_delay: {text: "Did a collection, check-in or waiting process at the premises extend the time on site?", type: bool}
+
+  # --- residential (KB-RES-04/05) ---
+  substantial_interference: {text: "Does the parking scheme now in place prevent the parking right in the agreement from being used in practice?", type: bool}
+  enforcement_interference: {text: "Has the enforcement activity repeatedly interfered with the use of the property or its parking?", type: bool}
+
+  # --- Equality Act (KB-EQ-02/03): yes/no only, no clinical detail ---
+  disability_time_relates_to_breach: {text: "Did that extra time relate to the matter alleged in the notice? (No medical detail is needed.)", type: bool}
+  blue_badge_displayed: {text: "Was a disabled person's badge or similar indicator displayed in the vehicle?", type: bool}
+
+  # --- hospital / medical sites (KB-HOSP-01/02/03): yes/no only ---
+  hospital_attendance: {text: "Was the visit connected with attendance at a hospital or other medical facility?", type: bool}
+  clinical_delay:    {text: "Was the timing affected by an emergency or an unexpected delay at that appointment? (No medical detail is needed.)", type: bool}
+  landholder_cancellation_route_available: {text: "Does the site's landholder operate its own cancellation or exemption process for this car park?", type: bool}
+
+  # --- activity / infrastructure / EV (KB-ACT-01/02, KB-INFRA-01, KB-EVCH-01) ---
+  loading_activity:  {text: "Was the vehicle's presence for loading or unloading goods?", type: bool}
+  dropoff_activity:  {text: "Was the vehicle stopped only to drop off or collect a passenger?", type: bool}
+  barrier_or_access_failure: {text: "Was entry, exit or compliance affected by a barrier, gate or access-system fault?", type: bool}
+  ev_charging_session: {text: "Was the vehicle connected to an electric-vehicle charger during the visit?", type: bool}
+
+  # --- landowner authority (KB-LAND-02/03) ---
+  authority_mismatch_identified: {text: "Does any authority evidence provided by the operator relate to a different location, period or scope?", type: bool}
+  authority_evidence_redacted: {text: "Has the operator supplied authority evidence with parts obscured or removed?", type: bool}
+
+  # --- PoFA notice content (KB-POFA-04/05). These are document findings: they
+  #     are normally settled on the confirmation screen against the notice
+  #     itself, never inferred from unclear or low-confidence text (EX-02).
+  ntk_not_received:  {text: "Is it the case that no Notice to Keeper has been received by post for this charge?", type: bool}
+  ntk_defect_document_confirmed: {text: "Has the notice been checked against the document itself, with the text clearly legible?", type: bool}
+  ntk_defect_parking_details: {text: "Does the notice omit the vehicle, the land or the period of parking?", type: bool}
+  ntk_defect_keeper_warning: {text: "Does the notice omit the keeper-liability warning required for the applicable statutory route?", type: bool}
+  ntk_defect_creditor: {text: "Does the notice omit the identity of the creditor?", type: bool}
+  ntk_defect_charge_amount: {text: "Does the notice omit the unpaid parking charge said to be outstanding?", type: bool}
+  ntk_defect_statutory_invitation: {text: "Does the notice omit the statutory invitation required for the applicable route?", type: bool}
 # Words the question engine must never generate (hard rule Q-01).
 banned_question_terms: ["who was driving", "who drove", "name of the driver", "were you driving", "driver's name"]
 max_questions: 6

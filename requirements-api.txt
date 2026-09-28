@@ -1,0 +1,20 @@
+# Runtime dependencies of the API container, and nothing else.
+#
+# requirements.txt is the full menu, including things this service does not
+# import: temporalio, boto3, sqlalchemy, neo4j, opentelemetry. Shipping them
+# would add build time and attack surface for no benefit, so the image installs
+# from this file instead. Keep it in step when an engine grows a dependency.
+pyyaml>=6
+networkx>=3
+numpy>=1.26
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+python-multipart>=0.0.9  # multipart file upload
+openai>=1.40             # the only LLM provider
+pypdf>=5.0               # PDF text layer
+pymupdf>=1.24            # rasterise scanned pages, normalise images to JPEG
+jinja2>=3.1              # letterhead template
+weasyprint>=62           # HTML -> PDF; needs the native libs installed in the Dockerfile
+psycopg[binary]>=3.2     # only used when DATABASE_URL is set
+pgvector>=0.3

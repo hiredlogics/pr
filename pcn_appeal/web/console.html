@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<!-- Dev console for the appeal pipeline. No build step, no CDN: it is one file
+     served by api.py so `uvicorn pcn_appeal.api:app` is the whole setup.
+     This is an operator/reviewer tool, not the customer UI - it deliberately
+     exposes the facts, the trace and the per-sentence provenance. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCN Appeal AI — pipeline</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --line:#dfe3e8; --ink:#1c2430; --dim:#667085;
+    --accent:#2f5bd0; --ok:#1a7f4b; --warn:#b4690e; --bad:#c0392b;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 22px;
+           display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  .badge { font:12px var(--mono); background:#eef1f6; color:var(--dim);
+           padding:3px 8px; border-radius:99px; }
+  .badge.live { background:#e6f4ec; color:var(--ok); }
+  .badge.demo { background:#fdf3e3; color:var(--warn); }
+  .pipeline { display:flex; gap:6px; padding:12px 22px; flex-wrap:wrap; background:var(--panel);
+              border-bottom:1px solid var(--line); }
+  .stage { font:12px var(--mono); padding:4px 10px; border-radius:99px; border:1px solid var(--line);
+           color:var(--dim); background:#fafbfc; white-space:nowrap; }
+  .stage.done { border-color:#bfe0cd; background:#eef8f2; color:var(--ok); }
+  .stage.now  { border-color:var(--accent); background:#eaf0fd; color:var(--accent); font-weight:600; }
+  main { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(0,1fr); gap:18px; padding:18px 22px; align-items:start; }
+  @media (max-width:1000px){ main{ grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px; }
+  .card h2 { font-size:15px; margin:0 0 4px; }
+  .card p.hint { margin:0 0 14px; color:var(--dim); font-size:13px; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; }
+  input[type=text], input[type=number], textarea, select {
+    width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px;
+    font:14px inherit; background:#fff; color:var(--ink); }
+  textarea { font:13px/1.5 var(--mono); resize:vertical; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:7px; padding:9px 16px;
+           font:14px inherit; font-weight:600; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.ghost { background:#eef1f6; color:var(--ink); }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  td.name { font:12px var(--mono); white-space:nowrap; }
+  .pill { font:11px var(--mono); padding:2px 7px; border-radius:99px; background:#eef1f6; color:var(--dim); }
+  .pill.EXTRACTED{background:#eef1f6}.pill.CONFIRMED,.pill.DERIVED{background:#e6f4ec;color:var(--ok)}
+  .pill.CORRECTED,.pill.ANSWERED{background:#eaf0fd;color:var(--accent)}
+  .pill.UNCERTAIN{background:#fdecea;color:var(--bad)}
+  .q { border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#fafbfc; }
+  .q .fact { font:11px var(--mono); color:var(--dim); }
+  .letter { white-space:pre-wrap; font:14px/1.65 Georgia,serif; background:#fffdf8;
+            border:1px solid #ebe3d2; border-radius:8px; padding:18px; }
+  .tabs { display:flex; gap:4px; margin-bottom:12px; flex-wrap:wrap; }
+  .tabs button { background:#eef1f6; color:var(--dim); font-size:12px; padding:5px 11px; font-weight:600; }
+  .tabs button.on { background:var(--accent); color:#fff; }
+  pre { margin:0; font:12px/1.55 var(--mono); white-space:pre-wrap; word-break:break-word; }
+  .trace li { font:12px var(--mono); margin-bottom:5px; color:var(--dim); }
+  .trace li.sup { color:var(--warn); } .trace li.wit { color:var(--bad); }
+  .sent { border-left:3px solid var(--line); padding:6px 0 6px 10px; margin-bottom:9px; font-size:13px; }
+  .sent .refs { font:11px var(--mono); color:var(--dim); margin-top:3px; }
+  .err { background:#fdecea; border:1px solid #f5c6c2; color:var(--bad); padding:10px 12px;
+         border-radius:7px; font-size:13px; margin-top:14px; white-space:pre-wrap; }
+  .muted { color:var(--dim); font-size:13px; }
+  fieldset { border:1px solid var(--line); border-radius:8px; padding:12px; margin:0 0 12px; }
+  legend { font-size:12px; color:var(--dim); padding:0 6px; }
+  .chk { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:400; margin:8px 0 0; }
+  .chk input { width:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PCN Appeal AI</h1>
+  <span class="badge" id="b-kb">kb …</span>
+  <span class="badge" id="b-store">store …</span>
+  <span class="badge" id="b-llm">extractor …</span>
+  <span class="badge" id="b-case">no case</span>
+  <span style="flex:1"></span>
+  <button class="ghost" onclick="location.reload()">Restart</button>
+</header>
+
+<div class="pipeline" id="pipeline"></div>
+
+<main>
+  <section class="card" id="panel"></section>
+  <aside class="card">
+    <div class="tabs" id="tabs"></div>
+    <div id="inspector"><p class="muted">Engine internals appear here as the case progresses.</p></div>
+  </aside>
+</main>
+
+<script>
+const STAGES = ["Upload", "Extract", "Confirm", "Questions", "Reason", "Draft", "Validate", "Letter"];
+const SAMPLE = `PARKING CHARGE NOTICE
+Operator Name: Acme Parking Ltd
+PCN Number: PCN778899
+Vehicle Registration: KX19 PLT
+Location: Riverside Retail Park
+Postcode: M1 4BT
+Date of Contravention: 12/06/2026
+Date of Issue: 02/07/2026
+Entry Time: 14:05
+Exit Time: 16:58
+Charge: 100
+Alleged Breach: Overstayed the maximum permitted period
+Trade Association: BPA`;
+
+const S = {            // everything the UI knows about the current case
+  caseId: null, stage: 0, facts: [], flags: [], hints: [], questions: [],
+  answers: {}, result: null, trace: null, tab: "facts",
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(method, path, body) {
+  const r = await fetch(path, {
+    method,
+    headers: body ? {"content-type": "application/json"} : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await r.text();
+  let data; try { data = text ? JSON.parse(text) : {}; } catch { data = {raw: text}; }
+  if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail
+                             : JSON.stringify(data.detail ?? data, null, 2));
+  return data;
+}
+
+function showError(e) {
+  const d = document.createElement("div");
+  d.className = "err";
+  d.textContent = e.message || String(e);
+  $("panel").appendChild(d);
+}
+
+async function run(btn, fn) {          // one place for the disable/try/catch dance
+  const label = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = "Working…"; }
+  try { await fn(); }
+  catch (e) { render(); showError(e); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = label; } }
+}
+
+// ------------------------------------------------------------------ chrome
+function renderPipeline() {
+  $("pipeline").innerHTML = STAGES.map((name, i) => {
+    const cls = i < S.stage ? "done" : i === S.stage ? "now" : "";
+    return `<span class="stage ${cls}">${i + 1}. ${name}</span>`;
+  }).join("");
+  $("b-case").textContent = S.caseId || "no case";
+}
+
+// ------------------------------------------------------------------ steps
+function stepUpload() {
+  return `
+    <h2>1 · Upload the notice</h2>
+    <p class="hint">Paste the text of the PCN. There is no OCR in this build, so a real
+      upload path needs a PDF/image text layer in front of this field.</p>
+    <label for="fn">Filename</label>
+    <input type="text" id="fn" value="pcn_letter.pdf">
+    <label for="doc">Document text</label>
+    <textarea id="doc" rows="14">${esc(SAMPLE)}</textarea>
+    <div class="row">
+      <button onclick="doUpload(this)">Upload &amp; extract</button>
+      <span class="muted">Engine 1 · document intelligence</span>
+    </div>`;
+}
+
+function stepConfirm() {
+  const flags = S.flags.length
+    ? `<fieldset><legend>Flags needing attention</legend>${S.flags.map(f =>
+        `<span class="pill">${esc(f)}</span> `).join("")}</fieldset>`
+    : `<p class="muted">No flags: every required field was read with confidence.</p>`;
+  const rows = S.facts.map(f => `
+    <tr>
+      <td class="name">${esc(f.name)}</td>
+      <td><input type="text" data-fact="${esc(f.name)}" value="${esc(f.value)}"></td>
+      <td><span class="pill ${esc(f.status)}">${esc(f.status)}</span></td>
+      <td class="name">${f.confidence.toFixed(2)}</td>
+    </tr>`).join("");
+  return `
+    <h2>2 · Confirmation screen</h2>
+    <p class="hint">Edit any value to correct it. Anything below the 0.85 confidence threshold is
+      <span class="pill UNCERTAIN">UNCERTAIN</span> and cannot ground a legal claim until confirmed —
+      that rule (EX-02) is what stops a blurry scan inventing a statutory defect.</p>
+    ${flags}
+    <table><thead><tr><th>Fact</th><th>Value</th><th>Status</th><th>Conf.</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <label for="narr">What happened? (the customer's own words)</label>
+    <textarea id="narr" rows="4" placeholder="e.g. the letter only arrived weeks later and there was a queue at the barrier">the letter only arrived weeks later and there was a queue at the barrier</textarea>
+    <label class="chk"><input type="checkbox" id="named">
+      The driver's name has already been given to the operator</label>
+    <p class="muted">A status question, never an identity one — the system never learns who was driving.</p>
+    <div class="row">
+      <button onclick="doConfirm(this)">Confirm &amp; get questions</button>
+      <span class="muted">Engine 2 · adaptive questioning</span>
+    </div>`;
+}
+
+function field(q) {
+  const id = `q-${q.fact}`;
+  if (q.type === "bool")
+    return `<select id="${id}"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select>`;
+  if (q.type === "int")   return `<input type="number" id="${id}">`;
+  if (q.type === "choice")
+    return `<select id="${id}"><option value="">—</option>${(q.options || []).map(o =>
+      `<option value="${esc(o)}">${esc(o)}</option>`).join("")}</select>`;
+  return `<input type="text" id="${id}">`;
+}
+
+function stepQuestions() {
+  if (!S.questions.length) return `
+    <h2>3 · Questions</h2>
+    <p class="hint">Nothing left to ask — no missing fact gates a ground worth arguing.</p>
+    <div class="row"><button onclick="doGenerate(this)">Generate the appeal</button>
+      <span class="muted">Engines 3 &amp; 4 · reasoning, drafting, validation</span></div>`;
+  return `
+    <h2>3 · Questions <span class="pill">${S.questions.length}</span></h2>
+    <p class="hint">Chosen by information value: each is the fact that unlocks or rules out the most
+      argument strength. Answering may surface follow-ups. Leave any blank to skip it.</p>
+    ${S.questions.map(q => `
+      <div class="q"><label for="q-${q.fact}">${esc(q.text)}</label>
+        ${field(q)}<div class="fact">${esc(q.fact)} · ${esc(q.type)}</div></div>`).join("")}
+    <div class="row">
+      <button onclick="doAnswer(this)">Submit answers</button>
+      <button class="ghost" onclick="doGenerate(this)">Skip &amp; generate now</button>
+    </div>`;
+}
+
+function stepLetter() {
+  const r = S.result || {};
+  const meta = [
+    ["state", r.state], ["primary route", r.primary_route],
+    ["secondary", (r.secondary_routes || []).join(", ")],
+    ["PoFA", `${r.pofa_route || "—"} ${(r.pofa_findings || []).join(", ")}`],
+    ["Code version", r.code_version || "none resolved"],
+    ["modules", (r.module_ids || []).join(", ")],
+    ["evidence", (r.evidence_list || []).join(", ") || "none enclosed"],
+  ].map(([k, v]) => `<tr><td class="name">${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
+
+  if (r.state !== "RELEASED") return `
+    <h2>Blocked before release</h2>
+    <p class="hint">Validation refused the draft after every retry, so the case went to manual review
+      rather than shipping. This is the designed outcome, not a crash.</p>
+    <table><tbody>${meta}</tbody></table>
+    <fieldset><legend>Blocking issues</legend>
+      ${(r.blocking_issues || []).map(i =>
+        `<div class="sent"><b>${esc(i.rule)}</b> — ${esc(i.message)}
+         ${i.sentence ? `<div class="refs">${esc(i.sentence)}</div>` : ""}</div>`).join("") || "—"}
+    </fieldset>`;
+
+  return `
+    <h2>4 · Released letter</h2>
+    <p class="hint">Every sentence passed the Engine 4 gate. Open the Provenance tab to see which
+      facts and modules each one relies on.</p>
+    <table><tbody>${meta}</tbody></table>
+    <div style="margin-top:14px" class="letter">${esc(r.letter || "")}</div>
+    <div class="row"><button class="ghost" onclick="copyLetter(this)">Copy letter</button></div>`;
+}
+
+function render() {
+  renderPipeline();
+  const step = S.stage <= 1 ? stepUpload()
+             : S.stage === 2 ? stepConfirm()
+             : S.stage <= 3 ? stepQuestions()
+             : stepLetter();
+  $("panel").innerHTML = step;
+  renderInspector();
+}
+
+// ------------------------------------------------------------------ inspector
+function renderInspector() {
+  const tabs = [["facts", `Facts ${S.facts.length || ""}`], ["hints", "Routes"],
+                ["trace", "Trace"], ["prov", "Provenance"], ["audit", "Audit"]];
+  $("tabs").innerHTML = tabs.map(([k, label]) =>
+    `<button class="${S.tab === k ? "on" : ""}" onclick="S.tab='${k}';renderInspector()">${esc(label)}</button>`).join("");
+
+  const box = $("inspector");
+  if (S.tab === "facts") {
+    box.innerHTML = S.facts.length ? `<table>
+      <thead><tr><th>Fact</th><th>Value</th><th>Status</th><th>Source</th></tr></thead><tbody>
+      ${S.facts.map(f => `<tr><td class="name">${esc(f.name)}</td><td>${esc(f.value)}</td>
+        <td><span class="pill ${esc(f.status)}">${esc(f.status)}</span></td>
+        <td class="name">${esc(f.source)}</td></tr>`).join("")}</tbody></table>`
+      : `<p class="muted">No facts yet — upload a document.</p>`;
+  } else if (S.tab === "hints") {
+    const r = S.result || {};
+    box.innerHTML = `
+      <p class="muted">Route hints only widen which <em>questions</em> get asked. Every legal module
+        still has to clear its own gate, so a wrong hint costs one question, never a wrong argument.</p>
+      <p><b>Hints</b><br>${S.hints.map(h => `<span class="pill">${esc(h)}</span> `).join("") || "—"}</p>
+      <p><b>Chosen</b><br>${r.primary_route ? `<span class="pill CONFIRMED">${esc(r.primary_route)}</span> `
+        + (r.secondary_routes || []).map(x => `<span class="pill">${esc(x)}</span> `).join("") : "—"}</p>`;
+  } else if (S.tab === "trace") {
+    const t = (S.trace && S.trace.trace) || [];
+    box.innerHTML = t.length ? `<ul class="trace">${t.map(line => {
+      const cls = /suppressed/.test(line) ? "sup" : /withheld/.test(line) ? "wit" : "";
+      return `<li class="${cls}">${esc(line)}</li>`;
+    }).join("")}</ul>
+    <p class="muted">Amber = a contradictory argument dropped. Red = a paragraph withheld because a
+      fact it asserts was never proven.</p>` : `<p class="muted">Generate the appeal to see the trace.</p>`;
+  } else if (S.tab === "prov") {
+    const s = (S.trace && S.trace.sentences) || [];
+    box.innerHTML = s.length ? s.map(x => `<div class="sent">${esc(x.text)}
+      <div class="refs">facts ${esc((x.fact_refs || []).join(", ") || "—")}
+        · modules ${esc((x.module_refs || []).join(", ") || "—")}
+        · evidence ${esc((x.evidence_refs || []).join(", ") || "—")}</div></div>`).join("")
+      : `<p class="muted">Generate the appeal to see per-sentence provenance.</p>`;
+  } else {
+    const a = (S.trace && S.trace.audit) || [];
+    box.innerHTML = a.length ? `<pre>${esc(a.map(e => JSON.stringify(e)).join("\n"))}</pre>`
+      : `<p class="muted">The append-only audit log appears after generation.</p>`;
+  }
+}
+
+// ------------------------------------------------------------------ actions
+async function doUpload(btn) {
+  await run(btn, async () => {
+    const text = $("doc").value, filename = $("fn").value || "upload.pdf";
+    const created = await api("POST", "/cases");
+    S.caseId = created.case_id;
+    await api("POST", `/cases/${S.caseId}/documents`,
+              {documents: [{evidence_id: "E1", filename, text, kind: "OTHER"}]});
+    const conf = await api("GET", `/cases/${S.caseId}/confirmation`);
+    S.facts = conf.facts; S.flags = conf.flags; S.stage = 2;
+    render();
+  });
+}
+
+async function doConfirm(btn) {
+  await run(btn, async () => {
+    const corrections = {};
+    document.querySelectorAll("input[data-fact]").forEach(el => {
+      const original = S.facts.find(f => f.name === el.dataset.fact);
+      if (original && el.value !== original.value) corrections[el.dataset.fact] = el.value;
+    });
+    const res = await api("POST", `/cases/${S.caseId}/confirm`, {
+      corrections,
+      confirmed: S.facts.map(f => f.name),
+      narrative: $("narr").value,
+      driver_already_named_to_operator: $("named").checked,
+    });
+    S.hints = res.route_hints || []; S.questions = res.questions || []; S.stage = 3;
+    await refreshFacts();
+    render();
+  });
+}
+
+function collectAnswers() {
+  const out = {};
+  S.questions.forEach(q => {
+    const el = $(`q-${q.fact}`);
+    if (!el || el.value === "") return;
+    out[q.fact] = q.type === "int" ? Number(el.value) : el.value;
+  });
+  return out;
+}
+
+async function doAnswer(btn) {
+  await run(btn, async () => {
+    const answers = collectAnswers();
+    if (!Object.keys(answers).length) { S.questions = []; render(); return; }
+    const res = await api("POST", `/cases/${S.caseId}/answers`, {answers});
+    S.answers = {...S.answers, ...answers};
+    S.questions = res.questions || [];
+    await refreshFacts();
+    render();
+  });
+}
+
+async function doGenerate(btn) {
+  await run(btn, async () => {
+    const gen = await api("POST", `/cases/${S.caseId}/generate`);
+    S.stage = 7;
+    if (gen.state === "RELEASED") {
+      S.result = await api("GET", `/cases/${S.caseId}/appeal`);
+    } else {
+      S.result = gen;                       // MANUAL_REVIEW: no letter to fetch
+    }
+    S.trace = await api("GET", `/cases/${S.caseId}/trace`);
+    S.tab = "trace";
+    await refreshFacts();
+    render();
+  });
+}
+
+async function refreshFacts() {
+  const conf = await api("GET", `/cases/${S.caseId}/confirmation`);
+  S.facts = conf.facts; S.flags = conf.flags;
+}
+
+function copyLetter(btn) {
+  navigator.clipboard.writeText((S.result || {}).letter || "");
+  btn.textContent = "Copied";
+  setTimeout(() => { btn.textContent = "Copy letter"; }, 1200);
+}
+
+// ------------------------------------------------------------------ boot
+(async () => {
+  render();
+  try {
+    const h = await api("GET", "/health");
+    $("b-kb").textContent = `${h.modules} modules · ${h.blocks} blocks`;
+    $("b-store").textContent = `store: ${h.store}`;
+    const demo = h.extractor === "demo-label-matcher";
+    const llm = $("b-llm");
+    llm.textContent = demo ? "extractor: demo label-matcher" : `extractor: ${h.extractor}`;
+    llm.className = "badge " + (demo ? "demo" : "live");
+  } catch (e) { showError(e); }
+})();
+</script>
+</body>
+</html>

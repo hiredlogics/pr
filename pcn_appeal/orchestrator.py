@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .drafting.drafter import TemplateDrafter
+from .engines.analysis import AnalysisEngine
 from .engines.extraction import ExtractionEngine
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import SUPPORTING_THRESHOLD, ReasoningEngine
@@ -53,6 +54,10 @@ class AppealPipeline:
         self.extraction = ExtractionEngine(llm)
         self.questions = QuestionEngine(self.kg, llm)
         self.reasoning = ReasoningEngine(self.kg)
+        # The only substantive authority over which grounds are argued and which
+        # questions are asked. Shares the reasoning engine's retriever so the
+        # candidate set comes from the same approved KB index.
+        self.analysis = AnalysisEngine(self.kg, llm, retriever=self.reasoning.retriever)
         self.drafter = drafter or TemplateDrafter(self.kg)
         self.fallback = TemplateDrafter(self.kg)
         self.validation = ValidationEngine(judge)
@@ -64,18 +69,40 @@ class AppealPipeline:
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
         self.extraction.confirm(case, corrections, confirmed)
         self.reasoning.enrich(case)
-        self.questions.route_hints(case, narrative)
-        return self.questions.next_questions(case)
+        case.raw_answers["narrative"] = narrative        # audit only; never drafted from
+        return self._reanalyse(case, narrative)
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
     def answer(self, case: CaseFile, answers: dict) -> list[dict]:
         for fact, raw in answers.items():
             self.questions.record_answer(case, fact, raw)
-        return self.questions.next_questions(case)
+        return self._reanalyse(case, case.raw_answers.get("narrative", ""))
+
+    # ------------------------------------------------------------ V2 analysis
+    def _reanalyse(self, case: CaseFile, narrative: str) -> list[dict]:
+        """Re-run case analysis against everything now known, and return only the
+        questions it still genuinely needs.
+
+        Called after confirmation and again after every answer, because an answer
+        changes what is material: it can settle a ground, open one, or make a
+        question that looked necessary pointless.
+        """
+        analysis = self.analysis_of(case, narrative)
+        case.analysis_module_ids = analysis.module_ids
+        case.pending_questions = analysis.questions
+        case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
+                           "asking": [q["fact"] for q in analysis.questions]})
+        return analysis.questions
+
+    def analysis_of(self, case: CaseFile, narrative: str):
+        """Case analysis with the deterministic inputs it must respect."""
+        version, pofa_res = self.reasoning.applicability(case)
+        return self.analysis.analyse(case, narrative, pofa=pofa_res,
+                                     code_version=getattr(version, "version_id", None))
 
     # ---------------------------------------------------------------- one click
-    def auto_appeal(self, case: CaseFile, narrative: str = "",
-                    answers: Optional[dict] = None) -> AutoAppealResult:
+    def auto_appeal(self, case: CaseFile, narrative: str = "", answers: Optional[dict] = None,
+                    skip_remaining: bool = False) -> AutoAppealResult:
         """Run the whole journey unattended, pausing only where a missing fact
         actually gates a ground worth having.
 
@@ -83,24 +110,31 @@ class AppealPipeline:
         facts the extractor read confidently are auto-confirmed, while anything
         UNCERTAIN is left unconfirmed (EX-02 already bars those from grounding a
         defect) and reported in `flags` so the UI can still query them.
+
+        `skip_remaining` is the customer declining to answer. It is safe rather
+        than a shortcut: the facts stay absent, so every module they gate fails
+        its own use_when and simply never fires. The letter gets narrower, never
+        less supported - which is why a "skip" button cannot produce a claim the
+        customer did not substantiate.
         """
         flags: list[str] = []
         if case.state == CaseState.CREATED:
             flags = self.ingest(case)
             questions = self.confirm(case, {}, self._auto_confirmable(case), narrative)
         else:
-            questions = self.questions.next_questions(case)
+            questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
         if answers:
             questions = self.answer(case, answers)
 
-        blocking = self._blocking_questions(case, questions)
+        blocking = [] if skip_remaining else questions
         skipped = [q["fact"] for q in questions if q not in blocking]
         if blocking:
             case.audit.append({"event": "auto_appeal_paused",
                                "asking": [q["fact"] for q in blocking], "skipped": skipped})
             return AutoAppealResult(case.case_id, case.state, blocking, None, flags, skipped)
 
-        case.audit.append({"event": "auto_appeal_generating", "skipped": skipped})
+        case.audit.append({"event": "auto_appeal_generating", "skipped": skipped,
+                           "skipped_by_customer": bool(skip_remaining)})
         out = self.generate(case)
         return AutoAppealResult(case.case_id, out.state, [], out, flags, skipped)
 
@@ -111,26 +145,10 @@ class AppealPipeline:
         model was unsure of is exactly how a fabricated defect gets into a letter."""
         return [n for n, f in case.facts.items() if f.status == FactStatus.EXTRACTED]
 
-    def _blocking_questions(self, case: CaseFile, questions: list[dict]) -> list[dict]:
-        """Keep only questions whose fact gates a module strong enough to lead or
-        support a ground (>= SUPPORTING_THRESHOLD). A question that would only
-        unlock a weak point is not worth interrupting the customer for."""
-        if not questions:
-            return []
-        facts = case.fact_view()
-        hints = set(case.get("route_hints", []))
-        gating: set[str] = set()
-        for m in self.kg.active_modules():
-            if m.strength < SUPPORTING_THRESHOLD or m.route not in hints:
-                continue
-            if evaluate(m.do_not_use_when, facts):
-                continue
-            gating |= self.kg.gating_facts(m.module_id)
-        return [q for q in questions if q["fact"] in gating]
 
     # step 4-6
     def generate(self, case: CaseFile) -> AppealOutput:
-        pack = self.reasoning.analyse(case)
+        pack = self.reasoning.analyse(case, selected_ids=getattr(case, 'analysis_module_ids', None))
         feedback: list[str] = []
         draft = result = None
         for attempt in range(1, MAX_ATTEMPTS + 1):

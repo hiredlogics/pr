@@ -1,0 +1,52 @@
+# Fly.io deployment for the appeal API. Railway and Render need no file of their
+# own - point them at the Dockerfile and set the same environment variables.
+#
+#   fly launch --no-deploy --name pcn-appeal-api
+#   fly secrets set OPENAI_API_KEY=sk-...
+#   fly secrets set DATABASE_URL=postgres://...   # required: see [env] below
+#   fly deploy
+#
+# Then set PCN_API_URL on the Vercel project to https://<app>.fly.dev
+
+app = "pcn-appeal-api"
+primary_region = "lhr"          # UK users, UK parking law
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8077"
+  # Hosts the API will fetch uploads from. Narrow this to your own blob store.
+  BLOB_ALLOWED_HOSTS = "public.blob.vercel-storage.com"
+  # DATABASE_URL is a secret, not set here. It is not optional in a deployment:
+  # without it, case state lives in one process's memory and a second machine
+  # cannot continue a case someone started on the first.
+
+[http_service]
+  internal_port = 8077
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # Zero would make the first upload of the day wait on a cold start, which
+  # includes building the knowledge graph.
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    # Vision extraction takes 10-15s and holds the worker, so keep the queue
+    # shallow rather than accepting work this machine cannot start promptly.
+    soft_limit = 8
+    hard_limit = 16
+
+[[http_service.checks]]
+  grace_period = "20s"
+  interval = "30s"
+  timeout = "5s"
+  method = "GET"
+  path = "/health"
+
+[[vm]]
+  # PyMuPDF rasterising a multi-page PDF is the memory peak, not the LLM calls.
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

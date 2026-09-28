@@ -24,7 +24,10 @@ Rule pack
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from ..kg.graph import KnowledgeGraph
+from .extraction import derive_jurisdiction
 from ..legal import code_versions, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
@@ -67,12 +70,18 @@ class ReasoningEngine:
                       FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
 
     # ------------------------------------------------------------------ 2
+    def applicability(self, case: CaseFile, trace: Optional[list[str]] = None):
+        """Deterministic inputs the analysis engine must respect: the resolved
+        Code version and the PoFA calculation. Public because case analysis is
+        given them rather than allowed to infer them."""
+        return self._applicability(case, trace if trace is not None else [])
+
     def _applicability(self, case: CaseFile, trace: list[str]):
         version, status = code_versions.resolve(case.get("parking_event_date"), case.get("operator_ata"),
                                                 case.get("operator_transitioned"))
         trace.append(f"code_version={getattr(version, 'version_id', None)} status={status}")
         res = pofa.assess(
-            jurisdiction=case.get("jurisdiction", "UNKNOWN"),
+            jurisdiction=derive_jurisdiction(case),
             relevant_land=case.get("relevant_land"),
             notice_route=case.get("notice_route", "UNKNOWN"),
             parking_event_date=case.get("parking_event_date"),
@@ -88,7 +97,10 @@ class ReasoningEngine:
         return version if status == "RESOLVED" else None, res
 
     # ------------------------------------------------------------------ main
-    def analyse(self, case: CaseFile) -> RetrievalPack:
+    def analyse(self, case: CaseFile, selected_ids: Optional[list[str]] = None) -> RetrievalPack:
+        """`selected_ids` is the V2 path: grounds chosen by AI case analysis and
+        already vetoed against the KB. Passing None keeps the V1 route ranking,
+        which now exists only for the regression suite."""
         trace: list[str] = []
         version, pofa_res = self._applicability(case, trace)
         facts = case.fact_view()
@@ -116,7 +128,42 @@ class ReasoningEngine:
                     trace.append(f"suppressed {c}: conflicts with {m.module_id} (R-04)")
         kept = [m for m in kept if m.module_id not in dropped]
 
-        # 5. rank routes (R-05/R-06/R-07)
+        # 5. choose the grounds.
+        #
+        # V2: AI case analysis already decided, and its choice was vetoed against
+        # do_not_use_when, the PoFA calculation and the Code resolver. The route
+        # ranking below is the V1 branch selector and is skipped entirely - order
+        # is the analysis engine's, so "which ground leads" is its judgement too.
+        if selected_ids is not None:
+            by_id = {m.module_id: m for m in kept}
+            selected = [by_id[mid] for mid in selected_ids if mid in by_id]
+            unavailable = [mid for mid in selected_ids if mid not in by_id]
+            if unavailable:
+                trace.append(f"analysis grounds dropped by conflict resolution: {unavailable}")
+
+            # KB-GOV-07 and section 16 order the letter: dispositive statutory or
+            # contractual point, then the strongest fact-specific ground, then
+            # Code/evidence/signage, with landowner authority concise and last.
+            #
+            # This is ordering, not selection - which ground is argued is the
+            # analysis engine's decision. Leaving the order to the model too
+            # would put a governance rule at the mercy of its judgement, and
+            # "a weak secondary ground must not dilute a strong primary" is not
+            # a matter of taste.
+            selected = self._drafting_priority(selected)
+            trace.append(f"grounds from case analysis: {selected_ids}")
+            trace.append(f"ordered by drafting priority (KB-GOV-07): {[m.module_id for m in selected]}")
+
+            primary = selected[0].route if selected else None
+            secondary = []
+            for m in selected[1:]:
+                if m.route != primary and m.route not in secondary:
+                    secondary.append(m.route)
+            return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
+                              trace, ordered=[m.module_id for m in selected])
+
+        # 5b. V1 route ranking (R-05/R-06/R-07). Retained for the regression suite
+        # only; the customer path never reaches here.
         score: dict[str, float] = {}
         for m in kept:
             s = m.strength + TIER_BONUS.get(self.kg.route_tier(m.route), 0)
@@ -132,8 +179,37 @@ class ReasoningEngine:
         routes = ([primary] if primary else []) + secondary
         selected = [m for m in kept if m.route in routes or m.module_id == "KB-POFA-01"]
         trace.append(f"routes={routes}")
+        ordered = [m.module_id for m in sorted(selected, key=lambda m: (
+            routes.index(m.route) if m.route in routes else -1,
+            0 if m.strength < SUPPORTING_THRESHOLD else 1))]   # framing point before its finding
+        return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
+                          trace, ordered=ordered)
 
-        # 6. restricted retrieval
+    def _drafting_priority(self, selected: list) -> list:
+        """KB-GOV-07 / section 16 priorities 1-4.
+
+        Route tier carries the hierarchy already (1 = dispositive, 4 = landowner
+        authority), so tier then strength gives the required order. Landowner is
+        pinned last however it scores, because section 16 keeps it concise at the
+        initial operator stage.
+
+        Ties break on module_id so the same case never produces two orderings.
+        """
+        def key(m):
+            tier = self.kg.route_tier(m.route)
+            return (1 if m.route == "LANDOWNER" else 0, tier, -m.strength, m.module_id)
+        return sorted(selected, key=key)
+
+    # ------------------------------------------------------------------ pack
+    def _pack(self, case: CaseFile, selected, primary, secondary, facts,
+              version, pofa_res, trace: list[str], ordered: list[str]) -> RetrievalPack:
+        """Retrieval restricted to the chosen grounds, then the pack the drafter sees.
+
+        The block gates below are safeguards, not selection: a paragraph that
+        claims enclosed evidence is withheld unless it was uploaded (R-08), and one
+        that asserts a fact is withheld unless that fact is proven (R-08b). Those
+        apply however the grounds were chosen.
+        """
         allowed = {m.module_id for m in selected}
         query = f"{primary or ''} {case.get('alleged_breach', '')} " + " ".join(m.topic for m in selected)
         hits = self.retriever.search(query, allowed_ids=allowed, k=40)
@@ -153,14 +229,16 @@ class ReasoningEngine:
 
         prohibited = sorted({p for m in selected for p in m.prohibited_claims} | set(GLOBAL_PROHIBITED))
         missing = sorted({f for m in selected for f in m.required_facts if not case.has(f)})
-        verified = {k: v for k, v in facts.items() if k not in ("route_hints", "lease_clauses")}
+        # keeper_name/keeper_address are the letterhead's, not the drafter's. The
+        # body never needs them, and withholding them means no generated sentence
+        # can put the customer's name or home address into the argument.
+        withheld_from_drafter = ("route_hints", "lease_clauses", "keeper_name", "keeper_address")
+        verified = {k: v for k, v in facts.items() if k not in withheld_from_drafter}
 
         case.state = CaseState.ANALYSED
         return RetrievalPack(
             primary_route=primary, secondary_routes=secondary,
-            module_ids=[m.module_id for m in sorted(selected, key=lambda m: (
-                routes.index(m.route) if m.route in routes else -1,
-                0 if m.strength < SUPPORTING_THRESHOLD else 1))],   # framing point before its finding
+            module_ids=ordered,
             verified_facts=verified, fact_refs={k: f.fact_id for k, f in case.facts.items() if f.usable},
             missing_facts=missing, evidence_refs=[e.evidence_id for e in case.evidence.values() if e.uploaded],
             prohibited_claims=prohibited,

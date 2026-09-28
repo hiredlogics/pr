@@ -1,15 +1,17 @@
 """LLM client abstraction.
 
 Every LLM call in the system goes through `LLMClient.complete_json`, which
-forces structured JSON output. Prompts are loaded by id+version from the
-prompt registry (Postgres `prompts` table) so admins can change them without
-a deploy (Dev Pack Part 13, Phase 10).
+forces structured JSON output. System prompts come from the versioned registry
+in `prompts.py`, never from a string literal at the call site.
 
-Model routing is config, not code. Suggested defaults:
-    extraction  -> a vision-capable model (PCN photos / PDFs)
+OpenAI is the only provider. `DemoLLM` exists solely so the app is runnable
+before a key is configured; it is not a model and says so in the UI.
+
+Model routing is config, not code:
+    extraction  -> vision-capable (PCN photos / scans)
     questioning -> small fast model (classification only)
-    drafting    -> strongest writing model
-    validation  -> DIFFERENT prompt, ideally a different model than drafting
+    drafting    -> strongest writer
+    validation  -> a DIFFERENT model from drafting, enforced below
 """
 from __future__ import annotations
 
@@ -24,37 +26,6 @@ class LLMClient(Protocol):
                       images: list[bytes] | None = None) -> dict[str, Any]: ...
 
 
-MODEL_ROUTING = {
-    "extraction": os.getenv("MODEL_EXTRACTION", "claude-sonnet-5"),
-    "questioning": os.getenv("MODEL_QUESTIONING", "claude-haiku-4-5-20251001"),
-    "drafting": os.getenv("MODEL_DRAFTING", "claude-opus-5-5"),
-    "validation": os.getenv("MODEL_VALIDATION", "claude-sonnet-5"),
-}
-
-
-class AnthropicClient:
-    """Production client. Requires `pip install anthropic` and ANTHROPIC_API_KEY."""
-
-    def __init__(self):
-        import anthropic  # imported lazily so tests run without the SDK
-        self._c = anthropic.Anthropic()
-
-    def complete_json(self, *, task, system, user, images=None):
-        import base64
-        content: list[dict] = []
-        for img in images or []:
-            content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
-                                                        "data": base64.b64encode(img).decode()}})
-        content.append({"type": "text", "text": user})
-        resp = self._c.messages.create(
-            model=MODEL_ROUTING[task], max_tokens=4000, temperature=0,
-            system=system + "\nRespond with a single JSON object only. No prose, no markdown fences.",
-            messages=[{"role": "user", "content": content}])
-        text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
-        text = text.strip().removeprefix("```json").removesuffix("```").strip()
-        return json.loads(text)
-
-
 JSON_ONLY = "\nRespond with a single JSON object only. No prose, no markdown fences."
 
 # Best-first preference per task. `OpenAIClient` keeps the first entry the key
@@ -66,6 +37,10 @@ OPENAI_PREFERENCES = {
     "extraction":  ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # classification only - cheapest model that can follow a schema
     "questioning": ["gpt-5.1-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
+    # case analysis decides which grounds the evidence supports and what is
+    # still worth asking - the most consequential judgement in the system, so it
+    # gets the strongest model available.
+    "case_analysis": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # strongest writer
     "drafting":    ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # deliberately NOT the drafting model - an independent checker should not
@@ -81,10 +56,15 @@ DISTINCT_FROM = {"validation": "drafting"}
 class OpenAIClient:
     """OpenAI client. Requires `pip install openai` and OPENAI_API_KEY.
 
+    SUPPORTS_IMAGES is what lets the API tell a customer that a photographed
+    notice cannot be read, instead of silently producing an empty case.
+
     Resolves each task to the best model the key can list, once, at startup -
     so an unavailable model fails loudly here rather than part-way through a
     customer's case.
     """
+
+    SUPPORTS_IMAGES = True
 
     def __init__(self, api_key: str | None = None, preferences: dict | None = None):
         from openai import OpenAI          # imported lazily so tests run without the SDK
@@ -196,16 +176,21 @@ class DemoLLM:
 
     NOT an extractor. It reads only explicitly labelled `Field: value` lines and
     reports nothing for anything it cannot find, so absent fields stay absent
-    rather than becoming guesses. Real extraction needs AnthropicClient.
+    rather than becoming guesses. Real extraction needs OpenAIClient.
     """
+
+    SUPPORTS_IMAGES = False        # it matches labels in text; it cannot see
 
     def __init__(self):
         self.calls: list[dict] = []
 
     def complete_json(self, *, task, system, user, images=None):
         self.calls.append({"task": task, "user": user})
-        if task == "questioning":
-            return {"routes": []}        # no classifier here; the regex floor supplies hints
+        if task == "case_analysis":
+            # It cannot reason, so it proposes nothing. The pipeline then has no
+            # grounds and routes to manual review rather than inventing any -
+            # which is the correct failure mode, and the reason V2 needs a model.
+            return {"grounds": [], "questions": [], "not_supported": []}
         if task != "extraction":
             raise RuntimeError(f"DemoLLM only supports extraction, not {task!r}")
         docs = re.findall(r"<document id='([^']+)' filename='([^']*)'>\n(.*?)\n</document>", user, re.S)
@@ -230,17 +215,42 @@ class DemoLLM:
 
 
 def default_client():
-    """Pick a provider from the environment.
+    """OpenAI when a usable key is configured, otherwise the demo stand-in.
 
-    LLM_PROVIDER forces one of openai / anthropic / demo. Otherwise whichever
-    key is present wins, and with no key at all you get the demo stand-in so
-    the API is still runnable.
+    A key that is present but rejected (revoked, wrong project, no quota) falls
+    back rather than leaving the app dead - but `probe()` and the UI both report
+    which one is actually in use, so a demo run is never mistaken for a real one.
+    Set LLM_PROVIDER=openai to make an unusable key a hard startup failure.
     """
     provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
-    if provider == "openai" or (not provider and os.getenv("OPENAI_API_KEY")):
-        return OpenAIClient()
-    if provider == "anthropic" or (not provider and os.getenv("ANTHROPIC_API_KEY")):
-        return AnthropicClient()
-    if provider in ("", "demo"):
+    if provider not in ("", "openai", "demo"):
+        raise RuntimeError(f"unknown LLM_PROVIDER {provider!r}: use openai or demo")
+    if provider == "demo":
         return DemoLLM()
-    raise RuntimeError(f"unknown LLM_PROVIDER {provider!r}: use openai, anthropic or demo")
+    if provider == "openai":
+        return OpenAIClient()                      # let auth errors surface
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            return OpenAIClient()
+        except Exception as exc:
+            print(f"[llm] OpenAI unavailable ({type(exc).__name__}); using the demo stand-in")
+            _note(str(exc))
+    return DemoLLM()
+
+
+_last_error: str = ""
+
+
+def _note(msg: str) -> None:
+    global _last_error
+    _last_error = msg.splitlines()[0][:200] if msg else ""
+
+
+def probe() -> dict[str, Any]:
+    """What the app is really running on - surfaced by /health and the UI."""
+    client = default_client()
+    if isinstance(client, DemoLLM):
+        return {"provider": "demo", "models": {},
+                "reason": _last_error or ("no OPENAI_API_KEY set" if not os.getenv("OPENAI_API_KEY")
+                                          else "OpenAI unavailable")}
+    return {"provider": "openai", "models": client.models, "reason": ""}

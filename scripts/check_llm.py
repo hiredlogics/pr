@@ -16,33 +16,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from pcn_appeal.llm import MODEL_ROUTING, OPENAI_PREFERENCES, default_client  # noqa: E402
+from pcn_appeal import config  # noqa: E402
+from pcn_appeal.llm import OPENAI_PREFERENCES, default_client  # noqa: E402
 
 KEY_VARS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 
 
 def load_env(path: Path) -> None:
-    """Minimal .env reader so this works without python-dotenv installed.
-
-    Within the file the LAST assignment to a name wins, so appending a
-    corrected line with `>>` does what you expect. An already-exported shell
-    variable still beats the file.
-    """
     if not path.exists():
         print(f"  no env file at {path}")
         return
-    values: dict[str, str] = {}
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        name, _, value = line.partition("=")
-        name, value = name.strip(), value.strip().strip('"').strip("'")
-        if name and value:
-            values[name] = value                     # later lines override earlier ones
-    for name, value in values.items():
-        os.environ.setdefault(name, value)
-    print(f"  loaded {len(values)} vars from {path}")
+    applied = config.load(root=path.parent, files=(path.name,))
+    print(f"  loaded {len(applied)} vars from {path}")
 
 
 # Values that are obviously a copied example rather than a credential. Catching
@@ -92,7 +77,7 @@ def main() -> int:
         return 1
     print(f"  {type(client).__name__}")
 
-    models = getattr(client, "models", None) or MODEL_ROUTING
+    models = getattr(client, "models", None) or {}
     print("\nmodel per task")
     for task in OPENAI_PREFERENCES:
         print(f"  {task:12} -> {models.get(task, '(n/a)')}")

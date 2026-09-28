@@ -30,7 +30,8 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 def _read(d: Path) -> dict[str, Any]:
     return {name: yaml.safe_load((d / f"{name}.yaml").read_text())
-            for name in ("kb_modules", "building_blocks", "routes", "questions", "code_versions")}
+            for name in ("kb_modules", "building_blocks", "routes", "questions", "code_versions",
+                         "prompts")}
 
 
 def new_release_id() -> str:
@@ -116,10 +117,20 @@ def sync(data_dir: Path = DATA, release_id: Optional[str] = None,
                       cv.get("applies_to_ata", []) or [], _json(cv.get("provisions", {})),
                       bool(cv.get("verified", False)), cv.get("verified_by")))
 
+            for task, pr in (src["prompts"].get("prompts", {}) or {}).items():
+                cur.execute("""
+                    INSERT INTO prompts (prompt_id, version, task, body, active)
+                    VALUES (%s, %s, %s, %s, true)
+                    ON CONFLICT (prompt_id, version) DO UPDATE SET
+                        task = EXCLUDED.task, body = EXCLUDED.body, active = EXCLUDED.active
+                """, (task, int(pr.get("version", 1)), task, str(pr["body"]).rstrip()))
+
             if publish:
                 manifest = {
                     "modules": {m["module_id"]: str(m.get("version", "1.0")) for m in modules},
                     "blocks": {bid: str(b.get("version", "1.0")) for bid, b in blocks.items()},
+                    "prompts": {task: int(pr.get("version", 1))
+                                for task, pr in (src["prompts"].get("prompts", {}) or {}).items()},
                     "routes": src["routes"],
                     "questions": src["questions"],
                     "conflicts_with": conflicts,
@@ -136,6 +147,7 @@ def sync(data_dir: Path = DATA, release_id: Optional[str] = None,
 
     return {"release_id": release_id if publish else None, "modules": len(modules),
             "blocks": len(blocks), "embeddings": len(index),
+            "prompts": len(src["prompts"].get("prompts", {}) or {}),
             "embedder": getattr(embedder, "id", "unknown"), "dim": EMBED_DIM}
 
 

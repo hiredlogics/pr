@@ -1,6 +1,16 @@
 # Structured KB modules converted from "Private Parking AI Legal Knowledge Base V2".
 # use_when / do_not_use_when are machine predicates (see rules/dsl.py).
-# This file is a representative subset; convert every KB-* record the same way.
+# All 51 KB-* records in the source document are converted here.
+#
+# Strength calibration (KB section 16 / Appendix B):
+#   90-100  confirmed dispositive statutory or contractual point (may lead)
+#   70-89   strong fact-specific ground (may lead)
+#   50-69   real but qualified ground (may lead, but rarely first)
+#   <50     evidence / signage / authority support only - engines/reasoning.py
+#           SUPPORTING_THRESHOLD means these can never lead the letter
+#
+# NOTE on `ne`: rules/dsl.py returns True for `ne` when the fact is MISSING, so
+# every `ne` gate below is paired with an `exists` gate.
 modules:
   - module_id: KB-POFA-01
     route: POFA
@@ -41,6 +51,39 @@ modules:
     prohibited_claims: []
     building_blocks: [PP-POFA-004, PP-POFA-006, PP-POFA-007]
     strength: 95
+  - module_id: KB-POFA-04
+    route: POFA
+    topic: Mandatory notice content
+    # One boolean per statutory element so that exactly the confirmed defect is
+    # pleaded (source: "do not generate a generic checklist challenge"), plus a
+    # document-confirmation flag for the DO NOT on OCR uncertainty.
+    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
+    do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [relevant_land, false]}]}
+    core_proposition: Use only the precise Schedule 4 defect established from the notice itself; do not generate a generic checklist challenge.
+    required_facts: [notice_route, ntk_defect_document_confirmed]
+    evidence_helpful: [NTK, PCN]
+    legal_basis: [PoFA-2012-Sch4]
+    drafting_notes: State only the element actually confirmed against the document. Never infer a defect from unclear or low-confidence text.
+    prohibited_claims: [generic checklist of defects, defect inferred from unclear text]
+    building_blocks: [PP-POFA-005A, PP-POFA-005B, PP-POFA-005C, PP-POFA-005D, PP-POFA-005E, PP-POFA-006, PP-POFA-007]
+    status: ACTIVE
+    version: "1.0"
+    strength: 90
+  - module_id: KB-POFA-05
+    route: POFA
+    topic: Driver not established
+    use_when: {all: [{exists: pofa_finding}, {eq: [driver_status, UNIDENTIFIED]}]}
+    do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
+    core_proposition: Where the Schedule 4 conditions are not met and the driver has not been established, the operator cannot transfer the driver's liability to the registered keeper under Schedule 4.
+    required_facts: [pofa_finding]
+    evidence_helpful: [NTK, PCN]
+    legal_basis: [PoFA-2012-Sch4]
+    drafting_notes: Never invite or infer driver identity. This is the conclusion that follows a verified finding, not a free-standing ground.
+    prohibited_claims: [the driver was, identity of the driver]
+    building_blocks: [PP-POFA-002, PP-POFA-006, PP-POFA-007]
+    status: ACTIVE
+    version: "1.0"
+    strength: 93
 
   - module_id: KB-PAY-01
     route: PAYMENT
@@ -55,6 +98,39 @@ modules:
     prohibited_claims: []
     building_blocks: [PP-PAY-001, PP-PAY-002, PP-PAY-006]
     strength: 85
+  - module_id: KB-PAY-02
+    route: PAYMENT
+    topic: Machine failure
+    use_when: {all: [{is: payment_attempt_failed}, {eq: [payment_method, MACHINE]}]}
+    # Negation of the discriminator, so the module (and its questions) are
+    # pruned until payment_method is known to be MACHINE. `ne` is True when the
+    # fact is missing, which is the behaviour wanted here.
+    do_not_use_when: {ne: [payment_method, MACHINE]}
+    core_proposition: Analyse the payment mechanism the operator provided and the genuine attempt to comply, and request the relevant fault, maintenance and transaction records where appropriate.
+    required_facts: [payment_attempt_failed, payment_method, payment_failure_detail]
+    evidence_helpful: [PHOTO, RECEIPT, APP_SCREENSHOT]
+    legal_basis: [SCOP-payment]
+    drafting_notes: Request records; do not assert a fault the evidence does not show.
+    prohibited_claims: [the machine was broken all day]
+    building_blocks: [PP-PAY-003, PP-PAY-005, PP-PAY-006]
+    status: ACTIVE
+    version: "1.0"
+    strength: 75
+  - module_id: KB-PAY-03
+    route: PAYMENT
+    topic: App / digital payment failure
+    use_when: {all: [{is: payment_attempt_failed}, {in: [payment_method, [APP, PHONE, WEBSITE]]}]}
+    do_not_use_when: {not: {in: [payment_method, [APP, PHONE, WEBSITE]]}}
+    core_proposition: Consider whether a genuine attempt to comply was prevented by the system the operator provided and whether an alternative payment method was realistically available.
+    required_facts: [payment_attempt_failed, payment_method, payment_failure_detail]
+    evidence_helpful: [APP_SCREENSHOT, BANK_STATEMENT, PHOTO]
+    legal_basis: [SCOP-payment]
+    drafting_notes: Name only the system problem the customer actually reported.
+    prohibited_claims: []
+    building_blocks: [PP-PAY-004, PP-PAY-005, PP-PAY-006]
+    status: ACTIVE
+    version: "1.0"
+    strength: 75
   - module_id: KB-KEY-01
     route: KEYING
     topic: Minor keying error
@@ -68,6 +144,21 @@ modules:
     prohibited_claims: []
     building_blocks: [PP-KEY-002, PP-KEY-004]
     strength: 90
+  - module_id: KB-KEY-02
+    route: KEYING
+    topic: Different vehicle registration entered
+    use_when: {all: [{is: payment_made}, {eq: [keying_error_type, DIFFERENT_VEHICLE]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Require transaction matching and analyse the applicable Code treatment; do not describe the event as simply unpaid parking where the tariff was paid.
+    required_facts: [vrm, vrm_entered, payment_made, vrm_entered_is_known_vehicle]
+    evidence_helpful: [RECEIPT, APP_SCREENSHOT, BANK_STATEMENT]
+    legal_basis: [SCOP-keying]
+    drafting_notes: Code treatment of a different-vehicle entry is not the same as a minor keying error - do not claim the minor-error outcome.
+    prohibited_claims: [unpaid parking, automatically cancels]
+    building_blocks: [PP-KEY-001, PP-KEY-003, PP-KEY-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 80
 
   - module_id: KB-BREAK-01
     route: BREAKDOWN
@@ -82,6 +173,21 @@ modules:
     prohibited_claims: [automatically frustrated, automatically void]
     building_blocks: [AI-BREAK-001, AI-BREAK-002]
     strength: 85
+  - module_id: KB-BREAK-02
+    route: BREAKDOWN
+    topic: Puncture / battery / immobilisation
+    use_when: {all: [{is: vehicle_immobilised}, {is: immobilisation_prevented_departure}, {exists: immobilisation_cause}]}
+    do_not_use_when: {always: false}
+    core_proposition: Treat a puncture, flat battery or similar event as a breakdown only where the facts and evidence show the vehicle could not reasonably depart or comply; otherwise assess it as ordinary delay.
+    required_facts: [vehicle_immobilised, immobilisation_cause, immobilisation_prevented_departure]
+    evidence_helpful: [RECOVERY_REPORT, GARAGE_INVOICE, PHOTO, CALL_LOG]
+    legal_basis: [CL-frustration-impossibility, SCOP-breakdown]
+    drafting_notes: Severity and safety must come from the answers; never upgrade an inconvenience into an immobilisation.
+    prohibited_claims: [automatically frustrated, automatically void]
+    building_blocks: [AI-BREAK-001, AI-BREAK-002]
+    status: ACTIVE
+    version: "1.0"
+    strength: 80
   - module_id: KB-BREAK-03
     route: BREAKDOWN
     topic: Recovery / assistance time
@@ -109,6 +215,24 @@ modules:
     prohibited_claims: [unfettered]
     building_blocks: [AI-RES-001]
     strength: 90
+  - module_id: KB-RES-02
+    route: RESIDENTIAL
+    topic: Unfettered right to park
+    # "Grant without the restriction now alleged" is expressed as: a parking
+    # clause was found AND the clause finder found no regulations/permit power
+    # (the mechanism by which the restriction would have been introduced).
+    use_when: {all: [{in: [resident_status, [RESIDENT, TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}, {not: {is: lease_has_regulations_clause}}]}
+    do_not_use_when: {is: lease_has_regulations_clause}
+    core_proposition: Where the uploaded wording genuinely grants a parking right that does not contain the restriction now alleged, analyse whether the later permit or payment condition is inconsistent with that grant.
+    required_facts: [resident_status, lease_parking_clause_found, lease_clauses]
+    evidence_helpful: [LEASE, TENANCY]
+    legal_basis: [Lease, CL-primacy-of-contract]
+    drafting_notes: Never write "unfettered" unless that word appears in the uploaded instrument. Describe the grant in the document's own words.
+    prohibited_claims: [unfettered, absolute right to park]
+    building_blocks: [AI-RES-002]
+    status: ACTIVE
+    version: "1.0"
+    strength: 85
   - module_id: KB-RES-03
     route: RESIDENTIAL
     topic: Allocated bay
@@ -122,6 +246,36 @@ modules:
     prohibited_claims: []
     building_blocks: [AI-RES-003]
     strength: 80
+  - module_id: KB-RES-04
+    route: RESIDENTIAL
+    topic: Derogation from grant
+    use_when: {all: [{is: lease_parking_clause_found}, {is: substantial_interference}]}
+    do_not_use_when: {always: false}
+    core_proposition: Consider derogation from grant only where the actual grant and the later interference support the doctrine.
+    required_facts: [lease_parking_clause_found, substantial_interference, lease_clauses]
+    evidence_helpful: [LEASE, TENANCY, CORRESPONDENCE]
+    legal_basis: [Lease, CL-derogation-from-grant]
+    drafting_notes: Not boilerplate for every residential appeal. Describe the actual interference, then the principle.
+    prohibited_claims: [any parking scheme is a derogation]
+    building_blocks: [AI-RES-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 65
+  - module_id: KB-RES-05
+    route: RESIDENTIAL
+    topic: Quiet enjoyment
+    use_when: {all: [{in: [resident_status, [TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}, {is: enforcement_interference}]}
+    do_not_use_when: {always: false}
+    core_proposition: Use a quiet-enjoyment point only where the contractual wording and the facts support it; it is not a universal answer to a parking charge.
+    required_facts: [resident_status, enforcement_interference, lease_clauses]
+    evidence_helpful: [LEASE, TENANCY, CORRESPONDENCE]
+    legal_basis: [Lease, CL-quiet-enjoyment]
+    drafting_notes: Supporting point only. Quiet enjoyment does not mean freedom from all parking regulation, so never say that.
+    prohibited_claims: [freedom from all parking regulation]
+    building_blocks: []
+    status: ACTIVE
+    version: "1.0"
+    strength: 45
   - module_id: KB-RES-06
     route: RESIDENTIAL
     topic: Permit scheme expressly incorporated
@@ -135,6 +289,21 @@ modules:
     prohibited_claims: [unfettered]
     building_blocks: []
     strength: 60
+  - module_id: KB-RES-07
+    route: RESIDENTIAL
+    topic: Managing agent / operator authority
+    use_when: {all: [{in: [resident_status, [RESIDENT, TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}]}
+    do_not_use_when: {always: false}
+    core_proposition: Assess whether the managing agent or landowner could grant enforcement rights consistent with the resident's existing agreement.
+    required_facts: [resident_status, lease_parking_clause_found, parking_location]
+    evidence_helpful: [LEASE, TENANCY, MANAGEMENT_AGREEMENT, SITE_PLAN]
+    legal_basis: [Lease, SCOP-authority]
+    drafting_notes: One request, merged with the landowner-authority point so the letter asks once. Never assert that no authority exists.
+    prohibited_claims: [no authority exists]
+    building_blocks: [PP-LAND-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
 
   - module_id: KB-CON-01
     route: CONSIDERATION
@@ -147,8 +316,28 @@ modules:
     legal_basis: [SCOP-consideration]
     drafting_notes: Never merge with end grace.
     prohibited_claims: [free allowance]
-    building_blocks: [PP-CON-001, PP-CON-005]
+    building_blocks: [PP-CON-001, PP-CON-002, PP-CON-004, PP-CON-005]
     strength: 65
+  - module_id: KB-CON-02
+    route: CONSIDERATION
+    topic: Terms rejected / vehicle left
+    # `terms_rejected_left` is deliberately NOT the gate here: it is an
+    # unanswerable contraindication on KB-PAY-01 in the shipped subset, and
+    # giving it a question would put a third gating question on KB-PAY-01.
+    # `no_parking_took_place` is the observable fact the source's AI MUST CHECK
+    # asks for ("whether parking actually took place").
+    use_when: {all: [{is: no_parking_took_place}, {not: {is: payment_made}}]}
+    do_not_use_when: {is: permitted_period_ended}
+    core_proposition: Analyse whether a parking contract was ever accepted rather than treating all site presence as parking.
+    required_facts: [no_parking_took_place, short_presence_before_acceptance, total_recorded_duration_min]
+    evidence_helpful: [DASHCAM, PHOTO]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: The case theory is that no contract was accepted - it cannot be combined with a payment or an overstay account.
+    prohibited_claims: [free allowance, entry is never acceptance]
+    building_blocks: [PP-CON-003, PP-CON-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 75
   - module_id: KB-GRACE-01
     route: GRACE
     topic: End grace period
@@ -160,8 +349,23 @@ modules:
     legal_basis: [SCOP-grace]
     drafting_notes: No universal 10-minute rule; use resolved Code version values.
     prohibited_claims: [10 minutes always]
-    building_blocks: [PP-GRACE-001, PP-GRACE-003]
+    building_blocks: [PP-GRACE-001, PP-GRACE-002, PP-GRACE-003, PP-GRACE-004]
     strength: 60
+  - module_id: KB-GRACE-02
+    route: GRACE
+    topic: Exit congestion / barrier delay
+    use_when: {all: [{is: exit_congestion}, {exists: exit_delay_min}]}
+    do_not_use_when: {always: false}
+    core_proposition: An exit-camera timestamp may include non-parking time caused by the process of leaving the site.
+    required_facts: [exit_congestion, exit_delay_min, exit_time]
+    evidence_helpful: [PHOTO, DASHCAM, CALL_LOG]
+    legal_basis: [CL-evidential-weight]
+    drafting_notes: The source gives this record no Code basis - argue what the exit timestamp does and does not prove, not a Code entitlement.
+    prohibited_claims: [10 minutes always]
+    building_blocks: [PP-GRACE-003, PP-GRACE-002, PP-GRACE-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 70
 
   - module_id: KB-ANPR-01
     route: ANPR
@@ -176,20 +380,112 @@ modules:
     prohibited_claims: [calibration]
     building_blocks: [PP-ANPR-003, PP-ANPR-005]
     strength: 80
+  - module_id: KB-ANPR-02
+    route: ANPR
+    topic: Missing capture / incorrect pairing
+    use_when: {is: anpr_sequence_incomplete}
+    do_not_use_when: {always: false}
+    core_proposition: An absent intermediate capture does not prove continuous presence; the operator should verify the full record and its pairing logic.
+    required_facts: [anpr_sequence_incomplete]
+    evidence_helpful: [DASHCAM, LOCATION_RECORD, RECEIPT]
+    legal_basis: [SCOP-evidence]
+    drafting_notes: Ask for the full sequence. Never allege calibration or maintenance failure.
+    prohibited_claims: [calibration, camera maintenance]
+    building_blocks: [PP-ANPR-010, PP-ANPR-011, PP-ANPR-005, PP-ANPR-002]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
+  - module_id: KB-ANPR-03
+    route: ANPR
+    topic: Timestamp / VRM discrepancy
+    use_when: {is: anpr_discrepancy}
+    do_not_use_when: {always: false}
+    core_proposition: Challenge only the identified discrepancy and request verification of the evidence relied upon.
+    required_facts: [anpr_discrepancy]
+    evidence_helpful: [PHOTO, DASHCAM]
+    legal_basis: [SCOP-evidence]
+    drafting_notes: The discrepancy must be the one the customer identified. No generic calibration allegation (VAL-ANPR).
+    prohibited_claims: [calibration, camera maintenance, cameras are unreliable]
+    building_blocks: [PP-ANPR-007, PP-ANPR-008]
+    status: ACTIVE
+    version: "1.0"
+    strength: 60
+  - module_id: KB-EV-01
+    route: EVIDENCE
+    topic: Independent evidence contradicts the allegation
+    use_when: {all: [{is: independent_evidence_contradicts}, {any: [{has_evidence: DASHCAM}, {has_evidence: PHOTO}, {has_evidence: RECEIPT}, {has_evidence: LOCATION_RECORD}, {has_evidence: BANK_STATEMENT}]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Give the independent evidence appropriate weight and require the operator to reconcile the contradiction.
+    required_facts: [independent_evidence_contradicts]
+    evidence_helpful: [DASHCAM, PHOTO, RECEIPT, LOCATION_RECORD, BANK_STATEMENT]
+    legal_basis: [CL-evidential-weight]
+    drafting_notes: Only describe evidence that is actually uploaded, and only the contradiction it actually shows.
+    prohibited_claims: [proves the operator fabricated]
+    building_blocks: [PP-ANPR-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 70
+  # Added 2026-09-28. The KB had no ground for a bay-eligibility allegation
+  # (parent and child, family, disabled, EV, permit holder), so a notice alleging
+  # one produced a letter carrying only the unconditional landowner-authority
+  # paragraph. Scope was signed off as the evidential point ONLY: this module
+  # never asserts that the bay's conditions WERE met, which would need a fact
+  # from the customer that the question bank does not collect.
+  # Basis is CL-evidential-weight, not a SCOP- source, deliberately - the point
+  # is the operator's burden of proof, so it must not be withheld by R-01 on
+  # notices that do not print a trade association.
+  - module_id: KB-BAY-01
+    route: BAY
+    topic: Observation window too narrow to establish a bay-eligibility breach
+    # A window of 0 is the strongest case, not an absent one, so `exists` plus a
+    # comparison - `is` would read 0 as false and drop exactly that case.
+    use_when: {all: [{is: restricted_bay_alleged}, {exists: observation_window_min}, {lte: [observation_window_min, 5]}]}
+    # No fact in the KB falsifies this argument, so this gate is a genuine no-op
+    # rather than a guard on a fact nothing can ever set.
+    do_not_use_when: {always: false}
+    core_proposition: A record spanning only the operator's own observation window does not establish that the conditions of use for a reserved bay were unmet over the visit.
+    required_facts: [restricted_bay_alleged, observation_window_min]
+    evidence_helpful: [PHOTO]
+    legal_basis: [CL-evidential-weight]
+    drafting_notes: State only the recorded observation and event times and the operator's burden. Never assert who was in the vehicle, and never assert that the bay's conditions were in fact met.
+    prohibited_claims: [a child was present, an eligible occupant was present, the bay was not reserved, the restriction is unenforceable]
+    building_blocks: [PP-BAY-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 65
   - module_id: KB-TIME-01
     route: ANPR
     topic: ANPR presence is not parking time
-    use_when: {exists: entry_time}
-    do_not_use_when: {always: false}
+    # `exists: entry_time` alone was true of almost every properly-documented
+    # notice, so this fired on cases that never alleged an overstay at all - a
+    # Parent-and-Child-bay charge and a keying-error charge were both told
+    # their "alleged parking duration is disputed". The duration has to
+    # actually be in dispute, and a disputed interval needs both ends of it.
+    use_when: {all: [{exists: entry_time}, {exists: exit_time}, {is: anpr_duration_disputed}]}
     core_proposition: Distinguish total presence on controlled land from the period actually parked.
-    required_facts: [entry_time, exit_time]
+    required_facts: [entry_time, exit_time, anpr_duration_disputed]
     evidence_helpful: []
     legal_basis: [SCOP-evidence]
     drafting_notes: Supporting point only.
     prohibited_claims: []
-    building_blocks: [PP-ANPR-001]
+    building_blocks: [PP-ANPR-001, PP-ANPR-002]
     strength: 30
 
+  - module_id: KB-AUTH-01
+    route: AUTHORISATION
+    topic: Underlying authorisation
+    use_when: {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}
+    do_not_use_when: {is: lease_parking_clause_found}
+    core_proposition: Analyse the underlying permission before treating an administrative or display mismatch as an absence of authority.
+    required_facts: [authorisation_source, parking_event_date, vrm]
+    evidence_helpful: [PERMIT, CORRESPONDENCE, BOOKING, RECEIPT]
+    legal_basis: [SCOP-permits, CL-authorisation]
+    drafting_notes: Appendix B - underlying authorisation first, then the admin/display issue. Residential rights supersede this.
+    prohibited_claims: [automatically cancels]
+    building_blocks: [PP-AUTH-001, PP-AUTH-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 75
   - module_id: KB-AUTH-02
     route: AUTHORISATION
     topic: Permit held
@@ -203,6 +499,36 @@ modules:
     prohibited_claims: [automatically cancels]
     building_blocks: [PP-AUTH-002, PP-AUTH-004]
     strength: 70
+  - module_id: KB-AUTH-03
+    route: AUTHORISATION
+    topic: Visitor authorisation
+    use_when: {is: visitor_authorised}
+    do_not_use_when: {always: false}
+    core_proposition: Analyse the visitor permission and any registration process; do not assume that a registration error extinguished the underlying permission.
+    required_facts: [visitor_authorised, parking_event_date]
+    evidence_helpful: [CORRESPONDENCE, PERMIT]
+    legal_basis: [SCOP-permits, CL-authorisation]
+    drafting_notes: Refer to host/resident confirmation only where it has actually been supplied.
+    prohibited_claims: [registration error extinguished the permission]
+    building_blocks: [PP-AUTH-006, PP-AUTH-004]
+    status: ACTIVE
+    version: "1.0"
+    strength: 72
+  - module_id: KB-CUST-01
+    route: CUSTOMER
+    topic: Genuine customer
+    use_when: {all: [{is: genuine_customer}, {is: customer_only_site}, {any: [{has_evidence: RECEIPT}, {has_evidence: BANK_STATEMENT}]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Genuine use of the premises is a factual and authorisation route where it is relevant, not an automatic cancellation rule.
+    required_facts: [genuine_customer, customer_only_site, parking_location]
+    evidence_helpful: [RECEIPT, BANK_STATEMENT, BOOKING]
+    legal_basis: [CL-authorisation]
+    drafting_notes: Use where site terms, policy or landholder authorisation make it relevant. Never present it as a rule that the charge must be cancelled.
+    prohibited_claims: [automatic cancellation, customers are always exempt]
+    building_blocks: [PP-AUTH-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
 
   - module_id: KB-SIGN-01
     route: SIGNAGE
@@ -215,8 +541,53 @@ modules:
     legal_basis: [SCOP-signage]
     drafting_notes: Only with a factual trigger; never from 'I didn't see it' alone.
     prohibited_claims: []
-    building_blocks: [PP-SIGN-001]
+    building_blocks: [PP-SIGN-001, PP-SIGN-002]
     strength: 45
+  - module_id: KB-SIGN-02
+    route: SIGNAGE
+    topic: Charge / relevant term prominence
+    use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, TERM_PROMINENCE]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Focus on the precise term allegedly breached and whether it was adequately communicated.
+    required_facts: [signage_issue_raised, signage_issue_type, alleged_breach]
+    evidence_helpful: [PHOTO]
+    legal_basis: [SCOP-signage]
+    drafting_notes: Tie the point to the term in the allegation, not to signage in general.
+    prohibited_claims: []
+    building_blocks: [PP-SIGN-004, PP-SIGN-005]
+    status: ACTIVE
+    version: "1.0"
+    strength: 45
+  - module_id: KB-SIGN-03
+    route: SIGNAGE
+    topic: Conflicting signage
+    use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, CONFLICTING]}, {has_evidence: PHOTO}]}
+    do_not_use_when: {always: false}
+    core_proposition: Identify the conflict and require the operator to explain which terms applied and how they were communicated.
+    required_facts: [signage_issue_raised, signage_issue_type]
+    evidence_helpful: [PHOTO]
+    legal_basis: [SCOP-signage]
+    drafting_notes: Requires photographs of each sign relied upon; describe the conflict, do not characterise the site generally.
+    prohibited_claims: []
+    building_blocks: [PP-SIGN-011]
+    status: ACTIVE
+    version: "1.0"
+    strength: 48
+  - module_id: KB-SIGN-04
+    route: SIGNAGE
+    topic: Contemporaneous signage proof
+    use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, CHANGED_OR_DAMAGED]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Require evidence of the signage actually in place at the material time where that is genuinely disputed.
+    required_facts: [signage_issue_raised, signage_issue_type, parking_event_date]
+    evidence_helpful: [PHOTO]
+    legal_basis: [SCOP-signage, SCOP-evidence]
+    drafting_notes: A request for dated signage evidence, not an assertion that the signs were absent.
+    prohibited_claims: [there were no signs]
+    building_blocks: [PP-SIGN-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 40
 
   - module_id: KB-EQ-01
     route: EQUALITY
@@ -230,6 +601,159 @@ modules:
     drafting_notes: No unnecessary medical detail. Blue Badge is not the legal test.
     prohibited_claims: []
     building_blocks: [AI-EQ-001]
+    strength: 65
+  - module_id: KB-EQ-02
+    route: EQUALITY
+    topic: Additional time
+    use_when: {all: [{is: disability_extra_time}, {is: disability_time_relates_to_breach}]}
+    do_not_use_when: {always: false}
+    core_proposition: Do not assess the event solely by automated timestamps where additional time may constitute a reasonable adjustment.
+    required_facts: [disability_extra_time, disability_time_relates_to_breach]
+    evidence_helpful: []
+    legal_basis: [EqA-2010]
+    drafting_notes: Yes/no facts only. Never state or request clinical detail; explain the link to the allegation in neutral terms.
+    prohibited_claims: [Blue Badge proves the legal test]
+    building_blocks: [AI-EQ-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 70
+  - module_id: KB-EQ-03
+    route: EQUALITY
+    topic: Hidden disability
+    use_when: {all: [{is: disability_extra_time}, {not: {is: blue_badge_displayed}}]}
+    do_not_use_when: {always: false}
+    core_proposition: The absence of a visible badge or indicator does not itself resolve whether Equality Act duties were engaged.
+    required_facts: [disability_extra_time]
+    evidence_helpful: []
+    legal_basis: [EqA-2010]
+    drafting_notes: Use only facts the customer volunteered. Blue Badge possession or absence is not the legal test.
+    prohibited_claims: [Blue Badge proves the legal test, no badge means no duty]
+    building_blocks: [AI-EQ-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
+
+  - module_id: KB-HOSP-01
+    route: HOSPITAL
+    topic: Hospital attendance
+    use_when: {is: hospital_attendance}
+    do_not_use_when: {always: false}
+    core_proposition: Analyse the site's parking terms, any exemption or validation process, the appointment or emergency circumstances and any relevant additional-time obligations.
+    required_facts: [hospital_attendance, parking_location]
+    evidence_helpful: [APPOINTMENT_LETTER, CORRESPONDENCE, RECEIPT]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: Site terms and validation process first. Equality Act wording only where the disability facts exist (Appendix B).
+    prohibited_claims: [hospital parking is always exempt, invented medical facts]
+    building_blocks: [AI-HOSP-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 60
+  - module_id: KB-HOSP-02
+    route: HOSPITAL
+    topic: Emergency treatment / unpredictable delay
+    use_when: {all: [{is: hospital_attendance}, {is: clinical_delay}]}
+    do_not_use_when: {always: false}
+    core_proposition: Treat the factual cause seriously and assess the contractual, Code and adjustment issues rather than using generic sympathy wording.
+    required_facts: [hospital_attendance, clinical_delay]
+    evidence_helpful: [APPOINTMENT_LETTER, CORRESPONDENCE]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: Never invent medical facts and never request excessive health information. No generic sympathy wording.
+    prohibited_claims: [invented medical facts, generic sympathy plea]
+    building_blocks: [AI-HOSP-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 70
+  - module_id: KB-HOSP-03
+    route: HOSPITAL
+    topic: Landholder / PALS cancellation route
+    use_when: {all: [{is: hospital_attendance}, {is: landholder_cancellation_route_available}]}
+    do_not_use_when: {always: false}
+    core_proposition: Where appropriate, flag the landholder cancellation or exemption mechanism as a parallel practical route while still generating the operator appeal.
+    required_facts: [hospital_attendance, landholder_cancellation_route_available]
+    evidence_helpful: [CORRESPONDENCE]
+    legal_basis: []
+    drafting_notes: A practical signpost for the customer, not a legal ground and not a paragraph of the appeal letter. Never presented as an entitlement.
+    prohibited_claims: [the Trust must cancel]
+    building_blocks: []
+    status: ACTIVE
+    version: "1.0"
+    strength: 25
+
+  - module_id: KB-ACT-01
+    route: ACTIVITY
+    topic: Loading / unloading
+    use_when: {all: [{is: loading_activity}, {exists: alleged_breach}]}
+    do_not_use_when: {always: false}
+    core_proposition: Distinguish the activity from ordinary parking where the contract or site terms recognise the distinction; analyse the actual terms and the evidence.
+    required_facts: [loading_activity, alleged_breach]
+    evidence_helpful: [PHOTO, RECEIPT, CORRESPONDENCE]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: Loading is not always exempt on private land - the argument is about the site terms actually in force.
+    prohibited_claims: [loading is always exempt, automatic exemption]
+    building_blocks: [AI-ACT-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 60
+  - module_id: KB-ACT-02
+    route: ACTIVITY
+    topic: Passenger drop-off / pick-up
+    use_when: {all: [{is: dropoff_activity}, {not: {is: permitted_period_ended}}]}
+    do_not_use_when: {is: payment_made}
+    core_proposition: Analyse the precise site restriction and whether stopping, parking or contract formation is established; do not assume a universal exemption.
+    required_facts: [dropoff_activity, alleged_breach, total_recorded_duration_min]
+    evidence_helpful: [PHOTO, DASHCAM]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: No numeric threshold is invented - argue from the site restriction and the recorded duration actually derived.
+    prohibited_claims: [stopping is never parking, universal exemption]
+    building_blocks: [PP-CON-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
+  - module_id: KB-ACT-03
+    route: ACTIVITY
+    topic: Hotel / restaurant / collection delay
+    use_when: {all: [{is: collection_or_checkin_delay}, {any: [{is: genuine_customer}, {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}]}]}
+    do_not_use_when: {always: false}
+    core_proposition: Use the underlying authorisation and the factual delay where relevant; do not convert ordinary waiting into an automatic exemption.
+    required_facts: [collection_or_checkin_delay]
+    evidence_helpful: [RECEIPT, BANK_STATEMENT, BOOKING, CORRESPONDENCE]
+    legal_basis: [CL-authorisation]
+    drafting_notes: The authorisation carries the point; the delay is context.
+    prohibited_claims: [waiting is automatically exempt]
+    building_blocks: [PP-AUTH-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
+
+  - module_id: KB-EVCH-01
+    route: EV_CHARGING
+    topic: EV charging
+    use_when: {all: [{is: ev_charging_session}, {exists: alleged_breach}]}
+    do_not_use_when: {always: false}
+    core_proposition: Analyse the charging terms separately from ordinary parking terms and establish whether the charge concerned parking, charging, overstay or tariff.
+    required_facts: [ev_charging_session, alleged_breach]
+    evidence_helpful: [APP_SCREENSHOT, RECEIPT, BANK_STATEMENT]
+    legal_basis: [CL-contract-formation]
+    drafting_notes: Ask the operator to reconcile the charge-session record with the allegation before arguing the parking terms.
+    prohibited_claims: [charging bays are not parking bays]
+    building_blocks: [AI-EVCH-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 60
+  - module_id: KB-INFRA-01
+    route: INFRASTRUCTURE
+    topic: Barrier / access system failure
+    use_when: {is: barrier_or_access_failure}
+    do_not_use_when: {always: false}
+    core_proposition: Time caused by the operator's or landholder's infrastructure should be distinguished from voluntary parking where the facts support it.
+    required_facts: [barrier_or_access_failure]
+    evidence_helpful: [PHOTO, DASHCAM, CALL_LOG]
+    legal_basis: [CL-evidential-weight]
+    drafting_notes: Describe only the fault reported; a timestamp records passage at the camera, not a decision to remain.
+    prohibited_claims: [the site was unusable]
+    building_blocks: [PP-GRACE-003, PP-GRACE-004]
+    status: ACTIVE
+    version: "1.0"
     strength: 65
 
   - module_id: KB-LAND-01
@@ -245,10 +769,55 @@ modules:
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-001]
     strength: 20
+  - module_id: KB-LAND-02
+    route: LANDOWNER
+    topic: Scope / site boundary / material date
+    use_when: {is: authority_mismatch_identified}
+    do_not_use_when: {always: false}
+    core_proposition: Focus on the specific mismatch - land boundary, term, expiry, cancellation powers or enforcement scope.
+    required_facts: [authority_mismatch_identified, parking_location, parking_event_date]
+    evidence_helpful: [SITE_PLAN, CORRESPONDENCE, MANAGEMENT_AGREEMENT]
+    legal_basis: [SCOP-authority]
+    drafting_notes: Name the mismatch only. Concise at initial operator stage (section 16 priority 4).
+    prohibited_claims: [no authority exists]
+    building_blocks: [PP-LAND-002, PP-LAND-005, PP-LAND-006]
+    status: ACTIVE
+    version: "1.0"
+    strength: 45
+  - module_id: KB-LAND-03
+    route: LANDOWNER
+    topic: Redacted authority evidence
+    use_when: {is: authority_evidence_redacted}
+    do_not_use_when: {always: false}
+    core_proposition: Challenge only those redactions that prevent verification of the parties, land, duration or enforcement scope.
+    required_facts: [authority_evidence_redacted]
+    evidence_helpful: [CORRESPONDENCE, MANAGEMENT_AGREEMENT]
+    legal_basis: [SCOP-authority]
+    drafting_notes: Redaction of commercial terms is not a ground; only redaction that blocks verification of those four matters is.
+    prohibited_claims: [the redactions prove there is no authority]
+    building_blocks: [PP-LAND-008]
+    status: ACTIVE
+    version: "1.0"
+    strength: 40
 
+# Contradictory case theories (section 16 rule 5, VAL-CONFLICT, Appendix B).
+# reasoning.py R-04 keeps the stronger module and logs the suppression.
 conflicts_with:
   - [KB-PAY-01, KB-CON-01]
   - [KB-RES-01, KB-AUTH-02]
+  # "a payment was made" vs "terms were rejected and the vehicle left"
+  - [KB-PAY-01, KB-CON-02]
+  # "the vehicle could not be moved" vs "the vehicle considered the terms and left"
+  - [KB-BREAK-01, KB-CON-02]
+  - [KB-BREAK-02, KB-CON-02]
+  # "no contract was ever accepted" vs "a permitted period ended and grace applies"
+  - [KB-CON-02, KB-GRACE-01]
+  # a minor keying error and a different-vehicle entry are alternative accounts
+  - [KB-KEY-01, KB-KEY-02]
+  # "the grant contains no such restriction" vs "the lease expressly incorporates a permit scheme"
+  - [KB-RES-02, KB-RES-06]
+  # "stopped only to drop off a passenger" vs "the tariff was paid for the stay"
+  - [KB-ACT-02, KB-PAY-01]
 
 legal_sources:
   PoFA-2012-Sch4:       {title: Protection of Freedoms Act 2012 Schedule 4, jurisdiction: ENGLAND_WALES}
@@ -266,3 +835,13 @@ legal_sources:
   SCOP-authority:       {title: Single Code - landowner authority, versioned: true}
   CL-frustration-impossibility: {title: Common-law frustration / impossibility, case_law_enabled: false}
   CL-primacy-of-contract:       {title: Primacy of contract / pre-existing rights, case_law_enabled: false}
+  # Primary uploaded instrument - the AI must read the actual wording (source register, section 2).
+  Lease:                        {title: Uploaded lease / tenancy / parking grant, primary_source: true}
+  # Non-SCOP bases for records whose LEGAL / CODE BASIS field is empty in the
+  # source. These are categories of argument, not named authorities; case law
+  # stays disabled until an administrator verifies it (KB-GOV-06).
+  CL-contract-formation:        {title: Contract formation / acceptance of parking terms, case_law_enabled: false}
+  CL-evidential-weight:         {title: Evidential weight of operator records and ANPR timestamps, case_law_enabled: false}
+  CL-derogation-from-grant:     {title: Derogation from grant, case_law_enabled: false}
+  CL-quiet-enjoyment:           {title: Covenant of quiet enjoyment, case_law_enabled: false}
+  CL-authorisation:             {title: Underlying authorisation / landholder permission, case_law_enabled: false}

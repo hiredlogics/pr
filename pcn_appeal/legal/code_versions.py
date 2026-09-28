@@ -46,7 +46,10 @@ def resolve(event_date: Optional[date], ata: Optional[str],
     versions = versions if versions is not None else load()
     if not event_date:
         return None, "UNRESOLVED:no_event_date"
-    if not ata or ata == "UNKNOWN":
+    # NOT_SHOWN is what the customer answers when the notice carries no trade-body
+    # logo. Without it here the lookup below simply finds no version and reports
+    # UNRESOLVED:no_version_for_date, blaming the date for a missing ATA.
+    if not ata or ata in ("UNKNOWN", "NOT_SHOWN"):
         return None, "UNRESOLVED:ata_unknown"
     if operator_transitioned is False:
         return None, "UNRESOLVED:operator_not_transitioned"

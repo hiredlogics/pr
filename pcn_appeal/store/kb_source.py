@@ -57,6 +57,16 @@ def load_release(release_id: Optional[str] = None) -> dict[str, Any]:
                 "effective_from": r[15], "effective_to": r[16],
             })
 
+        # Prompts are pinned per release too, so replaying a case uses the exact
+        # instructions that produced it, not whatever the file says today.
+        prompts = {}
+        for task, version in (manifest.get("prompts") or {}).items():
+            r = conn.execute("SELECT body, version FROM prompts WHERE prompt_id = %s AND version = %s",
+                             (task, version)).fetchone()
+            if r is None:
+                raise RuntimeError(f"release {release_id} references missing prompt {task}@{version}")
+            prompts[task] = {"body": r[0], "version": r[1]}
+
         blocks = {}
         for block_id, version in block_versions.items():
             r = conn.execute("""
@@ -75,5 +85,6 @@ def load_release(release_id: Optional[str] = None) -> dict[str, Any]:
         "building_blocks": {"blocks": blocks},
         "routes": manifest["routes"],
         "questions": manifest["questions"],
+        "prompts": prompts,
         "release_id": release_id,
     }

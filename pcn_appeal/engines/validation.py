@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from .. import prompts
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
 
@@ -58,6 +59,10 @@ DATE_TOKEN = R(r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
 MONEY_TOKEN = R(r"£\s?\d+")
 REPORTED = R(r"\b(allegation|alleged|disputed|operator (says|claims|asserts))\b")   # reported speech, not a claim
 NOT_PAID = R(r"\b(no payment was made|was not paid|did not pay|unpaid parking)\b")
+# A claim that the transaction never completed. Asserted against a notice that
+# records the payment as taken, this contradicts the operator's own document.
+PAYMENT_FAILED_CLAIM = R(r"\b(could not be completed|did not complete|failed to (complete|process)"
+                         r"|transaction (failed|was unsuccessful)|machine did not operate)\b")
 
 
 def _jaccard(a: str, b: str) -> float:
@@ -125,6 +130,13 @@ class ValidationEngine:
                 block("VAL-LEAK", "Internal IDs, placeholders or AI self-reference in output", t)
             if facts.get("payment_made") and NOT_PAID.search(t) and not REPORTED.search(t):
                 block("VAL-CONFLICT", "Contradicts confirmed payment", t)
+            # The docstring promised "payment status contradicting source facts";
+            # only the direction above was implemented. A notice that records the
+            # payment as taken (EX-10) flatly contradicts a letter arguing the
+            # transaction never went through, however the customer answered.
+            if facts.get("payment_recorded_in_document") and PAYMENT_FAILED_CLAIM.search(t) \
+                    and not REPORTED.search(t):
+                block("VAL-CONFLICT", "Claims the payment failed, but the notice records it as taken", t)
             for prev in seen:
                 if _jaccard(prev, t) > 0.8:
                     issues.append(ValidationIssue("VAL-REPEAT", "BLOCK", "Near-duplicate sentence", t))
@@ -152,11 +164,8 @@ class ValidationEngine:
 
     def _llm_judge(self, draft: Draft, pack: RetrievalPack) -> list[ValidationIssue]:
         import json
-        system = ("You are an independent checker. For each sentence decide if it asserts anything not "
-                  "supported by its cited facts/modules. Return {\"issues\":[{\"rule\":\"VAL-FACT\",\"sentence\":..,"
-                  "\"message\":..}]}. Return an empty list if all are supported.")
         user = json.dumps({"sentences": [s.__dict__ for s in draft.sentences()],
                            "facts": pack.verified_facts, "chunks": pack.context_chunks}, default=str)
-        out = self.judge.complete_json(task="validation", system=system, user=user)
+        out = self.judge.complete_json(task="validation", system=prompts.system("validation"), user=user)
         return [ValidationIssue(i.get("rule", "VAL-FACT"), "BLOCK", i.get("message", ""), i.get("sentence"))
                 for i in out.get("issues", [])]

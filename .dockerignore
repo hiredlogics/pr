@@ -1,0 +1,9 @@
+*
+# Allowlist, so a new directory is excluded by default rather than accidentally
+# shipped. Secrets and the 380MB frontend node_modules stay out by construction.
+!pcn_appeal/
+!infra/postgres_schema.sql
+!requirements-api.txt
+
+pcn_appeal/**/__pycache__/
+pcn_appeal/**/*.py[cod]

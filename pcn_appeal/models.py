@@ -87,6 +87,7 @@ class EvidenceItem:
     uploaded: bool = True
     text: str = ""                 # OCR / extracted text
     doc_date: Optional[date] = None
+    images: list[bytes] = field(default_factory=list)   # JPEG pages for the vision model
 
 
 @dataclass
@@ -98,6 +99,13 @@ class CaseFile:
     state: CaseState = CaseState.CREATED
     driver_status: DriverStatus = DriverStatus.UNIDENTIFIED
     asked_questions: list[str] = field(default_factory=list)
+    # Questions currently put to the customer, as asked. V2 questions are written
+    # by the analysis engine, so this is the only record of a question's type and
+    # options when the answer comes back.
+    pending_questions: list[dict] = field(default_factory=list)
+    # Grounds chosen by AI case analysis and already vetoed against the KB. The
+    # drafter works from these; nothing re-derives them from a route.
+    analysis_module_ids: list[str] = field(default_factory=list)
     audit: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------

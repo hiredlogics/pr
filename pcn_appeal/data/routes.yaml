@@ -7,10 +7,26 @@ routes:
   KEYING:        {tier: 2, label: Keying error}
   ANPR:          {tier: 2, label: ANPR sequence / duration}
   AUTHORISATION: {tier: 2, label: Permit / authorisation}
+  # Appendix B: "Hospital emergency -> Hospital/emergency/Code route" leads the
+  # letter, so this sits with the other strong fact-specific grounds.
+  HOSPITAL:      {tier: 2, label: Hospital / medical attendance}
   CONSIDERATION: {tier: 3, label: Consideration period / contract formation}
   GRACE:         {tier: 3, label: End grace period / exit delay}
   EQUALITY:      {tier: 3, label: Equality Act / additional time}
   SIGNAGE:       {tier: 3, label: Signage / term prominence}
+  # Sections 13-14 and 6: these are fact/contract-formation and evidence points.
+  # The source hedges every one of them ("analyse", "do not assume"), so none is
+  # a tier-1 dispositive route; they sit at section 16 priority 2-3.
+  ACTIVITY:      {tier: 3, label: Loading, drop-off and other non-parking activity}
+  EV_CHARGING:   {tier: 3, label: EV charging session vs parking}
+  INFRASTRUCTURE: {tier: 3, label: Barrier / access system failure}
+  EVIDENCE:      {tier: 3, label: Independent evidence contradicting the allegation}
+  # KB-BAY-01 sat on EVIDENCE at first, which made the customer-facing ground
+  # label (and the PDF heading) read "Independent evidence contradicting the
+  # allegation" on a case with no independent evidence at all - the labels come
+  # from the route, not the module.
+  BAY:           {tier: 3, label: Evidence for a reserved-bay allegation}
+  CUSTOMER:      {tier: 3, label: Genuine customer use of the premises}
   LANDOWNER:     {tier: 4, label: Landowner authority}
 # Route pairs that must never both appear (contradictory case theories)
 route_conflicts: []   # module-level conflicts live in kb_modules.yaml (conflicts_with)

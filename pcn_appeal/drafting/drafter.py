@@ -16,24 +16,10 @@ import re
 from typing import Optional
 
 from ..kg.graph import KnowledgeGraph
+from .. import prompts
 from ..llm import LLMClient
 from ..models import Draft, DraftSentence, RetrievalPack
 
-DRAFTING_SYSTEM = """You draft an initial private parking appeal to the operator, as the registered keeper.
-HARD RULES
-- Never identify, infer or imply who was driving. Write about "the vehicle", never "I parked/drove".
-- Use ONLY facts in verified_facts, propositions in context_chunks and verbatim lease_clauses.
-- Never invent facts, dates, evidence, signage, payment, lease terms, operator records or case law.
-- Do not allege a PoFA defect unless pofa_findings is non-empty.
-- Do not state Code values unless code_version is set.
-- Do not call ANPR entry-to-exit time 'parking time'. Do not merge consideration and grace.
-- No universal 10-minute rule. Nothing 'automatically' cancels. No penalty / pre-estimate argument.
-- No POPLA / IAS / court language. No module IDs, no internal reasoning.
-- Lead with primary_route; merge repeated points; keep it concise.
-- Say evidence is enclosed only if its evidence_id is in evidence_refs.
-- Quote lease text only verbatim from lease_clauses and set quote_of to its evidence_id.
-OUTPUT JSON: {"paragraphs": [[{"text": str, "fact_refs": [fact_id], "module_refs": [module_id],
-"evidence_refs": [evidence_id], "quote_of": evidence_id|null}]]}"""
 
 _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
@@ -51,7 +37,7 @@ class LLMDrafter:
             "context_chunks", "lease_clauses")}
         if feedback:
             payload["validator_feedback"] = feedback
-        out = self.llm.complete_json(task="drafting", system=DRAFTING_SYSTEM,
+        out = self.llm.complete_json(task="drafting", system=prompts.system("drafting"),
                                      user=json.dumps(payload, default=str))
         paras = [[DraftSentence(**s) for s in p] for p in out["paragraphs"]]
         return Draft(case_id, paras, attempt)
