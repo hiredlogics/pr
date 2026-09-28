@@ -183,14 +183,49 @@ class DemoLLM:
 
     def __init__(self):
         self.calls: list[dict] = []
+        self._kg = None
+
+    def _reference_analysis(self, payload: str) -> dict[str, Any]:
+        """Grounds whose own KB gate is satisfied by the confirmed facts.
+
+        This is NOT case analysis. It cannot read a notice, weigh evidence or
+        judge whether an allegation is denied - which is exactly why production
+        uses a model. It exists so the app remains usable without a key: with no
+        proposal at all, every demo case would reach manual review with no letter.
+
+        It never runs when a provider is configured. `/health` reports
+        `provider: demo` and the UI says so, so a letter produced this way cannot
+        be mistaken for one the model reasoned about.
+        """
+        from .rules.dsl import evaluate
+
+        if self._kg is None:
+            from .kg.graph import KnowledgeGraph
+            self._kg = KnowledgeGraph()
+
+        data = json.loads(payload)
+        facts = data.get("facts") or {}
+        offered = {c.get("module_id") for c in (data.get("candidates") or [])}
+        supported = [
+            m for m in self._kg.active_modules()
+            if m.module_id in offered
+            and evaluate(m.use_when, facts)
+            and not evaluate(m.do_not_use_when, facts)
+        ]
+        supported.sort(key=lambda m: (-m.strength, m.module_id))
+        return {
+            "grounds": [{"module_id": m.module_id,
+                         "supported_by": sorted(m.required_facts or []),
+                         "note": "demo: use_when satisfied"} for m in supported],
+            # It has no way to judge what is material, so it asks nothing.
+            "questions": [],
+            "not_supported": [],
+        }
 
     def complete_json(self, *, task, system, user, images=None):
         self.calls.append({"task": task, "user": user})
         if task == "case_analysis":
-            # It cannot reason, so it proposes nothing. The pipeline then has no
-            # grounds and routes to manual review rather than inventing any -
-            # which is the correct failure mode, and the reason V2 needs a model.
-            return {"grounds": [], "questions": [], "not_supported": []}
+            return self._reference_analysis(user)
         if task != "extraction":
             raise RuntimeError(f"DemoLLM only supports extraction, not {task!r}")
         docs = re.findall(r"<document id='([^']+)' filename='([^']*)'>\n(.*?)\n</document>", user, re.S)

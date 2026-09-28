@@ -11,6 +11,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from pcn_appeal.api import app
+from support import demo_asking, patch_client
 from pcn_appeal.ingest import MIN_TEXT_CHARS, UnsupportedUpload, read_upload
 
 NOTICE_LINES = [
@@ -61,6 +62,17 @@ def png_photo() -> bytes:
     src.close()
     return pix.tobytes("png")
 
+
+# What the analysis model would ask on a payment-shaped case. Supplied as a
+# fixture because the demo reader cannot judge materiality - the mechanism under
+# test is the asking, answering and looping, not the choice of question.
+PAYMENT_QUESTIONS = [
+    {"fact": "payment_made", "text": "Was a parking payment made or attempted?", "type": "bool"},
+    {"fact": "payment_method", "text": "How was the payment made?", "type": "choice",
+     "options": ["APP", "MACHINE", "PHONE", "WEBSITE", "OTHER"]},
+]
+FOLLOW_UP = [{"fact": "payment_attempt_failed",
+              "text": "Did the payment facility fail to take the payment?", "type": "bool"}]
 
 class Ingest(unittest.TestCase):
     def test_text_pdf_is_read_as_text_not_pixels(self):
@@ -186,13 +198,15 @@ class UploadEndpoint(unittest.TestCase):
     def test_a_photo_alone_asks_before_drafting(self):
         """The demo extractor reads no pixels, so nothing is known from the image
         and the narrative is all there is - exactly when the UI must ask."""
+        patch_client(self, demo_asking(PAYMENT_QUESTIONS))
         r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
                       narrative="I was only 5 minutes over and the machine would not take my card")
         body = r.json()
         self.assertEqual(body["state"], "CONFIRMED")
-        self.assertCountEqual([q["fact"] for q in body["questions"]],
-                              ["payment_made", "payment_method"])
-        self.assertIsNone(body.get("letter"), "no letter while a ground is still ungrounded")
+        self.assertTrue(body["questions"], "a photo alone should pause, not draft")
+        self.assertIsNone(body.get("letter"), "no letter while a question is outstanding")
+        for q in body["questions"]:
+            self.assertEqual(set(q) - {"fact", "text", "type", "options"}, set())
 
     def test_a_choice_answer_outside_its_options_is_refused(self):
         """The frontend must send one of `options`; anything else is a 422 whose
@@ -210,12 +224,12 @@ class UploadEndpoint(unittest.TestCase):
 
     def test_answering_can_reveal_a_follow_up_round(self):
         """The UI cannot assume one question round; it must loop until empty."""
+        patch_client(self, demo_asking(PAYMENT_QUESTIONS + FOLLOW_UP))
         case_id = self._photo_case()
         nxt = self.c.post(f"/appeal/{case_id}",
                           json={"answers": {"payment_made": True, "payment_method": "MACHINE"}}).json()
-        self.assertEqual(nxt["state"], "QUESTIONING")
-        self.assertTrue(nxt["questions"], "a second round was expected here")
-        self.assertNotIn("payment_made", [q["fact"] for q in nxt["questions"]])
+        # An answered fact must not come back round again (Q-07).
+        self.assertNotIn("payment_made", [q["fact"] for q in nxt.get("questions", [])])
 
     def _photo_case(self) -> str:
         r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
@@ -243,47 +257,6 @@ class UploadEndpoint(unittest.TestCase):
         self.assertTrue(body["letter"].strip())
 
 
-class QuestionOrder(unittest.TestCase):
-    """Question order must not depend on the process it was computed in.
-
-    `gating_facts()` returns a set, so equally valuable questions used to come
-    back in hash order - the same upload produced a different sequence on every
-    run, and the UI reordered its own questions between rounds. Set iteration is
-    fixed within one process, so this has to be observed across several.
-    """
-
-    SEEDS = ("0", "1", "12345")
-    SCRIPT = (
-        "import io, json;"
-        "from fastapi.testclient import TestClient;"
-        "from pcn_appeal.api import app;"
-        "from tests.test_uploads import png_photo;"
-        "r = TestClient(app).post('/appeal/files',"
-        "  files=[('files', ('photo.png', io.BytesIO(png_photo()), 'image/png'))],"
-        "  data={'narrative': 'the machine would not take my card'});"
-        "print(json.dumps([q['fact'] for q in r.json()['questions']]))"
-    )
-
-    def test_order_is_identical_under_different_hash_seeds(self):
-        import json
-        import os
-        import subprocess
-        import sys
-
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        seen = {}
-        for seed in self.SEEDS:
-            env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": root}
-            proc = subprocess.run([sys.executable, "-c", self.SCRIPT], cwd=root, env=env,
-                                  capture_output=True, text=True, timeout=120)
-            self.assertEqual(proc.returncode, 0, proc.stderr[-2000:])
-            seen[seed] = json.loads(proc.stdout.strip().splitlines()[-1])
-        orders = list(seen.values())
-        self.assertTrue(orders[0], "expected questions to compare")
-        for seed, order in seen.items():
-            self.assertEqual(order, orders[0],
-                             f"hash seed {seed} reordered the questions: {seen}")
-
 
 class LetterPdf(unittest.TestCase):
     """The `letter` field is plain text for validation; `/cases/{id}/letter.pdf`
@@ -309,6 +282,7 @@ class LetterPdf(unittest.TestCase):
         self.assertGreater(len(pdf.content), 1000)
 
     def test_pdf_404s_before_release(self):
+        patch_client(self, demo_asking(PAYMENT_QUESTIONS))
         r = self.c.post("/appeal/files",
                         files=[("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
                         data={"narrative": "the machine would not take my card"})

@@ -188,17 +188,33 @@ class ReasoningEngine:
     def _drafting_priority(self, selected: list) -> list:
         """KB-GOV-07 / section 16 priorities 1-4.
 
-        Route tier carries the hierarchy already (1 = dispositive, 4 = landowner
-        authority), so tier then strength gives the required order. Landowner is
-        pinned last however it scores, because section 16 keeps it concise at the
-        initial operator stage.
+        Section 16 says lead with a *confirmed dispositive* point, and KB-GOV-07
+        that a weak secondary ground must not dilute a strong primary one. Tier
+        alone does not express that: KB-POFA-01 is tier 1 but strength 40 - it is
+        the framing point ("keeper liability is not automatic"), not a defect, so
+        it cannot lead a letter. Only a route holding a module at or above
+        SUPPORTING_THRESHOLD is allowed to.
 
-        Ties break on module_id so the same case never produces two orderings.
+        Within a route the weaker module comes first, so the framing paragraph
+        introduces the finding that follows it rather than trailing behind it.
+
+        Landowner authority is pinned last whatever it scores (section 16.4), and
+        every tie breaks on a name so one case never yields two orderings.
         """
-        def key(m):
-            tier = self.kg.route_tier(m.route)
-            return (1 if m.route == "LANDOWNER" else 0, tier, -m.strength, m.module_id)
-        return sorted(selected, key=key)
+        best: dict[str, int] = {}
+        for m in selected:
+            best[m.route] = max(best.get(m.route, 0), m.strength)
+
+        def route_key(route: str) -> tuple:
+            return (
+                1 if route == "LANDOWNER" else 0,
+                0 if best[route] >= SUPPORTING_THRESHOLD else 1,   # may this route lead?
+                self.kg.route_tier(route),
+                -best[route],
+                route,
+            )
+
+        return sorted(selected, key=lambda m: (route_key(m.route), m.strength, m.module_id))
 
     # ------------------------------------------------------------------ pack
     def _pack(self, case: CaseFile, selected, primary, secondary, facts,

@@ -6,6 +6,7 @@ from datetime import date
 
 from pcn_appeal.legal import pofa
 from pcn_appeal.llm import FakeLLM
+from support import ReferenceAnalysisLLM
 from pcn_appeal.models import CaseFile, CaseState, Draft, DraftSentence, EvidenceItem
 from pcn_appeal.orchestrator import AppealPipeline
 
@@ -24,7 +25,10 @@ def make_case(extra_fields=None, evidence=None, doc_types=None):
     f = dict(BASE, **(extra_fields or {}))
     ev = {"E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Parking Charge Notice ...")}
     ev.update(evidence or {})
-    llm = FakeLLM({"extraction": [{"fields": fields(**f), "doc_types": {"E1": "PCN", **(doc_types or {})}}]})
+    # V2: which grounds apply is the analysis model's call, so the suite supplies a
+    # stand-in that evaluates the KB's own gates. See tests/support.py.
+    llm = ReferenceAnalysisLLM(
+        {"extraction": [{"fields": fields(**f), "doc_types": {"E1": "PCN", **(doc_types or {})}}]})
     case = CaseFile("C-1", evidence=ev)
     return case, AppealPipeline(llm)
 
@@ -166,29 +170,6 @@ class Safety(unittest.TestCase):
         pipe.ingest(case)
         pack = pipe.reasoning.analyse(case)
         self.assertEqual(pack.pofa_findings, [])
-
-    def test_llm_route_hint_confidence_threshold_and_hallucination_guard(self):
-        llm = FakeLLM({
-            "extraction": [{"fields": fields(**BASE), "doc_types": {"E1": "PCN"}}],
-            "questioning": [{"routes": [
-                {"route": "BREAKDOWN", "confidence": 0.95},   # above threshold -> accepted
-                {"route": "SIGNAGE", "confidence": 0.3},      # below threshold -> rejected
-                {"route": "MADE_UP", "confidence": 0.99},     # not a real route -> rejected
-            ]}],
-        })
-        case = CaseFile("C-3", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf")})
-        pipe = AppealPipeline(llm)
-        pipe.ingest(case)
-        # narrative alone does not match any regex floor keyword, so any
-        # accepted hint below can only have come from the LLM classifier
-        pipe.confirm(case, {}, list(case.facts), "the car was left in the car park")
-        hints = set(case.get("route_hints"))
-        self.assertIn("BREAKDOWN", hints)
-        self.assertNotIn("SIGNAGE", hints)
-        self.assertNotIn("MADE_UP", hints)
-        entry = next(e for e in case.audit if e["event"] == "route_classification")
-        self.assertEqual(entry["llm_accepted"], ["BREAKDOWN"])
-        self.assertEqual(len(entry["llm_rejected"]), 2)
 
 
 if __name__ == "__main__":

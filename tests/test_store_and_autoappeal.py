@@ -12,6 +12,7 @@ import yaml
 
 from pcn_appeal.kg.graph import DATA, KnowledgeGraph
 from pcn_appeal.llm import FakeLLM
+from support import ReferenceAnalysisLLM
 from pcn_appeal.models import CaseFile, CaseState, EvidenceItem, FactStatus
 from pcn_appeal.orchestrator import AppealPipeline
 from pcn_appeal.rag.embedder import HashingEmbedder
@@ -25,12 +26,23 @@ def fields(**kw):
     return {k: {"value": v, "confidence": 0.97, "evidence_id": "E1", "page": 1} for k, v in kw.items()}
 
 
-def make_pipe(alleged_breach, extra=None, evidence=None, doc_types=None):
+BREAKDOWN_QUESTIONS = [
+    {"fact": "vehicle_immobilised", "text": "Did the vehicle become unable to move?", "type": "bool"},
+    {"fact": "immobilisation_prevented_departure",
+     "text": "Did that stop the vehicle leaving on time?", "type": "bool"},
+    {"fact": "recovery_attended", "text": "Did a recovery service attend?", "type": "bool"},
+]
+
+
+def make_pipe(alleged_breach, extra=None, evidence=None, doc_types=None, ask=None):
     f = dict(BASE, alleged_breach=alleged_breach, **(extra or {}))
     ev = {"E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Parking Charge Notice")}
     ev.update(evidence or {})
-    llm = FakeLLM({"extraction": [{"fields": fields(**f),
-                                   "doc_types": {"E1": "PCN", **(doc_types or {})}}]})
+    # V2: the analysis model chooses the grounds, so the suite supplies a
+    # stand-in that evaluates the KB's own gates (tests/support.py).
+    llm = ReferenceAnalysisLLM(
+        {"extraction": [{"fields": fields(**f),
+                         "doc_types": {"E1": "PCN", **(doc_types or {})}}]}, ask=ask)
     return CaseFile("C-1", evidence=ev), AppealPipeline(llm)
 
 
@@ -111,13 +123,13 @@ class OneClickAppeal(unittest.TestCase):
         case, pipe = make_pipe("Overstayed paid time",
                                evidence={"E2": EvidenceItem("E2", "RECOVERY_REPORT", "rac.pdf",
                                                             text="RAC job")},
-                               doc_types={"E2": "RECOVERY_REPORT"})
+                               doc_types={"E2": "RECOVERY_REPORT"}, ask=BREAKDOWN_QUESTIONS)
         result = pipe.auto_appeal(case, "the car broke down, battery died, RAC attended")
 
         self.assertIsNone(result.output)                      # paused, not finished
         self.assertTrue(result.questions)
         asked = {q["fact"] for q in result.questions}
-        self.assertIn("vehicle_immobilised", asked)           # gates BREAKDOWN (strength >= 50)
+        self.assertIn("vehicle_immobilised", asked)
         for q in result.questions:
             self.assertNotRegex(q["text"].lower(), r"driv(er|ing)|who (drove|parked)")
 
@@ -133,7 +145,7 @@ class OneClickAppeal(unittest.TestCase):
         case, pipe = make_pipe("Overstayed paid time",
                                evidence={"E2": EvidenceItem("E2", "RECOVERY_REPORT", "rac.pdf",
                                                             text="RAC job")},
-                               doc_types={"E2": "RECOVERY_REPORT"})
+                               doc_types={"E2": "RECOVERY_REPORT"}, ask=BREAKDOWN_QUESTIONS)
         first = pipe.auto_appeal(case, "the car broke down, battery died, RAC attended")
         answers = {"vehicle_immobilised": "yes", "immobilisation_prevented_departure": "yes",
                    "recovery_attended": "yes", "immobilisation_cause": "flat battery",

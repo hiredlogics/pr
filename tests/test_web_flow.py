@@ -67,19 +67,23 @@ class CustomerJourney(unittest.TestCase):
         self.c = TestClient(app)
 
     def test_upload_then_answer_produces_a_letter(self):
-        first = upload(self.c).json()
-        self.assertTrue(first["questions"], "expected questions for this narrative")
-        case_id = first["case_id"]
+        """Answer whatever is asked, however many rounds, and end with a letter.
 
-        answers = {}
-        for q in first["questions"]:
-            answers[q["fact"]] = 18 if q["type"] == "int" else "yes"
-        second = self.c.post(f"/appeal/{case_id}", json={"answers": answers}).json()
+        Whether a pause happens at all is the analysis model's judgement, so the
+        assertion is that the journey terminates - not that it detours.
+        """
+        result = upload(self.c).json()
+        case_id = result["case_id"]
 
-        # the engine may surface one follow-up round; answer it the same way
-        if second.get("questions"):
-            more = {q["fact"]: 18 if q["type"] == "int" else "yes" for q in second["questions"]}
-            second = self.c.post(f"/appeal/{case_id}", json={"answers": more}).json()
+        for _ in range(4):                              # guard against a loop
+            questions = result.get("questions") or []
+            if not questions:
+                break
+            answers = {q["fact"]: 18 if q["type"] == "int" else "yes" for q in questions}
+            result = self.c.post(f"/appeal/{case_id}", json={"answers": answers}).json()
+        else:
+            self.fail("still asking after four rounds")
+        second = result
 
         self.assertEqual(second["state"], "RELEASED", second.get("blocking_issues"))
         self.assertIn("PCN778899", second["letter"])
