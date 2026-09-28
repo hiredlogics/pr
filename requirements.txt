@@ -9,7 +9,8 @@ pydantic>=2.8
 sqlalchemy>=2.0
 psycopg[binary]>=3.2
 pgvector>=0.3
-anthropic>=0.40
+anthropic>=0.40          # LLM_PROVIDER=anthropic
+openai>=1.40             # LLM_PROVIDER=openai
 temporalio>=1.7          # durable workflow orchestration (or celery+redis)
 boto3>=1.34              # S3 evidence storage
 weasyprint>=62           # PDF rendering

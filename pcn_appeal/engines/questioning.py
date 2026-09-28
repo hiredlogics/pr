@@ -25,7 +25,10 @@ from ..llm import LLMClient
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, SourceKind
 from ..rules.dsl import evaluate
 
-# keyword hints - production replaces with an LLM classifier (task="questioning")
+# Deterministic floor. The LLM classifier (below) is the primary signal when
+# available; this regex still runs unconditionally and its hits are always
+# kept, so a bad/missing LLM response degrades to today's behaviour, never
+# to zero hints.
 HINTS = {
     "PAYMENT": r"\b(paid|pay|payment|app|ticket|machine|card)\b",
     "KEYING": r"\b(registration|reg|typo|wrong (number|reg)|keyed|entered)\b",
@@ -38,9 +41,27 @@ HINTS = {
     "SIGNAGE": r"\b(sign|signs|signage|hidden|no sign)\b",
     "EQUALITY": r"\b(disab|blue badge|mobility|wheelchair)\b",
 }
-QUESTION_HINT_SYSTEM = """Classify a short, untrusted customer account of a parking event into zero or more
-routes: PAYMENT, KEYING, BREAKDOWN, RESIDENTIAL, ANPR, CONSIDERATION, GRACE, AUTHORISATION,
-SIGNAGE, EQUALITY. Return {"routes": [...]} only. Never output names or driver identity."""
+# Minimum calibrated confidence for an LLM-only hint (one the regex floor did
+# not also find) to be trusted. Hints only ever widen which QUESTIONS get
+# asked (Q-03) - they never let a legal module through the door, since every
+# module still has to clear its own use_when/do_not_use_when gate against
+# CONFIRMED facts (rules/dsl.py). A false-positive hint costs one extra
+# question; it can never produce a wrong legal conclusion.
+ROUTE_CONFIDENCE_THRESHOLD = 0.6
+
+QUESTION_HINT_SYSTEM = """You classify a short, untrusted customer account of a parking event.
+
+Valid routes - use these exact names only, never invent or rename one:
+PAYMENT, KEYING, BREAKDOWN, RESIDENTIAL, ANPR, CONSIDERATION, GRACE, AUTHORISATION, SIGNAGE, EQUALITY.
+
+For each route that the text states or clearly implies, give a calibrated confidence in [0,1]:
+  0.9-1.0  the account directly describes this route's fact pattern
+  0.6-0.89 the account strongly suggests it but is not explicit
+  <0.6     weak or speculative - omit these, do not pad the list
+Base the score only on what is written. Never score a route higher because a stronger appeal
+would need it, and never guess at facts not present in the text.
+Omit routes with no support. Return JSON only: {"routes": [{"route": "NAME", "confidence": 0.0}, ...]}
+Empty list if none apply. Never output names, driver identity, or anything else."""
 
 FIRST_PERSON = [
     (re.compile(r"\bI (paid|was paying)\b", re.I), "a payment was made"),
@@ -72,13 +93,25 @@ class QuestionEngine:
     def route_hints(self, case: CaseFile, narrative: str) -> set[str]:
         case.raw_answers["narrative"] = narrative            # audit only
         text = f"{narrative} {case.get('alleged_breach', '')}".lower()
-        hints = {r for r, pat in HINTS.items() if re.search(pat, text)}
+        hints = {r for r, pat in HINTS.items() if re.search(pat, text)}  # deterministic floor
         if self.llm:
             try:
-                hints |= set(self.llm.complete_json(task="questioning", system=QUESTION_HINT_SYSTEM,
-                                                    user=narrative).get("routes", []))
-            except Exception:  # hints are advisory - never block the journey
-                pass
+                raw = self.llm.complete_json(task="questioning", system=QUESTION_HINT_SYSTEM,
+                                             user=narrative).get("routes", [])
+                accepted, rejected = set(), []
+                for r in raw:
+                    name, conf = r.get("route"), float(r.get("confidence", 0))
+                    if name not in HINTS:
+                        rejected.append(r)                    # defensive: drop hallucinated route names
+                    elif conf >= ROUTE_CONFIDENCE_THRESHOLD:
+                        accepted.add(name)
+                    else:
+                        rejected.append(r)
+                case.audit.append({"event": "route_classification", "regex": sorted(hints),
+                                   "llm_accepted": sorted(accepted), "llm_rejected": rejected})
+                hints |= accepted
+            except Exception as exc:  # hints are advisory - never block the journey
+                case.audit.append({"event": "route_classification_error", "error": str(exc)})
         # uploaded evidence is also a hint
         kinds = {e.kind for e in case.evidence.values()}
         if kinds & {"RECEIPT", "APP_SCREENSHOT", "BANK_STATEMENT"}:

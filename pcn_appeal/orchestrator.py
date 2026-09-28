@@ -37,7 +37,7 @@ class AppealPipeline:
     def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None):
         self.kg = kg or KnowledgeGraph()
         self.extraction = ExtractionEngine(llm)
-        self.questions = QuestionEngine(self.kg)
+        self.questions = QuestionEngine(self.kg, llm)
         self.reasoning = ReasoningEngine(self.kg)
         self.drafter = drafter or TemplateDrafter(self.kg)
         self.fallback = TemplateDrafter(self.kg)

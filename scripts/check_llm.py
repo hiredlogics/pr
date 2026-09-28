@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""Check the configured LLM provider and show the model chosen per task.
+
+    python scripts/check_llm.py [--env PATH] [--call]
+
+--call additionally sends one tiny real request per task, so a key that lists
+models but cannot invoke them (wrong project, no quota) fails here rather than
+mid-case. Nothing is printed that could reveal key material.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from pcn_appeal.llm import MODEL_ROUTING, OPENAI_PREFERENCES, default_client  # noqa: E402
+
+KEY_VARS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
+
+
+def load_env(path: Path) -> None:
+    """Minimal .env reader so this works without python-dotenv installed."""
+    if not path.exists():
+        print(f"  no env file at {path}")
+        return
+    loaded = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        name, value = name.strip(), value.strip().strip('"').strip("'")
+        if name and value:
+            os.environ.setdefault(name, value)
+            loaded.append(name)
+    print(f"  loaded {len(loaded)} vars from {path}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--env", default=".venv/.env", help="env file to load first")
+    ap.add_argument("--call", action="store_true", help="also send one real request per task")
+    args = ap.parse_args()
+
+    print("environment")
+    load_env(Path(args.env))
+    for var in KEY_VARS:
+        print(f"  {var}: {'present' if os.getenv(var) else 'absent'}")
+    print(f"  LLM_PROVIDER: {os.getenv('LLM_PROVIDER') or '(auto)'}")
+
+    print("\nclient")
+    try:
+        client = default_client()
+    except Exception as exc:
+        print(f"  FAILED to construct: {type(exc).__name__}: {exc}")
+        return 1
+    print(f"  {type(client).__name__}")
+
+    models = getattr(client, "models", None) or MODEL_ROUTING
+    print("\nmodel per task")
+    for task in OPENAI_PREFERENCES:
+        print(f"  {task:12} -> {models.get(task, '(n/a)')}")
+    if models.get("drafting") and models.get("drafting") == models.get("validation"):
+        print("  WARNING: validation shares the drafting model")
+
+    if args.call:
+        print("\nlive call per task")
+        for task in OPENAI_PREFERENCES:
+            try:
+                out = client.complete_json(
+                    task=task, system='Reply with JSON {"ok": true} and nothing else.',
+                    user="ping")
+                print(f"  {task:12} ok  <- {out}")
+            except Exception as exc:
+                print(f"  {task:12} FAILED  {type(exc).__name__}: "
+                      f"{str(exc).splitlines()[0][:120]}")
+                return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -167,6 +167,29 @@ class Safety(unittest.TestCase):
         pack = pipe.reasoning.analyse(case)
         self.assertEqual(pack.pofa_findings, [])
 
+    def test_llm_route_hint_confidence_threshold_and_hallucination_guard(self):
+        llm = FakeLLM({
+            "extraction": [{"fields": fields(**BASE), "doc_types": {"E1": "PCN"}}],
+            "questioning": [{"routes": [
+                {"route": "BREAKDOWN", "confidence": 0.95},   # above threshold -> accepted
+                {"route": "SIGNAGE", "confidence": 0.3},      # below threshold -> rejected
+                {"route": "MADE_UP", "confidence": 0.99},     # not a real route -> rejected
+            ]}],
+        })
+        case = CaseFile("C-3", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf")})
+        pipe = AppealPipeline(llm)
+        pipe.ingest(case)
+        # narrative alone does not match any regex floor keyword, so any
+        # accepted hint below can only have come from the LLM classifier
+        pipe.confirm(case, {}, list(case.facts), "the car was left in the car park")
+        hints = set(case.get("route_hints"))
+        self.assertIn("BREAKDOWN", hints)
+        self.assertNotIn("SIGNAGE", hints)
+        self.assertNotIn("MADE_UP", hints)
+        entry = next(e for e in case.audit if e["event"] == "route_classification")
+        self.assertEqual(entry["llm_accepted"], ["BREAKDOWN"])
+        self.assertEqual(len(entry["llm_rejected"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

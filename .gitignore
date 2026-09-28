@@ -1,3 +1,10 @@
 .venv/
 __pycache__/
 *.py[cod]
+
+# secrets
+.env
+.env.*
+
+# KB source documents (the machine-readable conversion lives in pcn_appeal/data/)
+*.docx
