@@ -1,0 +1,17 @@
+# Route hierarchy (KB-GOV-07 + KB section 16). tier 1 = leads the letter.
+routes:
+  POFA:          {tier: 1, label: Keeper liability (PoFA Schedule 4)}
+  RESIDENTIAL:   {tier: 1, label: Pre-existing residential parking rights}
+  BREAKDOWN:     {tier: 2, label: Breakdown / involuntary immobilisation}
+  PAYMENT:       {tier: 2, label: Payment made / payment system failure}
+  KEYING:        {tier: 2, label: Keying error}
+  ANPR:          {tier: 2, label: ANPR sequence / duration}
+  AUTHORISATION: {tier: 2, label: Permit / authorisation}
+  CONSIDERATION: {tier: 3, label: Consideration period / contract formation}
+  GRACE:         {tier: 3, label: End grace period / exit delay}
+  EQUALITY:      {tier: 3, label: Equality Act / additional time}
+  SIGNAGE:       {tier: 3, label: Signage / term prominence}
+  LANDOWNER:     {tier: 4, label: Landowner authority}
+# Route pairs that must never both appear (contradictory case theories)
+route_conflicts: []   # module-level conflicts live in kb_modules.yaml (conflicts_with)
+max_secondary_routes: 3

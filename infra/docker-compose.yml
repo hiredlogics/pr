@@ -1,0 +1,7 @@
+services:
+  api:        {build: .., command: uvicorn pcn_appeal.api:app --host 0.0.0.0, ports: ["8000:8000"], env_file: ../.env, depends_on: [db, temporal]}
+  worker:     {build: .., command: python -m pcn_appeal.worker, env_file: ../.env, depends_on: [db, temporal]}
+  db:         {image: pgvector/pgvector:pg16, environment: {POSTGRES_PASSWORD: dev}, volumes: ["./postgres_schema.sql:/docker-entrypoint-initdb.d/1.sql"]}
+  temporal:   {image: temporalio/auto-setup:latest, ports: ["7233:7233"]}
+  minio:      {image: minio/minio, command: server /data, ports: ["9000:9000"]}   # S3 locally
+  # neo4j:    {image: neo4j:5, ports: ["7474:7474", "7687:7687"]}               # optional

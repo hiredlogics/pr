@@ -1,0 +1,27 @@
+# Question bank. Each question resolves ONE fact. Wording is neutral/passive:
+# it never asks who drove and never invites a first-person driver admission.
+# `normalise` maps answer -> keeper-safe fact value (raw text kept for audit only).
+questions:
+  payment_made:      {text: "Was a parking payment made or attempted for this visit?", type: bool}
+  payment_method:    {text: "How was the payment made?", type: choice, options: [APP, MACHINE, PHONE, WEBSITE, OTHER]}
+  keying_error_type: {text: "Does the registration entered on the payment differ from the vehicle's registration?", type: choice, options: [NONE, MINOR, DIFFERENT_VEHICLE]}
+  vrm_entered:       {text: "What registration was entered when paying (if known)?", type: text}
+  vehicle_immobilised: {text: "Did the vehicle become mechanically unable to move (for example breakdown, flat battery or puncture)?", type: bool}
+  immobilisation_cause: {text: "What was the fault?", type: text}
+  immobilisation_prevented_departure: {text: "Did that fault stop the vehicle leaving or complying on time?", type: bool}
+  recovery_attended: {text: "Did a recovery or breakdown service attend?", type: bool}
+  resident_status:   {text: "What is the connection to the property where the vehicle was parked?", type: choice, options: [RESIDENT, TENANT, LEASEHOLDER, VISITOR, NONE]}
+  multiple_visits:   {text: "Did the vehicle visit the site more than once that day?", type: bool}
+  short_presence_before_acceptance: {text: "Did the vehicle leave without parking, or was time spent looking for a space or reading the terms?", type: bool}
+  permitted_period_ended: {text: "Was there a paid or permitted parking period that ended before the vehicle left?", type: bool}
+  exit_delay_min:    {text: "Roughly how many minutes did it take to leave after that period ended?", type: int}
+  exit_congestion:   {text: "Was leaving delayed by a queue, traffic or a barrier problem on site?", type: bool}
+  time_spent_finding_space: {text: "Was time spent after entering looking for a space before parking?", type: bool}
+  permit_display_issue: {text: "Was there a problem displaying or registering the permit (for example it fell or the registration was missing)?", type: bool}
+  permit_held:       {text: "Was a permit or permission to park held for this location?", type: bool}
+  signage_issue_raised: {text: "Is there a specific problem with the signs (missing, hidden, damaged, unlit or contradictory)?", type: bool}
+  disability_extra_time: {text: "Did any disability-related need mean extra time was needed? (No medical detail is needed.)", type: bool}
+# Words the question engine must never generate (hard rule Q-01).
+banned_question_terms: ["who was driving", "who drove", "name of the driver", "were you driving", "driver's name"]
+max_questions: 6
+hard_cap_questions: 8

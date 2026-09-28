@@ -1,0 +1,135 @@
+"""Legal knowledge graph.
+
+Node types : Route, Module, Fact, Question, Evidence, LegalSource, Block
+Edge types : Module-BELONGS_TO->Route        Module-REQUIRES->Fact
+             Module-GATED_BY->Fact            Module-CITES->LegalSource
+             Module-EXPRESSED_BY->Block        Module-HELPED_BY->Evidence
+             Module-CONFLICTS_WITH->Module     Fact-ASKED_BY->Question
+             Block-NEEDS_EVIDENCE->Evidence
+             Block-ASSERTS_FACT->Fact
+
+Reference impl: networkx (the whole KB is a few hundred nodes, fits in memory,
+rebuilt when an admin publishes a KB version). Production option: Neo4j using
+infra/neo4j_schema.cypher - same node/edge vocabulary, so this class becomes a
+thin Cypher adapter.
+
+What the graph gives you that vector search cannot:
+  * which facts are still missing to unlock/rule out a route  -> Question engine
+  * which modules contradict each other                      -> Reasoning engine
+  * which legal source + version backs a proposition          -> Validation engine
+  * which blocks need which evidence                          -> Validation engine
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Iterable
+
+import networkx as nx
+import yaml
+
+from ..models import BuildingBlock, KBModule
+from ..rules.dsl import referenced_facts
+
+DATA = Path(__file__).resolve().parent.parent / "data"
+
+
+class KnowledgeGraph:
+    def __init__(self, data_dir: Path = DATA):
+        self.g = nx.MultiDiGraph()
+        self.modules: dict[str, KBModule] = {}
+        self.blocks: dict[str, BuildingBlock] = {}
+        self.routes: dict[str, dict] = {}
+        self.questions: dict[str, dict] = {}
+        self.question_cfg: dict = {}
+        self._load(data_dir)
+
+    # ------------------------------------------------------------------ load
+    def _load(self, d: Path) -> None:
+        kb = yaml.safe_load((d / "kb_modules.yaml").read_text())
+        rt = yaml.safe_load((d / "routes.yaml").read_text())
+        bb = yaml.safe_load((d / "building_blocks.yaml").read_text())
+        qs = yaml.safe_load((d / "questions.yaml").read_text())
+
+        self.routes = rt["routes"]
+        self.max_secondary = rt.get("max_secondary_routes", 3)
+        for r, meta in self.routes.items():
+            self.g.add_node(("Route", r), **meta)
+
+        for bid, b in bb["blocks"].items():
+            blk = BuildingBlock(bid, b["text"], b.get("requires_evidence_any", []), b.get("requires_facts", []))
+            self.blocks[bid] = blk
+            self.g.add_node(("Block", bid))
+            for ev in blk.requires_evidence:
+                self.g.add_edge(("Block", bid), ("Evidence", ev), type="NEEDS_EVIDENCE")
+            for f in blk.requires_facts:
+                self.g.add_edge(("Block", bid), ("Fact", f), type="ASSERTS_FACT")
+
+        for src_id, meta in kb.get("legal_sources", {}).items():
+            self.g.add_node(("LegalSource", src_id), **meta)
+
+        for m in kb["modules"]:
+            mod = KBModule(**{k: m.get(k) for k in (
+                "module_id", "route", "topic", "use_when", "do_not_use_when", "core_proposition",
+                "required_facts", "evidence_helpful", "legal_basis", "drafting_notes",
+                "prohibited_claims", "building_blocks")},
+                strength=m.get("strength", 50), status=m.get("status", "ACTIVE"),
+                version=str(m.get("version", "1.0")))
+            self.modules[mod.module_id] = mod
+            n = ("Module", mod.module_id)
+            self.g.add_node(n, topic=mod.topic, strength=mod.strength)
+            self.g.add_edge(n, ("Route", mod.route), type="BELONGS_TO")
+            for f in mod.required_facts:
+                self.g.add_edge(n, ("Fact", f), type="REQUIRES")
+            for f in referenced_facts(mod.use_when) | referenced_facts(mod.do_not_use_when):
+                self.g.add_edge(n, ("Fact", f), type="GATED_BY")
+            for s in mod.legal_basis:
+                self.g.add_edge(n, ("LegalSource", s), type="CITES")
+            for b in mod.building_blocks:
+                self.g.add_edge(n, ("Block", b), type="EXPRESSED_BY")
+            for e in mod.evidence_helpful:
+                self.g.add_edge(n, ("Evidence", e), type="HELPED_BY")
+
+        for a, b in kb.get("conflicts_with", []):
+            self.g.add_edge(("Module", a), ("Module", b), type="CONFLICTS_WITH")
+            self.g.add_edge(("Module", b), ("Module", a), type="CONFLICTS_WITH")
+
+        self.question_cfg = {k: v for k, v in qs.items() if k != "questions"}
+        for fact, q in qs["questions"].items():
+            self.questions[fact] = q
+            self.g.add_edge(("Fact", fact), ("Question", fact), type="ASKED_BY")
+
+    # ------------------------------------------------------------------ queries
+    def _out(self, node, etype: str) -> list:
+        return [v for _, v, d in self.g.out_edges(node, data=True) if d.get("type") == etype]
+
+    def active_modules(self) -> Iterable[KBModule]:
+        return (m for m in self.modules.values() if m.status == "ACTIVE")
+
+    def route_tier(self, route: str) -> int:
+        return self.routes.get(route, {}).get("tier", 9)
+
+    def gating_facts(self, module_id: str) -> set[str]:
+        n = ("Module", module_id)
+        direct = {v[1] for v in self._out(n, "GATED_BY") + self._out(n, "REQUIRES")}
+        via_blocks = {f[1] for b in self._out(n, "EXPRESSED_BY") for f in self._out(b, "ASSERTS_FACT")}
+        return direct | via_blocks
+
+    def conflicts(self, module_id: str) -> set[str]:
+        return {v[1] for v in self._out(("Module", module_id), "CONFLICTS_WITH")}
+
+    def sources(self, module_id: str) -> list[dict]:
+        return [{"id": v[1], **self.g.nodes[v]} for v in self._out(("Module", module_id), "CITES")]
+
+    def question_for(self, fact: str) -> dict | None:
+        return self.questions.get(fact)
+
+    def export_cypher(self) -> str:
+        """Emit MERGE statements to seed Neo4j from the same YAML source."""
+        lines = []
+        for n, attrs in self.g.nodes(data=True):
+            label, key = n
+            lines.append(f"MERGE (:{label} {{id: '{key}'}});")
+        for u, v, d in self.g.edges(data=True):
+            lines.append(f"MATCH (a:{u[0]} {{id:'{u[1]}'}}),(b:{v[0]} {{id:'{v[1]}'}}) "
+                         f"MERGE (a)-[:{d['type']}]->(b);")
+        return "\n".join(lines)
