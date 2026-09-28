@@ -22,11 +22,16 @@ KEY_VARS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 
 
 def load_env(path: Path) -> None:
-    """Minimal .env reader so this works without python-dotenv installed."""
+    """Minimal .env reader so this works without python-dotenv installed.
+
+    Within the file the LAST assignment to a name wins, so appending a
+    corrected line with `>>` does what you expect. An already-exported shell
+    variable still beats the file.
+    """
     if not path.exists():
         print(f"  no env file at {path}")
         return
-    loaded = []
+    values: dict[str, str] = {}
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -34,9 +39,22 @@ def load_env(path: Path) -> None:
         name, _, value = line.partition("=")
         name, value = name.strip(), value.strip().strip('"').strip("'")
         if name and value:
-            os.environ.setdefault(name, value)
-            loaded.append(name)
-    print(f"  loaded {len(loaded)} vars from {path}")
+            values[name] = value                     # later lines override earlier ones
+    for name, value in values.items():
+        os.environ.setdefault(name, value)
+    print(f"  loaded {len(values)} vars from {path}")
+
+
+# Values that are obviously a copied example rather than a credential. Catching
+# these here turns a confusing provider 401 into a message that says what to do.
+def placeholder_reason(value: str) -> str | None:
+    if value.endswith("...") or value.rstrip(".") != value:
+        return "ends in '...' - looks like a copied example, not a real key"
+    if value.startswith("<") or value.endswith(">"):
+        return "wrapped in angle brackets - looks like a fill-in-the-blank"
+    if len(value) < 40:
+        return f"only {len(value)} characters - real provider keys are far longer"
+    return None
 
 
 def main() -> int:
@@ -47,9 +65,24 @@ def main() -> int:
 
     print("environment")
     load_env(Path(args.env))
+    bad = False
     for var in KEY_VARS:
-        print(f"  {var}: {'present' if os.getenv(var) else 'absent'}")
+        value = os.getenv(var)
+        if not value:
+            print(f"  {var}: absent")
+            continue
+        reason = placeholder_reason(value)
+        if reason:
+            print(f"  {var}: PLACEHOLDER - {reason}")
+            bad = True
+        else:
+            print(f"  {var}: present")
     print(f"  LLM_PROVIDER: {os.getenv('LLM_PROVIDER') or '(auto)'}")
+    if bad:
+        print(f"\nEdit {args.env} and replace the placeholder with a real key from\n"
+              "  https://platform.openai.com/api-keys\n"
+              "Paste it in your editor rather than echoing it, to keep it out of shell history.")
+        return 2
 
     print("\nclient")
     try:
