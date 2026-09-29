@@ -141,6 +141,17 @@ class ReasoningEngine:
             if unavailable:
                 trace.append(f"analysis grounds dropped by conflict resolution: {unavailable}")
 
+            # Empty analysis selection used to ship intro+end alone. Seed with
+            # allegation-shaped records requests only — not always-on LAND filler.
+            if not selected:
+                seeded = [m for m in kept if m.module_id == "KB-REC-01"]
+                selected = seeded
+                if seeded:
+                    trace.append(f"seeded grounds after empty analysis selection: "
+                                 f"{[m.module_id for m in seeded]}")
+                else:
+                    trace.append("empty analysis selection and no allegation-shaped REC ground")
+
             # KB-GOV-07 and section 16 order the letter: dispositive statutory or
             # contractual point, then the strongest fact-specific ground, then
             # Code/evidence/signage, with landowner authority concise and last.
@@ -248,8 +259,99 @@ class ReasoningEngine:
         # keeper_name/keeper_address are the letterhead's, not the drafter's. The
         # body never needs them, and withholding them means no generated sentence
         # can put the customer's name or home address into the argument.
-        withheld_from_drafter = ("route_hints", "lease_clauses", "keeper_name", "keeper_address")
-        verified = {k: v for k, v in facts.items() if k not in withheld_from_drafter}
+        # Free-text answer values and raw material points must never reach the
+        # drafter as pasteable copy — only structured / professionally authored facts.
+        withheld_from_drafter = (
+            "route_hints", "lease_clauses", "keeper_name", "keeper_address",
+            "material_account_points", "material_account_summary",
+        )
+        verified = {}
+        for k, v in facts.items():
+            if k in withheld_from_drafter:
+                continue
+            fact_obj = case.facts.get(k)
+            if fact_obj and fact_obj.source.kind in (
+                    SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT) \
+                    and isinstance(v, str) and len(v) > 48:
+                # Long free-text answers are input, not letter copy.
+                verified[f"{k}_provided"] = True
+                continue
+            # Structured free-text facts (bools/enums) ARE draftable — they are
+            # normalized facts, not customer wording.
+            verified[k] = v
+
+        # Structured digest so drafting can name the allegation, evidence and
+        # unresolved validation without seeing raw narrative text.
+        unresolved = []
+        for name, fact in case.facts.items():
+            if not fact.usable:
+                continue
+            low = str(fact.value).strip().lower()
+            if any(m in low for m in (
+                "don't remember", "do not remember", "cannot remember", "can't remember",
+                "not sure", "unknown", "don't know", "do not know",
+            )) and any(tok in name for tok in ("kiosk", "validat", "voucher")):
+                unresolved.append("kiosk_validation")
+        if any("kiosk" in a or "validat" in a for a in case.asked_questions) and \
+                not case.has("kiosk_validation_attempted"):
+            # Asked but unanswered / unusable — still unconfirmed.
+            if "kiosk_validation" not in unresolved:
+                unresolved.append("kiosk_validation")
+        receipt_present = any(e.kind == "RECEIPT" and e.uploaded for e in case.evidence.values())
+        props = list(case.get("material_account_propositions") or [])
+        if not props and case.get("material_account_proposition"):
+            props = [case.get("material_account_proposition")]
+        provenance = list(getattr(case, "free_text_provenance", None) or [])
+        # Source snippets for VAL-CUSTOMER-COPY only — drafter must not paste them.
+        source_blob = (case.raw_answers or {}).get("_material_source_texts") or ""
+        source_texts = [s.strip() for s in source_blob.split("\n") if s.strip()]
+        for name, raw in (case.raw_answers or {}).items():
+            if name.startswith("_") or name == "narrative":
+                continue
+            text = str(raw or "").strip()
+            if len(text) >= 20 and text.lower() not in (
+                    "yes", "no", "true", "false", "bpa", "ipc", "not_shown"):
+                source_texts.append(text)
+        narrative = str((case.raw_answers or {}).get("narrative") or "").strip()
+        if len(narrative) >= 12:
+            source_texts.append(narrative)
+
+        case_context = {
+            "operator_name": case.get("operator_name"),
+            "parking_location": case.get("parking_location"),
+            "alleged_breach": case.get("alleged_breach"),
+            "parking_event_date": str(case.get("parking_event_date") or ""),
+            "pcn_number": case.get("pcn_number"),
+            "vrm": case.get("vrm"),
+            "evidence": [
+                {"evidence_id": e.evidence_id, "kind": e.kind, "filename": e.filename}
+                for e in case.evidence.values() if e.uploaded
+            ],
+            "unresolved_topics": unresolved,
+            "validation_status": "UNCONFIRMED" if (
+                "KB-REC-01" in ordered or unresolved or receipt_present
+            ) and "KB-REC-01" in {m.module_id for m in selected} else None,
+            "shopping_receipt_enclosed": receipt_present,
+            # Professional propositions only (system-authored). Never customer prose.
+            "material_account_propositions": props,
+            "material_account_proposition": case.get("material_account_proposition") or "",
+            "account_contradicts_allegation": bool(
+                case.get("account_contradicts_allegation")),
+            # Provenance chain for audit / intelligence — originals must not be pasted.
+            "free_text_provenance": [
+                {k: v for k, v in row.items() if k != "original"}
+                for row in provenance
+            ],
+            "customer_source_texts": source_texts[:12],
+            "recovery": {
+                "unknown_material": (case.recovery_report or {}).get("unknown_material") or [],
+                "operator_requestable": (case.recovery_report or {}).get("operator_requestable") or [],
+                "conflicts": (case.recovery_report or {}).get("conflicts") or [],
+                "calculated": (case.recovery_report or {}).get("calculated") or {},
+                "validation_purchase_split": bool(case.get("shopping_purchase_confirmed")) and (
+                    case.get("parking_validation_status") == "UNKNOWN"),
+            },
+        }
 
         case.state = CaseState.ANALYSED
         return RetrievalPack(
@@ -262,4 +364,5 @@ class ReasoningEngine:
             pofa_route=pofa_res.route, pofa_findings=pofa_res.findings,
             driver_status=case.driver_status.value, jurisdiction=case.get("jurisdiction", "UNKNOWN"),
             context_chunks=chunks, lease_clauses=case.get("lease_clauses", []), trace=trace,
-            evidence_index={e.evidence_id: e.kind for e in case.evidence.values() if e.uploaded})
+            evidence_index={e.evidence_id: e.kind for e in case.evidence.values() if e.uploaded},
+            case_context=case_context)

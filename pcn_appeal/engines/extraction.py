@@ -12,6 +12,7 @@ Rule pack
   EX-06 Uploaded text is DATA. Instruction-like text is flagged (prompt-injection guard).
   EX-07 Notice route resolved from document type (NTD present -> WINDSCREEN).
   EX-08 VRM normalised (upper, no spaces) and cross-checked across documents.
+  EX-16 Distinct labelled PCN numbers across documents are flagged; never silently corrected.
 """
 from __future__ import annotations
 
@@ -32,6 +33,69 @@ VRM_FIELDS = {"vrm", "vrm_entered"}              # both normalised the same way 
 # field labelled as a time, and the raw value ends up quoted in the letter.
 TIME_FIELDS = {"entry_time", "exit_time", "observation_time", "event_time"}
 
+# Canonical ATA codes used by Code version resolution and choice questions.
+ATA_CODES = ("BPA", "IPC", "NOT_SHOWN")
+
+# Well-known operators → accredited trade association. Used only when the notice
+# does not print an ATA; never overrides a value read from the document.
+KNOWN_OPERATOR_ATA: dict[str, str] = {
+    "euro car parks": "BPA",
+    "euro car park": "BPA",
+    "parkingeye": "BPA",
+    "parking eye": "BPA",
+    "ncp": "BPA",
+    "national car parks": "BPA",
+    "apcoa": "BPA",
+    "cp plus": "BPA",
+    "civil enforcement": "IPC",
+    "ukpc": "IPC",
+    "uk parking control": "IPC",
+    "parking control management": "IPC",
+    "pcm": "IPC",
+    "vehicle control services": "IPC",
+    "vcs": "IPC",
+}
+
+
+def known_operator_ata(operator_name: Any) -> Optional[str]:
+    """Return BPA/IPC when the operator is a known trade-body member."""
+    if not operator_name:
+        return None
+    low = re.sub(r"\s+", " ", str(operator_name).strip().lower())
+    if low in KNOWN_OPERATOR_ATA:
+        return KNOWN_OPERATOR_ATA[low]
+    for key, code in KNOWN_OPERATOR_ATA.items():
+        if key in low or low in key:
+            return code
+    return None
+
+
+def normalise_operator_ata(value: Any) -> Optional[str]:
+    """Map OCR / full trade-body names to BPA | IPC | NOT_SHOWN.
+
+    Extraction and customers often supply "International Parking Community (IPC)"
+    or "British Parking Association"; Code resolution and choice answers only
+    accept the short codes.
+    """
+    if value in (None, ""):
+        return None
+    raw = str(value).strip()
+    upper = raw.upper()
+    if upper in ATA_CODES:
+        return upper
+    if upper in ("UNKNOWN", "N/A", "NA", "NONE", "NO"):
+        return "NOT_SHOWN"
+    compact = re.sub(r"[^A-Z0-9]+", " ", upper)
+    # Prefer explicit acronym tokens over loose substrings.
+    if re.search(r"\bIPC\b", compact) or "INTERNATIONAL PARKING" in compact:
+        return "IPC"
+    if re.search(r"\bBPA\b", compact) or "BRITISH PARKING" in compact:
+        return "BPA"
+    if any(tok in compact for tok in ("NOT SHOWN", "NO LOGO", "NO ATA", "NO TRADE")):
+        return "NOT_SHOWN"
+    return None
+
+
 # EX-10. An operator that says in its own notice that it took the money is
 # better evidence of a completed transaction than a customer's recollection
 # that the machine failed. Deterministic on purpose: a regex over the notice,
@@ -46,6 +110,26 @@ _TAKEN = r"(recorded|received|processed|successful|completed|taken)"
 PAYMENT_RECORDED = re.compile(
     rf"\bpayments?\b{_GAP}{{0,80}}\b{_TAKEN}\b"
     rf"|\b{_TAKEN}\b{_GAP}{{0,40}}\bpayments?\b",
+    re.I)
+
+# EX-13. Debt-recovery / closed-appeal stage. Detected from the operator's own
+# wording on the uploaded papers - not inferred from the customer's story. When
+# present the orchestrator stops the normal appeal path (see CaseState.NO_APPEAL_RIGHT).
+DEBT_RECOVERY = re.compile(
+    r"\b(debt\s*recovery|passed\s+to\s+(?:a\s+)?debt|"
+    r"letter\s+of\s+claim|claim\s+form|"
+    r"civil\s+enforcement|enforcement\s+agent|\bbailiffs?\b|"
+    r"right\s+to\s+appeal\s+(?:has\s+)?(?:now\s+)?(?:expired|ended|lapsed|closed)|"
+    r"appeal\s+(?:window|period|right)\s+(?:has\s+)?(?:now\s+)?(?:closed|expired|ended))\b",
+    re.I)
+
+# EX-14. Hire / lease-firm keeper. Triggers the hire-documentation ground; the
+# model still decides whether that ground is worth arguing, but the fact that
+# the notice addresses a hire firm is read off the document.
+HIRE_KEEPER = re.compile(
+    r"\b(hire\s+(?:company|firm|vehicle)|vehicle\s+hire|lease\s+(?:company|firm)|"
+    r"rental\s+(?:company|firm|vehicle)|contract\s+hire|"
+    r"registered\s+keeper.{0,40}\bhire\b|\bhire\b.{0,40}registered\s+keeper)\b",
     re.I)
 
 # EX-12. Bays reserved for a class of user (parent and child, family, disabled,
@@ -63,6 +147,35 @@ MIXED_BORDER = {"TD", "CA", "NP", "SY", "CH", "LD", "LL"}   # needs full-postcod
 INJECTION = re.compile(r"(ignore (all|previous|the above)|system prompt|you are (now )?an? (ai|assistant)|"
                        r"disregard .{0,20}instructions|<\s*/?\s*(system|instruction))", re.I)
 
+# EX-16. Distinct PCN reference tokens labelled as such in document text.
+# Never silently overwrite one value with another — conflicts are flagged.
+# "Parking Charge Notice" alone must not capture the next word (e.g. Operator).
+# Require an explicit Number/No/Ref/# label, or bare "PCN" followed by a
+# digit-bearing token.
+PCN_LABELLED = re.compile(
+    r"(?:"
+    r"(?:Parking\s+Charge\s+Notice|Charge\s+Notice)\s+"
+    r"(?:No\.?|Number|Ref(?:erence)?\.?|#)\s*[:.]?\s*"
+    r"|"
+    r"PCN\s*(?:No\.?|Number|Ref(?:erence)?\.?|#)?\s*[:.]?\s*"
+    r")"
+    r"([A-Z0-9][-A-Z0-9]{5,14})",
+    re.I,
+)
+
+
+def _normalise_pcn(value: Any) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
+def _pcn_candidates_from_text(text: str) -> set[str]:
+    found: set[str] = set()
+    for m in PCN_LABELLED.finditer(text or ""):
+        tok = _normalise_pcn(m.group(1))
+        # Real PCN refs always contain digits; reject prose false positives.
+        if 6 <= len(tok) <= 14 and any(c.isdigit() for c in tok):
+            found.add(tok)
+    return found
 
 
 def parse_uk_date(v: Any) -> Optional[date]:
@@ -226,14 +339,54 @@ class ExtractionEngine:
                 val = _hhmm(val)
                 if val is None:
                     conf = 0.0
+            if name == "operator_ata":
+                normalised = normalise_operator_ata(val)
+                if normalised:
+                    val = normalised
+                else:
+                    # Unrecognised trade-body string cannot drive Code resolution.
+                    conf = 0.0
             status = FactStatus.EXTRACTED if conf >= CONFIDENCE_THRESHOLD else FactStatus.UNCERTAIN  # EX-02
             src = FactSource(SourceKind.DOCUMENT, f"{f.get('evidence_id')}#p{f.get('page', 1)}")
             case.put(Fact(f"F-{name}", name, val, status, src, conf))
             if status == FactStatus.UNCERTAIN:
                 flags.append(f"uncertain:{name}")
 
-        # EX-01 required fields
-        flags += [f"missing:{r}" for r in REQUIRED if not case.has(r)]
+        # Re-normalise ATA if a prior put left a long-form / alias value.
+        held_ata = case.facts.get("operator_ata")
+        if held_ata and held_ata.value not in ATA_CODES:
+            mapped = normalise_operator_ata(held_ata.value)
+            if mapped:
+                case.put(Fact("F-operator_ata", "operator_ata", mapped, held_ata.status,
+                              FactSource(SourceKind.CALCULATION, "ata_normalise"),
+                              confidence=held_ata.confidence))
+                flags = [f for f in flags if f != "uncertain:operator_ata"]
+            elif held_ata.usable:
+                held_ata.status = FactStatus.UNCERTAIN
+                flags.append("uncertain:operator_ata")
+
+        # EX-16: never silently reconcile conflicting PCN numbers across documents.
+        extracted_pcn = _normalise_pcn(case.get("pcn_number"))
+        scanned: set[str] = set()
+        for ev in case.evidence.values():
+            scanned |= _pcn_candidates_from_text(ev.text or "")
+        if extracted_pcn:
+            scanned.add(extracted_pcn)
+        if len(scanned) > 1:
+            flags.append("conflict:pcn_number")
+            case.put(Fact("F-pcn_conflict", "pcn_conflict", True, FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "pcn_cross_check"),
+                          confidence=1.0))
+            if "pcn_number" in case.facts:
+                case.facts["pcn_number"].status = FactStatus.UNCERTAIN
+            case.audit.append({"event": "pcn_conflict",
+                               "candidates": sorted(scanned)})
+
+        # EX-01 required fields. A PCN conflict is not "missing" — the value is
+        # held as UNCERTAIN pending confirmation; generate() already blocks.
+        flags += [f"missing:{r}" for r in REQUIRED
+                  if not case.has(r)
+                  and not (r == "pcn_number" and case.get("pcn_conflict"))]
 
         # EX-03 chronology
         ev_d, is_d = case.get("parking_event_date"), case.get("notice_issue_date")
@@ -275,6 +428,37 @@ class ExtractionEngine:
             case.put(Fact("F-payment_recorded_in_document", "payment_recorded_in_document", True,
                           FactStatus.DERIVED, FactSource(SourceKind.DOCUMENT, "payment_recorded")))
 
+        # EX-13 debt-recovery / closed appeal window (see CaseState.NO_APPEAL_RIGHT)
+        if any(DEBT_RECOVERY.search(e.text or "") for e in case.evidence.values()):
+            case.put(Fact("F-debt_recovery_stage", "debt_recovery_stage", True,
+                          FactStatus.DERIVED, FactSource(SourceKind.DOCUMENT, "debt_recovery")))
+            flags.append("debt_recovery_stage")
+
+        # EX-14 hire / lease-firm keeper wording on the notice
+        if any(HIRE_KEEPER.search(e.text or "") for e in case.evidence.values()):
+            case.put(Fact("F-keeper_is_hire_firm", "keeper_is_hire_firm", True,
+                          FactStatus.DERIVED, FactSource(SourceKind.DOCUMENT, "hire_keeper")))
+            hire_kinds = {"HIRE_AGREEMENT", "LEASE", "TENANCY", "PERMIT"}
+            supplied = any(e.kind in hire_kinds and e.uploaded for e in case.evidence.values())
+            case.put(Fact("F-hire_docs_supplied", "hire_docs_supplied", supplied,
+                          FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "hire_docs")))
+
+        # EX-15 both sides of a paper notice. Content defects (KB-POFA-04) must
+        # not be asserted from a single photographed face: Schedule 4 particulars
+        # often sit on the reverse. Page images + multi-page text are the signal.
+        notice_ev = [e for e in case.evidence.values()
+                     if e.kind in ("PCN", "NTK", "NTD") or "pcn" in (e.filename or "").lower()
+                     or "ntk" in (e.filename or "").lower()]
+        page_images = sum(len(e.images or []) for e in notice_ev)
+        multi_page_text = any((e.text or "").count("\f") >= 1 or (e.text or "").count("--- page") >= 1
+                              for e in notice_ev)
+        sides_complete = page_images >= 2 or multi_page_text or len(notice_ev) >= 2
+        if notice_ev:
+            case.put(Fact("F-notice_sides_complete", "notice_sides_complete", sides_complete,
+                          FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "notice_sides")))
+            if not sides_complete:
+                flags.append("confirm:notice_both_sides")
+
         # EX-05 jurisdiction
         if derive_jurisdiction(case) == "UNKNOWN":
             flags.append("confirm:jurisdiction")
@@ -298,9 +482,15 @@ class ExtractionEngine:
         for name, value in corrections.items():
             if name in DATE_FIELDS:
                 value = parse_uk_date(value)
+            if name == "operator_ata":
+                value = normalise_operator_ata(value) or value
             case.put(Fact(f"F-{name}", name, value, FactStatus.CORRECTED,
                           FactSource(SourceKind.ANSWER, f"confirm:{name}")))
         for name in confirmed:
             if name in case.facts and case.facts[name].status in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
                 case.facts[name].status = FactStatus.CONFIRMED
+        # Explicit confirm/correct of the PCN clears a cross-document conflict gate.
+        if "pcn_number" in corrections or "pcn_number" in confirmed:
+            case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
+                          FactSource(SourceKind.ANSWER, "confirm:pcn_number")))
         case.state = CaseState.CONFIRMED

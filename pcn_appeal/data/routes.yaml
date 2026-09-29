@@ -20,6 +20,10 @@ routes:
   ACTIVITY:      {tier: 3, label: Loading, drop-off and other non-parking activity}
   EV_CHARGING:   {tier: 3, label: EV charging session vs parking}
   INFRASTRUCTURE: {tier: 3, label: Barrier / access system failure}
+  # Records / clarification requests are NOT contradiction grounds. KB-REC-01
+  # previously sat on EVIDENCE, so the UI labelled a cautious records request as
+  # "Independent evidence contradicting the allegation".
+  RECORDS:       {tier: 3, label: Proportionate request for operator records}
   EVIDENCE:      {tier: 3, label: Independent evidence contradicting the allegation}
   # KB-BAY-01 sat on EVIDENCE at first, which made the customer-facing ground
   # label (and the PDF heading) read "Independent evidence contradicting the

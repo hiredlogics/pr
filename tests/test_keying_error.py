@@ -219,16 +219,83 @@ class RestrictedBayGround(unittest.TestCase):
         self.assertFalse(evaluate(gate, {"restricted_bay_alleged": True, "observation_window_min": 45}))
         self.assertFalse(evaluate(gate, {"observation_window_min": 0}))
 
-    def test_the_ground_reaches_the_letter_without_asserting_a_child_was_present(self):
+    def test_the_ground_reaches_the_letter_without_inventing_occupancy(self):
         analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
         case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
-        out = run(case, pipe, "parent and child bay at Sainsburys",
-                  {"operator_ata": "BPA", "site_postcode": "SW7 4RR"})
+        out = run(case, pipe, "parent and child bay at Sainsburys", {})
         self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
         self.assertIn("KB-BAY-01", out.pack.module_ids)
         self.assertIn("observation time of 12:23", out.letter)
-        # The approved scope is the evidential point only.
-        self.assertNotRegex(out.letter, r"(?i)\ba child (was|had been)\b")
+        # No material occupancy account → do not invent one.
+        self.assertNotRegex(out.letter, r"(?i)\ba child (was|had been|remained)\b")
+
+    def test_material_account_contradicting_bay_allegation_reaches_the_letter(self):
+        """System-wide rule: free-text that contradicts the allegation is drafted professionally."""
+        analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
+        case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
+        out = run(case, pipe, "Left Kidd in car with their brother and ran into Sainsbury's.", {})
+        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
+        self.assertTrue(case.get("account_contradicts_allegation"))
+        self.assertIn("KB-BAY-01", out.pack.module_ids)
+        self.assertRegex(out.letter, r"(?i)(child remained in the vehicle|presence of children)")
+        self.assertRegex(out.letter, r"(?i)inconsistent with the factual premise")
+        # Customer free text must not be pasted.
+        self.assertNotRegex(out.letter, r"(?i)left kidd")
+        self.assertNotRegex(out.letter, r"(?i)ran into sainsbury")
+
+    def test_bay_case_does_not_ask_ata_or_postcode_when_irrelevant(self):
+        from pcn_appeal.engines.analysis import AnalysisEngine, CaseAnalysis
+        analysis = {
+            "grounds": [{"module_id": "KB-BAY-01"}],
+            "questions": [
+                {"fact": "operator_ata", "text": "Which trade association?",
+                 "type": "choice", "options": ["BPA", "IPC", "NOT_SHOWN"],
+                 "material_because": "code"},
+                {"fact": "site_postcode", "text": "What is the site postcode?",
+                 "type": "text", "material_because": "jurisdiction"},
+            ],
+            "not_supported": [],
+        }
+        case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
+        pipe.ingest(case)
+        case.facts.pop("operator_ata", None)
+        case.facts.pop("site_postcode", None)
+        # Jurisdiction already known from fixture postcode before we popped it —
+        # re-derive as UNKNOWN so the postcode question would otherwise look useful.
+        case.facts.pop("jurisdiction", None)
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+        case.put(Fact("F-jur", "jurisdiction", "UNKNOWN", FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "t")))
+        eng = AnalysisEngine(KG, FakeLLM({}))
+        result = CaseAnalysis(module_ids=["KB-BAY-01"])
+        # restricted_bay + window already on case after ingest
+        kept = eng._safe_questions(case, analysis["questions"], result)
+        asked = {q["fact"] for q in kept}
+        self.assertNotIn("operator_ata", asked)
+        self.assertNotIn("site_postcode", asked)
+
+    def test_invented_ata_and_postcode_fact_names_are_also_dropped(self):
+        """Model wording must not bypass the materiality gate via new snake_case."""
+        from pcn_appeal.engines.analysis import AnalysisEngine, CaseAnalysis
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+        proposed = [
+            {"fact": "euro_car_parks_trade_association",
+             "text": "Which trade association does Euro Car Parks belong to, if this is known (for example, BPA or IPC)?",
+             "type": "choice", "options": ["BPA", "IPC", "NOT_SHOWN"]},
+            {"fact": "sainsburys_cromwell_road_postcode",
+             "text": "What is the postcode of the Sainsbury's Cromwell Road site where this notice was issued, if this is known?",
+             "type": "text"},
+        ]
+        case, pipe = make_case(BAY, case_analysis=[{"grounds": [{"module_id": "KB-BAY-01"}],
+                                                    "questions": [], "not_supported": []}] * 3)
+        pipe.ingest(case)
+        case.facts.pop("operator_ata", None)
+        case.facts.pop("site_postcode", None)
+        case.put(Fact("F-jur", "jurisdiction", "UNKNOWN", FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "t")))
+        eng = AnalysisEngine(KG, FakeLLM({}))
+        kept = eng._safe_questions(case, proposed, CaseAnalysis(module_ids=["KB-BAY-01"]))
+        self.assertEqual(kept, [])
 
 
 class FactsPrintedOnTheNoticeCanBeAnswered(unittest.TestCase):

@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload";
 
-const ACCEPT = "image/*,application/pdf,text/plain,.md";
+/** PDF + JPEG + PNG only — matches the extraction API capabilities customers use. */
+const ACCEPT = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
 const MAX_LABEL = 1024 * 1024;
 
 /** The four documents an operator sends, so it is obvious what to photograph. */
@@ -74,18 +75,15 @@ export default function UploadStep({
       </div>
 
       <div>
+        {/*
+          iOS Safari often ignores programmatic input.click() on a clipped/sr-only
+          file input. The pick control is a real <input type="file"> stretched over
+          the dropzone so a tap hits the native control directly. Camera stays a
+          separate higher-z control so it still opens the rear camera.
+        */}
         <div
           className="dropzone"
           data-over={over}
-          role="button"
-          tabIndex={0}
-          onClick={() => pickRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              pickRef.current?.click();
-            }
-          }}
           onDragOver={(e) => {
             e.preventDefault();
             setOver(true);
@@ -97,30 +95,50 @@ export default function UploadStep({
             add(e.dataTransfer.files);
           }}
         >
-          <div className="dz-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 16V8m0 0-3.5 3.5M12 8l3.5 3.5" />
-              <path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1A6.5 6.5 0 1 0 5 14.2" />
-            </svg>
+          <input
+            ref={pickRef}
+            id="pick-files"
+            className="dz-file-input"
+            type="file"
+            accept={ACCEPT}
+            multiple
+            disabled={busy}
+            aria-label="Upload parking notice PDF or photo"
+            onChange={(e) => {
+              add(e.target.files);
+              e.target.value = "";
+            }}
+          />
+
+          <div className="dz-content" aria-hidden="true">
+            <div className="dz-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 16V8m0 0-3.5 3.5M12 8l3.5 3.5" />
+                <path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1A6.5 6.5 0 1 0 5 14.2" />
+              </svg>
+            </div>
+            <p className="dz-title">Drag and drop your file here or click to upload</p>
+            <p className="dz-sub">
+              {vision
+                ? `Accepted formats: JPG, PNG, PDF (Max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)`
+                : "Accepted here: PDF with selectable text, or a text file. Photos and scans need a vision model, which is not configured."}
+            </p>
           </div>
-          <p className="dz-title">Drag and drop your file here or click to upload</p>
-          <p className="dz-sub">
-            {vision
-              ? `Accepted formats: JPG, PNG, PDF (Max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)`
-              : "Accepted here: PDF with selectable text, or a text file. Photos and scans need a vision model, which is not configured."}
-          </p>
+
           <div className="dz-actions">
             <button
               type="button"
               className="btn btn-secondary"
+              disabled={busy}
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 cameraRef.current?.click();
               }}
@@ -129,27 +147,17 @@ export default function UploadStep({
             </button>
           </div>
 
-          {/* Straight to the rear camera on a phone. */}
+          {/* Camera: capture attribute; kept out of the main overlay so photo vs library stay separate. */}
           <input
             ref={cameraRef}
             id="camera-files"
             className="sr-only"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
             capture="environment"
             multiple
-            onChange={(e) => {
-              add(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <input
-            ref={pickRef}
-            id="pick-files"
-            className="sr-only"
-            type="file"
-            accept={ACCEPT}
-            multiple
+            disabled={busy}
+            tabIndex={-1}
             onChange={(e) => {
               add(e.target.files);
               e.target.value = "";
@@ -209,7 +217,7 @@ export default function UploadStep({
         </div>
       )}
 
-      <button className="btn btn-primary" type="submit" disabled={busy}>
+      <button className="btn btn-primary" type="submit" disabled={busy || files.length === 0}>
         {busy ? "Reading your notice…" : "Upload notice"}
       </button>
     </form>

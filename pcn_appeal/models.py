@@ -24,7 +24,8 @@ class FactStatus(str, Enum):
 
 class SourceKind(str, Enum):
     DOCUMENT = "DOCUMENT"
-    ANSWER = "ANSWER"
+    ANSWER = "ANSWER"                      # closed-form / choice / bool answers
+    CUSTOMER_FREE_TEXT = "CUSTOMER_FREE_TEXT"  # narrative / free-text (input only)
     CALCULATION = "CALCULATION"
 
 
@@ -50,6 +51,8 @@ class CaseState(str, Enum):
     VALIDATION_FAILED = "VALIDATION_FAILED"
     MANUAL_REVIEW = "MANUAL_REVIEW"
     RELEASED = "RELEASED"
+    # Debt-recovery / appeal-window closed: normal appeal drafting must not run.
+    NO_APPEAL_RIGHT = "NO_APPEAL_RIGHT"
 
 
 # --------------------------------------------------------------------------- facts
@@ -100,7 +103,9 @@ class CaseFile:
     case_id: str
     facts: dict[str, Fact] = field(default_factory=dict)
     evidence: dict[str, EvidenceItem] = field(default_factory=dict)
-    raw_answers: dict[str, str] = field(default_factory=dict)   # audit only
+    # Raw customer text for audit. Material points are promoted into Facts by
+    # engines.account.assess_material_account before analysis/drafting.
+    raw_answers: dict[str, str] = field(default_factory=dict)
     state: CaseState = CaseState.CREATED
     driver_status: DriverStatus = DriverStatus.UNIDENTIFIED
     asked_questions: list[str] = field(default_factory=list)
@@ -111,6 +116,12 @@ class CaseFile:
     # Grounds chosen by AI case analysis and already vetoed against the KB. The
     # drafter works from these; nothing re-derives them from a route.
     analysis_module_ids: list[str] = field(default_factory=list)
+    # Latest automatic fact-recovery digest (documents → calculators → gaps).
+    # Consumed by analysis/drafting; never contains raw customer narrative.
+    recovery_report: dict = field(default_factory=dict)
+    # Free-text extraction provenance: original → normalized fact → drafting
+    # proposition (source=CUSTOMER_FREE_TEXT). Drafting uses propositions only.
+    free_text_provenance: list = field(default_factory=list)
     audit: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
@@ -186,6 +197,10 @@ class RetrievalPack:
     lease_clauses: list[dict]          # verbatim clauses {clause_ref, text, evidence_id}
     trace: list[str] = field(default_factory=list)
     evidence_index: dict[str, str] = field(default_factory=dict)   # evidence_id -> kind
+    # Keeper-safe case digest for the drafter: allegation, evidence summary,
+    # unresolved topics. Never includes raw narrative wording that could leak
+    # driver identity.
+    case_context: dict = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- drafting

@@ -307,6 +307,10 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     payload = {"case_id": result.case_id, "state": result.state.value,
                "flags": result.flags, "questions": result.questions,
                "skipped_questions": result.skipped_questions}
+    if result.stop_reason:
+        payload["stop_reason"] = result.stop_reason
+        payload["recommendation"] = result.recommendation
+        return payload
     if result.output is None:
         return payload
     out = result.output
@@ -496,9 +500,39 @@ def confirm(case_id: str, body: ConfirmIn):
         case.driver_status = DriverStatus.FORMALLY_IDENTIFIED
     rec["questions"] = rec["pipe"].confirm(case, body.corrections, body.confirmed, body.narrative)
     _persist(case)
-    # No route hints and no grounds here: what the AI is considering is internal.
-    return {"state": case.state.value,
-            "questions": rec["questions"]}
+    if case.state == CaseState.NO_APPEAL_RIGHT:
+        return {"case_id": case.case_id, "state": case.state.value, "questions": [],
+                "flags": rec.get("flags") or [], "skipped_questions": [],
+                "stop_reason": ("We cannot proceed with a parking appeal because the documents "
+                                "show the case has reached debt recovery and the right to appeal "
+                                "is no longer available."),
+                "recommendation": ("Use the Debt Recovery Letter service instead of an "
+                                   "ordinary parking appeal.")}
+    # Material questions remain — pause for answers (same shape as auto_appeal pause).
+    if rec["questions"]:
+        return {"case_id": case.case_id, "state": case.state.value,
+                "flags": rec.get("flags") or [], "questions": rec["questions"],
+                "skipped_questions": []}
+    # Nothing material left to ask — finish the letter now. Previously the step-by-step
+    # UI called /confirm only and never /generate, so question-free cases never drafted.
+    out = rec["pipe"].generate(case)
+    rec["output"] = out
+    _persist(case, out)
+    payload = {"case_id": case.case_id, "state": out.state.value,
+               "flags": rec.get("flags") or [], "questions": [],
+               "skipped_questions": [],
+               "primary_route": out.pack.primary_route,
+               "secondary_routes": out.pack.secondary_routes,
+               "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
+               "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
+               "evidence_list": out.evidence_list, "grounds": _ground_labels(out.pack)}
+    if out.state == CaseState.RELEASED:
+        payload["letter"] = out.letter
+        payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
+    else:
+        payload["blocking_issues"] = [asdict(i) for i in out.validation.issues
+                                      if i.severity == "BLOCK"]
+    return payload
 
 
 @app.post("/cases/{case_id}/answers")

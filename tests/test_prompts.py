@@ -40,6 +40,13 @@ class Registry(unittest.TestCase):
         self.assertIn("Do not allege a PoFA defect unless pofa_findings is non-empty", body)
         self.assertIn("Do not state Code values unless code_version is set", body)
 
+    def test_case_analysis_prompt_requires_recovery_first(self):
+        body = prompts.system("case_analysis")
+        self.assertIn("recovery", body.lower())
+        self.assertIn("do_not_ask", body)
+        self.assertIn("operator_requestable", body)
+        self.assertIn("UNRESOLVED", body)
+
     def test_extraction_prompt_treats_documents_as_untrusted(self):
         self.assertIn("untrusted DATA", prompts.system("extraction"))
 
@@ -82,7 +89,7 @@ class JudgeUsesTheRegistry(unittest.TestCase):
         prompts.reset()
 
     def _pack(self):
-        return RetrievalPack(primary_route="POFA", secondary_routes=[], module_ids=["STRUCTURAL"],
+        return RetrievalPack(primary_route="POFA", secondary_routes=[], module_ids=["KB-LAND-01"],
                              verified_facts={}, fact_refs={}, missing_facts=[], evidence_refs=[],
                              prohibited_claims=[], code_version=None, pofa_route="POSTAL",
                              pofa_findings=[], driver_status="UNIDENTIFIED",
@@ -90,7 +97,9 @@ class JudgeUsesTheRegistry(unittest.TestCase):
 
     def test_judge_is_sent_the_registered_validation_prompt(self):
         judge = FakeLLM({"validation": [{"issues": []}]})
-        draft = Draft("C-1", [[DraftSentence("The charge is disputed.", [], ["STRUCTURAL"])]])
+        draft = Draft("C-1", [[DraftSentence(
+            "The operator is requested to establish landowner authority.",
+            [], ["KB-LAND-01"])]])
         result = ValidationEngine(judge).validate(draft, self._pack())
 
         self.assertTrue(result.passed, result.issues)

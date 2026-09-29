@@ -1,0 +1,455 @@
+"""System-wide free-text → structured fact → professional drafting proposition.
+
+Required flow
+-------------
+  Customer free-text / adaptive answer / narrative / comment
+       ↓
+  Fact extraction (this module) — meaning preserved, wording discarded
+       ↓
+  Verified structured Fact + provenance (source=CUSTOMER_FREE_TEXT)
+       ↓
+  Case intelligence / knowledge / drafting
+       ↓
+  Professional appeal prose (never customer questionnaire copy)
+
+Rules
+-----
+  * Free text is EVIDENCE/INPUT only — never letter copy.
+  * Do not invent facts while rewriting.
+  * Do not drop material facts merely because they arrived as free text.
+  * Do not hard-code a single allegation type; extract any supported circumstance.
+  * Provenance chain is recorded: original → normalized fact → drafting proposition.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+
+# --------------------------------------------------------------------------- extractors
+# Each rule is system-wide: pattern → structured fact + professional proposition.
+# Patterns are intentionally conservative (precision over recall) to avoid invention.
+
+
+@dataclass(frozen=True)
+class CircumstanceRule:
+    """One extractable circumstance from free text."""
+    fact_name: str
+    value: Any
+    pattern: re.Pattern[str]
+    proposition: str
+    # Optional: only treat as contradicting a bay-style allegation when these
+    # tokens appear in alleged_breach (empty = always available as a fact).
+    allegation_families: tuple[str, ...] = ()
+
+
+_RULES: tuple[CircumstanceRule, ...] = (
+    # Children / family occupancy
+    CircumstanceRule(
+        "child_occupant_present", True,
+        re.compile(
+            r"\b("
+            r"(kids?|kidd|children|child|toddler|baby|infant|son|daughter)"
+            r".{0,40}\b(in (the )?(car|vehicle)|with me|with us|remained)|"
+            r"left .{0,60}\b(kids?|kidd|children|child|toddler|baby|infant)|"
+            r"(brother|sister).{0,30}\b(in (the )?(car|vehicle))"
+            r")",
+            re.I,
+        ),
+        "the vehicle was being used in connection with the presence of children",
+        ("child", "family", "parent"),
+    ),
+    # Seeking a space / arrival
+    CircumstanceRule(
+        "seeking_parking_space", True,
+        re.compile(
+            r"\b("
+            r"find(ing)? (a |somewhere to )?park|"
+            r"look(ing)? for (a )?(space|bay|spot)|"
+            r"search(ing)? for (a )?(space|bay|parking)|"
+            r"trying to (find|park)|"
+            r"couldn'?t find (a )?(space|bay|spot)"
+            r")",
+            re.I,
+        ),
+        "time was spent on arrival locating a suitable parking space",
+        (),
+    ),
+    # Breakdown / immobilisation
+    CircumstanceRule(
+        "vehicle_immobilised", True,
+        re.compile(
+            r"\b("
+            r"broke down|breakdown|broken down|"
+            r"flat (battery|tyre|tire)|puncture|"
+            r"couldn'?t (move|drive|start)|would not start|"
+            r"immobilised|immobilized|stranded"
+            r")",
+            re.I,
+        ),
+        "the vehicle became immobilised and could not be moved as intended",
+        (),
+    ),
+    CircumstanceRule(
+        "immobilisation_prevented_departure", True,
+        re.compile(
+            r"\b("
+            r"couldn'?t (leave|exit|depart|move)|"
+            r"unable to (leave|exit|depart|move)|"
+            r"stuck (on site|in the car park|there)|"
+            r"prevented .{0,20}(leaving|departing|exiting)"
+            r")",
+            re.I,
+        ),
+        "that immobilisation prevented the vehicle from leaving or complying on time",
+        (),
+    ),
+    # Payment
+    CircumstanceRule(
+        "payment_made", True,
+        re.compile(
+            r"\b("
+            r"I (paid|was paying)|we paid|payment (was )?made|"
+            r"paid (for|via|using|with)|paid (the|my) parking"
+            r")",
+            re.I,
+        ),
+        "a parking payment was made or attempted for the visit",
+        (),
+    ),
+    CircumstanceRule(
+        "payment_attempt_failed", True,
+        re.compile(
+            r"\b("
+            r"(machine|app|meter|kiosk|pay.?station).{0,40}"
+            r"(did not|didn'?t|would not|wouldn'?t|failed|fault|error|broken|out of order)|"
+            r"(could not|couldn'?t|unable to) (pay|complete|make).{0,20}payment|"
+            r"payment (failed|was (unsuccessful|declined)|did not go through)"
+            r")",
+            re.I,
+        ),
+        "an attempt to pay was unsuccessful because the payment facility did not work as required",
+        (),
+    ),
+    # Multiple visits / ANPR pairing
+    CircumstanceRule(
+        "multiple_visits", True,
+        re.compile(
+            r"\b("
+            r"(left and (came back|returned)|returned later|"
+            r"two (separate )?visits|more than one visit|"
+            r"visited .{0,20}twice|went back (later|again)|"
+            r"separate visits)"
+            r")",
+            re.I,
+        ),
+        "the vehicle attended the site more than once on the material date",
+        (),
+    ),
+    # Disability / accessibility
+    CircumstanceRule(
+        "disability_extra_time", True,
+        re.compile(
+            r"\b("
+            r"disability|disabled|blue\s*badge|accessibility|accessible|"
+            r"mobility (need|issue|impairment)|wheelchair|"
+            r"extra time .{0,30}(disability|disabled|badge)"
+            r")",
+            re.I,
+        ),
+        "additional time was required in connection with a disability-related need",
+        ("disabled", "blue badge", "accessible"),
+    ),
+    CircumstanceRule(
+        "blue_badge_displayed", True,
+        re.compile(
+            r"\b("
+            r"blue\s*badge.{0,30}(displayed|shown|on (display|show))|"
+            r"(displayed|showing|showed).{0,20}blue\s*badge"
+            r")",
+            re.I,
+        ),
+        "a disabled person's badge or equivalent indicator was displayed in the vehicle",
+        ("disabled", "blue badge", "accessible"),
+    ),
+    # Permit / authorisation
+    CircumstanceRule(
+        "permit_held", True,
+        re.compile(
+            r"\b("
+            r"(had|held|have|has) (a )?(valid )?permit|"
+            r"permit (was )?(held|displayed|shown|valid)|"
+            r"authorised|authorized to park|"
+            r"permission to park"
+            r")",
+            re.I,
+        ),
+        "a valid permit or permission to park was held for the location",
+        ("permit",),
+    ),
+    # Residential
+    CircumstanceRule(
+        "resident_connection_stated", True,
+        re.compile(
+            r"\b("
+            r"I (live|lived)|we live|resident|leaseholder|tenant|"
+            r"my (flat|apartment|flatmate|landlord)|our (flat|lease|tenancy)|"
+            r"allocated (bay|space)|home (parking|bay)"
+            r")",
+            re.I,
+        ),
+        "the vehicle's presence was connected with residential use of the property",
+        (),
+    ),
+    # Loading
+    CircumstanceRule(
+        "loading_activity", True,
+        re.compile(
+            r"\b(loading|unloading|delivering|delivery|dropping off|picking up (goods|parcels))\b",
+            re.I,
+        ),
+        "the vehicle's presence was connected with genuine loading or unloading activity",
+        ("loading",),
+    ),
+    # EV charging
+    CircumstanceRule(
+        "ev_charging_session", True,
+        re.compile(
+            r"\b(charg(e|ing)|electric vehicle|ev bay|plug(ged)? in)\b",
+            re.I,
+        ),
+        "the vehicle was present in connection with a genuine charging session",
+        ("electric", "ev", "charg"),
+    ),
+    # Disabled / reserved bay conditions met (generic)
+    CircumstanceRule(
+        "bay_conditions_met_accounted", True,
+        re.compile(
+            r"\b("
+            r"entitled to (use|park)|eligible (to use|for)|"
+            r"conditions (were )?met|allowed to (use|park)"
+            r")",
+            re.I,
+        ),
+        "the conditions of use for the reserved bay were met during the visit",
+        ("bay", "space", "disabled", "parent", "child", "permit"),
+    ),
+)
+
+
+@dataclass
+class FreeTextExtraction:
+    """One original → normalized → drafting proposition chain."""
+    source: str = "CUSTOMER_FREE_TEXT"
+    original: str = ""
+    fact_name: str = ""
+    normalized_value: Any = None
+    drafting_proposition: str = ""
+    relevant_to_allegation: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "original": self.original[:300],
+            "fact_name": self.fact_name,
+            "normalized_value": self.normalized_value,
+            "drafting_proposition": self.drafting_proposition,
+            "relevant_to_allegation": self.relevant_to_allegation,
+        }
+
+
+def assess_material_account(case: CaseFile) -> dict[str, Any]:
+    """Extract structured facts + professional propositions from all free text.
+
+    Safe to call repeatedly. Clears prior free-text-derived drafting facts first.
+    """
+    _clear_material(case)
+    texts = _collect_customer_texts(case)
+    if not texts:
+        return {"extractions": [], "propositions": [], "contradicts": False}
+
+    breach = str(case.get("alleged_breach") or "").strip().lower()
+    extractions: list[FreeTextExtraction] = []
+    seen_facts: set[str] = set()
+
+    for raw in texts:
+        text = str(raw).strip()
+        if len(text) < 4:
+            continue
+        for rule in _RULES:
+            if rule.fact_name in seen_facts:
+                continue
+            if not rule.pattern.search(text):
+                continue
+            # Do not overwrite a stronger confirmed/document value with free-text.
+            existing = case.facts.get(rule.fact_name)
+            if existing and existing.usable and existing.source.kind in (
+                    SourceKind.DOCUMENT, SourceKind.CALCULATION) \
+                    and existing.status in (
+                        FactStatus.CONFIRMED, FactStatus.CORRECTED,
+                        FactStatus.EXTRACTED, FactStatus.DERIVED):
+                # Still record provenance that free text agreed, but keep doc value.
+                pass
+            else:
+                case.put(Fact(
+                    f"F-{rule.fact_name}", rule.fact_name, rule.value,
+                    FactStatus.ANSWERED,
+                    FactSource(
+                        SourceKind.CUSTOMER_FREE_TEXT,
+                        f"free_text:{rule.fact_name}",
+                        excerpt=text[:240],
+                    ),
+                ))
+            relevant = _relevant_to_allegation(rule, breach)
+            extractions.append(FreeTextExtraction(
+                original=text,
+                fact_name=rule.fact_name,
+                normalized_value=rule.value,
+                drafting_proposition=rule.proposition,
+                relevant_to_allegation=relevant,
+            ))
+            seen_facts.add(rule.fact_name)
+
+    if not extractions:
+        case.free_text_provenance = []
+        case.audit.append({
+            "event": "material_account",
+            "extractions": [],
+            "note": "no extractable structured circumstances in free text",
+        })
+        return {"extractions": [], "propositions": [], "contradicts": False}
+
+    # Prefer propositions that address the allegation; keep others for drafting
+    # when they support available grounds (do not drop merely for being free text).
+    relevant_props = [e.drafting_proposition for e in extractions if e.relevant_to_allegation]
+    other_props = [e.drafting_proposition for e in extractions if not e.relevant_to_allegation]
+    propositions = list(dict.fromkeys(relevant_props + other_props))
+
+    contradicts = _account_contradicts_allegation(extractions, breach)
+    case.put(Fact(
+        "F-account_contradicts_allegation", "account_contradicts_allegation",
+        bool(contradicts), FactStatus.DERIVED,
+        FactSource(SourceKind.CALCULATION, "material_account"),
+    ))
+    case.put(Fact(
+        "F-material_account_propositions", "material_account_propositions",
+        propositions, FactStatus.DERIVED,
+        FactSource(SourceKind.CALCULATION, "material_account"),
+    ))
+    if propositions:
+        case.put(Fact(
+            "F-material_account_proposition", "material_account_proposition",
+            propositions[0], FactStatus.DERIVED,
+            FactSource(SourceKind.CALCULATION, "material_account"),
+        ))
+
+    # Legacy bay flags for existing modules/blocks.
+    if any(e.fact_name == "child_occupant_present" for e in extractions):
+        case.put(Fact(
+            "F-bay_child_occupant_accounted", "bay_child_occupant_accounted", True,
+            FactStatus.DERIVED,
+            FactSource(SourceKind.CUSTOMER_FREE_TEXT, "free_text:child_occupant_present"),
+        ))
+
+    provenance = [e.as_dict() for e in extractions]
+    case.raw_answers["_material_source_texts"] = "\n".join(
+        dict.fromkeys(e.original for e in extractions))[:2000]
+    case.free_text_provenance = provenance
+    case.audit.append({
+        "event": "material_account",
+        "provenance": provenance,
+        "propositions": propositions,
+        "contradicts_allegation": contradicts,
+    })
+
+    return {
+        "extractions": provenance,
+        "propositions": propositions,
+        "contradicts": contradicts,
+        "source_texts": [e.original for e in extractions],
+    }
+
+
+def _relevant_to_allegation(rule: CircumstanceRule, breach: str) -> bool:
+    if not breach:
+        return True
+    if not rule.allegation_families:
+        # Always potentially material to general grounds (payment, breakdown, …).
+        return True
+    return any(tok in breach for tok in rule.allegation_families)
+
+
+def _account_contradicts_allegation(
+        extractions: list[FreeTextExtraction], breach: str) -> bool:
+    if not breach:
+        return False
+    # Restricted-bay style: customer affirms eligibility / child / badge / permit.
+    bayish = any(tok in breach for tok in (
+        "bay", "space", "parent", "child", "disabled", "blue badge", "permit",
+        "family", "reserved", "accompanied",
+    ))
+    if not bayish:
+        return False
+    eligibility = {
+        "child_occupant_present", "blue_badge_displayed", "permit_held",
+        "bay_conditions_met_accounted", "disability_extra_time", "ev_charging_session",
+        "loading_activity",
+    }
+    return any(e.fact_name in eligibility for e in extractions)
+
+
+def _clear_material(case: CaseFile) -> None:
+    """Remove prior free-text extractions so re-assessment is idempotent."""
+    drop_exact = {
+        "account_contradicts_allegation",
+        "material_account_propositions",
+        "material_account_proposition",
+        "material_account_points",
+        "material_account_summary",
+    }
+    for name in list(case.facts):
+        fact = case.facts[name]
+        ref = fact.source.ref or ""
+        if name in drop_exact:
+            del case.facts[name]
+            continue
+        if fact.source.kind == SourceKind.CUSTOMER_FREE_TEXT and ref.startswith("free_text:"):
+            del case.facts[name]
+            continue
+        if name.startswith("bay_") and name.endswith(
+                ("_accounted", "_condition_accounted", "_occupant_accounted")) \
+                and fact.source.kind in (
+                    SourceKind.CUSTOMER_FREE_TEXT, SourceKind.CALCULATION):
+            if "material_account" in ref or ref.startswith("free_text:"):
+                del case.facts[name]
+    case.raw_answers.pop("_material_source_texts", None)
+    case.raw_answers.pop("_free_text_provenance", None)
+    case.free_text_provenance = []
+
+
+def _collect_customer_texts(case: CaseFile) -> list[str]:
+    """All free-text channels: narrative, adaptive answers, comments, descriptions."""
+    out: list[str] = []
+    skip = {
+        "narrative", "_material_source_texts", "_free_text_provenance",
+        "operator_ata", "site_postcode", "notice_route", "jurisdiction",
+    }
+    narrative = (case.raw_answers or {}).get("narrative") or ""
+    if str(narrative).strip():
+        out.append(str(narrative).strip())
+    for name, raw in (case.raw_answers or {}).items():
+        if name in skip:
+            continue
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        if text.lower() in ("yes", "no", "true", "false", "y", "n", "1", "0"):
+            continue
+        # Skip pure choice codes.
+        if text.upper() in ("BPA", "IPC", "NOT_SHOWN", "APP", "MACHINE", "PHONE",
+                            "WEBSITE", "OTHER", "NONE", "MINOR", "DIFFERENT_VEHICLE"):
+            continue
+        out.append(text)
+    return list(dict.fromkeys(out))

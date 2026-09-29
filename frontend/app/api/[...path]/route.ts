@@ -42,15 +42,27 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
       method: req.method,
       headers,
       body: hasBody ? await req.arrayBuffer() : undefined,
+      // duplex is required when streaming a request body in some runtimes;
+      // we already buffer, so it is unused - kept out deliberately.
       redirect: "manual",
       cache: "no-store",
     });
 
+    // Buffer the body. Forwarding `upstream.body` as a stream drops the
+    // payload on Vercel for gzipped Railway responses (health, uploads),
+    // which left the browser with HTTP 200 and an empty body - the UI then
+    // failed JSON parse and showed "Something went wrong."
+    const payload = await upstream.arrayBuffer();
+
     const out = new Headers(upstream.headers);
     for (const h of HOP_BY_HOP) out.delete(h);
+    // undici has already decoded; re-advertising these makes clients misread
+    // a plain buffer as still compressed, or disagree on length.
+    out.delete("content-encoding");
+    out.delete("content-length");
     out.set("Cache-Control", "no-store");
 
-    return new Response(upstream.body, { status: upstream.status, headers: out });
+    return new Response(payload, { status: upstream.status, headers: out });
   } catch (err) {
     // A bare `catch {}` here reported "not responding" for every failure,
     // including ones the backend never saw, which sent debugging at the wrong

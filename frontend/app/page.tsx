@@ -157,7 +157,7 @@ export default function Page() {
       const next = await confirmDetails(caseId, corrections, confirmed, narrative, alreadyNamed);
       setData(next);
       setRound(1);
-      setScreen(next.questions.length > 0 ? "questions" : "result");
+      setScreen(next.questions.length > 0 && next.state !== "NO_APPEAL_RIGHT" ? "questions" : "result");
     });
 
   const answer = (answers: Record<string, unknown>, skip = false) =>

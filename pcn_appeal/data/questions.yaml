@@ -46,13 +46,11 @@ questions:
   anpr_duration_disputed: {text: "Is the length of time the notice says the vehicle was parked disputed?", type: bool}
   independent_evidence_contradicts: {text: "Does the evidence supplied conflict with the operator's account of the duration or the location?", type: bool}
 
-  # --- facts printed on the notice that the whole appeal hangs on ---
-  # Without these two the system does not weaken its argument, it loses whole
-  # families of them in silence: an unresolved trade association withholds every
-  # Code-based ground (R-01), and an unknown jurisdiction means PoFA Schedule 4
-  # "does not apply" and the PoFA route disappears. Both are printed on most
-  # notices, so asking is far better than giving up. NOT_SHOWN is a real answer,
-  # not a refusal to answer: it keeps the ground withheld, which is correct.
+  # --- facts printed on the notice that Matter only when they unlock a ground ---
+  # operator_ata: ask only when a SCOP-based (non-LAND) ground is already factually
+  # open and R-01 would otherwise withhold it. site_postcode: ask only when
+  # jurisdiction is UNKNOWN and no fact-specific non-PoFA ground is already open.
+  # Recovery + analysis enforce those gates; the bank only supplies wording.
   operator_ata:      {text: "Which trade association does the notice show (usually a BPA or IPC logo)?", type: choice, options: [BPA, IPC, NOT_SHOWN]}
   site_postcode:     {text: "What is the postcode of the car park itself (not the address the notice was posted to)?", type: text}
 
@@ -103,3 +101,6 @@ questions:
 banned_question_terms: ["who was driving", "who drove", "name of the driver", "were you driving", "driver's name"]
 max_questions: 6
 hard_cap_questions: 8
+# V2 adaptive questioning. A question is a cost; silence is the default.
+max_questions_v2: 3
+max_question_rounds: 3

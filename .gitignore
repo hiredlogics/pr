@@ -8,3 +8,8 @@ __pycache__/
 
 # KB source documents (the machine-readable conversion lives in pcn_appeal/data/)
 *.docx
+
+# local scratch / secrets
+doc/Untitled
+doc/*.key
+

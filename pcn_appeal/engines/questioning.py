@@ -27,6 +27,7 @@ from .. import prompts
 from ..llm import LLMClient
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, SourceKind
 from ..rules.dsl import evaluate
+from .extraction import normalise_operator_ata
 
 # Minimum calibrated confidence for an LLM-only hint (one the regex floor did
 # not also find) to be trusted. Hints only ever widen which QUESTIONS get
@@ -39,7 +40,16 @@ from ..rules.dsl import evaluate
 FIRST_PERSON = [
     (re.compile(r"\bI (paid|was paying)\b", re.I), "a payment was made"),
     (re.compile(r"\bI (broke down|couldn'?t move)\b", re.I), "the vehicle became immobilised"),
-    (re.compile(r"\b(I|we) (drove|parked|left|returned|came back)\b", re.I), "the vehicle"),
+    # Specific occupancy phrasing before the generic "I left …" rewrite, so
+    # material bay-eligibility accounts survive keeper-safe normalisation.
+    (re.compile(
+        r"\bI left (?:the )?(kids|children|child|toddler|baby|infant) in (?:the )?(?:car|vehicle)\b",
+        re.I), "a child remained in the vehicle"),
+    (re.compile(
+        r"\b(?:the )?(kids|children|child|toddler|baby|infant) (?:were|was) (?:left )?in (?:the )?(?:car|vehicle)\b",
+        re.I), "a child remained in the vehicle"),
+    (re.compile(r"\b(I|we) (drove|parked|returned|came back)\b", re.I), "the vehicle"),
+    (re.compile(r"\b(I|we) left\b", re.I), "the vehicle left"),
     (re.compile(r"\bmy car\b", re.I), "the vehicle"),
 ]
 
@@ -71,18 +81,54 @@ class QuestionEngine:
         q = next((x for x in case.pending_questions if x.get("fact") == fact), None) \
             or self.kg.question_for(fact) or {"type": "text"}
         case.raw_answers[fact] = str(raw)                       # audit only (Q-06)
-        case.asked_questions.append(fact)
+        if fact not in case.asked_questions:
+            case.asked_questions.append(fact)
         t = q.get("type")
         if t == "bool":
             value = raw if isinstance(raw, bool) else str(raw).strip().lower() in ("y", "yes", "true", "1")
         elif t == "int":
             value = int(raw)
         elif t == "choice":
-            value = str(raw).upper()
-            if value not in q.get("options", []):
-                raise ValueError(f"{fact}: {raw!r} not in {q['options']}")
+            options = [str(o) for o in (q.get("options") or [])]
+            value = self._match_choice(fact, raw, options)
+            if value is None:
+                raise ValueError(f"{fact}: {raw!r} not in {options}")
         else:
+            # Free-text answers: keep raw for audit; fact value stays keeper-safe
+            # for closed short answers. Long prose is still input — structured
+            # extraction in engines.account turns it into CUSTOMER_FREE_TEXT facts.
             value = keeper_safe_text(str(raw))
+            case.put(Fact(
+                f"F-{fact}", fact, value, FactStatus.ANSWERED,
+                FactSource(
+                    SourceKind.CUSTOMER_FREE_TEXT if len(str(raw).strip()) > 48
+                    else SourceKind.ANSWER,
+                    f"answer:{fact}",
+                    excerpt=str(raw).strip()[:240] if len(str(raw).strip()) > 48 else None,
+                ),
+            ))
+            case.state = CaseState.QUESTIONING
+            return
         case.put(Fact(f"F-{fact}", fact, value, FactStatus.ANSWERED,
                       FactSource(SourceKind.ANSWER, f"answer:{fact}")))
         case.state = CaseState.QUESTIONING
+
+    @staticmethod
+    def _match_choice(fact: str, raw: Any, options: list[str]) -> Optional[str]:
+        """Accept exact option, case-insensitive match, or known ATA aliases."""
+        if not options:
+            return None
+        text = str(raw).strip()
+        upper = text.upper()
+        for opt in options:
+            if upper == str(opt).upper():
+                return str(opt)
+        if fact == "operator_ata":
+            mapped = normalise_operator_ata(text)
+            if mapped and mapped in options:
+                return mapped
+            # Options may themselves be long-form; map both sides to codes.
+            for opt in options:
+                if normalise_operator_ata(opt) and normalise_operator_ata(opt) == mapped:
+                    return mapped
+        return None

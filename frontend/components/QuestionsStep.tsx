@@ -91,16 +91,9 @@ export default function QuestionsStep({
   return (
     <form className="card stack" onSubmit={submit} noValidate>
       <div>
-        <p className="qcount">
-          {round > 1 ? `Follow-up questions · round ${round}` : "A few questions"}
-        </p>
-        <h1 style={{ marginTop: 8 }}>
-          {round > 1 ? "Your answers raised one or two more" : "Tell us a bit more"}
+        <h1 style={{ marginTop: 0 }}>
+          {round > 1 ? "A few more questions" : "A few questions"}
         </h1>
-        <p className="lede">
-          Each answer either adds a ground to your appeal or leaves it out. Answer what you know for
-          certain and leave the rest.
-        </p>
       </div>
 
       <div>
@@ -190,11 +183,6 @@ export default function QuestionsStep({
         <button type="button" className="btn btn-quiet" onClick={onSkip} disabled={busy}>
           Skip the rest of the questions
         </button>
-        <p className="hint" style={{ marginTop: 0 }}>
-          Skipping is safe. Facts you do not give are simply left out, so the grounds that rely on
-          them are not raised. Your letter covers less ground, and everything it does say stays
-          backed by what you have given us.
-        </p>
       </div>
     </form>
   );

@@ -31,6 +31,18 @@ async function unwrap<T>(res: Response): Promise<T> {
   if (typeof detail === "string" && detail.trim()) {
     throw new ApiError(detail, res.status);
   }
+  if (res.status === 413) {
+    throw new ApiError(
+      "That file is too large for this connection. Try a smaller photo or a PDF under 4MB.",
+      413,
+    );
+  }
+  if (res.status === 502 || res.status === 504) {
+    throw new ApiError(
+      "The appeal service timed out while reading your notice. Please try again with a clearer, smaller photo.",
+      res.status,
+    );
+  }
   throw new ApiError(`The server returned an error (${res.status}).`, res.status);
 }
 
@@ -40,7 +52,8 @@ async function call(path: string, init?: RequestInit): Promise<Response> {
     return await fetch(`/api${path}`, init);
   } catch {
     throw new ApiError(
-      "We could not reach the appeal service. Check your connection and try again.",
+      "We could not finish talking to the appeal service. " +
+        "If you just uploaded a large phone photo, try again — or use a smaller picture / PDF.",
       0,
     );
   }

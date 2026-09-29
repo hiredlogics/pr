@@ -22,6 +22,7 @@ product rests on cannot be a matter of judgement:
   * a Code value without a verified Code version -> legal/code_versions.py
   * a module id that does not exist              -> the KB is closed
   * a question that touches driver identity      -> banned terms
+  * a question that re-asks a settled topic      -> topic clusters + ask history
   * anything in the letter itself                -> Engine 4
 
 So a wrong proposal costs a suppressed ground, never a wrong letter.
@@ -29,6 +30,7 @@ So a wrong proposal costs a suppressed ground, never a wrong letter.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -41,9 +43,66 @@ from ..rules.dsl import evaluate
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
 # longer supplies the questions.
 DEFAULT_MAX_QUESTIONS = 4
+DEFAULT_MAX_ROUNDS = 3
 CANDIDATE_LIMIT = 24
 
 QUESTION_TYPES = {"bool", "int", "choice", "text"}
+
+# Facts that only make sense when the notice itself shows an ANPR entry/exit pair.
+ANPR_SHAPED_FACTS = {
+    "anpr_sequence_incomplete", "anpr_discrepancy", "anpr_duration_disputed",
+    "multiple_visits",
+}
+
+# Semantic topic clusters. Exact fact-name dedupe alone lets the model re-ask
+# "did you use the kiosk?" as "can you remember validating?" under a new name.
+# Any prior ask or answered fact whose name/text hits a cluster blocks further
+# questions in that cluster.
+TOPIC_CLUSTERS: dict[str, tuple[str, ...]] = {
+    "kiosk_validation": (
+        "kiosk", "validat", "voucher", "ticket_machine", "pay_station",
+        "validation_machine", "pay_and_display", "display_ticket",
+    ),
+    "payment_attempt": (
+        "payment_made", "payment_attempt", "payment_method", "payment_fail",
+        "machine_fault", "app_payment",
+    ),
+    "further_evidence": (
+        "further_evidence", "additional_evidence", "more_evidence",
+        "store_confirmation", "shop_confirmation", "receipt_available",
+        "other_evidence", "store_contact", "contact_store", "contacted_store",
+        "speak_to_store", "spoke_to_manager", "ask_the_store", "store_manager",
+        "customer_service", "ask_sainsbury",
+    ),
+    "signage": ("signage", "sign_visible", "signs_"),
+    "permit": ("permit_held", "permit_display", "visitor_authoris"),
+    # Administrative: model often invents alternate snake_case names for these.
+    "operator_ata": (
+        "operator_ata", "trade_association", "trade_body", "accredited_trade",
+        "bpa_or_ipc", "british_parking", "international_parking",
+    ),
+    "site_postcode": (
+        "site_postcode", "car_park_postcode", "location_postcode",
+        "parking_postcode", "site_post_code",
+    ),
+}
+
+# Question-text markers when the model invents a fact name outside the bank.
+ATA_TEXT_MARKERS = (
+    "trade association", "trade body", "bpa or ipc", "bpa / ipc",
+    "accredited trade", "which association",
+)
+POSTCODE_TEXT_MARKERS = (
+    "postcode", "post code", "postal code",
+)
+
+# Customer answers that settle a topic as unresolved rather than inviting another
+# wording of the same question.
+UNRESOLVED_ANSWER_MARKERS = (
+    "don't remember", "do not remember", "cant remember", "can't remember",
+    "cannot remember", "not sure", "unsure", "unknown", "no idea",
+    "don't know", "do not know", "n/a", "na", "cannot say", "can't say",
+)
 
 # Rationale the customer must never see. The client's example was
 # "Permission to park defeats the alleged breach outright, so whether it existed
@@ -78,6 +137,7 @@ class AnalysisEngine:
         cfg = getattr(kg, "question_cfg", {}) or {}
         self.banned = [t.lower() for t in cfg.get("banned_question_terms", [])]
         self.max_questions = int(cfg.get("max_questions_v2", max_questions))
+        self.max_rounds = int(cfg.get("max_question_rounds", DEFAULT_MAX_ROUNDS))
 
     # ------------------------------------------------------------------ main
     def analyse(self, case: CaseFile, circumstances: str = "",
@@ -86,6 +146,22 @@ class AnalysisEngine:
         candidates = self._candidates(case, circumstances, facts)
         result = CaseAnalysis()
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
+
+        rounds = sum(1 for a in case.audit if a.get("event") == "analysis_round")
+        if rounds >= self.max_rounds:
+            result.trace.append(
+                f"question round limit reached ({rounds}>={self.max_rounds}); asking nothing")
+            # Still propose grounds so drafting can proceed with what is known.
+            try:
+                raw = self.llm.complete_json(
+                    task="case_analysis", system=prompts.system("case_analysis"),
+                    user=self._payload(case, circumstances, facts, candidates, pofa, code_version))
+                result.module_ids = self._veto(
+                    case, raw.get("grounds") or [], facts, pofa, code_version, result)
+            except Exception as exc:
+                case.audit.append({"event": "case_analysis_error", "error": str(exc)})
+                result.trace.append(f"case analysis unavailable ({type(exc).__name__}); nothing proposed")
+            return result
 
         try:
             raw = self.llm.complete_json(
@@ -128,8 +204,6 @@ class AnalysisEngine:
         active = [m for m in self.kg.active_modules()]
         jurisdiction = facts.get("jurisdiction")
         filtered = [m for m in active if self._jurisdiction_ok(m, jurisdiction)]
-        if len(filtered) < len(active):
-            pass  # recorded by the caller's trace; kept quiet here
 
         if self.retriever is None:
             return filtered[:CANDIDATE_LIMIT]
@@ -173,6 +247,15 @@ class AnalysisEngine:
     # --------------------------------------------------------------- payload
     def _payload(self, case: CaseFile, circumstances: str, facts: dict[str, Any],
                  candidates: list[KBModule], pofa: Any, code_version: Optional[str]) -> str:
+        closed_facts = sorted({
+            *(self.kg.questions or {}).keys(),
+            *(f for m in candidates for f in (m.required_facts or [])),
+        })
+        prior_texts = [
+            str(q.get("text") or "")
+            for q in (case.pending_questions or [])
+            if q.get("text")
+        ]
         return json.dumps({
             "facts": facts,
             "evidence": [{"evidence_id": e.evidence_id, "kind": e.kind, "filename": e.filename,
@@ -180,6 +263,10 @@ class AnalysisEngine:
                           "page_images": len(getattr(e, "images", []) or [])}
                          for e in case.evidence.values()],
             "circumstances": circumstances,
+            "already_asked": list(case.asked_questions),
+            "already_asked_texts": prior_texts,
+            "unresolved_topics": self._unresolved_topics(case),
+            "preferred_fact_names": closed_facts,
             "candidates": [{
                 "module_id": m.module_id,
                 "topic": m.topic,
@@ -191,7 +278,43 @@ class AnalysisEngine:
                      "findings": list(getattr(pofa, "findings", []) or [])},
             "code_version": code_version,
             "driver_status": case.driver_status.value,
+            # Automatic recovery already ran: do not ask for recovered / do_not_ask
+            # facts, and prefer operator_requestable gaps over customer chase.
+            "recovery": case.recovery_report or {},
         }, default=str)
+
+    def _unresolved_topics(self, case: CaseFile) -> list[str]:
+        """Topics already asked or answered as 'cannot remember' / unknown."""
+        hit: list[str] = []
+        for topic, tokens in TOPIC_CLUSTERS.items():
+            if any(self._touches(token_blob, tokens)
+                   for token_blob in case.asked_questions):
+                hit.append(topic)
+                continue
+            for name, fact in case.facts.items():
+                if not fact.usable:
+                    continue
+                blob = f"{name} {fact.value}"
+                if self._touches(blob, tokens) and self._is_unresolved_value(fact.value):
+                    hit.append(topic)
+                    break
+        return hit
+
+    @staticmethod
+    def _touches(blob: str, tokens: tuple[str, ...]) -> bool:
+        low = re.sub(r"[^a-z0-9_]+", "_", str(blob).lower())
+        return any(tok in low for tok in tokens)
+
+    @staticmethod
+    def _is_unresolved_value(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, bool):
+            return False
+        low = str(value).strip().lower()
+        if not low:
+            return True
+        return any(m in low for m in UNRESOLVED_ANSWER_MARKERS)
 
     # ------------------------------------------------------------------ veto
     def _veto(self, case: CaseFile, proposed: list[dict], facts: dict[str, Any],
@@ -211,13 +334,37 @@ class AnalysisEngine:
             if evaluate(module.do_not_use_when, facts):
                 self._suppress(result, mid, "the knowledge base forbids this ground on these facts")
                 continue
+            # Speculative grounds (use_when not yet satisfied) may still drive
+            # questions, but must not enter analysis_module_ids for drafting —
+            # otherwise the pack drops them and the letter collapses to intro+end.
+            if not evaluate(module.use_when, facts):
+                self._suppress(result, mid, "required facts for this ground are not yet established")
+                continue
             if self._needs_pofa_finding(module) and not findings:
                 self._suppress(result, mid, "statutory defect not confirmed by the PoFA calculation")
+                continue
+            if mid == "KB-POFA-04" and facts.get("notice_sides_complete") is False:
+                self._suppress(result, mid, "both sides of the notice are not confirmed")
                 continue
             if self._needs_code_version(module) and not code_version:
                 self._suppress(result, mid, "no verified Code of Practice version applies")
                 continue
             kept.append(mid)
+
+        if not kept:
+            # Allegation-shaped records request only — do not pad with always-on
+            # landowner authority, which turns every thin case into the same letter.
+            rec = self.kg.modules.get("KB-REC-01")
+            if rec and rec.status == "ACTIVE":
+                if evaluate(rec.use_when, facts) and not evaluate(rec.do_not_use_when, facts):
+                    kept.append("KB-REC-01")
+                    result.trace.append("seeded KB-REC-01 from allegation text")
+
+        # When a fact-specific records ground is available, drop always-on LAND
+        # filler so the letter stays about this allegation.
+        if "KB-REC-01" in kept and "KB-LAND-01" in kept:
+            kept = [m for m in kept if m != "KB-LAND-01"]
+            result.trace.append("dropped KB-LAND-01: fact-specific REC ground present")
 
         if not kept:
             result.trace.append("no proposed ground survived the deterministic checks")
@@ -248,6 +395,30 @@ class AnalysisEngine:
         """
         out: list[dict] = []
         seen = set(case.asked_questions)
+        # Topics already asked, or answered as "cannot remember" / unknown.
+        blocked_topics = set(self._unresolved_topics(case))
+        for name in case.asked_questions:
+            topic = self._topic_for(name, "")
+            if topic:
+                blocked_topics.add(topic)
+
+        evidence_kinds = set(case.fact_view().get("evidence_kinds") or [])
+        # A shopping receipt is already uploaded — do not ask the customer to
+        # chase the store for the same purchase confirmation.
+        if "RECEIPT" in evidence_kinds or "BANK_STATEMENT" in evidence_kinds:
+            blocked_topics.add("further_evidence")
+
+        # Facts already on the notice / recovered automatically must not be re-asked.
+        recovery = case.recovery_report or {}
+        do_not_ask = set(recovery.get("do_not_ask") or [])
+        operator_gaps = set(recovery.get("operator_requestable") or [])
+        known_on_notice = {n for n in (
+            "operator_name", "pcn_number", "vrm", "parking_location",
+            "parking_event_date", "notice_issue_date", "charge_amount",
+            "alleged_breach", "entry_time", "exit_time",
+        ) if case.has(n)}
+        known_on_notice |= set((recovery.get("recovered") or {}).keys())
+        known_on_notice |= do_not_ask
 
         for entry in proposed:
             fact = str((entry or {}).get("fact") or "").strip()
@@ -256,8 +427,41 @@ class AnalysisEngine:
 
             if not fact or not text:
                 continue
-            if fact in seen or case.has(fact):
+            # Canonicalise invented admin fact names before dedupe / materiality.
+            admin_kind = self._admin_question_kind(fact, text)
+            if admin_kind == "operator_ata":
+                fact = "operator_ata"
+            elif admin_kind == "site_postcode":
+                fact = "site_postcode"
+            if fact in seen or case.has(fact) or fact in known_on_notice:
                 result.trace.append(f"dropped question {fact}: already known or already asked")
+                continue
+            if not self._question_material_for_case(case, fact, result, text):
+                result.trace.append(
+                    f"dropped question {fact}: not needed for any available ground")
+                continue
+            if fact in operator_gaps or any(g in fact for g in (
+                    "validation_log", "landowner", "signage_plan", "anpr_raw")):
+                result.trace.append(
+                    f"dropped question {fact}: operator-requestable; use records request in draft")
+                continue
+            topic = self._topic_for(fact, text)
+            if topic and topic in blocked_topics:
+                result.trace.append(
+                    f"dropped question {fact}: topic {topic} already asked or unresolved")
+                continue
+            # Don't ask the customer to contact the store when operator records
+            # can be requested in the draft instead.
+            low_text = text.lower()
+            if any(p in low_text for p in (
+                "contact the store", "ask the store", "speak to the store",
+                "ask sainsbury", "contact sainsbury", "ask the supermarket",
+            )):
+                result.trace.append(f"dropped question {fact}: store-contact; use operator records request")
+                continue
+            if fact in ANPR_SHAPED_FACTS and not (
+                    case.has("entry_time") and case.has("exit_time")):
+                result.trace.append(f"dropped question {fact}: notice has no ANPR entry/exit pair")
                 continue
             if qtype not in QUESTION_TYPES:
                 qtype = "text"
@@ -273,6 +477,11 @@ class AnalysisEngine:
             question: dict[str, Any] = {"fact": fact, "text": text, "type": qtype}
             if qtype == "choice":
                 options = [str(o).strip() for o in ((entry or {}).get("options") or []) if str(o).strip()]
+                # Prefer the approved bank options for known choice facts so the
+                # UI and validator share the same closed set (e.g. BPA/IPC/NOT_SHOWN).
+                bank = self.kg.question_for(fact) or {}
+                if bank.get("type") == "choice" and bank.get("options"):
+                    options = [str(o) for o in bank["options"]]
                 if len(options) < 2:
                     result.trace.append(f"dropped question {fact}: choice with no options")
                     continue
@@ -280,7 +489,91 @@ class AnalysisEngine:
 
             out.append(question)
             seen.add(fact)
+            if topic:
+                blocked_topics.add(topic)
+            if admin_kind:
+                blocked_topics.add(admin_kind)
             if len(out) >= self.max_questions:
                 break
 
         return out
+
+    def _topic_for(self, fact: str, text: str) -> Optional[str]:
+        blob = f"{fact} {text}"
+        for topic, tokens in TOPIC_CLUSTERS.items():
+            if self._touches(blob, tokens):
+                return topic
+        return None
+
+    @classmethod
+    def _admin_question_kind(cls, fact: str, text: str) -> Optional[str]:
+        """Classify ATA / postcode questions even when the fact name is invented."""
+        low_fact = fact.lower().strip()
+        low_text = (text or "").lower()
+        if low_fact in ("operator_ata", "site_postcode"):
+            return low_fact
+        if cls._touches(low_fact, TOPIC_CLUSTERS["operator_ata"]) or \
+                any(m in low_text for m in ATA_TEXT_MARKERS):
+            return "operator_ata"
+        if cls._touches(low_fact, TOPIC_CLUSTERS["site_postcode"]) or \
+                any(m in low_text for m in POSTCODE_TEXT_MARKERS):
+            return "site_postcode"
+        return None
+
+    def _question_material_for_case(self, case: CaseFile, fact: str,
+                                   result: CaseAnalysis,
+                                   text: str = "") -> bool:
+        """Drop administrative questions that cannot change the appeal.
+
+        operator_ata / site_postcode are only worth asking when a Code- or
+        PoFA-dependent path is live. Fact-specific BAY/REC letters must not
+        interrupt the customer for trade-association or postcode trivia.
+        """
+        kind = self._admin_question_kind(fact, text) or fact
+        # If a fact-specific ground is already selected or open, neither admin
+        # question changes the letter — drop both regardless of jurisdiction.
+        if kind in ("operator_ata", "site_postcode") and self._fact_specific_path_open(case, result):
+            return False
+        if kind == "operator_ata":
+            return self._ata_would_unlock(case)
+        if kind == "site_postcode":
+            if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
+                return False
+            return True
+        return True
+
+    def _fact_specific_path_open(self, case: CaseFile, result: CaseAnalysis) -> bool:
+        """True when BAY/REC/other non-PoFA non-LAND ground is selected or gated-in.
+
+        Also true when the allegation itself is already bay- or validation-shaped:
+        those letters do not need ATA/postcode even before every gating fact lands.
+        """
+        if case.get("restricted_bay_alleged"):
+            return True
+        breach = str(case.get("alleged_breach") or "").lower()
+        if any(tok in breach for tok in ("validat", "kiosk", "voucher", "ticket")):
+            return True
+        for mid in result.module_ids:
+            mod = self.kg.modules.get(mid)
+            if mod and mod.route not in ("POFA", "LAND"):
+                return True
+        facts = case.fact_view()
+        for m in self.kg.active_modules():
+            if m.route in ("POFA", "LAND"):
+                continue
+            if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+                return True
+        return False
+
+    def _ata_would_unlock(self, case: CaseFile) -> bool:
+        facts = case.fact_view()
+        for m in self.kg.active_modules():
+            if m.route == "LAND" or str(m.module_id).startswith("KB-LAND"):
+                continue
+            if not self._needs_code_version(m):
+                continue
+            if evaluate(m.do_not_use_when, facts):
+                continue
+            if evaluate(m.use_when, facts):
+                return True
+        return False

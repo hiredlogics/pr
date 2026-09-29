@@ -66,6 +66,19 @@ export function describeFlag(raw: string): FlagNote {
         tone: "attention",
         text: "The issue date on the notice appears to fall before the parking event itself.",
       };
+    case "conflict":
+      return arg === "pcn_number"
+        ? {
+            raw,
+            tone: "attention",
+            text:
+              "Different charge-notice numbers appear across the documents. Confirm the correct PCN number before continuing — we will not guess or silently correct it.",
+          }
+        : {
+            raw,
+            tone: "attention",
+            text: `Conflicting values were found for ${field(arg)}. Please confirm the correct one.`,
+          };
     case "injection_suspected":
       return {
         raw,

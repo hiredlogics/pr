@@ -10,7 +10,8 @@ export type CaseState =
   | "DRAFTED"
   | "VALIDATION_FAILED"
   | "MANUAL_REVIEW"
-  | "RELEASED";
+  | "RELEASED"
+  | "NO_APPEAL_RIGHT";
 
 export type QuestionType = "bool" | "choice" | "int" | "text";
 
@@ -81,6 +82,9 @@ export type AppealResponse = {
   evidence_list?: string[];
   letter?: string; // only when state === "RELEASED"
   blocking_issues?: BlockingIssue[];
+  /** Set when state === NO_APPEAL_RIGHT (debt recovery / closed appeal window). */
+  stop_reason?: string;
+  recommendation?: string;
 };
 
 export type Health = {

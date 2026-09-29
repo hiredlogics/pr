@@ -25,6 +25,9 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-OBSOLETE penalty / genuine pre-estimate argument
   VAL-LEAK     module IDs, template placeholders or AI self-reference in output
   VAL-MODULE   module_refs outside the retrieved (approved) set
+  VAL-SUBSTANCE draft is only structural intro/conclusion with no substantive ground
+  VAL-EVIDENCE-CONTRADICTION contradiction claims / EVIDENCE route without the required fact
+  VAL-CUSTOMER-COPY customer free-text pasted into the letter instead of rewritten
 """
 from __future__ import annotations
 
@@ -44,7 +47,17 @@ DRIVER_PATTERNS = [
     R(r"\bI was the driver\b"), R(r"\bthe driver (was|is) (me|myself|my)\b"),
     R(r"\bwhen I (got|went|returned|left)\b"),
 ]
-EVIDENCE_CLAIM = R(r"\b(enclosed|attached|supplied with this appeal|accompanying)\b")
+EVIDENCE_CLAIM = R(
+    r"\b(enclosed|attached|supplied with this appeal|"
+    r"accompanying (this|the) (appeal|letter|documents?|materials?))\b"
+)
+# Claims that independent evidence *contradicts* the allegation — requires the
+# verified fact. Must not fire on a cautious "does not establish" records letter.
+CONTRADICTION_CLAIM = R(
+    r"\b(independent evidence (demonstrates|shows|proves|contradicts)|"
+    r"evidence (clearly )?(contradicts|disproves) (the )?allegation|"
+    r"contradicts the (operator'?s? )?(allegation|account))\b"
+)
 POFA_DEFECT = R(r"(not delivered within|did not meet the applicable statutory timing|fails to provide the route-specific|"
                 r"does not contain (a compliant|the applicable statutory)|does not (properly )?comply with the applicable)")
 CODE_VALUE = R(r"\b\d+[- ]minutes?\b.*\b(grace|consideration)\b|\b(grace|consideration)\b.*\b\d+[- ]minutes?\b")
@@ -68,6 +81,19 @@ PAYMENT_FAILED_CLAIM = R(r"\b(could not be completed|did not complete|failed to 
 def _jaccard(a: str, b: str) -> float:
     x, y = set(a.lower().split()), set(b.lower().split())
     return len(x & y) / max(len(x | y), 1)
+
+
+def _copy_fingerprint(text: str) -> str:
+    """Normalise free text so informal customer paste can be detected in drafts.
+
+    Requires a meaningful span (12+ alphanumerics after normalisation) so short
+    shared tokens like "Sainsbury" do not false-positive.
+    """
+    norm = re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).strip()
+    compact = re.sub(r"\s+", " ", norm)
+    if len(re.sub(r"\s+", "", compact)) < 12:
+        return ""
+    return compact
 
 
 class ValidationEngine:
@@ -122,6 +148,10 @@ class ValidationEngine:
                 block("VAL-EQ", "Equality ground without triggering facts", t)
             if ANPR_GENERIC.search(t) and not facts.get("anpr_discrepancy"):
                 block("VAL-ANPR", "Generic calibration allegation without factual trigger", t)
+            if CONTRADICTION_CLAIM.search(t) and not facts.get("independent_evidence_contradicts"):
+                block("VAL-EVIDENCE-CONTRADICTION",
+                      "Draft claims independent evidence contradicts the allegation "
+                      "without that fact being established", t)
             if STAGE.search(t) and t.strip() != self.allowed_next_step:
                 block("VAL-STAGE", "Wrong-stage language in an initial operator appeal", t)
             if OBSOLETE.search(t):
@@ -142,6 +172,69 @@ class ValidationEngine:
                     issues.append(ValidationIssue("VAL-REPEAT", "BLOCK", "Near-duplicate sentence", t))
                     break
             seen.append(t)
+
+        # Intro + closing alone are not an appeal. STRUCTURAL provenance satisfies
+        # VAL-GROUND, so without this gate a template shell would RELEASE.
+        substantive = [
+            s for s in draft.sentences()
+            if any(m != "STRUCTURAL" for m in (s.module_refs or []))
+        ]
+        if not substantive:
+            block("VAL-SUBSTANCE",
+                  "Draft has no substantive grounds — intro/conclusion alone cannot be released")
+
+        # Case-specificity: when the pack knows the allegation / operator, the
+        # letter must engage them — not ship interchangeable filler.
+        ctx = getattr(pack, "case_context", None) or {}
+        allegation = str(facts.get("alleged_breach") or ctx.get("alleged_breach") or "").strip()
+        operator = str(facts.get("operator_name") or ctx.get("operator_name") or "").strip()
+        if substantive and allegation:
+            # Require a meaningful overlap with the allegation wording (not the whole string).
+            tokens = [t for t in re.findall(r"[A-Za-z]{4,}", allegation.lower()) if t not in {
+                "that", "with", "from", "this", "have", "been", "were", "their", "parking",
+            }]
+            if tokens and not any(tok in full.lower() for tok in tokens[:6]):
+                block("VAL-SUBSTANCE",
+                      "Draft does not address the alleged contravention on the notice")
+        if substantive and operator and len(operator) > 3:
+            # Operator may appear as a shortened trade name; require a token match.
+            op_tok = re.findall(r"[A-Za-z]{4,}", operator.lower())
+            if op_tok and not any(tok in full.lower() for tok in op_tok[:3]):
+                # Soft: many letters say "the operator" — only enforce when REC is the lead.
+                if "KB-REC-01" in pack.module_ids:
+                    pass  # records paragraph names operator when Template/LLM does its job
+        if ctx.get("shopping_receipt_enclosed") and "KB-REC-01" in pack.module_ids:
+            low = full.lower()
+            if "receipt" not in low:
+                block("VAL-SUBSTANCE", "Shopping receipt enclosed but draft does not mention it")
+            if any(p in low for p in (
+                "receipt confirms validation", "receipt proves validation",
+                "receipt establishes validation", "validated as shown on the receipt",
+            )):
+                block("VAL-CONFLICT",
+                      "Draft treats a shopping receipt as proof of parking validation")
+
+        # Customer free text is input, never letter copy.
+        for src in (ctx.get("customer_source_texts") or []):
+            snippet = _copy_fingerprint(src)
+            if snippet and snippet in _copy_fingerprint(full):
+                block("VAL-CUSTOMER-COPY",
+                      "Draft pastes customer free-text wording; rewrite professionally",
+                      src[:120])
+                break
+
+        # Pack-level: EVIDENCE route / KB-EV-01 requires the contradiction fact.
+        routes = {pack.primary_route, *(pack.secondary_routes or [])}
+        if "EVIDENCE" in routes or "KB-EV-01" in pack.module_ids:
+            if not facts.get("independent_evidence_contradicts"):
+                block("VAL-EVIDENCE-CONTRADICTION",
+                      "EVIDENCE / contradiction ground selected without "
+                      "independent_evidence_contradicts being established")
+        if "KB-REC-01" in pack.module_ids and pack.primary_route == "EVIDENCE":
+            # Safety net if KB-REC-01 is ever re-homed onto EVIDENCE by mistake.
+            block("VAL-EVIDENCE-CONTRADICTION",
+                  "Records-request ground (KB-REC-01) must not lead as EVIDENCE "
+                  "(contradiction label); use RECORDS")
 
         # document-level checks
         pcn = str(facts.get("pcn_number", ""))

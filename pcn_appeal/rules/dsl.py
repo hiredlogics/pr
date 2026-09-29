@@ -17,6 +17,7 @@ Operators
     {"in": ["name", [v1, v2]]}
     {"gt"/"gte"/"lt"/"lte": ["name", number]}
     {"has_evidence": "KIND"}     an uploaded evidence item of that kind exists
+    {"contains": ["name", "substr"]}  fact string contains substr (case-insensitive)
     {"always": true}
 No eval(), no attribute access, unknown operators raise.
 """
@@ -61,6 +62,12 @@ def evaluate(pred: Any, facts: Mapping[str, Any]) -> bool:
         return v is _MISSING or v in (None, "", [])
     if op == "has_evidence":
         return arg in facts.get("evidence_kinds", [])
+    if op == "contains":
+        name, substr = arg
+        v = _val(facts, name)
+        if v is _MISSING or v is None:
+            return False
+        return str(substr).lower() in str(v).lower()
     if op in {"eq", "ne", "in", "gt", "gte", "lt", "lte"}:
         name, ref = arg
         v = _val(facts, name)
@@ -99,6 +106,6 @@ def referenced_facts(pred: Any) -> set[str]:
             out |= referenced_facts(arg)
         elif op in ("is", "exists", "missing"):
             out.add(arg)
-        elif op in ("eq", "ne", "in", "gt", "gte", "lt", "lte"):
+        elif op in ("eq", "ne", "in", "gt", "gte", "lt", "lte", "contains"):
             out.add(arg[0])
     return out

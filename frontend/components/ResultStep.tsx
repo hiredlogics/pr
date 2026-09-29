@@ -116,11 +116,50 @@ export default function ResultStep({
         (g): g is string => typeof g === "string" && g.length > 0,
       );
 
-  const released = data.state === "RELEASED" && typeof data.letter === "string";
+  const released = data.state === "RELEASED" && typeof data.letter === "string" && data.letter.trim().length > 0;
+  const noAppeal = data.state === "NO_APPEAL_RIGHT";
+  const awaitingQuestions = (data.questions?.length ?? 0) > 0;
+  const needsReview =
+    !released &&
+    !noAppeal &&
+    !awaitingQuestions &&
+    (data.state === "MANUAL_REVIEW" ||
+      data.state === "VALIDATION_FAILED" ||
+      data.state === "DRAFTED" ||
+      data.state === "CONFIRMED" ||
+      data.state === "ANALYSED" ||
+      Boolean(data.blocking_issues?.length));
 
   return (
     <div className="stack">
-      {released ? (
+      {noAppeal ? (
+        <div className="card stack">
+          <div>
+            <h1>We cannot proceed with an appeal</h1>
+            <p className="lede">
+              {data.stop_reason ??
+                "The documents show this case has reached debt recovery and the right to appeal is no longer available."}
+            </p>
+          </div>
+          <div className="notice" data-tone="attention">
+            <h3>What to do instead</h3>
+            <p>
+              {data.recommendation ??
+                "Use the Debt Recovery Letter service instead of an ordinary parking appeal."}
+            </p>
+          </div>
+        </div>
+      ) : awaitingQuestions ? (
+        <div className="card stack">
+          <div>
+            <h1>A few more details are needed</h1>
+            <p className="lede">
+              The appeal is not ready yet. Answer the questions on the previous step so a
+              case-specific letter can be prepared.
+            </p>
+          </div>
+        </div>
+      ) : released ? (
         <div className="card stack">
           <div>
             <h1>Your appeal letter</h1>
@@ -144,10 +183,15 @@ export default function ResultStep({
       ) : (
         <div className="card stack">
           <div>
-            <h1>This one needs a person to look at it</h1>
+            <h1>
+              {needsReview
+                ? "This one needs a person to look at it"
+                : "No final appeal is ready yet"}
+            </h1>
             <p className="lede">
-              We could not release a letter for this case automatically. The checks below stopped
-              it, and a reviewer needs to resolve them first.
+              {needsReview
+                ? "We could not release a letter for this case automatically. The checks below stopped it, and a reviewer needs to resolve them first."
+                : "A generic introduction or incomplete draft is never shown as a finished appeal. Continue the steps, or start again if something went wrong."}
             </p>
           </div>
 
@@ -170,8 +214,7 @@ export default function ResultStep({
             </div>
           ) : (
             <div className="notice" data-tone="attention">
-              The case finished in state <code>{data.state}</code> without a letter and without a
-              recorded reason.
+              The case finished in state <code>{data.state}</code> without a released letter.
             </div>
           )}
         </div>

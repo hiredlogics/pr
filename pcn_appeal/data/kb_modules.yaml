@@ -58,7 +58,7 @@ modules:
     # pleaded (source: "do not generate a generic checklist challenge"), plus a
     # document-confirmation flag for the DO NOT on OCR uncertainty.
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
-    do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [relevant_land, false]}]}
+    do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [relevant_land, false]}, {eq: [notice_sides_complete, false]}]}
     core_proposition: Use only the precise Schedule 4 defect established from the notice itself; do not generate a generic checklist challenge.
     required_facts: [notice_route, ntk_defect_document_confirmed]
     evidence_helpful: [NTK, PCN]
@@ -84,6 +84,22 @@ modules:
     status: ACTIVE
     version: "1.0"
     strength: 93
+
+  - module_id: KB-POFA-06
+    route: POFA
+    topic: Hire vehicle keeper documentation
+    use_when: {all: [{is: keeper_is_hire_firm}, {eq: [hire_docs_supplied, false]}]}
+    do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [driver_status, FORMALLY_IDENTIFIED]}]}
+    core_proposition: Where the registered keeper is a vehicle-hire firm, Schedule 4 imposes additional documentary conditions before keeper liability can transfer; those documents have not been shown to have been supplied.
+    required_facts: [keeper_is_hire_firm, hire_docs_supplied]
+    evidence_helpful: [HIRE_AGREEMENT, NTK, PCN]
+    legal_basis: [PoFA-2012-Sch4]
+    drafting_notes: State only that the hire-specific documents have not been evidenced. Do not invent which paragraph failed. Never identify a driver.
+    prohibited_claims: [the driver was, identity of the driver]
+    building_blocks: [PP-POFA-008, PP-POFA-006, PP-POFA-007]
+    status: ACTIVE
+    version: "1.0"
+    strength: 88
 
   - module_id: KB-PAY-01
     route: PAYMENT
@@ -414,23 +430,26 @@ modules:
     route: EVIDENCE
     topic: Independent evidence contradicts the allegation
     use_when: {all: [{is: independent_evidence_contradicts}, {any: [{has_evidence: DASHCAM}, {has_evidence: PHOTO}, {has_evidence: RECEIPT}, {has_evidence: LOCATION_RECORD}, {has_evidence: BANK_STATEMENT}]}]}
-    do_not_use_when: {always: false}
+    # A shopping receipt that leaves parking validation UNKNOWN is inconclusive,
+    # not contradictory. Never promote inconclusive evidence into this ground.
+    do_not_use_when:
+      any:
+        - {eq: [parking_validation_status, "UNKNOWN"]}
     core_proposition: Give the independent evidence appropriate weight and require the operator to reconcile the contradiction.
     required_facts: [independent_evidence_contradicts]
     evidence_helpful: [DASHCAM, PHOTO, RECEIPT, LOCATION_RECORD, BANK_STATEMENT]
     legal_basis: [CL-evidential-weight]
-    drafting_notes: Only describe evidence that is actually uploaded, and only the contradiction it actually shows.
-    prohibited_claims: [proves the operator fabricated]
+    drafting_notes: Only describe evidence that is actually uploaded, and only the contradiction it actually shows. A purchase receipt alone is not a contradiction of a validation allegation.
+    prohibited_claims: [proves the operator fabricated, shopping receipt proves parking validation]
     building_blocks: [PP-ANPR-004]
     status: ACTIVE
-    version: "1.0"
+    version: "1.1"
     strength: 70
-  # Added 2026-09-28. The KB had no ground for a bay-eligibility allegation
-  # (parent and child, family, disabled, EV, permit holder), so a notice alleging
-  # one produced a letter carrying only the unconditional landowner-authority
-  # paragraph. Scope was signed off as the evidential point ONLY: this module
-  # never asserts that the bay's conditions WERE met, which would need a fact
-  # from the customer that the question bank does not collect.
+  # Added 2026-09-28; revised 2026-09-29. Evidential observation-window point
+  # always available for restricted-bay allegations. When the customer's account
+  # materially contradicts the allegation's factual premise (system-wide
+  # material-account assessment — not bay-type hard-coding), PP-BAY-002 also
+  # states that keeper-safe account. Never invent occupancy/eligibility detail.
   # Basis is CL-evidential-weight, not a SCOP- source, deliberately - the point
   # is the operator's burden of proof, so it must not be withheld by R-01 on
   # notices that do not print a trade association.
@@ -447,11 +466,11 @@ modules:
     required_facts: [restricted_bay_alleged, observation_window_min]
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
-    drafting_notes: State only the recorded observation and event times and the operator's burden. Never assert who was in the vehicle, and never assert that the bay's conditions were in fact met.
-    prohibited_claims: [a child was present, an eligible occupant was present, the bay was not reserved, the restriction is unenforceable]
-    building_blocks: [PP-BAY-001]
+    drafting_notes: State the recorded observation and event times and the operator's burden. When account_contradicts_allegation is present, incorporate the professional material_account_proposition (system-authored) as inconsistent with the allegation's factual premise. Never paste customer free-text wording. Never invent who was driving.
+    prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text]
+    building_blocks: [PP-BAY-001, PP-BAY-002]
     status: ACTIVE
-    version: "1.0"
+    version: "1.1"
     strength: 65
   - module_id: KB-TIME-01
     route: ANPR
@@ -769,6 +788,42 @@ modules:
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-001]
     strength: 20
+  - module_id: KB-REC-01
+    # Must NOT sit on EVIDENCE: that route's customer-facing label is
+    # "Independent evidence contradicting the allegation", which mislabels a
+    # cautious records request when validation is unconfirmed.
+    route: RECORDS
+    topic: Proportionate records request
+    use_when:
+      any:
+        - {contains: [alleged_breach, "validat"]}
+        - {contains: [alleged_breach, "voucher"]}
+        - {contains: [alleged_breach, "kiosk"]}
+        - {contains: [alleged_breach, "ticket machine"]}
+        - {contains: [alleged_breach, "pay and display"]}
+        - {contains: [alleged_breach, "permit"]}
+    do_not_use_when: {always: false}
+    core_proposition: >
+      Where the allegation turns on a site validation, voucher, kiosk or similar
+      step and the keeper's materials do not prove that step either way, request
+      the operator's relevant system records without asserting that compliance
+      occurred or that a defect is already proven.
+    required_facts: [alleged_breach]
+    evidence_helpful: [RECEIPT, PHOTO, CORRESPONDENCE, APP_SCREENSHOT]
+    legal_basis: [SCOP-evidence]
+    drafting_notes: >
+      Evidence request only. Never claim validation occurred, never claim the
+      charge is invalid solely because records were not produced in advance, and
+      never treat a shopping receipt as parking validation.
+    prohibited_claims:
+      - validation occurred
+      - validation failed
+      - the charge is automatically invalid
+      - shopping receipt proves parking validation
+    building_blocks: [PP-REC-001]
+    status: ACTIVE
+    version: "1.0"
+    strength: 55
   - module_id: KB-LAND-02
     route: LANDOWNER
     topic: Scope / site boundary / material date

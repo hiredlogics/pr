@@ -61,8 +61,7 @@ export default function ConfirmStep({
       <div>
         <h1>Check your details</h1>
         <p className="lede">
-          We have extracted the following information from your notice. Please check and amend if
-          needed.
+          Please check these details and amend anything that is wrong.
         </p>
       </div>
 
