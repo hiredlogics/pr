@@ -137,7 +137,13 @@ class OneClickAppeal(unittest.TestCase):
             self.assertNotRegex(q["text"].lower(), r"driv(er|ing)|who (drove|parked)")
 
     def test_finishes_in_one_call_when_nothing_gates_a_ground(self):
-        case, pipe = make_pipe("Vehicle in restricted zone")
+        # A late postal notice: the ground comes entirely off the notice's own
+        # dates, so there is nothing to ask and the call finishes. The breach was
+        # "Vehicle in restricted zone" with no other facts, which now selects only
+        # the keeper-liability framing point and the landowner paragraph - both
+        # below the strength at which the KB allows a ground to lead - so it is
+        # held instead of released (see test_no_leading_ground_is_held below).
+        case, pipe = make_pipe("Overstayed paid time", extra={"notice_issue_date": "20/06/2026"})
         result = pipe.auto_appeal(case, "nothing relevant here")
 
         self.assertEqual(result.questions, [])

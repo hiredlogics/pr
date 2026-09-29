@@ -127,6 +127,92 @@ class SubstanceValidationTests(unittest.TestCase):
         self.assertIn("VAL-CONFLICT", {i.rule for i in result.issues})
 
 
+class LeadingGroundTests(unittest.TestCase):
+    """A letter may only go out on a ground the KB allows to lead it.
+
+    The strength calibration in kb_modules.yaml is explicit that below 50 a
+    module is "evidence / signage / authority support only" and "can never lead
+    the letter", and section 16 p4 keeps landowner authority last and concise.
+    A selection made only of those has nothing to support, so what the customer
+    would receive is a landowner-authority or keeper-liability-framing paragraph
+    presented as their appeal.
+    """
+
+    def _sainsburys_case(self):
+        llm = ReferenceAnalysisLLM(
+            {"extraction": [{"fields": fields(**SAINSBURYS), "doc_types": {"E1": "PCN"}}]})
+        case = CaseFile("C-LG", evidence={
+            "E1": EvidenceItem("E1", "PCN", "pcn.pdf",
+                               text="Euro Car Parks\nPCN 8812545842\nnot validated at the kiosk"),
+            "E2": EvidenceItem("E2", "RECEIPT", "shop.pdf",
+                               text="Sainsbury's\nTotal £24.10", uploaded=True),
+        })
+        pipe = AppealPipeline(llm)
+        pipe.ingest(case)
+        pipe.confirm(case, {}, [n for n, f in case.facts.items()
+                                if f.status == FactStatus.EXTRACTED],
+                     "Cannot remember whether the kiosk was used. Receipt available.")
+        return case, pipe
+
+    def test_a_kiosk_notice_without_its_ground_is_held_not_sent(self):
+        """KB-REC-01 is the ground that answers a validation allegation. While it
+        is at REVIEW the case has no leading ground, so it must be held - not sent
+        as a landowner-authority letter about a kiosk receipt."""
+        case, pipe = self._sainsburys_case()
+        if is_approved("KB-REC-01", pipe.kg):
+            self.skipTest("KB-REC-01 approved: the case has its own leading ground")
+        out = pipe.generate(case)
+
+        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        self.assertIsNone(out.letter, "a case with no leading ground must not release")
+        self.assertEqual(out.draft.paragraphs, [], "nothing may be drafted to be held")
+        # The pack still records what was selected - that is the audit trail -
+        # but a selection led by landowner authority must not become a letter.
+        self.assertEqual(out.pack.primary_route, "LANDOWNER")
+
+    def test_the_reason_is_recorded_for_us_and_not_shown_to_the_customer(self):
+        case, pipe = self._sainsburys_case()
+        if is_approved("KB-REC-01", pipe.kg):
+            self.skipTest("KB-REC-01 approved: the case has its own leading ground")
+        out = pipe.generate(case)
+
+        held = [a for a in case.audit if a.get("event") == "no_leading_ground"]
+        self.assertTrue(held, "the hold must be auditable")
+        self.assertTrue(held[-1]["reason"])
+        self.assertEqual(held[-1]["module_ids"], list(out.pack.module_ids))
+        # Nothing about module strength or module IDs may reach the customer.
+        self.assertEqual([i.message for i in out.validation.issues], [])
+
+    def test_a_ground_strong_enough_to_lead_still_releases(self):
+        """The gate must not swallow ordinary cases: a late postal notice carries
+        KB-POFA-02/03 at strength 95 and has to come out as a letter."""
+        late = dict(SAINSBURYS, notice_issue_date="20/06/2026",
+                    parking_event_date="01/06/2026", site_postcode="M1 1AA",
+                    alleged_breach="Overstayed paid time")
+        llm = ReferenceAnalysisLLM(
+            {"extraction": [{"fields": fields(**late), "doc_types": {"E1": "NTK"}}]})
+        case = CaseFile("C-LG2", evidence={
+            "E1": EvidenceItem("E1", "NTK", "ntk.pdf", text="Notice to Keeper")})
+        pipe = AppealPipeline(llm)
+        pipe.ingest(case)
+        pipe.confirm(case, {}, [n for n, f in case.facts.items()
+                                if f.status == FactStatus.EXTRACTED], "the letter came late")
+        out = pipe.generate(case)
+
+        self.assertTrue(pipe.reasoning.leading_grounds(out.pack.module_ids), out.pack.module_ids)
+        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
+        self.assertTrue(out.letter)
+
+    def test_the_threshold_is_read_from_the_kb_not_hardcoded_per_module(self):
+        kg = KnowledgeGraph()
+        engine = AppealPipeline(ReferenceAnalysisLLM()).reasoning
+        support_only = [m.module_id for m in kg.active_modules() if m.strength < 50]
+        self.assertTrue(support_only, "the KB is expected to hold support-only modules")
+        self.assertEqual(engine.leading_grounds(support_only), [])
+        leaders = [m.module_id for m in kg.active_modules() if m.strength >= 50]
+        self.assertEqual(sorted(engine.leading_grounds(leaders)), sorted(leaders))
+
+
 class QuestionRepetitionTests(unittest.TestCase):
     def test_synonym_kiosk_question_is_dropped_after_cannot_remember(self):
         kg = KnowledgeGraph()

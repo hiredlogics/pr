@@ -22,6 +22,7 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-STAGE    POPLA / IAS / court language at initial appeal
   VAL-CONFLICT PCN number / VRM / payment status contradicting source facts
   VAL-REPEAT   near-duplicate sentences
+  VAL-REPEAT-POINT one case theory asserted twice in different words
   VAL-OBSOLETE penalty / genuine pre-estimate argument
   VAL-LEAK     module IDs, template placeholders or AI self-reference in output
   VAL-MODULE   module_refs outside the retrieved (approved) set
@@ -76,6 +77,14 @@ NOT_PAID = R(r"\b(no payment was made|was not paid|did not pay|unpaid parking)\b
 # records the payment as taken, this contradicts the operator's own document.
 PAYMENT_FAILED_CLAIM = R(r"\b(could not be completed|did not complete|failed to (complete|process)"
                          r"|transaction (failed|was unsuccessful)|machine did not operate)\b")
+# Points a letter must assert once however many grounds share them. Keyed by the
+# name used in the issue message, so the customer-facing text says "the payment
+# point", not a module ID. Kept in step with drafter.RESTATED_POINTS: the drafter
+# merges, this refuses a draft that did not.
+ONE_ASSERTION = {
+    "payment": R(r"\b(a\s+)?payment\s+was\s+(nevertheless\s+|duly\s+)?made\b"
+                 r"|\b(the\s+)?(applicable\s+)?(parking\s+)?tariff\s+was\s+paid\b"),
+}
 
 
 def _jaccard(a: str, b: str) -> float:
@@ -249,6 +258,18 @@ class ValidationEngine:
         if "consideration" in full.lower() and "grace" in full.lower() and \
                 re.search(r"consideration (and|plus|\+) grace (period )?(allowance|of \d+)", full, re.I):
             block("VAL-CODE", "Consideration and grace merged into one allowance")
+
+        # One case theory, asserted once (KB-KEY-01 "Keying and payment are one
+        # case theory - do not repeat"; KB-PAY-01 "Merge repeated payment
+        # statements into one"). VAL-REPEAT cannot catch this: "A payment was
+        # made" and "the applicable tariff was paid" share almost no words, so
+        # the letter stated the point three times and passed.
+        for point, pattern in ONE_ASSERTION.items():
+            hits = [s.text for s in draft.sentences() if pattern.search(s.text)]
+            if len(hits) > 1:
+                block("VAL-REPEAT-POINT",
+                      f"The {point} point is asserted {len(hits)} times; state it once",
+                      hits[1])
 
         if self.judge and not any(i.severity == "BLOCK" for i in issues):
             issues += self._llm_judge(draft, pack)

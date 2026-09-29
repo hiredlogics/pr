@@ -1,14 +1,30 @@
 """Scenario suite - Dev Pack Part 12 (A-D) plus the safety cases the review added.
 Run:  python -m unittest discover -s tests -v
 """
+import re
 import unittest
 from datetime import date
 
+from pcn_appeal.engines.validation import ValidationEngine
 from pcn_appeal.legal import pofa
 from pcn_appeal.llm import FakeLLM
 from support import ReferenceAnalysisLLM
-from pcn_appeal.models import CaseFile, CaseState, Draft, DraftSentence, EvidenceItem
+from pcn_appeal.models import (
+    CaseFile, CaseState, Draft, DraftSentence, EvidenceItem, RetrievalPack,
+)
 from pcn_appeal.orchestrator import AppealPipeline
+
+
+def _keying_pack() -> RetrievalPack:
+    """The pack a payment-plus-keying case produces, for validator-only tests."""
+    return RetrievalPack(
+        primary_route="PAYMENT", secondary_routes=["KEYING"],
+        module_ids=["KB-PAY-01", "KB-KEY-01"],
+        verified_facts={"pcn_number": "PCN123456", "vrm": "AB12CDE", "payment_made": True},
+        fact_refs={}, missing_facts=[], evidence_refs=[], prohibited_claims=[],
+        code_version="SCOP-1.1", pofa_route="POSTAL", pofa_findings=[],
+        driver_status="UNIDENTIFIED", jurisdiction="ENGLAND_WALES",
+        context_chunks=[], lease_clauses=[])
 
 
 def fields(**kw):
@@ -97,6 +113,53 @@ class ScenarioC_PaymentKeying(unittest.TestCase):
         self.assertIn("KEYING", out.pack.secondary_routes)
         self.assertNotIn("I paid", out.letter)
 
+    def test_payment_and_keying_are_one_argument_stated_once(self):
+        """KB-KEY-01: "Keying and payment are one case theory - do not repeat."
+        KB-PAY-01: "Merge repeated payment statements into one."
+
+        The two routes' approved blocks each assert that a payment was made, so
+        drafted as consecutive paragraphs the letter made the same point three
+        times: "A payment was made", "Payment was nevertheless made", "the
+        applicable tariff was paid".
+        """
+        case, pipe = make_case({"alleged_breach": "No valid payment for vehicle"},
+                               {"E4": EvidenceItem("E4", "APP_SCREENSHOT", "app.png")},
+                               {"E4": "APP_SCREENSHOT"})
+        out = run(case, pipe, "I paid on the app but typo in reg",
+                  {"payment_made": "yes", "payment_method": "APP", "keying_error_type": "MINOR"})
+        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
+
+        made = [s.text for s in out.draft.sentences()
+                if re.search(r"payment was (nevertheless |duly )?made"
+                             r"|tariff was paid", s.text, re.I)]
+        self.assertEqual(len(made), 1, made)
+
+        # One argument, not two paragraphs: the payment and keying sentences sit
+        # in the same paragraph.
+        of_theory = [i for i, p in enumerate(out.draft.paragraphs)
+                     if any(pipe.kg.modules[m].route in ("PAYMENT", "KEYING")
+                            for s in p for m in s.module_refs if m in pipe.kg.modules)]
+        self.assertEqual(len(of_theory), 1, out.draft.plain_text())
+
+        # The keying point itself must survive the merge - it is not a duplicate.
+        low = (out.letter or "").lower()
+        self.assertIn("registration-entry error", low)
+        self.assertIn("without payment", low)
+
+    def test_a_draft_that_repeats_the_payment_point_is_refused(self):
+        """The merge is the drafter's job; this is the gate that makes it binding
+        on the LLM drafter, which writes its own prose."""
+        pack = _keying_pack()
+        repeated = Draft("C-1", [
+            [DraftSentence("The allegation that the tariff was not paid is disputed. "
+                           "A payment was made in connection with the visit.",
+                           [], ["KB-PAY-01"])],
+            [DraftSentence("Notwithstanding the registration-entry error, the applicable "
+                           "tariff was paid.", [], ["KB-KEY-01"])],
+        ])
+        rules = {i.rule for i in ValidationEngine().validate(repeated, pack).issues}
+        self.assertIn("VAL-REPEAT-POINT", rules)
+
 
 class ScenarioD_LateNTK(unittest.TestCase):
     def test_late_postal_ntk_leads(self):
@@ -111,7 +174,12 @@ class ScenarioD_LateNTK(unittest.TestCase):
         case, pipe = make_case({"notice_issue_date": "20/06/2026", "site_postcode": "EH1 1AA"})
         out = run(case, pipe, "letter came late", {})
         self.assertEqual(out.pack.pofa_route, "NOT_APPLICABLE")
-        self.assertNotIn("Schedule 4", out.letter)
+        self.assertNotIn("Schedule 4", out.letter or "")
+        # Schedule 4 does not apply in Scotland, so the late-notice ground that
+        # carries this case in England is unavailable and nothing else here is
+        # strong enough to lead. Held rather than sent as a landowner paragraph.
+        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        self.assertIsNone(out.letter)
 
 
 class PofaCalculator(unittest.TestCase):
@@ -156,7 +224,11 @@ class Safety(unittest.TestCase):
         class BadDrafter:
             def draft(self, case_id, pack, feedback=None, attempt=1):
                 return Draft(case_id, [[DraftSentence("I drove in and parked.", [], ["STRUCTURAL"])]], attempt)
-        case, pipe = make_case()
+        # A late postal notice, so the case has a ground the KB lets lead and the
+        # drafting loop actually runs. A bare "overstayed" would now be held
+        # before drafting for having no leading ground, which would test the gate
+        # instead of the fallback.
+        case, pipe = make_case({"notice_issue_date": "20/06/2026"})
         pipe.drafter = BadDrafter()
         out = run(case, pipe, "overstayed", {})
         self.assertEqual(out.state, CaseState.RELEASED)

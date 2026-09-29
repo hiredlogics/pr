@@ -181,8 +181,15 @@ prompts:
   #   - The driver-status line now covers both routes.
   #   - The independent-appeal closing line (PP-END-003) is renderer-added and
   #     exempt from the stage rule (VAL-STAGE "except configured next-step wording").
+  #
+  # v6 -> v7: ONE CASE THEORY rule for payment + keying. "Merge repeated points"
+  #   was too general to bind: the two routes' approved blocks each assert that a
+  #   payment was made, so the letter stated it three times in two paragraphs.
+  #   Named in the source as a rule, not a preference - KB-KEY-01 "Keying and
+  #   payment are one case theory - do not repeat", KB-PAY-01 "Merge repeated
+  #   payment statements into one". Enforced by VAL-REPEAT-POINT in Engine 4.
   drafting:
-    version: 6
+    version: 7
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -220,6 +227,10 @@ prompts:
       - Order: lead with primary_route; then the strongest fact-specific ground; then evidence, signage or
         Code points; landowner authority last and in one sentence. Omit weak, contradictory or unsupported
         points rather than adding them. Merge repeated points; keep it concise.
+      - ONE CASE THEORY: where payment and keying grounds are both selected, argue them as ONE argument
+        in ONE paragraph, leading on payment. State that a payment was made ONCE. Do not open a second
+        paragraph by re-asserting it in other words ("the tariff was paid", "payment was nevertheless
+        made"); say what the keying error adds to the point already made.
       - Say evidence is enclosed only if its evidence_id is in evidence_refs.
       - Quote lease text only verbatim from lease_clauses and set quote_of to its evidence_id.
       - Every letter must contain at least one substantive ground paragraph drawn from

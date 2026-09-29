@@ -24,6 +24,44 @@ from ..models import Draft, DraftSentence, RetrievalPack
 _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
 _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
+# Routes whose modules argue ONE case theory and must therefore be drafted as one
+# argument, not as consecutive paragraphs each opening on the same point.
+#   KB-KEY-01 drafting note: "Keying and payment are one case theory - do not repeat."
+#   KB-PAY-01 drafting note: "Merge repeated payment statements into one."
+# Route-level rather than module-level because the grouping is about what the
+# letter argues, and the ordering it overrides (routes.yaml rank) is route-level too.
+ONE_ARGUMENT: tuple[frozenset[str], ...] = (
+    frozenset({"PAYMENT", "KEYING"}),
+)
+
+# Points the letter must assert once. The approved blocks of two routes in one
+# argument each state the shared point in their own words, which is right when
+# the block stands alone and repetition when they are merged. Lexical
+# near-duplicate detection (VAL-REPEAT) cannot see this: "A payment was made"
+# and "the applicable tariff was paid" share almost no words.
+RESTATED_POINTS: tuple[re.Pattern, ...] = (
+    re.compile(r"\b(a\s+)?payment\s+was\s+(nevertheless\s+)?made\b"
+               r"|\b(the\s+)?(applicable\s+)?(parking\s+)?tariff\s+was\s+paid\b"
+               r"|\bpayment\s+was\s+(duly\s+)?made\b", re.I),
+)
+
+
+def _restated(text: str, made: set[int]) -> bool:
+    """Whether this sentence asserts a point already made in this argument.
+
+    Works a sentence at a time, which is what makes it safe to drop: in the
+    approved keying blocks the bare restatement is its own sentence, and the
+    consequence drawn from it ("The case should not be treated as though the
+    parking facility was used without payment") is the next one and survives.
+    """
+    for i, pattern in enumerate(RESTATED_POINTS):
+        if not pattern.search(text):
+            continue
+        if i in made:
+            return True
+        made.add(i)
+    return False
+
 
 class LLMDrafter:
     """Primary production drafter: case-specific prose from the RetrievalPack."""
@@ -140,10 +178,48 @@ class TemplateDrafter:
             ["KB-REC-01"], []))
         return sentences
 
+    @staticmethod
+    def _one_argument_per_theory(
+            grouped: list[tuple[str, list[DraftSentence]]]) -> list[list[DraftSentence]]:
+        """Combine routes that argue one case theory, and state its point once.
+
+        Payment and keying were drafted as two paragraphs, each opening by
+        asserting that a payment was made - the same point three times across the
+        two, which is what KB-KEY-01 ("one case theory - do not repeat") and
+        KB-PAY-01 ("merge repeated payment statements into one") forbid. The
+        sentences keep their own module_refs, so the validator can still check
+        each one against the ground it came from.
+        """
+        theory_of: dict[str, int] = {}
+        for i, routes in enumerate(ONE_ARGUMENT):
+            for route in routes:
+                theory_of[route] = i
+
+        out: list[list[DraftSentence]] = []
+        at: dict[int, int] = {}          # theory index -> its paragraph in `out`
+        made: dict[int, set[int]] = {}   # theory index -> points already asserted
+        for route, sentences in grouped:
+            theory = theory_of.get(route)
+            if theory is None:
+                out.append(sentences)
+                continue
+            keep = [s for s in sentences
+                    if not _restated(s.text, made.setdefault(theory, set()))]
+            if theory in at:
+                out[at[theory]] += keep
+            elif keep:
+                at[theory] = len(out)
+                out.append(keep)
+        return [p for p in out if p]
+
     def draft(self, case_id: str, pack: RetrievalPack, feedback=None, attempt: int = 1) -> Draft:
         chunks = {c["id"]: c for c in pack.context_chunks if c["kind"] == "block"}
         used: set[str] = set()
         paras: list[list[DraftSentence]] = []
+        # (route, sentences) per module, so routes arguing one case theory can be
+        # combined before they become paragraphs. Order is preserved: the KB-GOV-07
+        # ordering has already been applied to pack.module_ids.
+        grouped: list[tuple[str, list[DraftSentence]]] = []
 
         intro = self._sentences(self.kg.blocks["PP-INTRO-001"].text, pack, "STRUCTURAL")
         if pack.driver_status == "UNIDENTIFIED":
@@ -214,7 +290,9 @@ class TemplateDrafter:
                     para += self._sentences(blk.text, pack, mid, ev, blk.placeholder_map)
                     used.add(bid)
             if para:
-                paras.append(para)
+                grouped.append((mod.route, para))
+
+        paras += self._one_argument_per_theory(grouped)
 
         closing = self._sentences(self.kg.blocks["PP-END-001"].text, pack, "STRUCTURAL") + \
             self._sentences(self.kg.blocks["PP-END-002"].text, pack, "STRUCTURAL")
