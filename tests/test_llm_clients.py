@@ -51,7 +51,7 @@ class ModelResolution(unittest.TestCase):
     def test_picks_best_available_per_task(self):
         client, _ = build()
         self.assertEqual(client.models["extraction"], "gpt-4.1")       # gpt-5* absent
-        self.assertEqual(client.models["questioning"], "gpt-4.1-mini")
+        self.assertEqual(client.models["validation"], "gpt-4.1-mini")
         self.assertEqual(client.models["drafting"], "gpt-4.1")
 
     def test_validation_auto_resolves_to_a_different_model(self):
@@ -62,7 +62,7 @@ class ModelResolution(unittest.TestCase):
     def test_falls_back_when_preferred_model_absent(self):
         client, _ = build(models=["gpt-4o", "gpt-4o-mini"])
         self.assertEqual(client.models["drafting"], "gpt-4o")
-        self.assertEqual(client.models["questioning"], "gpt-4o-mini")
+        self.assertEqual(client.models["validation"], "gpt-4o-mini")
 
     def test_single_model_key_cannot_satisfy_distinct_validator(self):
         """One model only: the other tasks can be forced onto it, the validator cannot."""
@@ -90,7 +90,7 @@ class ModelResolution(unittest.TestCase):
 class RequestShape(unittest.TestCase):
     def test_forces_json_object_and_routes_per_task(self):
         client, stub = build()
-        client.complete_json(task="questioning", system="SYS", user="USER")
+        client.complete_json(task="validation", system="SYS", user="USER")
         kw = stub.captured[0]
         self.assertEqual(kw["model"], "gpt-4.1-mini")
         self.assertEqual(kw["response_format"], {"type": "json_object"})
@@ -143,10 +143,21 @@ class FullPipelineOverOpenAI(unittest.TestCase):
                       "doc_types": {"E1": "PCN"}}
         hints = json.dumps({"routes": [{"route": "GRACE", "confidence": 0.9}]})
 
+        # V2: grounds come from the case_analysis task, so the stub has to answer
+        # it. Without this the run drafts nothing and VAL-SUBSTANCE blocks.
+        analysis = json.dumps({"grounds": [{"module_id": "KB-POFA-02",
+                                            "supported_by": ["notice_issue_date"],
+                                            "note": "postal notice served late"}],
+                               "questions": [], "not_supported": []})
+
         def reply(kw):
             """Dispatch on the system prompt, the way the real API sees it."""
             system = kw["messages"][0]["content"]
-            return json.dumps(extraction) if system.startswith("You extract") else hints
+            if system.startswith("You extract"):
+                return json.dumps(extraction)
+            if system.startswith("You analyse"):
+                return analysis
+            return hints
 
         stub = StubOpenAI(reply=reply)
         with mock.patch("openai.OpenAI", return_value=stub):

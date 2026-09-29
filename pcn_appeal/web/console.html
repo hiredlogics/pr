@@ -112,7 +112,7 @@ Alleged Breach: Overstayed the maximum permitted period
 Trade Association: BPA`;
 
 const S = {            // everything the UI knows about the current case
-  caseId: null, stage: 0, facts: [], flags: [], hints: [], questions: [],
+  caseId: null, stage: 0, facts: [], flags: [], questions: [],
   answers: {}, result: null, trace: null, tab: "facts",
 };
 
@@ -292,9 +292,9 @@ function renderInspector() {
   } else if (S.tab === "hints") {
     const r = S.result || {};
     box.innerHTML = `
-      <p class="muted">Route hints only widen which <em>questions</em> get asked. Every legal module
-        still has to clear its own gate, so a wrong hint costs one question, never a wrong argument.</p>
-      <p><b>Hints</b><br>${S.hints.map(h => `<span class="pill">${esc(h)}</span> `).join("") || "—"}</p>
+      <p class="muted">Routes are not selected any more — case analysis chooses the grounds and every
+        module still has to clear its own gate. What is left below is the route of each chosen ground,
+        which only decides the order they are argued in.</p>
       <p><b>Chosen</b><br>${r.primary_route ? `<span class="pill CONFIRMED">${esc(r.primary_route)}</span> `
         + (r.secondary_routes || []).map(x => `<span class="pill">${esc(x)}</span> `).join("") : "—"}</p>`;
   } else if (S.tab === "trace") {
@@ -346,7 +346,7 @@ async function doConfirm(btn) {
       narrative: $("narr").value,
       driver_already_named_to_operator: $("named").checked,
     });
-    S.hints = res.route_hints || []; S.questions = res.questions || []; S.stage = 3;
+    S.questions = res.questions || []; S.stage = 3;
     await refreshFacts();
     render();
   });

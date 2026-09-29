@@ -22,7 +22,9 @@ from typing import Any, Optional
 import yaml
 
 DATA = Path(__file__).resolve().parent / "data" / "prompts.yaml"
-TASKS = ("extraction", "questioning", "case_analysis", "drafting", "validation")
+# No "questioning" task: routing a customer's words to a route, and a route to a
+# preset question, was the V1 question engine. Case analysis decides now.
+TASKS = ("extraction", "case_analysis", "drafting", "validation")
 
 _registry: Optional[dict[str, dict[str, Any]]] = None
 

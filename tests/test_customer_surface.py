@@ -80,7 +80,9 @@ class QuestionsCarryNoReasoning(unittest.TestCase):
         case = CaseFile("C-2", evidence={"E1": EvidenceItem("E1", "NTK", "n.pdf")})
         pipe = AppealPipeline(llm)
         pipe.ingest(case)
-        questions = pipe.confirm(case, {}, list(case.facts), "I had a permit from the store")
+        # A neutral account on purpose: saying "I had a permit" would settle the
+        # fact, and the question would then be dropped for the right reason.
+        questions = pipe.confirm(case, {}, list(case.facts), "I want to challenge this charge")
         self.assertTrue(questions)
         for q in questions:
             self.assertEqual(set(q) - {"text", "type", "options", "fact"}, set())

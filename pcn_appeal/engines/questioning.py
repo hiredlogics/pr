@@ -19,14 +19,10 @@ produced:
 from __future__ import annotations
 
 import re
-from collections import defaultdict
-from typing import Any, Optional
+from typing import Any
 
 from ..kg.graph import KnowledgeGraph
-from .. import prompts
-from ..llm import LLMClient
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, SourceKind
-from ..rules.dsl import evaluate
 from .extraction import normalise_operator_ata
 
 # Minimum calibrated confidence for an LLM-only hint (one the regex floor did
@@ -64,13 +60,10 @@ def keeper_safe_text(s: str) -> str:
 
 
 class QuestionEngine:
-    def __init__(self, kg: KnowledgeGraph, llm: Optional[LLMClient] = None):
+    """Answer normalisation only. It asks nothing - see AnalysisEngine."""
+
+    def __init__(self, kg: KnowledgeGraph):
         self.kg = kg
-        self.llm = llm
-        cfg = kg.question_cfg
-        self.banned = [t.lower() for t in cfg.get("banned_question_terms", [])]
-        self.max_q = cfg.get("max_questions", 6)
-        self.hard_cap = cfg.get("hard_cap_questions", 8)
 
     # ------------------------------------------------------------ answers
     def record_answer(self, case: CaseFile, fact: str, raw: Any) -> None:

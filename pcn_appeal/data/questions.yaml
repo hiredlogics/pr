@@ -1,5 +1,17 @@
-# Question bank. Each question resolves ONE fact. Wording is neutral/passive:
-# it never asks who drove and never invites a first-person driver admission.
+# Fact vocabulary and answer shapes. NOT a question bank any more: no code reads
+# the `text` of an entry and shows it to a customer, and nothing here decides
+# that a question should be asked. Case analysis writes its own wording and
+# chooses what is worth asking; this file supplies three things to that decision:
+#
+#   * the canonical fact name for a topic, so two rounds cannot ask the same
+#     thing under two names
+#   * the answer type, so an answer can be coerced and validated
+#   * the closed option set for a `choice` fact, so the UI and the validator
+#     share one list (e.g. BPA / IPC / NOT_SHOWN)
+#
+# The wording is kept because it documents what each fact means, and because it
+# is the fallback shape for an answer to a fact that was not asked this round.
+# Each entry resolves ONE fact, and never asks or implies who was driving.
 # `normalise` maps answer -> keeper-safe fact value (raw text kept for audit only).
 questions:
   payment_made:      {text: "Was a parking payment made or attempted for this visit?", type: bool}
@@ -99,8 +111,6 @@ questions:
   ntk_defect_statutory_invitation: {text: "Does the notice omit the statutory invitation required for the applicable route?", type: bool}
 # Words the question engine must never generate (hard rule Q-01).
 banned_question_terms: ["who was driving", "who drove", "name of the driver", "were you driving", "driver's name"]
-max_questions: 6
-hard_cap_questions: 8
-# V2 adaptive questioning. A question is a cost; silence is the default.
+# Adaptive questioning. A question is a cost; silence is the default.
 max_questions_v2: 3
 max_question_rounds: 3

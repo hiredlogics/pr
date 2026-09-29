@@ -14,15 +14,16 @@ infra/neo4j_schema.cypher - same node/edge vocabulary, so this class becomes a
 thin Cypher adapter.
 
 What the graph gives you that vector search cannot:
-  * which facts are still missing to unlock/rule out a route  -> Question engine
+  * which facts a module's gates depend on                    -> Analysis engine
   * which modules contradict each other                      -> Reasoning engine
   * which legal source + version backs a proposition          -> Validation engine
   * which blocks need which evidence                          -> Validation engine
 """
 from __future__ import annotations
 
+from datetime import date, datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 import networkx as nx
 import yaml
@@ -31,6 +32,20 @@ from ..models import BuildingBlock, KBModule
 from ..rules.dsl import referenced_facts
 
 DATA = Path(__file__).resolve().parent.parent / "data"
+
+
+def _as_date(value: object) -> Optional[date]:
+    """YAML gives a date for `2026-01-01` but a str via the Postgres release."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
 
 
 class KnowledgeGraph:
@@ -67,12 +82,15 @@ class KnowledgeGraph:
 
     def _build(self, kb: dict, rt: dict, bb: dict, qs: dict) -> None:
         self.routes = rt["routes"]
-        self.max_secondary = rt.get("max_secondary_routes", 3)
         for r, meta in self.routes.items():
             self.g.add_node(("Route", r), **meta)
 
         for bid, b in bb["blocks"].items():
-            blk = BuildingBlock(bid, b["text"], b.get("requires_evidence_any", []), b.get("requires_facts", []))
+            blk = BuildingBlock(bid, b["text"], b.get("requires_evidence_any", []),
+                                b.get("requires_facts", []),
+                                status=b.get("status", "ACTIVE"),
+                                placeholder_map=b.get("placeholder_map") or {},
+                                source_reference=b.get("source_reference", ""))
             self.blocks[bid] = blk
             self.g.add_node(("Block", bid))
             for ev in blk.requires_evidence:
@@ -89,7 +107,16 @@ class KnowledgeGraph:
                 "required_facts", "evidence_helpful", "legal_basis", "drafting_notes",
                 "prohibited_claims", "building_blocks")},
                 strength=m.get("strength", 50), status=m.get("status", "ACTIVE"),
-                version=str(m.get("version", "1.0")))
+                version=str(m.get("version", "1.0")),
+                # Date bounds were declared in the KB but never loaded, so a module
+                # withdrawn on a date stayed live for ever. Provenance comes with
+                # them so a reviewer can trace a proposition without leaving the KB.
+                effective_from=_as_date(m.get("effective_from")),
+                effective_to=_as_date(m.get("effective_to")),
+                source_reference=m.get("source_reference", "") or "",
+                legal_basis_origin=m.get("legal_basis_origin", "") or "",
+                last_legal_review=_as_date(m.get("last_legal_review")),
+                change_notes=m.get("change_notes", "") or "")
             self.modules[mod.module_id] = mod
             n = ("Module", mod.module_id)
             self.g.add_node(n, topic=mod.topic, strength=mod.strength)
@@ -118,11 +145,22 @@ class KnowledgeGraph:
     def _out(self, node, etype: str) -> list:
         return [v for _, v, d in self.g.out_edges(node, data=True) if d.get("type") == etype]
 
-    def active_modules(self) -> Iterable[KBModule]:
-        return (m for m in self.modules.values() if m.status == "ACTIVE")
+    def active_modules(self, on: Optional[date] = None) -> Iterable[KBModule]:
+        """ACTIVE modules that are in force. `effective_from`/`effective_to` are
+        the KB's way of withdrawing a ground when the law or the code changes;
+        until they were loaded, a module marked as ending last year still ran."""
+        day = on or date.today()
+        return (m for m in self.modules.values()
+                if m.status == "ACTIVE"
+                and (m.effective_from is None or m.effective_from <= day)
+                and (m.effective_to is None or day <= m.effective_to))
 
     def route_tier(self, route: str) -> int:
         return self.routes.get(route, {}).get("tier", 9)
+
+    def route_rank(self, route: str) -> int:
+        """Admin-set order within a tier. Unranked routes sort after ranked ones."""
+        return self.routes.get(route, {}).get("rank", 99)
 
     def gating_facts(self, module_id: str) -> set[str]:
         n = ("Module", module_id)

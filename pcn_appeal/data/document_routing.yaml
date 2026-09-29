@@ -1,0 +1,134 @@
+# Document routing gate - STAGE 0 of the workflow.
+#
+#   Document -> [ROUTING GATE] -> Extraction -> Case Intelligence -> Knowledge Retrieval
+#            -> Targeted Questions -> Appeal Analysis -> Drafting -> Validation
+#
+# This gate is CODE, not AI judgement. The extraction prompt (v8) labels each
+# uploaded document (doc_types). This file decides what happens next. The model
+# never decides whether to continue.
+#
+# HARD RULES
+#   1. The gate runs on EVERY upload, before case analysis, retrieval, questions or
+#      drafting. Nothing downstream may run unless the gate returns PROCEED.
+#   2. Every uploaded document is checked, not just the first one. If ANY document
+#      is a stop type, the case stops - e.g. an original PCN uploaded together
+#      with a debt-recovery letter means the charge is at debt stage: STOP.
+#   3. When several stop types are present, the one with the lowest `priority`
+#      number wins (a court claim outranks everything).
+#   4. FAIL CLOSED. If classification fails, times out, returns an unknown label,
+#      or no document is labelled PCN / NTK / NTD, the case does NOT proceed.
+#   5. A stopped case never produces grounds, questions or a draft, and those
+#      engines must refuse to run for it even if called directly (defence in depth).
+#   6. Customer messages below are shown exactly as written. No internal label,
+#      code or ID from this file is ever shown to the customer.
+#
+# Wording in `customer_message` is the client's approved wording where the client
+# supplied it (debt recovery). The other messages are DRAFTS for client approval.
+
+routing_version: 1
+
+# Evaluated in priority order. First matching rule wins.
+stop_rules:
+  - id: STOP_COURT_CLAIM
+    priority: 1
+    when_any_doc_type: [COURT_CLAIM]
+    action: STOP
+    customer_title: "This looks like a court claim"
+    customer_message: >-
+      It looks like this document is a court claim or a formal letter before court
+      action, rather than a parking charge notice. We're unable to generate an appeal
+      for this. Court documents usually have strict deadlines, so please act promptly
+      and consider getting free advice, for example from Citizens Advice.
+    cta: null
+    status: DRAFT_FOR_CLIENT_APPROVAL
+
+  - id: STOP_DEBT_RECOVERY
+    priority: 2
+    when_any_doc_type: [DEBT_RECOVERY]
+    action: STOP
+    customer_title: "Your parking charge has reached debt recovery"
+    customer_message: >-
+      It looks like your parking charge has now reached the debt recovery stage.
+      Unfortunately, the original parking charge is no longer at the normal appeal
+      stage, so we're unable to generate an appeal for this notice. However, we do
+      have a free Debt Recovery Response Template available in our Resources section
+      which you can use to respond to the debt recovery company.
+    cta:
+      label: "Get the Free Debt Recovery Template →"
+      url: null            # set to the Resources page URL once that page is live
+      hide_if_url_missing: true
+    status: CLIENT_APPROVED
+
+  - id: STOP_OUT_OF_STAGE
+    priority: 3
+    when_any_doc_type: [OUT_OF_STAGE]
+    action: STOP
+    customer_title: "The appeal window for this notice has closed"
+    customer_message: >-
+      This notice says the time to appeal to the parking operator has already passed,
+      so we're unable to generate an appeal for it. If you think this is wrong, please
+      check the dates on your notice.
+    cta: null
+    status: DRAFT_FOR_CLIENT_APPROVAL
+
+  - id: STOP_COUNCIL_PCN
+    priority: 4
+    when_any_doc_type: [COUNCIL_PCN]
+    action: STOP
+    customer_title: "This is a council parking ticket"
+    customer_message: >-
+      This looks like a Penalty Charge Notice from a council or local authority, not
+      a private parking charge. Council tickets follow a different appeal process, so
+      please use our Council PCN Appeal service instead.
+    cta:
+      label: "Go to the Council PCN Appeal service →"
+      url: null            # set to the Council PCN service URL
+      hide_if_url_missing: true
+    status: DRAFT_FOR_CLIENT_APPROVAL
+
+  - id: STOP_NO_PARKING_NOTICE
+    priority: 5
+    # No document labelled PCN / NTK / NTD at all (only OTHER or supporting evidence),
+    # or classification failed. This is the "unidentified document" case.
+    when_no_doc_type_in: [PCN, NTK, NTD]
+    action: STOP
+    customer_title: "We couldn't find a private parking notice"
+    customer_message: >-
+      We couldn't identify a private parking charge notice in what you uploaded.
+      Please upload a clear photo or scan of the parking charge notice itself -
+      all pages, and both sides if it is printed on both.
+    cta:
+      label: "Upload the notice again"
+      action: RESTART_UPLOAD
+    status: DRAFT_FOR_CLIENT_APPROVAL
+
+# Only reached if no stop rule matched.
+proceed_rule:
+  id: PROCEED_PRIVATE_PARKING
+  when_any_doc_type: [PCN, NTK, NTD]
+  action: PROCEED
+
+# Deterministic back-up checks. They can only ADD a stop, never remove one, and
+# they run even when the model's label says PCN / NTK / NTD. They exist because
+# a label is still a model output.
+backup_checks:
+  debt_recovery_signals:
+    # Stop as DEBT_RECOVERY if the sender matches this list OR at least 2 of the
+    # phrase signals appear. Sender list is an EXAMPLE - the client must confirm
+    # and maintain it; keep it as data, not code.
+    sender_names_example: [DCBL, "DCB Legal", "Debt Recovery Plus", ZZPS, "Trace Debt Recovery", "BW Legal", Gladstones]
+    min_phrase_signals: 2
+    phrase_signals: ["debt recovery", "debt collection", "collection agent", "recovery of the debt", "our client", "further action", "additional costs", "legal action", "enforcement"]
+  appeal_window:
+    # The KB does not state an appeal time limit, so none is invented here.
+    # Until the client/legal confirms a value (and where it comes from - Code
+    # version, operator, ATA), only the OUT_OF_STAGE label stops a late notice.
+    days_from_notice_issue: null
+    source: null
+  apply_to: image and text documents alike - for photos, run the phrase check on
+    the model's transcription, never only on e.text (the EX-13 failure).
+
+# What is recorded (backend only) when the gate stops a case.
+audit:
+  record: [routing_version, rule_id, doc_types, backup_check_hits, timestamp]
+  customer_visible: false

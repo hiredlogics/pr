@@ -1,0 +1,3693 @@
+{
+ "title": "Private Parking AI Legal Knowledge Base",
+ "source_file": "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx",
+ "nodes": [
+  {
+   "id": "KB",
+   "type": "knowledge_base",
+   "label": "Private Parking AI Legal Knowledge Base",
+   "text": [
+    "PRIVATE PARKING AI LEGAL KNOWLEDGE BASE",
+    "VERSION 1 - INITIAL OPERATOR APPEALS",
+    "Purpose: controlled retrieval source for the AI appeal generator. These records are not paragraphs to paste. The AI uses them to identify issues, ask targeted factual questions and draft a bespoke appeal from verified case facts.",
+    "NON-NEGOTIABLE: Never identify or imply the driver on an unidentified-driver keeper route. Never invent facts, evidence, lease terms, statutory defects, Code requirements, case law or operator records."
+   ]
+  },
+  {
+   "id": "SEC-1",
+   "type": "section",
+   "label": "1. Knowledge Base Governance",
+   "order": 1,
+   "text": []
+  },
+  {
+   "id": "KB-GOV-01",
+   "type": "governance_rule",
+   "label": "KB-GOV-01",
+   "requirement": "Every module has a stable ID, version and effective date.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-02",
+   "type": "governance_rule",
+   "label": "KB-GOV-02",
+   "requirement": "Legislation/Code propositions must be separately maintainable from drafting language.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-03",
+   "type": "governance_rule",
+   "label": "KB-GOV-03",
+   "requirement": "The AI may combine/rewrite supported propositions, but may not create a new legal proposition outside the approved knowledge base.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-04",
+   "type": "governance_rule",
+   "label": "KB-GOV-04",
+   "requirement": "The validator must confirm every material factual assertion is grounded in the PCN, uploaded evidence or customer-confirmed answer.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-05",
+   "type": "governance_rule",
+   "label": "KB-GOV-05",
+   "requirement": "Where the legal position depends on the event date, notice route, operator/ATA or transition arrangements, the system must resolve applicability before drafting.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-06",
+   "type": "governance_rule",
+   "label": "KB-GOV-06",
+   "requirement": "Case law must not be quoted or named automatically unless the authority and proposition have been separately verified and enabled by an administrator.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "KB-GOV-07",
+   "type": "governance_rule",
+   "label": "KB-GOV-07",
+   "requirement": "A weak secondary ground must not dilute a strong primary ground. Order: dispositive statutory/contractual issue -> strong factual issue -> evidence challenge -> secondary signage/authority point.",
+   "column_headers": [
+    "Rule",
+    "Requirement"
+   ]
+  },
+  {
+   "id": "SEC-2",
+   "type": "section",
+   "label": "2. Source Register",
+   "order": 2,
+   "text": [
+    "Current implementation note (September 2026): BPA identifies the sector Single Code as version 1.1 dated 13 April 2026. The developer must store this as versioned data rather than a permanent hard-coded assumption."
+   ]
+  },
+  {
+   "id": "SRC-1",
+   "type": "source",
+   "label": "Protection of Freedoms Act 2012, Schedule 4",
+   "use": "Keeper liability only. Apply the correct notice route and statutory requirements.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ]
+  },
+  {
+   "id": "SRC-2",
+   "type": "source",
+   "label": "Private Parking Sector Single Code of Practice, current sector version",
+   "use": "Operational standards including consideration/grace, signage, evidence, keying/payment and other applicable requirements. Version-control by event date/transition.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ],
+   "implementation_note": "Current implementation note (September 2026): BPA identifies the sector Single Code as version 1.1 dated 13 April 2026. The developer must store this as versioned data rather than a permanent hard-coded assumption."
+  },
+  {
+   "id": "SRC-3",
+   "type": "source",
+   "label": "Equality Act 2010",
+   "use": "Reasonable-adjustment/additional-time analysis where disability-related facts make it relevant.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ]
+  },
+  {
+   "id": "SRC-4",
+   "type": "source",
+   "label": "Uploaded lease / tenancy / parking grant",
+   "use": "Primary source for residential rights. The AI must analyse the actual wording; never assume rights.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ]
+  },
+  {
+   "id": "SRC-5",
+   "type": "source",
+   "label": "PCN / Notice to Keeper / Notice to Driver",
+   "use": "Primary source for allegation, dates, amount, location, notice route and PoFA analysis.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ]
+  },
+  {
+   "id": "SRC-6",
+   "type": "source",
+   "label": "Operator evidence / photographs / ANPR / payment records",
+   "use": "Primary factual evidence. Distinguish total site presence from proven parking time.",
+   "column_headers": [
+    "Source",
+    "Use"
+   ]
+  },
+  {
+   "id": "SEC-3",
+   "type": "section",
+   "label": "3. Keeper Liability / PoFA",
+   "order": 3,
+   "text": []
+  },
+  {
+   "id": "KB-POFA-01",
+   "type": "module",
+   "label": "Keeper liability threshold",
+   "fields": {
+    "USE WHEN": "Registered keeper appeal; driver has not already been formally identified.",
+    "CORE PROPOSITION": "Keeper liability is not automatic. If the operator seeks recovery from the keeper under Schedule 4, the applicable statutory conditions must be satisfied.",
+    "AI MUST CHECK": "Notice route; relevant land; event date; notice dates; whether a Notice to Driver preceded the NTK; required content; whether the operator is actually relying on PoFA.",
+    "LEGAL / CODE BASIS": "Protection of Freedoms Act 2012 Schedule 4.",
+    "DO NOT": "Do not say the underlying charge is automatically invalid merely because keeper liability fails. State that liability cannot be transferred to the keeper under Schedule 4."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-POFA-02",
+   "type": "module",
+   "label": "Postal NTK timing",
+   "fields": {
+    "USE WHEN": "Notice was first sent by post and no prior Notice to Driver was issued.",
+    "CORE PROPOSITION": "Assess the statutory delivery timing applicable to a postal Notice to Keeper before alleging lateness.",
+    "AI MUST CHECK": "Event date, issue date, presumed/actual delivery information, route.",
+    "LEGAL / CODE BASIS": "PoFA Schedule 4 paragraph 9 route.",
+    "DO NOT": "Do not allege a timing failure until the correct statutory calculation is confirmed."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-POFA-03",
+   "type": "module",
+   "label": "Windscreen notice followed by NTK",
+   "fields": {
+    "USE WHEN": "A Notice to Driver was placed on the vehicle and a later NTK is relied upon.",
+    "CORE PROPOSITION": "Assess the separate Schedule 4 route and timing/content requirements for a notice following a Notice to Driver.",
+    "AI MUST CHECK": "Date of parking event, Notice to Driver, NTK issue/delivery.",
+    "LEGAL / CODE BASIS": "PoFA Schedule 4 paragraph 8 route."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-POFA-04",
+   "type": "module",
+   "label": "Mandatory notice content",
+   "fields": {
+    "USE WHEN": "A specific required Schedule 4 element appears missing or defective.",
+    "CORE PROPOSITION": "Use only the precise defect established from the notice; do not generate a generic checklist challenge.",
+    "AI MUST CHECK": "Vehicle, relevant land, period of parking, unpaid charge, creditor, statutory invitation/warning and other route-specific requirements.",
+    "LEGAL / CODE BASIS": "PoFA Schedule 4, route-specific requirements.",
+    "DO NOT": "Do not assert defects from OCR uncertainty; require document confirmation where text is unclear."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-POFA-05",
+   "type": "module",
+   "label": "Driver not established",
+   "fields": {
+    "USE WHEN": "A valid PoFA failure is established and driver remains unidentified.",
+    "CORE PROPOSITION": "If Schedule 4 conditions are not met and the driver has not been established, the operator cannot transfer the driver's liability to the registered keeper under Schedule 4.",
+    "AI MUST CHECK": "Confirmed PoFA failure + driver_identified = NO.",
+    "DO NOT": "Never invite or infer driver identity."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-4",
+   "type": "section",
+   "label": "4. Consideration, Grace and Actual Parking Time",
+   "order": 4,
+   "text": []
+  },
+  {
+   "id": "KB-CON-01",
+   "type": "module",
+   "label": "Consideration period",
+   "fields": {
+    "USE WHEN": "Vehicle entered controlled land and time was needed before any parking terms could reasonably be accepted.",
+    "CORE PROPOSITION": "Entry onto land is not automatically acceptance of parking terms. Consider time reasonably required to find a space, locate/read terms, decide whether to stay and attempt initial compliance.",
+    "AI MUST CHECK": "ANPR times; site layout; reason for initial period; whether parking actually took place; whether terms were rejected and vehicle left.",
+    "LEGAL / CODE BASIS": "Applicable Private Parking Sector Single Code provisions in force for the event.",
+    "DO NOT": "Do not merge consideration time with an end-of-parking grace period."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-CON-02",
+   "type": "module",
+   "label": "Terms rejected / vehicle left",
+   "fields": {
+    "USE WHEN": "Terms were considered but not accepted and the vehicle then left.",
+    "CORE PROPOSITION": "Analyse whether a parking contract was ever accepted rather than treating all site presence as parking.",
+    "AI MUST CHECK": "Duration; activity; evidence; whether any conduct clearly accepted the terms."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-GRACE-01",
+   "type": "module",
+   "label": "End grace period",
+   "fields": {
+    "USE WHEN": "A permitted/paid parking period ended and the allegation concerns additional time before exit.",
+    "CORE PROPOSITION": "Apply the applicable end-of-parking grace requirement only after establishing that it applies to the site/event.",
+    "AI MUST CHECK": "Parking end time; ANPR exit; applicable Code rule; event date; operator transition status.",
+    "LEGAL / CODE BASIS": "Applicable Private Parking Sector Single Code.",
+    "DO NOT": "Do not hard-code '10 minutes always cancels'."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-GRACE-02",
+   "type": "module",
+   "label": "Exit congestion / barrier delay",
+   "fields": {
+    "USE WHEN": "Departure was delayed by queueing, congestion, barrier failure or site-management conditions.",
+    "CORE PROPOSITION": "An exit-camera timestamp may include non-parking time caused by the process of leaving the site.",
+    "AI MUST CHECK": "Cause and duration of delay; site evidence; barrier/queue information; actual parking end time."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-TIME-01",
+   "type": "module",
+   "label": "ANPR presence is not necessarily parking time",
+   "fields": {
+    "USE WHEN": "Operator relies on entry and exit cameras to calculate duration.",
+    "CORE PROPOSITION": "Distinguish total presence on controlled land from the period actually parked.",
+    "AI MUST CHECK": "Entry/exit location, manoeuvring, finding a bay, payment activity, queueing, multiple visits."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-5",
+   "type": "section",
+   "label": "5. Payment, Keying and Systems",
+   "order": 5,
+   "text": []
+  },
+  {
+   "id": "KB-PAY-01",
+   "type": "module",
+   "label": "Payment made",
+   "fields": {
+    "USE WHEN": "Evidence or confirmed facts show a tariff/payment was made.",
+    "CORE PROPOSITION": "Lead with payment and require the operator to reconcile its transaction records with the parking event.",
+    "AI MUST CHECK": "Payment method, time, amount, location, VRM entered, receipt/bank/app evidence.",
+    "EVIDENCE": "Receipt, app confirmation, bank transaction, payment screenshot."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-PAY-02",
+   "type": "module",
+   "label": "Machine failure",
+   "fields": {
+    "USE WHEN": "A genuine attempt to pay was prevented by a machine fault.",
+    "CORE PROPOSITION": "Analyse the operator-provided payment mechanism and the genuine attempt to comply; request relevant fault/maintenance/transaction records where appropriate.",
+    "AI MUST CHECK": "Machine ID/location, attempt time, alternative methods, evidence of fault.",
+    "EVIDENCE": "Photo/video, error message, witness evidence, transaction attempt."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-PAY-03",
+   "type": "module",
+   "label": "App / digital payment failure",
+   "fields": {
+    "USE WHEN": "Operator requires or offers digital payment and the process failed.",
+    "CORE PROPOSITION": "Consider whether a genuine attempt to comply was prevented by the provided system and whether alternative payment was realistically available.",
+    "AI MUST CHECK": "App/system, time, error, connectivity, alternative methods, records.",
+    "EVIDENCE": "Screenshots, app history, bank authorisation, support messages."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-KEY-01",
+   "type": "module",
+   "label": "Minor keying error",
+   "fields": {
+    "USE WHEN": "Payment made but VRM entry contains a minor error.",
+    "CORE PROPOSITION": "Treat as a paid parking event with a registration mismatch and apply the applicable Code/keying-error requirements.",
+    "AI MUST CHECK": "Correct VRM, entered VRM, payment match, error type.",
+    "LEGAL / CODE BASIS": "Applicable sector Code provisions on keying/payment errors."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-KEY-02",
+   "type": "module",
+   "label": "Different vehicle registration entered",
+   "fields": {
+    "USE WHEN": "Payment was made but another known vehicle registration was entered.",
+    "CORE PROPOSITION": "Require transaction matching and analyse applicable Code treatment; do not describe the event as simply unpaid parking where tariff was paid.",
+    "AI MUST CHECK": "Entered VRM, relationship to keeper/customer, payment record."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-6",
+   "type": "section",
+   "label": "6. ANPR and Evidence Integrity",
+   "order": 6,
+   "text": []
+  },
+  {
+   "id": "KB-ANPR-01",
+   "type": "module",
+   "label": "Multiple visits / double visit",
+   "fields": {
+    "USE WHEN": "Vehicle attended the site more than once and operator may have paired first entry with final exit.",
+    "CORE PROPOSITION": "Require review of the complete ANPR sequence rather than two selected images.",
+    "AI MUST CHECK": "All visits; intermediate captures; evidence vehicle was elsewhere.",
+    "EVIDENCE": "Dashcam, receipts, location records supplied by customer, CCTV, witness evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-ANPR-02",
+   "type": "module",
+   "label": "Missing capture / incorrect pairing",
+   "fields": {
+    "USE WHEN": "Sequence appears incomplete or inconsistent.",
+    "CORE PROPOSITION": "An absent intermediate capture does not prove continuous presence; the operator should verify the full record and pairing logic.",
+    "AI MUST CHECK": "Image sequence, timestamps, camera lanes, complete logs if disclosed."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-ANPR-03",
+   "type": "module",
+   "label": "Timestamp / VRM discrepancy",
+   "fields": {
+    "USE WHEN": "Image, registration read or timestamp appears inconsistent.",
+    "CORE PROPOSITION": "Challenge only the identified discrepancy and request verification of the evidence relied upon.",
+    "AI MUST CHECK": "Original images, timestamp, OCR/VRM read, system records.",
+    "DO NOT": "Do not make generic calibration allegations with no factual trigger."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-EV-01",
+   "type": "module",
+   "label": "Independent evidence contradicts allegation",
+   "fields": {
+    "USE WHEN": "Uploaded evidence conflicts with operator's duration/location/account.",
+    "CORE PROPOSITION": "Give the independent evidence appropriate weight and require the operator to reconcile the contradiction.",
+    "AI MUST CHECK": "Authenticity, timestamp, location and relevance of evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-7",
+   "type": "section",
+   "label": "7. Signage and Contract Formation",
+   "order": 7,
+   "text": []
+  },
+  {
+   "id": "KB-SIGN-01",
+   "type": "module",
+   "label": "Entrance signage",
+   "fields": {
+    "USE WHEN": "Credible facts/evidence indicate parking terms were not adequately communicated on entry.",
+    "CORE PROPOSITION": "Assess whether relevant terms were reasonably brought to attention before/at contract formation.",
+    "AI MUST CHECK": "Entrance route, sign position, visibility, event lighting, contemporaneous images.",
+    "EVIDENCE": "Customer photographs/video; operator site plan/signage evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-SIGN-02",
+   "type": "module",
+   "label": "Charge / relevant term prominence",
+   "fields": {
+    "USE WHEN": "The specific restriction or parking charge was not prominent/clear.",
+    "CORE PROPOSITION": "Focus on the precise term allegedly breached and whether it was adequately communicated.",
+    "AI MUST CHECK": "Sign wording, font/prominence, placement, allegation, lighting."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-SIGN-03",
+   "type": "module",
+   "label": "Conflicting signage",
+   "fields": {
+    "USE WHEN": "Different signs communicate inconsistent terms.",
+    "CORE PROPOSITION": "Identify the conflict and require the operator to explain which terms applied and how they were communicated.",
+    "AI MUST CHECK": "Photos of each sign; site position; wording."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-SIGN-04",
+   "type": "module",
+   "label": "Contemporaneous signage proof",
+   "fields": {
+    "USE WHEN": "Operator relies on generic/undated signage evidence or customer evidence suggests change/damage.",
+    "CORE PROPOSITION": "Require evidence of signage actually in place at the material time where this is genuinely disputed.",
+    "AI MUST CHECK": "Event date; operator photos; installation/change records if available."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-8",
+   "type": "section",
+   "label": "8. Authorisation, Permits and Genuine Use",
+   "order": 8,
+   "text": []
+  },
+  {
+   "id": "KB-AUTH-01",
+   "type": "module",
+   "label": "Underlying authorisation",
+   "fields": {
+    "USE WHEN": "Vehicle had permission from resident, employer, hotel, business, landholder or other authorised source.",
+    "CORE PROPOSITION": "Analyse the underlying permission before treating an admin/display mismatch as absence of authority.",
+    "AI MUST CHECK": "Source, scope, date/time, vehicle registration, evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-AUTH-02",
+   "type": "module",
+   "label": "Permit held / digital permit",
+   "fields": {
+    "USE WHEN": "A valid permit or whitelist entitlement existed.",
+    "CORE PROPOSITION": "Require operator to check physical/digital permit and whitelist records; distinguish entitlement from display/registration administration.",
+    "AI MUST CHECK": "Permit number, validity, bay/site, VRM, digital record."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-AUTH-03",
+   "type": "module",
+   "label": "Visitor authorisation",
+   "fields": {
+    "USE WHEN": "Vehicle was an authorised visitor.",
+    "CORE PROPOSITION": "Analyse visitor permission and any registration process; do not assume a registration error extinguished underlying permission.",
+    "AI MUST CHECK": "Host/resident confirmation, visitor system, dates, evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-CUST-01",
+   "type": "module",
+   "label": "Genuine customer",
+   "fields": {
+    "USE WHEN": "Site is customer-only and evidence shows genuine use of premises.",
+    "CORE PROPOSITION": "Use as a factual/authorisation route where relevant, not as an automatic cancellation rule.",
+    "AI MUST CHECK": "Receipt/booking, premises, timing, landowner/occupier policy."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-9",
+   "type": "section",
+   "label": "9. Breakdown / Frustration / Involuntary Immobilisation",
+   "order": 9,
+   "text": []
+  },
+  {
+   "id": "KB-BREAK-01",
+   "type": "module",
+   "label": "Mechanical breakdown",
+   "fields": {
+    "USE WHEN": "A genuine mechanical event prevented the vehicle from being moved or prevented timely compliance/departure.",
+    "CORE PROPOSITION": "Consider whether an unforeseen supervening event outside the relevant party's control made contractual performance/departure impossible or materially prevented it. Frame as a substantive contractual issue where facts support it, not merely a plea for discretion.",
+    "AI MUST CHECK": "Nature of fault; when it arose; whether vehicle could safely/reasonably be moved; recovery/repair steps; duration; whether the alleged breach was caused by the breakdown.",
+    "LEGAL / CODE BASIS": "Common-law frustration/impossibility principles; application is fact-sensitive and must not be presented as automatic.",
+    "EVIDENCE": "AA/RAC/recovery report, garage invoice, roadside repair record, photographs, call logs/messages, contemporaneous assistance records.",
+    "DO NOT": "Do not state 'breakdown = automatic frustration'. Do not invent the fault or recovery attendance."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-BREAK-02",
+   "type": "module",
+   "label": "Puncture / battery / immobilisation",
+   "fields": {
+    "USE WHEN": "A puncture, flat battery or similar event actually immobilised the vehicle.",
+    "CORE PROPOSITION": "Treat as breakdown only where evidence/facts show the vehicle could not reasonably depart or comply; otherwise assess as ordinary delay.",
+    "AI MUST CHECK": "Severity, safety, repair/recovery, time."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-BREAK-03",
+   "type": "module",
+   "label": "Recovery vehicle / assistance time",
+   "fields": {
+    "USE WHEN": "Vehicle remained while awaiting legitimate roadside recovery/assistance.",
+    "CORE PROPOSITION": "Separate time caused by necessary recovery arrangements from voluntary parking and require operator to address the documented incident.",
+    "AI MUST CHECK": "Call time, arrival time, departure/recovery time, recovery evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-10",
+   "type": "section",
+   "label": "10. Residential Parking / Primacy of Contract",
+   "order": 10,
+   "text": []
+  },
+  {
+   "id": "KB-RES-01",
+   "type": "module",
+   "label": "Primacy of pre-existing parking rights",
+   "fields": {
+    "USE WHEN": "Resident/tenant/leaseholder relies on an uploaded agreement granting parking rights.",
+    "CORE PROPOSITION": "The actual lease/tenancy/parking grant is the starting point. Later operator signage should not automatically be assumed to vary or extinguish pre-existing contractual/property rights.",
+    "AI MUST CHECK": "Exact parking clause; allocated/communal bay; permit wording; power to make regulations; variation mechanism; parties; commencement date.",
+    "EVIDENCE": "Lease, tenancy, parking-space grant, title/plan, managing-agent correspondence.",
+    "DO NOT": "Do not assert primacy merely because the appellant is a resident."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-02",
+   "type": "module",
+   "label": "Unfettered right to park",
+   "fields": {
+    "USE WHEN": "Uploaded instrument grants a parking right without the restriction now alleged.",
+    "CORE PROPOSITION": "Where the wording genuinely grants an unrestricted/unfettered right, analyse whether a later permit/payment condition is inconsistent with that grant.",
+    "AI MUST CHECK": "Exact clause and any qualifications/regulations.",
+    "DO NOT": "Never use the word 'unfettered' unless the document supports it."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-03",
+   "type": "module",
+   "label": "Allocated bay",
+   "fields": {
+    "USE WHEN": "Agreement identifies a specific bay/space or exclusive parking entitlement.",
+    "CORE PROPOSITION": "Analyse the resident's rights in that bay and whether the operator has authority to impose the alleged additional contractual term.",
+    "AI MUST CHECK": "Plan/bay number, lease clause, permit requirements, management powers."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-04",
+   "type": "module",
+   "label": "Derogation from grant",
+   "fields": {
+    "USE WHEN": "Landlord/lessor granted a parking right and later arrangements arguably substantially interfere with the benefit granted.",
+    "CORE PROPOSITION": "Consider derogation from grant only where the actual grant and later interference support the doctrine.",
+    "AI MUST CHECK": "Nature of grant; later scheme; degree of interference; contractual powers.",
+    "DO NOT": "Do not use as boilerplate in every residential appeal."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-05",
+   "type": "module",
+   "label": "Quiet enjoyment",
+   "fields": {
+    "USE WHEN": "Tenancy/lease rights and enforcement conduct raise a genuine interference issue.",
+    "CORE PROPOSITION": "Use only where the contractual wording/facts support a quiet-enjoyment point; it is not a universal answer to a PCN.",
+    "AI MUST CHECK": "Agreement terms; conduct; repeated interference if relevant.",
+    "DO NOT": "Do not treat quiet enjoyment as meaning freedom from all parking regulation."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-06",
+   "type": "module",
+   "label": "Permit scheme expressly incorporated",
+   "fields": {
+    "USE WHEN": "Lease/tenancy contains a permit requirement, regulations clause or power to introduce parking controls.",
+    "CORE PROPOSITION": "The AI must confront the clause and analyse its scope rather than omitting it. Primacy may be weaker or differently framed.",
+    "AI MUST CHECK": "Exact clause; whether regulations were validly made; notice/variation process; allegation."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-RES-07",
+   "type": "module",
+   "label": "Managing agent / operator authority",
+   "fields": {
+    "USE WHEN": "Resident rights exist and third-party operator enforcement is challenged.",
+    "CORE PROPOSITION": "Assess whether the managing agent/landowner could grant enforcement rights consistent with the resident's existing agreement.",
+    "AI MUST CHECK": "Lease powers; management agreement if available; site boundary; operator authority."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-11",
+   "type": "section",
+   "label": "11. Equality Act / Additional Time",
+   "order": 11,
+   "text": []
+  },
+  {
+   "id": "KB-EQ-01",
+   "type": "module",
+   "label": "Reasonable adjustments",
+   "fields": {
+    "USE WHEN": "Facts indicate disability-related needs may have affected use of the parking service or time required.",
+    "CORE PROPOSITION": "Consider whether reasonable adjustments/additional time were required and whether the operator properly considered the individual circumstances.",
+    "AI MUST CHECK": "Relevant functional impact, extra time needed, operator knowledge where relevant, evidence supplied.",
+    "LEGAL / CODE BASIS": "Equality Act 2010; apply only where statutory conditions are met.",
+    "DO NOT": "Do not require the customer to disclose unnecessary medical detail. Do not equate Blue Badge possession with the legal test."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-EQ-02",
+   "type": "module",
+   "label": "Additional time",
+   "fields": {
+    "USE WHEN": "Disability-related circumstances reasonably required more time to enter, park, pay, return or leave.",
+    "CORE PROPOSITION": "Do not assess the event solely by automated timestamps where additional time may constitute a reasonable adjustment.",
+    "AI MUST CHECK": "Why extra time was needed and how it relates to the alleged breach."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-EQ-03",
+   "type": "module",
+   "label": "Hidden disability",
+   "fields": {
+    "USE WHEN": "No visible badge/indicator but disability-related facts are relevant.",
+    "CORE PROPOSITION": "Absence of visible evidence does not itself resolve whether Equality Act duties were engaged.",
+    "AI MUST CHECK": "Facts and evidence volunteered/necessary for the issue."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-12",
+   "type": "section",
+   "label": "12. Hospital / Medical Sites",
+   "order": 12,
+   "text": []
+  },
+  {
+   "id": "KB-HOSP-01",
+   "type": "module",
+   "label": "Hospital attendance",
+   "fields": {
+    "USE WHEN": "Parking event connected with hospital/medical attendance.",
+    "CORE PROPOSITION": "Analyse the site's parking terms, exemptions/validation process, appointment/emergency circumstances and any relevant additional-time obligations.",
+    "AI MUST CHECK": "Hospital, appointment/emergency, validation/payment process, evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-HOSP-02",
+   "type": "module",
+   "label": "Emergency treatment / unpredictable delay",
+   "fields": {
+    "USE WHEN": "Emergency or clinical delay caused timing/parking issue.",
+    "CORE PROPOSITION": "Treat the factual cause seriously and assess contractual/Code/adjustment issues rather than using generic sympathy wording.",
+    "AI MUST CHECK": "Attendance records, appointment/clinical delay evidence where available.",
+    "DO NOT": "Do not invent medical facts or request excessive health information."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-HOSP-03",
+   "type": "module",
+   "label": "PALS / Trust cancellation route",
+   "fields": {
+    "USE WHEN": "NHS/healthcare landholder has a cancellation or exemption mechanism.",
+    "CORE PROPOSITION": "Where appropriate, flag landholder/PALS cancellation as a parallel practical route while still generating the operator appeal.",
+    "AI MUST CHECK": "Trust/site policy and evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-13",
+   "type": "section",
+   "label": "13. Loading, Drop-off, Collection and Non-Parking Activity",
+   "order": 13,
+   "text": []
+  },
+  {
+   "id": "KB-ACT-01",
+   "type": "module",
+   "label": "Loading / unloading",
+   "fields": {
+    "USE WHEN": "Vehicle presence was genuinely for loading/unloading and the allegation/site terms make this legally/factually relevant.",
+    "CORE PROPOSITION": "Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence.",
+    "AI MUST CHECK": "Nature/duration of loading, goods, site terms, evidence.",
+    "DO NOT": "Do not assume loading is always exempt on private land."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-ACT-02",
+   "type": "module",
+   "label": "Passenger drop-off / pick-up",
+   "fields": {
+    "USE WHEN": "Vehicle stopped briefly for genuine drop-off/collection.",
+    "CORE PROPOSITION": "Analyse the precise site restriction and whether stopping/parking/contract formation is established; do not assume a universal exemption.",
+    "AI MUST CHECK": "Duration, location, signage, activity."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-ACT-03",
+   "type": "module",
+   "label": "Hotel / restaurant / collection delay",
+   "fields": {
+    "USE WHEN": "Authorised customer use involved a collection/check-in/waiting process.",
+    "CORE PROPOSITION": "Use the underlying authorisation and factual delay where relevant; do not convert ordinary waiting into an automatic exemption.",
+    "AI MUST CHECK": "Booking/order/receipt, authorisation, timing."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-14",
+   "type": "section",
+   "label": "14. EV Charging and Site Infrastructure",
+   "order": 14,
+   "text": []
+  },
+  {
+   "id": "KB-EVCH-01",
+   "type": "module",
+   "label": "EV charging",
+   "fields": {
+    "USE WHEN": "Vehicle remained for genuine charging and allegation relates to duration/payment/authorisation.",
+    "CORE PROPOSITION": "Analyse charging terms separately from ordinary parking terms and establish whether the charge concerned parking, charging, overstay or tariff.",
+    "AI MUST CHECK": "Charge session, app/charger record, bay terms, parking terms."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-INFRA-01",
+   "type": "module",
+   "label": "Barrier / access system failure",
+   "fields": {
+    "USE WHEN": "Entry/exit or compliance was prevented/delayed by site infrastructure.",
+    "CORE PROPOSITION": "Time caused by operator/landholder infrastructure should be distinguished from voluntary parking where supported.",
+    "AI MUST CHECK": "Barrier/access fault, queue, timestamps, evidence."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-15",
+   "type": "section",
+   "label": "15. Landowner Authority",
+   "order": 15,
+   "text": []
+  },
+  {
+   "id": "KB-LAND-01",
+   "type": "module",
+   "label": "Authority to operate",
+   "fields": {
+    "USE WHEN": "A proportionate authority challenge is relevant.",
+    "CORE PROPOSITION": "Require evidence that the operator had sufficient authority to operate/enforce at the specific site and material date.",
+    "AI MUST CHECK": "Site, event date, contracting party, scope.",
+    "DO NOT": "At initial appeal do not falsely assert that no authority exists merely because the customer has not seen the contract."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-LAND-02",
+   "type": "module",
+   "label": "Scope / site boundary / material date",
+   "fields": {
+    "USE WHEN": "Evidence suggests location, date or scope mismatch.",
+    "CORE PROPOSITION": "Focus on the specific mismatch: land boundary, term, expiry, cancellation powers or enforcement scope.",
+    "AI MUST CHECK": "Contract/authority evidence if supplied; site plan; dates."
+   },
+   "text": []
+  },
+  {
+   "id": "KB-LAND-03",
+   "type": "module",
+   "label": "Redacted authority evidence",
+   "fields": {
+    "USE WHEN": "Operator later provides authority evidence but redactions prevent material verification.",
+    "CORE PROPOSITION": "Challenge only redactions that prevent verification of parties, land, duration or enforcement scope.",
+    "AI MUST CHECK": "Document supplied and visible omissions."
+   },
+   "text": []
+  },
+  {
+   "id": "SEC-16",
+   "type": "section",
+   "label": "16. Drafting Priority and Suppression Rules",
+   "order": 16,
+   "text": []
+  },
+  {
+   "id": "PRI-1",
+   "type": "drafting_priority",
+   "label": "Priority 1",
+   "instruction": "Lead with a confirmed dispositive keeper-liability or contractual-rights point.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-2",
+   "type": "drafting_priority",
+   "label": "Priority 2",
+   "instruction": "Then strongest fact-specific ground: payment, breakdown, residential right, multiple visits, authorisation, etc.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-3",
+   "type": "drafting_priority",
+   "label": "Priority 3",
+   "instruction": "Then relevant Code/evidence/signage issues.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-4",
+   "type": "drafting_priority",
+   "label": "Priority 4",
+   "instruction": "Landowner authority normally concise at initial operator stage unless specific evidence creates a stronger issue.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-5",
+   "type": "drafting_priority",
+   "label": "Priority 5",
+   "instruction": "Do not stack every possible ground. Omit weak, contradictory or unsupported modules.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-6",
+   "type": "drafting_priority",
+   "label": "Priority 6",
+   "instruction": "Deduplicate facts and requests. The final appeal should read as one case-specific letter.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "PRI-7",
+   "type": "drafting_priority",
+   "label": "Priority 7",
+   "instruction": "Never expose module IDs or internal confidence/reasoning to the customer/operator.",
+   "column_headers": [
+    "Priority",
+    "Instruction"
+   ]
+  },
+  {
+   "id": "SEC-17",
+   "type": "section",
+   "label": "17. Mandatory Validator Rules",
+   "order": 17,
+   "text": []
+  },
+  {
+   "id": "VAL-DRIVER",
+   "type": "validator",
+   "label": "VAL-DRIVER",
+   "block_release_if": "Draft identifies or strongly implies who drove where driver remains unidentified.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-FACT",
+   "type": "validator",
+   "label": "VAL-FACT",
+   "block_release_if": "A material fact cannot be traced to source document/evidence/confirmed answer.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-EVIDENCE",
+   "type": "validator",
+   "label": "VAL-EVIDENCE",
+   "block_release_if": "Draft says evidence is enclosed when it is not available.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-POFA",
+   "type": "validator",
+   "label": "VAL-POFA",
+   "block_release_if": "A PoFA defect is alleged without route-specific verification.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-CODE",
+   "type": "validator",
+   "label": "VAL-CODE",
+   "block_release_if": "A Code rule/version is applied without event-date/operator applicability check.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-RES",
+   "type": "validator",
+   "label": "VAL-RES",
+   "block_release_if": "Lease/tenancy wording is invented, paraphrased inaccurately or rights are overstated.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-BREAK",
+   "type": "validator",
+   "label": "VAL-BREAK",
+   "block_release_if": "Breakdown is described as automatic frustration without evidence/facts supporting prevention of performance/departure.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-EQ",
+   "type": "validator",
+   "label": "VAL-EQ",
+   "block_release_if": "Equality Act ground is generated without relevant facts.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-ANPR",
+   "type": "validator",
+   "label": "VAL-ANPR",
+   "block_release_if": "Generic calibration/maintenance allegation is inserted without a factual trigger.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-STAGE",
+   "type": "validator",
+   "label": "VAL-STAGE",
+   "block_release_if": "POPLA/IAS/court language appears in an initial operator appeal except configured next-step wording.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "VAL-CONFLICT",
+   "type": "validator",
+   "label": "VAL-CONFLICT",
+   "block_release_if": "Draft contains contradictory dates, payment status, duration, permit status or account.",
+   "column_headers": [
+    "Validator",
+    "Block release if..."
+   ]
+  },
+  {
+   "id": "SEC-18",
+   "type": "section",
+   "label": "18. Developer Retrieval Output Schema",
+   "order": 18,
+   "text": [
+    "Recommended internal retrieval output before drafting:"
+   ]
+  },
+  {
+   "id": "SCHEMA-primary_route",
+   "type": "schema_field",
+   "label": "primary_route",
+   "example": "RESIDENTIAL_RIGHTS",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-secondary_routes",
+   "type": "schema_field",
+   "label": "secondary_routes",
+   "example": "SIGNAGE; LANDOWNER_AUTHORITY",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-module_ids",
+   "type": "schema_field",
+   "label": "module_ids",
+   "example": "KB-RES-01; KB-RES-03; KB-LAND-01",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-verified_facts",
+   "type": "schema_field",
+   "label": "verified_facts",
+   "example": "Structured source-backed facts only",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-missing_facts",
+   "type": "schema_field",
+   "label": "missing_facts",
+   "example": "Questions still required before drafting",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-evidence_refs",
+   "type": "schema_field",
+   "label": "evidence_refs",
+   "example": "Uploaded evidence identifiers",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-prohibited_claims",
+   "type": "schema_field",
+   "label": "prohibited_claims",
+   "example": "Unsupported grounds/claims to exclude",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-code_version",
+   "type": "schema_field",
+   "label": "code_version",
+   "example": "Applicable sector Code version/status",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-pofa_route",
+   "type": "schema_field",
+   "label": "pofa_route",
+   "example": "POSTAL / WINDSCREEN / NOT_APPLICABLE / UNRESOLVED",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SCHEMA-driver_status",
+   "type": "schema_field",
+   "label": "driver_status",
+   "example": "UNIDENTIFIED / FORMALLY_IDENTIFIED",
+   "column_headers": [
+    "Field",
+    "Example"
+   ]
+  },
+  {
+   "id": "SEC-19",
+   "type": "section",
+   "label": "19. Administration / Update Policy",
+   "order": 19,
+   "text": [
+    "The knowledge base must be editable independently of application code. Each module should have version, effective_from, effective_to, status (ACTIVE/REVIEW/DISABLED), source reference, last legal review date and change notes. When legislation, the sector Code or appeal practice changes, administrators should be able to disable or replace a module without a developer deployment."
+   ]
+  },
+  {
+   "id": "SEC-APPENDIX-A",
+   "type": "section",
+   "label": "APPENDIX A - Approved Drafting Building Blocks",
+   "order": 20,
+   "text": [
+    "These are controlled drafting building blocks inherited from the original developer pack and expanded for the AI build. They are not to be concatenated mechanically. The AI may paraphrase, merge and reorder them only where the underlying module has been retrieved and its factual/legal prerequisites are satisfied."
+   ]
+  },
+  {
+   "id": "PP-INTRO-001",
+   "type": "drafting_block",
+   "label": "Registered Keeper Appeal",
+   "text": [
+    "I write as the registered keeper of vehicle {{vrm}} in respect of Parking Charge Notice {{pcn_number}}. I dispute liability for this parking charge and require the operator to consider this appeal on the grounds set out below."
+   ]
+  },
+  {
+   "id": "PP-INTRO-002",
+   "type": "drafting_block",
+   "label": "Driver Not Identified",
+   "text": [
+    "This appeal is submitted by the registered keeper. No admission is made as to the identity of the driver, and nothing contained within this appeal should be interpreted as identifying or inferring the identity of the driver."
+   ]
+  },
+  {
+   "id": "PP-POFA-001",
+   "type": "drafting_block",
+   "label": "Keeper Liability Must Be Established",
+   "text": [
+    "Where the operator seeks to recover the parking charge from the registered keeper rather than the driver, it must establish that the statutory conditions for keeper liability under Schedule 4 of the Protection of Freedoms Act 2012 have been satisfied. Keeper liability does not arise merely because an individual is the registered keeper."
+   ]
+  },
+  {
+   "id": "PP-POFA-002",
+   "type": "drafting_block",
+   "label": "No Notice to Keeper Received",
+   "text": [
+    "The registered keeper has not received a Notice to Keeper capable of establishing keeper liability under Schedule 4. In the absence of compliance with the statutory procedure required to transfer liability, the operator has not established a right to recover this charge from the registered keeper under Schedule 4."
+   ]
+  },
+  {
+   "id": "PP-POFA-003",
+   "type": "drafting_block",
+   "label": "Postal NTK Timing Failure",
+   "text": [
+    "The Notice to Keeper was not delivered within the applicable statutory period for the relevant postal-notice route. The operator has therefore failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4."
+   ]
+  },
+  {
+   "id": "PP-POFA-004",
+   "type": "drafting_block",
+   "label": "NTK Following Notice to Driver - Timing",
+   "text": [
+    "Where a Notice to Driver preceded the Notice to Keeper, the subsequent notice must comply with the separate timing requirements applicable to that route. The notice in this case did not meet the applicable statutory timing requirement and keeper liability has not been established."
+   ]
+  },
+  {
+   "id": "PP-POFA-005A",
+   "type": "drafting_block",
+   "label": "Vehicle / Relevant Land / Period of Parking",
+   "text": [
+    "The Notice to Keeper fails to provide the route-specific information required by Schedule 4 concerning the alleged parking event. The precise defect identified by the system should be stated here; this block must never be used from OCR uncertainty alone."
+   ]
+  },
+  {
+   "id": "PP-POFA-005B",
+   "type": "drafting_block",
+   "label": "Keeper Warning Defect",
+   "text": [
+    "The Notice to Keeper does not contain a compliant route-specific keeper-liability warning. The operator cannot rely upon Schedule 4 where the applicable statutory conditions have not been met."
+   ]
+  },
+  {
+   "id": "PP-POFA-005C",
+   "type": "drafting_block",
+   "label": "Creditor Identification Defect",
+   "text": [
+    "The notice does not comply with the applicable requirement concerning identification of the creditor. If the operator relies on Schedule 4, it must establish compliance with the route-specific statutory requirements."
+   ]
+  },
+  {
+   "id": "PP-POFA-005D",
+   "type": "drafting_block",
+   "label": "Unpaid Charge / Amount Defect",
+   "text": [
+    "The notice does not properly comply with the applicable Schedule 4 requirement concerning the unpaid parking charge said to be outstanding. This point may be used only after the exact statutory defect is verified."
+   ]
+  },
+  {
+   "id": "PP-POFA-005E",
+   "type": "drafting_block",
+   "label": "Statutory Invitation Defect",
+   "text": [
+    "The notice does not contain the applicable statutory invitation required by the relevant Schedule 4 route. The system must identify the exact missing/defective requirement before using this point."
+   ]
+  },
+  {
+   "id": "PP-POFA-006",
+   "type": "drafting_block",
+   "label": "Driver Not Established + PoFA Failure",
+   "text": [
+    "The operator has not established the identity of the driver. As the applicable Schedule 4 requirements have also not been satisfied, liability cannot be transferred to the registered keeper under Schedule 4."
+   ]
+  },
+  {
+   "id": "PP-POFA-007",
+   "type": "drafting_block",
+   "label": "Keeper Conclusion",
+   "text": [
+    "For the verified reasons set out above, the operator has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012. The charge should therefore be cancelled as against the registered keeper."
+   ]
+  },
+  {
+   "id": "PP-PAY-001",
+   "type": "drafting_block",
+   "label": "Parking Was Paid For",
+   "text": [
+    "The allegation that the applicable parking tariff was not paid is disputed. A payment was made in connection with the vehicle's use of the site. The operator should review its payment records against the parking event before continuing enforcement."
+   ]
+  },
+  {
+   "id": "PP-PAY-002",
+   "type": "drafting_block",
+   "label": "Payment Evidence",
+   "text": [
+    "Evidence confirming payment is supplied with this appeal. It should be considered alongside the operator's transaction records and the details of the alleged parking event."
+   ]
+  },
+  {
+   "id": "PP-PAY-003",
+   "type": "drafting_block",
+   "label": "Machine Failure",
+   "text": [
+    "A genuine attempt was made to comply with the payment arrangements, but the payment machine did not operate as expected. The operator should review its machine fault, maintenance and transaction records for the relevant time."
+   ]
+  },
+  {
+   "id": "PP-PAY-004",
+   "type": "drafting_block",
+   "label": "App / Digital Failure",
+   "text": [
+    "A genuine attempt was made to use the digital payment facility provided for the location, but the transaction could not be completed because of the identified system problem. The operator should review its relevant system and transaction records."
+   ]
+  },
+  {
+   "id": "PP-PAY-005",
+   "type": "drafting_block",
+   "label": "Genuine Attempt to Pay",
+   "text": [
+    "The circumstances demonstrate a genuine attempt to comply with the payment requirements. The charge should not be considered in isolation from the steps taken to make payment and the verified reason the transaction could not be completed."
+   ]
+  },
+  {
+   "id": "PP-PAY-006",
+   "type": "drafting_block",
+   "label": "Payment Record Search",
+   "text": [
+    "The operator is requested to conduct a reasonable search of its payment records for the relevant location and period, including transactions capable of being matched to the parking event rather than relying solely on an immediate VRM match."
+   ]
+  },
+  {
+   "id": "PP-KEY-001",
+   "type": "drafting_block",
+   "label": "Paid but VRM Entered Incorrectly",
+   "text": [
+    "A parking payment was made, but an error occurred when the vehicle registration details were entered. The operator should identify the corresponding transaction and apply the current applicable Code/Appeals Charter treatment."
+   ]
+  },
+  {
+   "id": "PP-KEY-002",
+   "type": "drafting_block",
+   "label": "Minor Keying Error",
+   "text": [
+    "The discrepancy concerns a minor registration-entry error. Payment was nevertheless made. The operator should match the transaction and deal with the case in accordance with the applicable current keying-error requirements."
+   ]
+  },
+  {
+   "id": "PP-KEY-003",
+   "type": "drafting_block",
+   "label": "Different Vehicle Registration Entered",
+   "text": [
+    "Payment was made but registration details relating to another vehicle were entered. The operator should examine the relevant transaction and apply the applicable current Code treatment."
+   ]
+  },
+  {
+   "id": "PP-KEY-004",
+   "type": "drafting_block",
+   "label": "Tariff Paid",
+   "text": [
+    "Notwithstanding the registration-entry error, the applicable tariff was paid. The case should not be treated as though the parking facility was used without payment."
+   ]
+  },
+  {
+   "id": "PP-CON-001",
+   "type": "drafting_block",
+   "label": "Consideration Period",
+   "text": [
+    "The vehicle's recorded presence must be considered in the context of the applicable consideration period. Entry onto controlled land does not, without more, establish immediate acceptance of every parking term or that the entire entry-to-exit interval was a period of parking."
+   ]
+  },
+  {
+   "id": "PP-CON-002",
+   "type": "drafting_block",
+   "label": "Locate / Read Terms",
+   "text": [
+    "Time was required to locate and consider the applicable parking terms before a decision could reasonably be made whether to accept them."
+   ]
+  },
+  {
+   "id": "PP-CON-003",
+   "type": "drafting_block",
+   "label": "Terms Rejected and Vehicle Left",
+   "text": [
+    "Having considered the terms, they were not accepted and the vehicle left. The initial presence should not automatically be treated as an accepted parking contract."
+   ]
+  },
+  {
+   "id": "PP-CON-004",
+   "type": "drafting_block",
+   "label": "Initial Payment Attempt",
+   "text": [
+    "Part of the recorded period was spent attempting to understand and comply with the payment arrangements. The operator should not automatically treat the camera entry time as the commencement of paid parking."
+   ]
+  },
+  {
+   "id": "PP-CON-005",
+   "type": "drafting_block",
+   "label": "Finding a Space",
+   "text": [
+    "Part of the recorded presence was spent entering, manoeuvring and attempting to locate a suitable space. Camera entry time is not automatically the start of actual parking."
+   ]
+  },
+  {
+   "id": "PP-GRACE-001",
+   "type": "drafting_block",
+   "label": "Applicable Grace",
+   "text": [
+    "The applicable current Code requirements provide for a grace period in relevant circumstances in addition to the parking period. The operator must assess the alleged additional time against the rule actually applicable to this event."
+   ]
+  },
+  {
+   "id": "PP-GRACE-002",
+   "type": "drafting_block",
+   "label": "Return to Vehicle / Leave",
+   "text": [
+    "The period following the permitted parking session included time reasonably required to return to the vehicle, prepare to leave and exit the controlled land."
+   ]
+  },
+  {
+   "id": "PP-GRACE-003",
+   "type": "drafting_block",
+   "label": "Exit Congestion",
+   "text": [
+    "The vehicle's departure was affected by verified congestion or delay in exiting. An ANPR exit timestamp records passage at the camera and does not necessarily establish that the vehicle remained parked until that moment."
+   ]
+  },
+  {
+   "id": "PP-GRACE-004",
+   "type": "drafting_block",
+   "label": "Additional Exit Time",
+   "text": [
+    "Additional time was reasonably required before the vehicle could leave. The operator should consider the verified circumstances together with the applicable Code requirement rather than relying solely on an automated timestamp comparison."
+   ]
+  },
+  {
+   "id": "PP-GRACE-005",
+   "type": "drafting_block",
+   "label": "Within Applicable Grace",
+   "text": [
+    "The verified additional period falls within the grace period applicable to this parking event. The charge should therefore be cancelled."
+   ]
+  },
+  {
+   "id": "PP-ANPR-001",
+   "type": "drafting_block",
+   "label": "Entry/Exit Is Not Automatically Parking Time",
+   "text": [
+    "ANPR images record the vehicle at particular points on the controlled land. Those timestamps do not necessarily establish the precise period actually parked. Entry, manoeuvring, consideration, payment activity and exit can form part of total presence without being parking time."
+   ]
+  },
+  {
+   "id": "PP-ANPR-002",
+   "type": "drafting_block",
+   "label": "Duration Disputed",
+   "text": [
+    "The alleged parking duration is disputed. The operator should establish the actual parking period relied upon rather than merely the elapsed interval between two camera timestamps."
+   ]
+  },
+  {
+   "id": "PP-ANPR-003",
+   "type": "drafting_block",
+   "label": "Multiple Visits",
+   "text": [
+    "The vehicle attended the location on more than one separate occasion. The first recorded entry and final recorded exit must not be treated as one continuous parking event without review of the complete sequence."
+   ]
+  },
+  {
+   "id": "PP-ANPR-004",
+   "type": "drafting_block",
+   "label": "Evidence Vehicle Elsewhere",
+   "text": [
+    "Independent evidence demonstrates that the vehicle was not continuously present for the period alleged. The operator must reconcile that evidence with its ANPR sequence."
+   ]
+  },
+  {
+   "id": "PP-ANPR-005",
+   "type": "drafting_block",
+   "label": "Full ANPR Sequence",
+   "text": [
+    "The operator should review the complete sequence of captures for the vehicle and date, including intermediate entry/exit records, rather than relying only on the two images reproduced on the PCN."
+   ]
+  },
+  {
+   "id": "PP-ANPR-007",
+   "type": "drafting_block",
+   "label": "Timestamp Discrepancy",
+   "text": [
+    "A specific discrepancy has been identified in the timestamps relied upon. Because duration depends on those timestamps, the operator should verify the relevant records and explain the discrepancy."
+   ]
+  },
+  {
+   "id": "PP-ANPR-008",
+   "type": "drafting_block",
+   "label": "Image / VRM Issue",
+   "text": [
+    "The photographic evidence does not clearly establish the registration details relied upon. The operator should review the original images and confirm the basis on which the VRM was identified."
+   ]
+  },
+  {
+   "id": "PP-ANPR-010",
+   "type": "drafting_block",
+   "label": "Missing Capture",
+   "text": [
+    "The sequence appears incomplete. Absence of an intermediate capture should not automatically be treated as proof of continuous presence."
+   ]
+  },
+  {
+   "id": "PP-ANPR-011",
+   "type": "drafting_block",
+   "label": "Incorrect Pairing",
+   "text": [
+    "The evidence indicates that separate visits may have been paired into a single event. The operator should establish that the selected entry and exit genuinely relate to one continuous visit."
+   ]
+  },
+  {
+   "id": "PP-AUTH-001",
+   "type": "drafting_block",
+   "label": "Authorised to Park",
+   "text": [
+    "The vehicle was authorised to park at the material time. The operator should review the relevant authorisation records and evidence before maintaining an allegation of unauthorised parking."
+   ]
+  },
+  {
+   "id": "PP-AUTH-002",
+   "type": "drafting_block",
+   "label": "Valid Permit",
+   "text": [
+    "A valid parking permit existed in connection with the vehicle's use of the location. The existence and scope of that underlying entitlement must be considered."
+   ]
+  },
+  {
+   "id": "PP-AUTH-004",
+   "type": "drafting_block",
+   "label": "Permit Admin / Display Issue",
+   "text": [
+    "Although there was an identified display or registration issue, a valid underlying entitlement to park existed. The operator should distinguish this from a case involving no parking authority."
+   ]
+  },
+  {
+   "id": "PP-AUTH-006",
+   "type": "drafting_block",
+   "label": "Visitor Authorisation",
+   "text": [
+    "The vehicle was present as an authorised visitor. The operator should review visitor records and the evidence of permission."
+   ]
+  },
+  {
+   "id": "PP-AUTH-008",
+   "type": "drafting_block",
+   "label": "Genuine Customer",
+   "text": [
+    "The vehicle's presence was connected with a genuine visit to the premises for which the parking facility was provided. This is not an automatic cancellation ground; it should be used where site terms/policy or landholder authorisation make it relevant."
+   ]
+  },
+  {
+   "id": "PP-SIGN-001",
+   "type": "drafting_block",
+   "label": "Signage Adequacy",
+   "text": [
+    "The adequacy of the signage is disputed on the specific factual basis identified. The operator should review the positioning, visibility, content and material-time condition of the signs relied upon."
+   ]
+  },
+  {
+   "id": "PP-SIGN-002",
+   "type": "drafting_block",
+   "label": "Entrance Sign",
+   "text": [
+    "The parking terms were not adequately communicated on the route of entry in the circumstances established by the evidence. The operator should identify the entrance signage actually in place at the material time."
+   ]
+  },
+  {
+   "id": "PP-SIGN-004",
+   "type": "drafting_block",
+   "label": "Relevant Term Prominence",
+   "text": [
+    "The particular term said to have been breached was not displayed with sufficient prominence or clarity in the circumstances established. The operator should identify precisely where and how that term was communicated."
+   ]
+  },
+  {
+   "id": "PP-SIGN-005",
+   "type": "drafting_block",
+   "label": "Charge Prominence",
+   "text": [
+    "The parking charge itself was not displayed with sufficient prominence on the signage relied upon. Use only where the actual sign evidence supports this factual proposition."
+   ]
+  },
+  {
+   "id": "PP-SIGN-011",
+   "type": "drafting_block",
+   "label": "Conflicting Terms",
+   "text": [
+    "The signage communicated materially inconsistent terms. The operator should explain which terms it says applied and how they were communicated with sufficient clarity."
+   ]
+  },
+  {
+   "id": "PP-LAND-001",
+   "type": "drafting_block",
+   "label": "Authority to Operate",
+   "text": [
+    "The operator is requested to establish that it had sufficient authority from the landowner or other entitled party to operate and enforce the parking scheme at the location on the material date."
+   ]
+  },
+  {
+   "id": "PP-LAND-002",
+   "type": "drafting_block",
+   "label": "Current Authority",
+   "text": [
+    "Any authority relied upon should cover the specific location and material date. Evidence for another site or period does not establish authority for this PCN."
+   ]
+  },
+  {
+   "id": "PP-LAND-005",
+   "type": "drafting_block",
+   "label": "Land / Location Match",
+   "text": [
+    "The operator must establish that the authority relied upon covers the specific land on which the alleged event occurred."
+   ]
+  },
+  {
+   "id": "PP-LAND-006",
+   "type": "drafting_block",
+   "label": "Material Date",
+   "text": [
+    "Any evidence of authority must show that the operator's authority was in force on {{parking_event_date}}."
+   ]
+  },
+  {
+   "id": "PP-LAND-008",
+   "type": "drafting_block",
+   "label": "Material Redactions",
+   "text": [
+    "Where authority evidence is supplied but redactions prevent verification of parties, land, period or enforcement scope, the operator should provide sufficient evidence to establish those matters."
+   ]
+  },
+  {
+   "id": "PP-END-001",
+   "type": "drafting_block",
+   "label": "Cancellation",
+   "text": [
+    "For the reasons set out above, the parking charge is disputed and the operator is requested to cancel Parking Charge Notice {{pcn_number}}."
+   ]
+  },
+  {
+   "id": "PP-END-002",
+   "type": "drafting_block",
+   "label": "Reasoned Rejection",
+   "text": [
+    "If the operator is not prepared to cancel the charge, it is requested to provide a clear response addressing the specific grounds and evidence raised."
+   ]
+  },
+  {
+   "id": "PP-END-003",
+   "type": "drafting_block",
+   "label": "Independent Appeal",
+   "text": [
+    "If rejected, please provide the appropriate information/reference required to pursue the applicable independent appeal route."
+   ]
+  },
+  {
+   "id": "AI-BREAK-001",
+   "type": "drafting_block",
+   "label": "Breakdown / Current Code Route",
+   "text": [
+    "The vehicle became mechanically immobilised during the relevant period. The incident was outside the ordinary control of the person responsible for the vehicle and materially prevented timely departure/compliance. The operator is requested to apply the breakdown/emergency provisions of the current applicable Code/Appeals Charter to the enclosed evidence and cancel the charge where those provisions are satisfied."
+   ]
+  },
+  {
+   "id": "AI-BREAK-002",
+   "type": "drafting_block",
+   "label": "Breakdown / Contract Analysis",
+   "text": [
+    "The alleged breach arose, if at all, only because an unforeseen mechanical event prevented the vehicle from being moved as required. The operator is requested to address the legal effect of that supervening event and the evidence of genuine immobilisation rather than treating the additional presence as a voluntary decision to remain parked."
+   ]
+  },
+  {
+   "id": "AI-RES-001",
+   "type": "drafting_block",
+   "label": "Residential Primacy",
+   "text": [
+    "The vehicle was parked pursuant to pre-existing residential parking rights evidenced by the uploaded {{lease_or_tenancy}}. The operator's signage cannot simply be assumed to vary or extinguish rights already granted under that agreement. The operator is requested to address the specific parking clause and explain the contractual basis on which the later parking scheme is said to override or modify it."
+   ]
+  },
+  {
+   "id": "AI-RES-002",
+   "type": "drafting_block",
+   "label": "Unfettered / Express Right",
+   "text": [
+    "The relevant agreement grants a right to park in terms that do not contain the restriction now alleged. The operator is requested to address the scope of that grant and identify any valid contractual mechanism said to have introduced the additional restriction. Use only when the uploaded instrument genuinely supports this proposition."
+   ]
+  },
+  {
+   "id": "AI-RES-003",
+   "type": "drafting_block",
+   "label": "Allocated Bay",
+   "text": [
+    "The relevant agreement grants or identifies parking rights connected with the allocated space {{bay_reference}}. The operator must address those pre-existing rights before treating the vehicle as an unauthorised user of that space."
+   ]
+  },
+  {
+   "id": "AI-RES-004",
+   "type": "drafting_block",
+   "label": "Derogation from Grant",
+   "text": [
+    "The uploaded agreement confers a parking benefit. Where the later parking arrangement substantially interferes with the exercise of that granted right, the operator is requested to address the principle that a grantor cannot substantially deprive the grantee of the benefit already conferred. Use only after legal/factual validation."
+   ]
+  },
+  {
+   "id": "AI-EQ-001",
+   "type": "drafting_block",
+   "label": "Reasonable Adjustment / Additional Time",
+   "text": [
+    "The circumstances required additional time connected with a disability-related need. The operator is requested to consider whether its service and enforcement process required a reasonable adjustment rather than determining the charge solely by automated timestamps."
+   ]
+  },
+  {
+   "id": "AI-HOSP-001",
+   "type": "drafting_block",
+   "label": "Hospital / Clinical Delay",
+   "text": [
+    "The parking event was connected with verified hospital/medical attendance and the timing issue arose from the identified clinical/emergency circumstances. The operator should apply the site's relevant exemption/validation rules and any applicable Code or Equality Act obligations."
+   ]
+  },
+  {
+   "id": "AI-ACT-001",
+   "type": "drafting_block",
+   "label": "Loading / Unloading",
+   "text": [
+    "The vehicle's presence was connected with genuine loading/unloading activity. The operator should assess the actual site terms and the factual distinction between temporary stopping for that activity and ordinary parking, rather than assuming that every stationary period is parking."
+   ]
+  },
+  {
+   "id": "AI-EVCH-001",
+   "type": "drafting_block",
+   "label": "EV Charging",
+   "text": [
+    "The vehicle's presence was connected with a genuine charging session. The operator should distinguish the charging terms from any separate parking terms and reconcile the charge-session records with the allegation."
+   ]
+  },
+  {
+   "id": "SEC-APPENDIX-B",
+   "type": "section",
+   "label": "APPENDIX B - AI Ground Selection Matrix",
+   "order": 21,
+   "text": []
+  },
+  {
+   "id": "SEL-01",
+   "type": "selection_rule",
+   "label": "Breakdown evidence present",
+   "case_pattern": "Breakdown evidence present",
+   "priority": "BREAKDOWN current-Code route first; frustration/impossibility second if facts support; grace only if separately applicable.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-02",
+   "type": "selection_rule",
+   "label": "Resident + lease uploaded",
+   "case_pattern": "Resident + lease uploaded",
+   "priority": "Read lease first; residential rights/primacy before permit-display; use derogation only if grant/interference supports it.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-03",
+   "type": "selection_rule",
+   "label": "Paid + wrong VRM",
+   "case_pattern": "Paid + wrong VRM",
+   "priority": "Payment/keying current-Code route before generic signage.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-04",
+   "type": "selection_rule",
+   "label": "ANPR + two visits",
+   "case_pattern": "ANPR + two visits",
+   "priority": "Multiple-visit/full-sequence route before generic camera maintenance.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-05",
+   "type": "selection_rule",
+   "label": "Short entry-to-exit + no parking",
+   "case_pattern": "Short entry-to-exit + no parking",
+   "priority": "Consideration/contract formation before grace.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-06",
+   "type": "selection_rule",
+   "label": "Paid parking ended + short exit delay",
+   "case_pattern": "Paid parking ended + short exit delay",
+   "priority": "Grace/actual parking period; do not call initial consideration time 'grace'.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-07",
+   "type": "selection_rule",
+   "label": "Keeper + valid PoFA defect",
+   "case_pattern": "Keeper + valid PoFA defect",
+   "priority": "PoFA keeper-liability point can lead; do not add invented defects.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-08",
+   "type": "selection_rule",
+   "label": "Permit held",
+   "case_pattern": "Permit held",
+   "priority": "Underlying authorisation first; then admin/display issue; residential rights may supersede generic permit logic.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-09",
+   "type": "selection_rule",
+   "label": "Disability-related extra time",
+   "case_pattern": "Disability-related extra time",
+   "priority": "Equality Act/reasonable-adjustment analysis plus applicable Code; avoid generic mitigation wording.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEL-10",
+   "type": "selection_rule",
+   "label": "Hospital emergency",
+   "case_pattern": "Hospital emergency",
+   "priority": "Hospital/emergency/Code route; Equality Act only if relevant facts exist.",
+   "column_headers": [
+    "Case pattern",
+    "Priority"
+   ]
+  },
+  {
+   "id": "SEC-APPENDIX-C",
+   "type": "section",
+   "label": "APPENDIX C - Release Checklist",
+   "order": 22,
+   "text": []
+  },
+  {
+   "id": "CHK-01",
+   "type": "checklist_item",
+   "label": "PCN number, VRM, operator, location and material dates match source document."
+  },
+  {
+   "id": "CHK-02",
+   "type": "checklist_item",
+   "label": "Driver has not been identified or implied on an unidentified-driver keeper route."
+  },
+  {
+   "id": "CHK-03",
+   "type": "checklist_item",
+   "label": "Every legal ground has an active knowledge module and source status."
+  },
+  {
+   "id": "CHK-04",
+   "type": "checklist_item",
+   "label": "PoFA route/timing/content checks are verified before any defect is stated."
+  },
+  {
+   "id": "CHK-05",
+   "type": "checklist_item",
+   "label": "Applicable Code version and transition status have been resolved."
+  },
+  {
+   "id": "CHK-06",
+   "type": "checklist_item",
+   "label": "Breakdown/emergency route uses actual evidence and does not promise automatic frustration."
+  },
+  {
+   "id": "CHK-07",
+   "type": "checklist_item",
+   "label": "Residential route quotes/paraphrases the actual lease/tenancy accurately and checks regulation/variation clauses."
+  },
+  {
+   "id": "CHK-08",
+   "type": "checklist_item",
+   "label": "ANPR allegations are fact-specific; no generic calibration claim."
+  },
+  {
+   "id": "CHK-09",
+   "type": "checklist_item",
+   "label": "Evidence said to be enclosed actually exists."
+  },
+  {
+   "id": "CHK-10",
+   "type": "checklist_item",
+   "label": "No obsolete pre-estimate-of-loss argument."
+  },
+  {
+   "id": "CHK-11",
+   "type": "checklist_item",
+   "label": "No duplicated grounds or contradictory facts."
+  },
+  {
+   "id": "CHK-12",
+   "type": "checklist_item",
+   "label": "Final letter is concise, coherent and suitable for an initial operator appeal."
+  },
+  {
+   "id": "SRC-X1",
+   "type": "source",
+   "label": "Common-law frustration/impossibility principles",
+   "note": "Not listed in the Source Register (Section 2); named only in the LEGAL / CODE BASIS field of a module."
+  }
+ ],
+ "edges": [
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-1",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-05",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-06",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-1",
+   "relation": "CONTAINS",
+   "target": "KB-GOV-07",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-2",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-1",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-2",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-3",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-4",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-5",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-2",
+   "relation": "CONTAINS",
+   "target": "SRC-6",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-3",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-3",
+   "relation": "CONTAINS",
+   "target": "KB-POFA-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-3",
+   "relation": "CONTAINS",
+   "target": "KB-POFA-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-3",
+   "relation": "CONTAINS",
+   "target": "KB-POFA-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-3",
+   "relation": "CONTAINS",
+   "target": "KB-POFA-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-3",
+   "relation": "CONTAINS",
+   "target": "KB-POFA-05",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-4",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-4",
+   "relation": "CONTAINS",
+   "target": "KB-CON-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-4",
+   "relation": "CONTAINS",
+   "target": "KB-CON-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-4",
+   "relation": "CONTAINS",
+   "target": "KB-GRACE-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-4",
+   "relation": "CONTAINS",
+   "target": "KB-GRACE-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-4",
+   "relation": "CONTAINS",
+   "target": "KB-TIME-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-5",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-5",
+   "relation": "CONTAINS",
+   "target": "KB-PAY-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-5",
+   "relation": "CONTAINS",
+   "target": "KB-PAY-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-5",
+   "relation": "CONTAINS",
+   "target": "KB-PAY-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-5",
+   "relation": "CONTAINS",
+   "target": "KB-KEY-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-5",
+   "relation": "CONTAINS",
+   "target": "KB-KEY-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-6",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-6",
+   "relation": "CONTAINS",
+   "target": "KB-ANPR-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-6",
+   "relation": "CONTAINS",
+   "target": "KB-ANPR-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-6",
+   "relation": "CONTAINS",
+   "target": "KB-ANPR-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-6",
+   "relation": "CONTAINS",
+   "target": "KB-EV-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-7",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-7",
+   "relation": "CONTAINS",
+   "target": "KB-SIGN-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-7",
+   "relation": "CONTAINS",
+   "target": "KB-SIGN-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-7",
+   "relation": "CONTAINS",
+   "target": "KB-SIGN-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-7",
+   "relation": "CONTAINS",
+   "target": "KB-SIGN-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-8",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-8",
+   "relation": "CONTAINS",
+   "target": "KB-AUTH-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-8",
+   "relation": "CONTAINS",
+   "target": "KB-AUTH-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-8",
+   "relation": "CONTAINS",
+   "target": "KB-AUTH-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-8",
+   "relation": "CONTAINS",
+   "target": "KB-CUST-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-9",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-9",
+   "relation": "CONTAINS",
+   "target": "KB-BREAK-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-9",
+   "relation": "CONTAINS",
+   "target": "KB-BREAK-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-9",
+   "relation": "CONTAINS",
+   "target": "KB-BREAK-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-10",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-05",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-06",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-10",
+   "relation": "CONTAINS",
+   "target": "KB-RES-07",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-11",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-11",
+   "relation": "CONTAINS",
+   "target": "KB-EQ-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-11",
+   "relation": "CONTAINS",
+   "target": "KB-EQ-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-11",
+   "relation": "CONTAINS",
+   "target": "KB-EQ-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-12",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-12",
+   "relation": "CONTAINS",
+   "target": "KB-HOSP-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-12",
+   "relation": "CONTAINS",
+   "target": "KB-HOSP-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-12",
+   "relation": "CONTAINS",
+   "target": "KB-HOSP-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-13",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-13",
+   "relation": "CONTAINS",
+   "target": "KB-ACT-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-13",
+   "relation": "CONTAINS",
+   "target": "KB-ACT-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-13",
+   "relation": "CONTAINS",
+   "target": "KB-ACT-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-14",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-14",
+   "relation": "CONTAINS",
+   "target": "KB-EVCH-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-14",
+   "relation": "CONTAINS",
+   "target": "KB-INFRA-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-15",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-15",
+   "relation": "CONTAINS",
+   "target": "KB-LAND-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-15",
+   "relation": "CONTAINS",
+   "target": "KB-LAND-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-15",
+   "relation": "CONTAINS",
+   "target": "KB-LAND-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-16",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-1",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-2",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-3",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-4",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-5",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-6",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-16",
+   "relation": "CONTAINS",
+   "target": "PRI-7",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-17",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-DRIVER",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-FACT",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-EVIDENCE",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-POFA",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-CODE",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-RES",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-BREAK",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-EQ",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-ANPR",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-STAGE",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-17",
+   "relation": "CONTAINS",
+   "target": "VAL-CONFLICT",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-18",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-primary_route",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-secondary_routes",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-module_ids",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-verified_facts",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-missing_facts",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-evidence_refs",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-prohibited_claims",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-code_version",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-pofa_route",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-18",
+   "relation": "CONTAINS",
+   "target": "SCHEMA-driver_status",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-19",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-APPENDIX-A",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-INTRO-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-INTRO-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-005A",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-005B",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-005C",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-005D",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-005E",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-006",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-POFA-007",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-PAY-006",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-KEY-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-KEY-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-KEY-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-KEY-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-CON-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-CON-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-CON-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-CON-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-CON-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-GRACE-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-GRACE-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-GRACE-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-GRACE-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-GRACE-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-007",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-008",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-010",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-ANPR-011",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-AUTH-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-AUTH-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-AUTH-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-AUTH-006",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-AUTH-008",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-SIGN-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-SIGN-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-SIGN-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-SIGN-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-SIGN-011",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-LAND-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-LAND-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-LAND-005",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-LAND-006",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-LAND-008",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-END-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-END-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "PP-END-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-BREAK-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-BREAK-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-RES-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-RES-002",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-RES-003",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-RES-004",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-EQ-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-HOSP-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-ACT-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-A",
+   "relation": "CONTAINS",
+   "target": "AI-EVCH-001",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-APPENDIX-B",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-05",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-06",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-07",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-08",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-09",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-B",
+   "relation": "CONTAINS",
+   "target": "SEL-10",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB",
+   "relation": "HAS_SECTION",
+   "target": "SEC-APPENDIX-C",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-02",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-04",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-05",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-06",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-07",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-08",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-09",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-10",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-11",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SEC-APPENDIX-C",
+   "relation": "CONTAINS",
+   "target": "CHK-12",
+   "provenance": "explicit"
+  },
+  {
+   "source": "KB-POFA-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-1",
+   "provenance": "explicit",
+   "detail": "Protection of Freedoms Act 2012 Schedule 4."
+  },
+  {
+   "source": "KB-POFA-02",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-1",
+   "provenance": "explicit",
+   "detail": "PoFA Schedule 4 paragraph 9 route."
+  },
+  {
+   "source": "KB-POFA-03",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-1",
+   "provenance": "explicit",
+   "detail": "PoFA Schedule 4 paragraph 8 route."
+  },
+  {
+   "source": "KB-POFA-04",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-1",
+   "provenance": "explicit",
+   "detail": "PoFA Schedule 4, route-specific requirements."
+  },
+  {
+   "source": "KB-CON-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-2",
+   "provenance": "explicit",
+   "detail": "Applicable Private Parking Sector Single Code provisions in force for the event."
+  },
+  {
+   "source": "KB-GRACE-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-2",
+   "provenance": "explicit",
+   "detail": "Applicable Private Parking Sector Single Code."
+  },
+  {
+   "source": "KB-KEY-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-2",
+   "provenance": "explicit",
+   "detail": "Applicable sector Code provisions on keying/payment errors."
+  },
+  {
+   "source": "KB-BREAK-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-X1",
+   "provenance": "explicit",
+   "detail": "Common-law frustration/impossibility principles; application is fact-sensitive and must not be presented as automatic."
+  },
+  {
+   "source": "KB-EQ-01",
+   "relation": "HAS_LEGAL_BASIS",
+   "target": "SRC-3",
+   "provenance": "explicit",
+   "detail": "Equality Act 2010; apply only where statutory conditions are met."
+  },
+  {
+   "source": "SCHEMA-module_ids",
+   "relation": "EXAMPLE_REFERENCES",
+   "target": "KB-RES-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SCHEMA-module_ids",
+   "relation": "EXAMPLE_REFERENCES",
+   "target": "KB-RES-03",
+   "provenance": "explicit"
+  },
+  {
+   "source": "SCHEMA-module_ids",
+   "relation": "EXAMPLE_REFERENCES",
+   "target": "KB-LAND-01",
+   "provenance": "explicit"
+  },
+  {
+   "source": "PP-POFA-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-005A",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-005B",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-005C",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-005D",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-005E",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-006",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-POFA-007",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-3",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'POFA' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-PAY-006",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'PAY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-KEY-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'KEY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-KEY-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'KEY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-KEY-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'KEY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-KEY-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-5",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'KEY' matches module IDs in this section"
+  },
+  {
+   "source": "PP-CON-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'CON' matches module IDs in this section"
+  },
+  {
+   "source": "PP-CON-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'CON' matches module IDs in this section"
+  },
+  {
+   "source": "PP-CON-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'CON' matches module IDs in this section"
+  },
+  {
+   "source": "PP-CON-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'CON' matches module IDs in this section"
+  },
+  {
+   "source": "PP-CON-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'CON' matches module IDs in this section"
+  },
+  {
+   "source": "PP-GRACE-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'GRACE' matches module IDs in this section"
+  },
+  {
+   "source": "PP-GRACE-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'GRACE' matches module IDs in this section"
+  },
+  {
+   "source": "PP-GRACE-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'GRACE' matches module IDs in this section"
+  },
+  {
+   "source": "PP-GRACE-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'GRACE' matches module IDs in this section"
+  },
+  {
+   "source": "PP-GRACE-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-4",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'GRACE' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-007",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-008",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-010",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-ANPR-011",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-6",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ANPR' matches module IDs in this section"
+  },
+  {
+   "source": "PP-AUTH-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-8",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'AUTH' matches module IDs in this section"
+  },
+  {
+   "source": "PP-AUTH-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-8",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'AUTH' matches module IDs in this section"
+  },
+  {
+   "source": "PP-AUTH-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-8",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'AUTH' matches module IDs in this section"
+  },
+  {
+   "source": "PP-AUTH-006",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-8",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'AUTH' matches module IDs in this section"
+  },
+  {
+   "source": "PP-AUTH-008",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-8",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'AUTH' matches module IDs in this section"
+  },
+  {
+   "source": "PP-SIGN-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-7",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'SIGN' matches module IDs in this section"
+  },
+  {
+   "source": "PP-SIGN-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-7",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'SIGN' matches module IDs in this section"
+  },
+  {
+   "source": "PP-SIGN-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-7",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'SIGN' matches module IDs in this section"
+  },
+  {
+   "source": "PP-SIGN-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-7",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'SIGN' matches module IDs in this section"
+  },
+  {
+   "source": "PP-SIGN-011",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-7",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'SIGN' matches module IDs in this section"
+  },
+  {
+   "source": "PP-LAND-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-15",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'LAND' matches module IDs in this section"
+  },
+  {
+   "source": "PP-LAND-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-15",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'LAND' matches module IDs in this section"
+  },
+  {
+   "source": "PP-LAND-005",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-15",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'LAND' matches module IDs in this section"
+  },
+  {
+   "source": "PP-LAND-006",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-15",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'LAND' matches module IDs in this section"
+  },
+  {
+   "source": "PP-LAND-008",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-15",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'LAND' matches module IDs in this section"
+  },
+  {
+   "source": "AI-BREAK-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-9",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'BREAK' matches module IDs in this section"
+  },
+  {
+   "source": "AI-BREAK-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-9",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'BREAK' matches module IDs in this section"
+  },
+  {
+   "source": "AI-RES-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-10",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'RES' matches module IDs in this section"
+  },
+  {
+   "source": "AI-RES-002",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-10",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'RES' matches module IDs in this section"
+  },
+  {
+   "source": "AI-RES-003",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-10",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'RES' matches module IDs in this section"
+  },
+  {
+   "source": "AI-RES-004",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-10",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'RES' matches module IDs in this section"
+  },
+  {
+   "source": "AI-EQ-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-11",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'EQ' matches module IDs in this section"
+  },
+  {
+   "source": "AI-HOSP-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-12",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'HOSP' matches module IDs in this section"
+  },
+  {
+   "source": "AI-ACT-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-13",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'ACT' matches module IDs in this section"
+  },
+  {
+   "source": "AI-EVCH-001",
+   "relation": "SAME_TOPIC_PREFIX_AS",
+   "target": "SEC-14",
+   "provenance": "derived",
+   "detail": "Block ID prefix 'EVCH' matches module IDs in this section"
+  }
+ ]
+}

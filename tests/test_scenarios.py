@@ -86,8 +86,15 @@ class ScenarioC_PaymentKeying(unittest.TestCase):
         out = run(case, pipe, "I paid on the app but typo in reg",
                   {"payment_made": "yes", "payment_method": "APP", "keying_error_type": "MINOR"})
         self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
-        self.assertEqual(out.pack.primary_route, "KEYING")
-        self.assertIn("PAYMENT", out.pack.secondary_routes)
+        # PAYMENT leads, KEYING follows. Both are tier 2, and routes.yaml `rank`
+        # settles that order: section 16 p2 lists payment first, and the point
+        # that a payment was made for the visit is the substantive answer to the
+        # allegation, while the keying error explains why the operator's records
+        # did not match it. This used to come out KEYING-first because KB-KEY-01
+        # scores 90 to KB-PAY-01's 85 - the declared order was decided by a
+        # strength set for a different purpose.
+        self.assertEqual(out.pack.primary_route, "PAYMENT")
+        self.assertIn("KEYING", out.pack.secondary_routes)
         self.assertNotIn("I paid", out.letter)
 
 

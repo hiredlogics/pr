@@ -129,7 +129,7 @@ class BoolAnswers(unittest.TestCase):
         from pcn_appeal.models import CaseFile
 
         case = CaseFile(case_id="C-bool")
-        engine = QuestionEngine(KG, llm=None)
+        engine = QuestionEngine(KG)
         engine.record_answer(case, "payment_made", "maybe")
         self.assertIs(case.facts["payment_made"].value, False)
         self.assertEqual(case.raw_answers["payment_made"], "maybe",
@@ -142,7 +142,7 @@ class BoolAnswers(unittest.TestCase):
 
         for raw in (True, "yes", "Yes", "y", "true", "1"):
             case = CaseFile(case_id="C-bool")
-            QuestionEngine(KG, llm=None).record_answer(case, "payment_made", raw)
+            QuestionEngine(KG).record_answer(case, "payment_made", raw)
             self.assertIs(case.facts["payment_made"].value, True, f"{raw!r} should mean yes")
 
 
@@ -167,16 +167,19 @@ class UploadEndpoint(unittest.TestCase):
         self.assertEqual(body["state"], "RELEASED")
         self.assertTrue(body["letter"].strip())
 
-    def test_photo_upload_is_accepted_even_though_demo_reads_no_pixels(self):
-        """Without a vision-capable key the demo extractor finds nothing in an
-        image. The upload must still be accepted and reported honestly."""
+    def test_an_unreadable_photo_is_accepted_then_routed_out(self):
+        """An image nothing could be read from is an unsupported upload, not a
+        fact-poor appeal: the file is accepted and reported, and routing then
+        stops rather than hunting for grounds in a document it cannot identify."""
         r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))])
         self.assertEqual(r.status_code, 200, r.text)
         body = r.json()
         self.assertEqual(body["read_as"][0]["images"], 1)
         self.assertEqual(body["read_as"][0]["chars"], 0)
-        self.assertIn("missing:operator_name", body["flags"],
-                      "an unread field must be reported, not silently dropped")
+        self.assertEqual(body["state"], "NO_APPEAL_RIGHT")
+        self.assertEqual(body["stop_code"], "UNSUPPORTED")
+        self.assertEqual(body["questions"], [])
+        self.assertIsNone(body.get("letter"))
 
     def test_one_bad_file_does_not_lose_the_case(self):
         r = self.post([
@@ -199,7 +202,9 @@ class UploadEndpoint(unittest.TestCase):
         """The demo extractor reads no pixels, so nothing is known from the image
         and the narrative is all there is - exactly when the UI must ask."""
         patch_client(self, demo_asking(PAYMENT_QUESTIONS))
-        r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
+        r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png")),
+                       ("files", ("header.pdf", io.BytesIO(text_pdf(["PARKING CHARGE NOTICE"])),
+                                  "application/pdf"))],
                       narrative="I was only 5 minutes over and the machine would not take my card")
         body = r.json()
         self.assertEqual(body["state"], "CONFIRMED")
@@ -232,7 +237,17 @@ class UploadEndpoint(unittest.TestCase):
         self.assertNotIn("payment_made", [q["fact"] for q in nxt.get("questions", [])])
 
     def _photo_case(self) -> str:
-        r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
+        """A case that is in scope but knows almost nothing.
+
+        The bare header is what keeps it in scope: routing now stops a case where
+        no document could be identified as a private parking notice, so a photo
+        the demo extractor cannot read is no longer a fact-poor appeal - it is an
+        unsupported upload. The header classifies as a PCN and carries no fields,
+        which is the state these tests are actually about.
+        """
+        r = self.post([("files", ("photo.png", io.BytesIO(png_photo()), "image/png")),
+                       ("files", ("header.pdf", io.BytesIO(text_pdf(["PARKING CHARGE NOTICE"])),
+                                  "application/pdf"))],
                       narrative="the machine would not take my card")
         return r.json()["case_id"]
 
@@ -284,7 +299,10 @@ class LetterPdf(unittest.TestCase):
     def test_pdf_404s_before_release(self):
         patch_client(self, demo_asking(PAYMENT_QUESTIONS))
         r = self.c.post("/appeal/files",
-                        files=[("files", ("photo.png", io.BytesIO(png_photo()), "image/png"))],
+                        files=[("files", ("photo.png", io.BytesIO(png_photo()), "image/png")),
+                               ("files", ("header.pdf",
+                                          io.BytesIO(text_pdf(["PARKING CHARGE NOTICE"])),
+                                          "application/pdf"))],
                         data={"narrative": "the machine would not take my card"})
         body = r.json()
         self.assertEqual(body["state"], "CONFIRMED")

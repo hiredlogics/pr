@@ -56,23 +56,28 @@ def parse(text: str) -> dict[str, str]:
 
 def load(*, root: Path = ROOT, files: tuple[str, ...] = DEFAULT_FILES,
          only: tuple[str, ...] | None = APP_SETTINGS, override: bool = False) -> list[str]:
-    """Read the first env file that exists. Returns the names it set.
+    """Layer every env file that exists, earliest in `files` winning.
+
+    Layered rather than first-file-only because a `vercel env pull` writes a
+    partial `.env.local`: stopping at it shadowed the OPENAI_API_KEY sitting in
+    `.env`, which silently demoted every case to the demo reader.
 
     `only` restricts which names are taken; pass None to accept everything.
     """
+    applied: list[str] = []
     for name in files:
         path = root / name
         if not path.is_file():
             continue
-        applied = []
         for key, value in parse(path.read_text()).items():
             if only is not None and key not in only:
+                continue
+            if key in applied:
                 continue
             if override or key not in os.environ:
                 os.environ[key] = value
                 applied.append(key)
-        return applied
-    return []
+    return applied
 
 
 def load_once() -> list[str]:

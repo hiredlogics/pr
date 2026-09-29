@@ -2,14 +2,18 @@ import { describeFlag } from "@/lib/flags";
 import type { ReadAs, Rejected } from "@/lib/types";
 
 /**
- * Everything the backend told us about what it could and could not read.
- * Nothing is suppressed - a customer who does not know a field was unreadable
- * cannot fix it.
+ * What the backend could not read, in the customer's terms.
+ *
+ * The API decides which flags reach this component; anything internal never
+ * arrives. A flag with no plain-English description is therefore a gap in
+ * `describeFlag`, and is dropped rather than printed as a machine code - the
+ * raw string used to be appended to every line, so customers read things like
+ * `confirm:jurisdiction` next to the prose.
  */
 
 export function FlagNotes({ flags }: { flags: string[] }) {
-  if (flags.length === 0) return null;
-  const notes = flags.map(describeFlag);
+  const notes = flags.map(describeFlag).filter((n) => n.text !== n.raw);
+  if (notes.length === 0) return null;
   const tone = notes.some((n) => n.tone === "attention") ? "attention" : "plain";
 
   return (
@@ -17,10 +21,7 @@ export function FlagNotes({ flags }: { flags: string[] }) {
       <h3>What we could not read from your notice</h3>
       <ul>
         {notes.map((n) => (
-          <li key={n.raw}>
-            {n.text}
-            {n.text !== n.raw && <code> {n.raw}</code>}
-          </li>
+          <li key={n.raw}>{n.text}</li>
         ))}
       </ul>
     </div>

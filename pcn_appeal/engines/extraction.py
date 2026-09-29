@@ -23,10 +23,13 @@ from typing import Any, Optional
 from .. import prompts
 from ..llm import LLMClient
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, SourceKind
+from ..rules import scope
 
 CONFIDENCE_THRESHOLD = 0.85
-REQUIRED = ["operator_name", "pcn_number", "vrm", "parking_event_date", "notice_issue_date",
-            "charge_amount", "alleged_breach"]
+# The prompt's doc-type enum is what a customer's upload can be labelled; the KB
+# modules gate on their own evidence codes. Where the two names differ, the
+# label is translated here so `has_evidence` sees the code the modules use.
+DOC_TYPE_ALIASES = {"WITNESS_STATEMENT": "WITNESS"}
 DATE_FIELDS = {"parking_event_date", "notice_issue_date", "notice_received_date", "ntd_date"}
 VRM_FIELDS = {"vrm", "vrm_entered"}              # both normalised the same way (EX-08)
 # Normalised for the same reason dates are: notices print "19/09/2026 12:23" in a
@@ -112,16 +115,11 @@ PAYMENT_RECORDED = re.compile(
     rf"|\b{_TAKEN}\b{_GAP}{{0,40}}\bpayments?\b",
     re.I)
 
-# EX-13. Debt-recovery / closed-appeal stage. Detected from the operator's own
-# wording on the uploaded papers - not inferred from the customer's story. When
-# present the orchestrator stops the normal appeal path (see CaseState.NO_APPEAL_RIGHT).
-DEBT_RECOVERY = re.compile(
-    r"\b(debt\s*recovery|passed\s+to\s+(?:a\s+)?debt|"
-    r"letter\s+of\s+claim|claim\s+form|"
-    r"civil\s+enforcement|enforcement\s+agent|\bbailiffs?\b|"
-    r"right\s+to\s+appeal\s+(?:has\s+)?(?:now\s+)?(?:expired|ended|lapsed|closed)|"
-    r"appeal\s+(?:window|period|right)\s+(?:has\s+)?(?:now\s+)?(?:closed|expired|ended))\b",
-    re.I)
+# EX-13. Debt-recovery / closed-appeal stage. The pattern itself now lives in
+# rules/scope.py, which owns the routing decision and runs it as the backup
+# check behind the classifier's label. Re-exported under its old name so the
+# one detector has one definition.
+DEBT_RECOVERY = scope.DEBT_SIGNALS
 
 # EX-14. Hire / lease-firm keeper. Triggers the hire-documentation ground; the
 # model still decides whether that ground is worth arguing, but the fact that
@@ -321,9 +319,14 @@ class ExtractionEngine:
         out = self.llm.complete_json(task="extraction", system=prompts.system("extraction"),
                                      user=docs, images=images or None)
 
+        # Engine 0: the classification the routing gate decides on. Kept on the
+        # case as well as on the evidence because downstream code reassigns
+        # `kind`, and an absent label has to stay distinguishable from OTHER.
         for ev_id, kind in (out.get("doc_types") or {}).items():
             if ev_id in case.evidence:
+                kind = DOC_TYPE_ALIASES.get(kind, kind)
                 case.evidence[ev_id].kind = kind
+                case.document_classes[ev_id] = kind
 
         for name, f in _fields_of(out).items():
             if f is None or f.get("value") in (None, ""):
@@ -382,11 +385,12 @@ class ExtractionEngine:
             case.audit.append({"event": "pcn_conflict",
                                "candidates": sorted(scanned)})
 
-        # EX-01 required fields. A PCN conflict is not "missing" — the value is
-        # held as UNCERTAIN pending confirmation; generate() already blocks.
-        flags += [f"missing:{r}" for r in REQUIRED
-                  if not case.has(r)
-                  and not (r == "pcn_number" and case.get("pcn_conflict"))]
+        # EX-01 deliberately no longer flags a field merely for being absent. A
+        # fixed required-field list is what produced "field missing -> ask the
+        # customer": it fired on fields no ground needed and on fields the
+        # documents still held. Absence is now handled where it can be judged -
+        # FactRecoveryEngine exhausts the documents and the calculators, and case
+        # analysis decides whether what is left is material enough to ask about.
 
         # EX-03 chronology
         ev_d, is_d = case.get("parking_event_date"), case.get("notice_issue_date")
@@ -429,10 +433,32 @@ class ExtractionEngine:
                           FactStatus.DERIVED, FactSource(SourceKind.DOCUMENT, "payment_recorded")))
 
         # EX-13 debt-recovery / closed appeal window (see CaseState.NO_APPEAL_RIGHT)
-        if any(DEBT_RECOVERY.search(e.text or "") for e in case.evidence.values()):
+        #
+        # Two independent signals, because either alone has a blind spot. The
+        # regex reads the operator's own wording, but only ever sees `e.text` -
+        # and a photographed or scanned letter has no text at all, its pixels
+        # having gone to the vision model, so a DCBL demand uploaded as a photo
+        # was invisible to it. The classification covers exactly that case.
+        # The regex result is written back as a classification so the routing
+        # gate has one input to read rather than two.
+        for ev in case.evidence.values():
+            if case.document_classes.get(ev.evidence_id) in scope.STOP_ORDER:
+                continue
+            if scope.DEBT_SIGNALS.search(ev.text or ""):
+                ev.kind = "DEBT_RECOVERY"
+                case.document_classes[ev.evidence_id] = "DEBT_RECOVERY"
+
+        doc_kinds = set(case.document_classes.values())
+        if "DEBT_RECOVERY" in doc_kinds:
             case.put(Fact("F-debt_recovery_stage", "debt_recovery_stage", True,
                           FactStatus.DERIVED, FactSource(SourceKind.DOCUMENT, "debt_recovery")))
-            flags.append("debt_recovery_stage")
+
+        # EX-17 a statutory council PCN is not this service's jurisdiction at all.
+        # Kept as its own fact rather than folded into debt_recovery_stage: the
+        # customer needs a different service, so they need a different message.
+        if "COUNCIL_PCN" in doc_kinds:
+            case.put(Fact("F-council_pcn", "council_pcn", True, FactStatus.DERIVED,
+                          FactSource(SourceKind.DOCUMENT, "council_pcn")))
 
         # EX-14 hire / lease-firm keeper wording on the notice
         if any(HIRE_KEEPER.search(e.text or "") for e in case.evidence.values()):
@@ -454,14 +480,16 @@ class ExtractionEngine:
                               for e in notice_ev)
         sides_complete = page_images >= 2 or multi_page_text or len(notice_ev) >= 2
         if notice_ev:
+            # No flag: the customer cannot act on this. It gates KB-POFA-04 so a
+            # content defect is never asserted from one photographed face, which
+            # is a drafting safeguard, not something to put on the screen.
             case.put(Fact("F-notice_sides_complete", "notice_sides_complete", sides_complete,
                           FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "notice_sides")))
-            if not sides_complete:
-                flags.append("confirm:notice_both_sides")
 
-        # EX-05 jurisdiction
-        if derive_jurisdiction(case) == "UNKNOWN":
-            flags.append("confirm:jurisdiction")
+        # EX-05 jurisdiction. Unresolved jurisdiction alone raises nothing: it
+        # withholds the Code and PoFA grounds that depend on it, and case analysis
+        # asks for the site only where one of those grounds is otherwise in reach.
+        derive_jurisdiction(case)
 
         # EX-07 notice route
         kinds = {e.kind for e in case.evidence.values()}

@@ -1,0 +1,284 @@
+source,relation,target,provenance,detail
+KB,HAS_SECTION,SEC-1,explicit,
+SEC-1,CONTAINS,KB-GOV-01,explicit,
+SEC-1,CONTAINS,KB-GOV-02,explicit,
+SEC-1,CONTAINS,KB-GOV-03,explicit,
+SEC-1,CONTAINS,KB-GOV-04,explicit,
+SEC-1,CONTAINS,KB-GOV-05,explicit,
+SEC-1,CONTAINS,KB-GOV-06,explicit,
+SEC-1,CONTAINS,KB-GOV-07,explicit,
+KB,HAS_SECTION,SEC-2,explicit,
+SEC-2,CONTAINS,SRC-1,explicit,
+SEC-2,CONTAINS,SRC-2,explicit,
+SEC-2,CONTAINS,SRC-3,explicit,
+SEC-2,CONTAINS,SRC-4,explicit,
+SEC-2,CONTAINS,SRC-5,explicit,
+SEC-2,CONTAINS,SRC-6,explicit,
+KB,HAS_SECTION,SEC-3,explicit,
+SEC-3,CONTAINS,KB-POFA-01,explicit,
+SEC-3,CONTAINS,KB-POFA-02,explicit,
+SEC-3,CONTAINS,KB-POFA-03,explicit,
+SEC-3,CONTAINS,KB-POFA-04,explicit,
+SEC-3,CONTAINS,KB-POFA-05,explicit,
+KB,HAS_SECTION,SEC-4,explicit,
+SEC-4,CONTAINS,KB-CON-01,explicit,
+SEC-4,CONTAINS,KB-CON-02,explicit,
+SEC-4,CONTAINS,KB-GRACE-01,explicit,
+SEC-4,CONTAINS,KB-GRACE-02,explicit,
+SEC-4,CONTAINS,KB-TIME-01,explicit,
+KB,HAS_SECTION,SEC-5,explicit,
+SEC-5,CONTAINS,KB-PAY-01,explicit,
+SEC-5,CONTAINS,KB-PAY-02,explicit,
+SEC-5,CONTAINS,KB-PAY-03,explicit,
+SEC-5,CONTAINS,KB-KEY-01,explicit,
+SEC-5,CONTAINS,KB-KEY-02,explicit,
+KB,HAS_SECTION,SEC-6,explicit,
+SEC-6,CONTAINS,KB-ANPR-01,explicit,
+SEC-6,CONTAINS,KB-ANPR-02,explicit,
+SEC-6,CONTAINS,KB-ANPR-03,explicit,
+SEC-6,CONTAINS,KB-EV-01,explicit,
+KB,HAS_SECTION,SEC-7,explicit,
+SEC-7,CONTAINS,KB-SIGN-01,explicit,
+SEC-7,CONTAINS,KB-SIGN-02,explicit,
+SEC-7,CONTAINS,KB-SIGN-03,explicit,
+SEC-7,CONTAINS,KB-SIGN-04,explicit,
+KB,HAS_SECTION,SEC-8,explicit,
+SEC-8,CONTAINS,KB-AUTH-01,explicit,
+SEC-8,CONTAINS,KB-AUTH-02,explicit,
+SEC-8,CONTAINS,KB-AUTH-03,explicit,
+SEC-8,CONTAINS,KB-CUST-01,explicit,
+KB,HAS_SECTION,SEC-9,explicit,
+SEC-9,CONTAINS,KB-BREAK-01,explicit,
+SEC-9,CONTAINS,KB-BREAK-02,explicit,
+SEC-9,CONTAINS,KB-BREAK-03,explicit,
+KB,HAS_SECTION,SEC-10,explicit,
+SEC-10,CONTAINS,KB-RES-01,explicit,
+SEC-10,CONTAINS,KB-RES-02,explicit,
+SEC-10,CONTAINS,KB-RES-03,explicit,
+SEC-10,CONTAINS,KB-RES-04,explicit,
+SEC-10,CONTAINS,KB-RES-05,explicit,
+SEC-10,CONTAINS,KB-RES-06,explicit,
+SEC-10,CONTAINS,KB-RES-07,explicit,
+KB,HAS_SECTION,SEC-11,explicit,
+SEC-11,CONTAINS,KB-EQ-01,explicit,
+SEC-11,CONTAINS,KB-EQ-02,explicit,
+SEC-11,CONTAINS,KB-EQ-03,explicit,
+KB,HAS_SECTION,SEC-12,explicit,
+SEC-12,CONTAINS,KB-HOSP-01,explicit,
+SEC-12,CONTAINS,KB-HOSP-02,explicit,
+SEC-12,CONTAINS,KB-HOSP-03,explicit,
+KB,HAS_SECTION,SEC-13,explicit,
+SEC-13,CONTAINS,KB-ACT-01,explicit,
+SEC-13,CONTAINS,KB-ACT-02,explicit,
+SEC-13,CONTAINS,KB-ACT-03,explicit,
+KB,HAS_SECTION,SEC-14,explicit,
+SEC-14,CONTAINS,KB-EVCH-01,explicit,
+SEC-14,CONTAINS,KB-INFRA-01,explicit,
+KB,HAS_SECTION,SEC-15,explicit,
+SEC-15,CONTAINS,KB-LAND-01,explicit,
+SEC-15,CONTAINS,KB-LAND-02,explicit,
+SEC-15,CONTAINS,KB-LAND-03,explicit,
+KB,HAS_SECTION,SEC-16,explicit,
+SEC-16,CONTAINS,PRI-1,explicit,
+SEC-16,CONTAINS,PRI-2,explicit,
+SEC-16,CONTAINS,PRI-3,explicit,
+SEC-16,CONTAINS,PRI-4,explicit,
+SEC-16,CONTAINS,PRI-5,explicit,
+SEC-16,CONTAINS,PRI-6,explicit,
+SEC-16,CONTAINS,PRI-7,explicit,
+KB,HAS_SECTION,SEC-17,explicit,
+SEC-17,CONTAINS,VAL-DRIVER,explicit,
+SEC-17,CONTAINS,VAL-FACT,explicit,
+SEC-17,CONTAINS,VAL-EVIDENCE,explicit,
+SEC-17,CONTAINS,VAL-POFA,explicit,
+SEC-17,CONTAINS,VAL-CODE,explicit,
+SEC-17,CONTAINS,VAL-RES,explicit,
+SEC-17,CONTAINS,VAL-BREAK,explicit,
+SEC-17,CONTAINS,VAL-EQ,explicit,
+SEC-17,CONTAINS,VAL-ANPR,explicit,
+SEC-17,CONTAINS,VAL-STAGE,explicit,
+SEC-17,CONTAINS,VAL-CONFLICT,explicit,
+KB,HAS_SECTION,SEC-18,explicit,
+SEC-18,CONTAINS,SCHEMA-primary_route,explicit,
+SEC-18,CONTAINS,SCHEMA-secondary_routes,explicit,
+SEC-18,CONTAINS,SCHEMA-module_ids,explicit,
+SEC-18,CONTAINS,SCHEMA-verified_facts,explicit,
+SEC-18,CONTAINS,SCHEMA-missing_facts,explicit,
+SEC-18,CONTAINS,SCHEMA-evidence_refs,explicit,
+SEC-18,CONTAINS,SCHEMA-prohibited_claims,explicit,
+SEC-18,CONTAINS,SCHEMA-code_version,explicit,
+SEC-18,CONTAINS,SCHEMA-pofa_route,explicit,
+SEC-18,CONTAINS,SCHEMA-driver_status,explicit,
+KB,HAS_SECTION,SEC-19,explicit,
+KB,HAS_SECTION,SEC-APPENDIX-A,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-INTRO-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-INTRO-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-005A,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-005B,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-005C,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-005D,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-005E,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-006,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-POFA-007,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-PAY-006,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-KEY-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-KEY-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-KEY-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-KEY-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-CON-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-CON-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-CON-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-CON-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-CON-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-GRACE-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-GRACE-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-GRACE-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-GRACE-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-GRACE-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-003,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-007,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-008,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-010,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-ANPR-011,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-AUTH-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-AUTH-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-AUTH-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-AUTH-006,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-AUTH-008,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-SIGN-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-SIGN-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-SIGN-004,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-SIGN-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-SIGN-011,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-LAND-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-LAND-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-LAND-005,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-LAND-006,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-LAND-008,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-END-001,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-END-002,explicit,
+SEC-APPENDIX-A,CONTAINS,PP-END-003,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-BREAK-001,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-BREAK-002,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-RES-001,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-RES-002,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-RES-003,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-RES-004,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-EQ-001,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-HOSP-001,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-ACT-001,explicit,
+SEC-APPENDIX-A,CONTAINS,AI-EVCH-001,explicit,
+KB,HAS_SECTION,SEC-APPENDIX-B,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-01,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-02,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-03,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-04,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-05,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-06,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-07,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-08,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-09,explicit,
+SEC-APPENDIX-B,CONTAINS,SEL-10,explicit,
+KB,HAS_SECTION,SEC-APPENDIX-C,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-01,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-02,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-03,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-04,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-05,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-06,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-07,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-08,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-09,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-10,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-11,explicit,
+SEC-APPENDIX-C,CONTAINS,CHK-12,explicit,
+KB-POFA-01,HAS_LEGAL_BASIS,SRC-1,explicit,Protection of Freedoms Act 2012 Schedule 4.
+KB-POFA-02,HAS_LEGAL_BASIS,SRC-1,explicit,PoFA Schedule 4 paragraph 9 route.
+KB-POFA-03,HAS_LEGAL_BASIS,SRC-1,explicit,PoFA Schedule 4 paragraph 8 route.
+KB-POFA-04,HAS_LEGAL_BASIS,SRC-1,explicit,"PoFA Schedule 4, route-specific requirements."
+KB-CON-01,HAS_LEGAL_BASIS,SRC-2,explicit,Applicable Private Parking Sector Single Code provisions in force for the event.
+KB-GRACE-01,HAS_LEGAL_BASIS,SRC-2,explicit,Applicable Private Parking Sector Single Code.
+KB-KEY-01,HAS_LEGAL_BASIS,SRC-2,explicit,Applicable sector Code provisions on keying/payment errors.
+KB-BREAK-01,HAS_LEGAL_BASIS,SRC-X1,explicit,Common-law frustration/impossibility principles; application is fact-sensitive and must not be presented as automatic.
+KB-EQ-01,HAS_LEGAL_BASIS,SRC-3,explicit,Equality Act 2010; apply only where statutory conditions are met.
+SCHEMA-module_ids,EXAMPLE_REFERENCES,KB-RES-01,explicit,
+SCHEMA-module_ids,EXAMPLE_REFERENCES,KB-RES-03,explicit,
+SCHEMA-module_ids,EXAMPLE_REFERENCES,KB-LAND-01,explicit,
+PP-POFA-001,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-002,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-003,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-004,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-005A,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-005B,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-005C,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-005D,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-005E,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-006,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-POFA-007,SAME_TOPIC_PREFIX_AS,SEC-3,derived,Block ID prefix 'POFA' matches module IDs in this section
+PP-PAY-001,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-PAY-002,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-PAY-003,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-PAY-004,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-PAY-005,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-PAY-006,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'PAY' matches module IDs in this section
+PP-KEY-001,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'KEY' matches module IDs in this section
+PP-KEY-002,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'KEY' matches module IDs in this section
+PP-KEY-003,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'KEY' matches module IDs in this section
+PP-KEY-004,SAME_TOPIC_PREFIX_AS,SEC-5,derived,Block ID prefix 'KEY' matches module IDs in this section
+PP-CON-001,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'CON' matches module IDs in this section
+PP-CON-002,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'CON' matches module IDs in this section
+PP-CON-003,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'CON' matches module IDs in this section
+PP-CON-004,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'CON' matches module IDs in this section
+PP-CON-005,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'CON' matches module IDs in this section
+PP-GRACE-001,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'GRACE' matches module IDs in this section
+PP-GRACE-002,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'GRACE' matches module IDs in this section
+PP-GRACE-003,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'GRACE' matches module IDs in this section
+PP-GRACE-004,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'GRACE' matches module IDs in this section
+PP-GRACE-005,SAME_TOPIC_PREFIX_AS,SEC-4,derived,Block ID prefix 'GRACE' matches module IDs in this section
+PP-ANPR-001,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-002,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-003,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-004,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-005,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-007,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-008,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-010,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-ANPR-011,SAME_TOPIC_PREFIX_AS,SEC-6,derived,Block ID prefix 'ANPR' matches module IDs in this section
+PP-AUTH-001,SAME_TOPIC_PREFIX_AS,SEC-8,derived,Block ID prefix 'AUTH' matches module IDs in this section
+PP-AUTH-002,SAME_TOPIC_PREFIX_AS,SEC-8,derived,Block ID prefix 'AUTH' matches module IDs in this section
+PP-AUTH-004,SAME_TOPIC_PREFIX_AS,SEC-8,derived,Block ID prefix 'AUTH' matches module IDs in this section
+PP-AUTH-006,SAME_TOPIC_PREFIX_AS,SEC-8,derived,Block ID prefix 'AUTH' matches module IDs in this section
+PP-AUTH-008,SAME_TOPIC_PREFIX_AS,SEC-8,derived,Block ID prefix 'AUTH' matches module IDs in this section
+PP-SIGN-001,SAME_TOPIC_PREFIX_AS,SEC-7,derived,Block ID prefix 'SIGN' matches module IDs in this section
+PP-SIGN-002,SAME_TOPIC_PREFIX_AS,SEC-7,derived,Block ID prefix 'SIGN' matches module IDs in this section
+PP-SIGN-004,SAME_TOPIC_PREFIX_AS,SEC-7,derived,Block ID prefix 'SIGN' matches module IDs in this section
+PP-SIGN-005,SAME_TOPIC_PREFIX_AS,SEC-7,derived,Block ID prefix 'SIGN' matches module IDs in this section
+PP-SIGN-011,SAME_TOPIC_PREFIX_AS,SEC-7,derived,Block ID prefix 'SIGN' matches module IDs in this section
+PP-LAND-001,SAME_TOPIC_PREFIX_AS,SEC-15,derived,Block ID prefix 'LAND' matches module IDs in this section
+PP-LAND-002,SAME_TOPIC_PREFIX_AS,SEC-15,derived,Block ID prefix 'LAND' matches module IDs in this section
+PP-LAND-005,SAME_TOPIC_PREFIX_AS,SEC-15,derived,Block ID prefix 'LAND' matches module IDs in this section
+PP-LAND-006,SAME_TOPIC_PREFIX_AS,SEC-15,derived,Block ID prefix 'LAND' matches module IDs in this section
+PP-LAND-008,SAME_TOPIC_PREFIX_AS,SEC-15,derived,Block ID prefix 'LAND' matches module IDs in this section
+AI-BREAK-001,SAME_TOPIC_PREFIX_AS,SEC-9,derived,Block ID prefix 'BREAK' matches module IDs in this section
+AI-BREAK-002,SAME_TOPIC_PREFIX_AS,SEC-9,derived,Block ID prefix 'BREAK' matches module IDs in this section
+AI-RES-001,SAME_TOPIC_PREFIX_AS,SEC-10,derived,Block ID prefix 'RES' matches module IDs in this section
+AI-RES-002,SAME_TOPIC_PREFIX_AS,SEC-10,derived,Block ID prefix 'RES' matches module IDs in this section
+AI-RES-003,SAME_TOPIC_PREFIX_AS,SEC-10,derived,Block ID prefix 'RES' matches module IDs in this section
+AI-RES-004,SAME_TOPIC_PREFIX_AS,SEC-10,derived,Block ID prefix 'RES' matches module IDs in this section
+AI-EQ-001,SAME_TOPIC_PREFIX_AS,SEC-11,derived,Block ID prefix 'EQ' matches module IDs in this section
+AI-HOSP-001,SAME_TOPIC_PREFIX_AS,SEC-12,derived,Block ID prefix 'HOSP' matches module IDs in this section
+AI-ACT-001,SAME_TOPIC_PREFIX_AS,SEC-13,derived,Block ID prefix 'ACT' matches module IDs in this section
+AI-EVCH-001,SAME_TOPIC_PREFIX_AS,SEC-14,derived,Block ID prefix 'EVCH' matches module IDs in this section

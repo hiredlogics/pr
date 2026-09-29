@@ -42,7 +42,8 @@ class LLMDrafter:
         out = self.llm.complete_json(task="drafting", system=prompts.system("drafting"),
                                      user=json.dumps(payload, default=str))
         paras = [[DraftSentence(**s) for s in p] for p in out["paragraphs"]]
-        return Draft(case_id, paras, attempt)
+        reason = (out.get("no_ground_reason") or "").strip() or None
+        return Draft(case_id, paras, attempt, no_ground_reason=reason)
 
 
 class TemplateDrafter:
@@ -53,11 +54,14 @@ class TemplateDrafter:
     def __init__(self, kg: KnowledgeGraph):
         self.kg = kg
 
-    def _fill(self, text: str, pack: RetrievalPack) -> tuple[str, list[str]]:
+    def _fill(self, text: str, pack: RetrievalPack,
+              placeholders: Optional[dict[str, str]] = None) -> tuple[str, list[str]]:
         refs = []
 
         def sub(m):
-            name = m.group(1)
+            # A block's placeholder_map names the fact behind a placeholder whose
+            # wording differs from it ({{bay_reference}} -> allocated_bay).
+            name = (placeholders or {}).get(m.group(1), m.group(1))
             if name == "lease_or_tenancy":
                 return "tenancy agreement" if "TENANCY" in pack.verified_facts.get("evidence_kinds", []) else "lease"
             if name in pack.fact_refs:
@@ -68,8 +72,9 @@ class TemplateDrafter:
             return str(v)
         return _PLACEHOLDER.sub(sub, text), refs
 
-    def _sentences(self, block_text: str, pack, module_id, evidence=None) -> list[DraftSentence]:
-        filled, refs = self._fill(block_text, pack)
+    def _sentences(self, block_text: str, pack, module_id, evidence=None,
+                   placeholders: Optional[dict[str, str]] = None) -> list[DraftSentence]:
+        filled, refs = self._fill(block_text, pack, placeholders)
         return [DraftSentence(s, refs, [module_id], evidence or []) for s in _SENT.split(filled) if s.strip()]
 
     def _rec_paragraph(self, pack: RetrievalPack) -> list[DraftSentence]:
@@ -200,11 +205,13 @@ class TemplateDrafter:
                     if mid == "KB-LAND-01" and "KB-REC-01" in pack.module_ids:
                         continue
                     blk = self.kg.blocks[bid]
+                    if blk.status != "ACTIVE":      # wording not yet approved
+                        continue
                     if blk.requires_facts and not all(
                             pack.verified_facts.get(f) for f in blk.requires_facts):
                         continue
                     ev = [eid for eid, kind in pack.evidence_index.items() if kind in blk.requires_evidence]
-                    para += self._sentences(blk.text, pack, mid, ev)
+                    para += self._sentences(blk.text, pack, mid, ev, blk.placeholder_map)
                     used.add(bid)
             if para:
                 paras.append(para)

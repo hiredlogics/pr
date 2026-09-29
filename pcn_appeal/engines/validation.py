@@ -256,9 +256,29 @@ class ValidationEngine:
         return ValidationResult(not any(i.severity == "BLOCK" for i in issues), issues)
 
     def _llm_judge(self, draft: Draft, pack: RetrievalPack) -> list[ValidationIssue]:
+        """The judge can only apply a rule it has the input for.
+
+        VAL-RES needs the verbatim lease clauses, VAL-EVIDENCE the uploaded
+        evidence ids, VAL-POFA the findings, VAL-CODE the resolved version and
+        VAL-DRIVER the driver status. Sent only the sentences, the facts and the
+        chunks, it had to guess at five of its own rules — so they were enforced
+        by the deterministic layer alone.
+        """
         import json
+        # Approved propositions of the cited modules, so VAL-FACT can tell a
+        # supported legal point from one the draft added.
+        propositions = {}
+        for chunk in pack.context_chunks or []:
+            if chunk.get("kind") == "module":
+                propositions[chunk.get("module_id")] = chunk.get("text")
         user = json.dumps({"sentences": [s.__dict__ for s in draft.sentences()],
-                           "facts": pack.verified_facts, "chunks": pack.context_chunks}, default=str)
+                           "facts": pack.verified_facts, "chunks": pack.context_chunks,
+                           "module_propositions": propositions,
+                           "lease_clauses": pack.lease_clauses,
+                           "evidence_refs": pack.evidence_refs,
+                           "pofa_findings": pack.pofa_findings,
+                           "code_version": pack.code_version,
+                           "driver_status": pack.driver_status}, default=str)
         out = self.judge.complete_json(task="validation", system=prompts.system("validation"), user=user)
         return [ValidationIssue(i.get("rule", "VAL-FACT"), "BLOCK", i.get("message", ""), i.get("sentence"))
                 for i in out.get("issues", [])]

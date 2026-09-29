@@ -27,6 +27,7 @@ from .kg.graph import KnowledgeGraph
 from .llm import default_client
 from .models import CaseFile, CaseState, EvidenceItem
 from .orchestrator import AppealPipeline
+from .rules import scope
 from .store import db
 
 
@@ -292,6 +293,28 @@ def _ground_labels(pack) -> list[str]:
     return [KG.routes.get(r, {}).get("label", r) for r in routes]
 
 
+# Flag kinds a customer can actually act on. Everything else extraction raises is
+# a signal for us, not for them: `injection_suspected` is a security finding, and
+# a customer shown a raw flag name learns nothing and worries anyway. The
+# internal view of a case lives at GET /cases/{id}/trace.
+CUSTOMER_FLAG_KINDS = ("uncertain", "conflict", "chronology")
+
+
+def _customer_flags(flags: list[str]) -> list[str]:
+    return [f for f in (flags or []) if f.split(":", 1)[0] in CUSTOMER_FLAG_KINDS]
+
+
+def _stop_payload(case: CaseFile) -> dict:
+    """Engine 0's refusal, in the customer's words, with the service to use instead."""
+    stop = scope.STOPS.get(case.scope_stop or "")
+    if stop is None:
+        return {}
+    return {"stop_code": stop.code, "stop_reason": stop.message,
+            "recommendation": stop.recommendation,
+            "cta": {"label": stop.cta_label, "action": stop.cta_action}
+                   if stop.cta_action else None}
+
+
 def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
               skip: bool = False) -> dict:
     case: CaseFile = rec["case"]
@@ -304,31 +327,30 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     rec["output"] = result.output
     _persist(case, result.output)
 
+    # This is the customer surface. Routes, PoFA codes, Code versions, module IDs
+    # and the retrieval trace are deliberately absent - they belong to
+    # GET /cases/{id}/trace, which is the internal view of the same case.
     payload = {"case_id": result.case_id, "state": result.state.value,
-               "flags": result.flags, "questions": result.questions,
+               "flags": _customer_flags(result.flags), "questions": result.questions,
                "skipped_questions": result.skipped_questions}
     if result.stop_reason:
-        payload["stop_reason"] = result.stop_reason
-        payload["recommendation"] = result.recommendation
+        payload.update(_stop_payload(case))
         return payload
     if result.output is None:
         return payload
     out = result.output
-    payload.update({"primary_route": out.pack.primary_route,
-                    "secondary_routes": out.pack.secondary_routes,
-                    "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
-                    "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
-                    "evidence_list": out.evidence_list,
-                    # plain-English route labels, so a customer UI never has to
-                    # render an internal code like POFA or KB-POFA-02
-                    "grounds": _ground_labels(out.pack)})
+    payload["evidence_list"] = out.evidence_list
+    # Plain-English route labels. These are a customer-facing summary of what the
+    # letter argues, not the internal grounds: no module ID, route code or
+    # reasoning reaches this list.
+    payload["grounds"] = _ground_labels(out.pack)
     if out.state == CaseState.RELEASED:
         payload["letter"] = out.letter
         # the plain-text field above is what validation checked; this is the
         # same letter laid out as a document a customer can actually send
         payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"
     else:
-        payload["blocking_issues"] = [asdict(i) for i in out.validation.issues
+        payload["blocking_issues"] = [i.message for i in out.validation.issues
                                       if i.severity == "BLOCK"]
     return payload
 
@@ -500,37 +522,31 @@ def confirm(case_id: str, body: ConfirmIn):
         case.driver_status = DriverStatus.FORMALLY_IDENTIFIED
     rec["questions"] = rec["pipe"].confirm(case, body.corrections, body.confirmed, body.narrative)
     _persist(case)
-    if case.state == CaseState.NO_APPEAL_RIGHT:
+    if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
+        # Read the wording from the scope table rather than restating it here:
+        # the inline copy only ever described debt recovery, so a council PCN on
+        # this route was told to use the Debt Recovery Letter service.
         return {"case_id": case.case_id, "state": case.state.value, "questions": [],
-                "flags": rec.get("flags") or [], "skipped_questions": [],
-                "stop_reason": ("We cannot proceed with a parking appeal because the documents "
-                                "show the case has reached debt recovery and the right to appeal "
-                                "is no longer available."),
-                "recommendation": ("Use the Debt Recovery Letter service instead of an "
-                                   "ordinary parking appeal.")}
+                "flags": [], "skipped_questions": [], **_stop_payload(case)}
     # Material questions remain — pause for answers (same shape as auto_appeal pause).
     if rec["questions"]:
         return {"case_id": case.case_id, "state": case.state.value,
-                "flags": rec.get("flags") or [], "questions": rec["questions"],
-                "skipped_questions": []}
+                "flags": _customer_flags(rec.get("flags") or []),
+                "questions": rec["questions"], "skipped_questions": []}
     # Nothing material left to ask — finish the letter now. Previously the step-by-step
     # UI called /confirm only and never /generate, so question-free cases never drafted.
     out = rec["pipe"].generate(case)
     rec["output"] = out
     _persist(case, out)
     payload = {"case_id": case.case_id, "state": out.state.value,
-               "flags": rec.get("flags") or [], "questions": [],
-               "skipped_questions": [],
-               "primary_route": out.pack.primary_route,
-               "secondary_routes": out.pack.secondary_routes,
-               "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
-               "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
-               "evidence_list": out.evidence_list, "grounds": _ground_labels(out.pack)}
+               "flags": _customer_flags(rec.get("flags") or []), "questions": [],
+               "skipped_questions": [], "evidence_list": out.evidence_list,
+               "grounds": _ground_labels(out.pack)}
     if out.state == CaseState.RELEASED:
         payload["letter"] = out.letter
         payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
     else:
-        payload["blocking_issues"] = [asdict(i) for i in out.validation.issues
+        payload["blocking_issues"] = [i.message for i in out.validation.issues
                                       if i.severity == "BLOCK"]
     return payload
 

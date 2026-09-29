@@ -11,7 +11,7 @@ Operators
     {"not": p}                   negation
     {"is": "name"}               fact is truthy (not "true": YAML turns that key into a bool)
     {"exists": "name"}           fact present and usable
-    {"missing": "name"}          fact absent (used to drive questions)
+    {"missing": "name"}          fact absent
     {"eq": ["name", value]}
     {"ne": ["name", value]}
     {"in": ["name", [v1, v2]]}
@@ -94,7 +94,7 @@ def evaluate(pred: Any, facts: Mapping[str, Any]) -> bool:
 
 
 def referenced_facts(pred: Any) -> set[str]:
-    """All fact names a predicate depends on - used by the question engine."""
+    """All fact names a predicate depends on - used to build GATED_BY edges."""
     out: set[str] = set()
     if not isinstance(pred, dict):
         return out

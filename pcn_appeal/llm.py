@@ -8,10 +8,10 @@ OpenAI is the only provider. `DemoLLM` exists solely so the app is runnable
 before a key is configured; it is not a model and says so in the UI.
 
 Model routing is config, not code:
-    extraction  -> vision-capable (PCN photos / scans)
-    questioning -> small fast model (classification only)
-    drafting    -> strongest writer
-    validation  -> a DIFFERENT model from drafting, enforced below
+    extraction    -> vision-capable (PCN photos / scans)
+    case_analysis -> strongest reasoner (chooses grounds and questions)
+    drafting      -> strongest writer
+    validation    -> a DIFFERENT model from drafting, enforced below
 """
 from __future__ import annotations
 
@@ -35,8 +35,6 @@ JSON_ONLY = "\nRespond with a single JSON object only. No prose, no markdown fen
 OPENAI_PREFERENCES = {
     # vision-capable: PCN photos and scanned notices
     "extraction":  ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
-    # classification only - cheapest model that can follow a schema
-    "questioning": ["gpt-5.1-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
     # case analysis decides which grounds the evidence supports and what is
     # still worth asking - the most consequential judgement in the system, so it
     # gets the strongest model available.
@@ -153,10 +151,23 @@ _DEMO_LABELS = {
     "alleged_breach": r"(?:alleged\s+)?(?:breach|contravention|reason)",
     "operator_ata": r"(?:ata|accredited trade association|trade association)",
 }
-# Order matters: the notice types are checked before the supporting-evidence
-# kinds, because a notice quotes the terms it alleges were breached and would
-# otherwise match those keywords ("permitted period", "no valid receipt").
+# Order matters twice over. The out-of-scope types come first, because a debt
+# demand or a claim form quotes the original parking charge and would otherwise
+# be read as the notice itself - which let an ineligible document through the
+# routing gate whenever no provider key was configured. The notice types then
+# precede the supporting-evidence kinds, because a notice quotes the terms it
+# alleges were breached and would match those keywords ("permitted period",
+# "no valid receipt").
 _DEMO_DOC_HINTS = [
+    ("COURT_CLAIM", r"claim form|letter before (action|claim)|letter of claim|"
+                    r"county court|default judgment|particulars of claim|\bn1\b"),
+    ("DEBT_RECOVERY", r"debt recovery|debt collection|debt collector|"
+                      r"passed to (our )?(debt )?recovery|enforcement agent|bailiff"),
+    ("COUNCIL_PCN", r"penalty charge notice|borough council|county council|"
+                    r"city council|transport for london|\btfl\b|traffic management act"),
+    ("OUT_OF_STAGE", r"(right|time) to appeal (has )?(now )?(expired|passed|closed)|"
+                     r"appeal (window|period) (has )?(now )?(expired|closed)|"
+                     r"no longer (able to )?accept(ing)? (an )?appeal"),
     ("NTD", r"notice to driver|windscreen"),
     ("NTK", r"notice to keeper"),
     ("PCN", r"parking charge notice|\bpcn\b"),

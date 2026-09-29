@@ -33,7 +33,6 @@ from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, Retrieva
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
 
-TIER_BONUS = {1: 10, 2: 5, 3: 0, 4: -10}
 SUPPORTING_THRESHOLD = 50
 GLOBAL_PROHIBITED = [
     "genuine pre-estimate of loss", "unlawful penalty", "who was driving",
@@ -49,7 +48,9 @@ class ReasoningEngine:
             corpus.append(Doc(m.module_id, f"{m.topic}. {m.core_proposition} {m.drafting_notes}",
                               {"module_id": m.module_id, "kind": "module"}))
             for b in m.building_blocks:
-                if b in kg.blocks:
+                # A block awaiting legal review is not approved wording, so it
+                # never enters the corpus - it must not be retrievable at all.
+                if b in kg.blocks and kg.blocks[b].status == "ACTIVE":
                     corpus.append(Doc(b, kg.blocks[b].text, {"module_id": m.module_id, "kind": "block",
                                                             "block_id": b}))
         self.retriever = HybridRetriever(corpus, embedder)
@@ -98,9 +99,13 @@ class ReasoningEngine:
 
     # ------------------------------------------------------------------ main
     def analyse(self, case: CaseFile, selected_ids: Optional[list[str]] = None) -> RetrievalPack:
-        """`selected_ids` is the V2 path: grounds chosen by AI case analysis and
-        already vetoed against the KB. Passing None keeps the V1 route ranking,
-        which now exists only for the regression suite."""
+        """Build the drafting pack for the grounds case analysis chose.
+
+        `selected_ids` are those grounds, already vetoed against the KB. This
+        engine gates them again, resolves conflicts and orders them; it does not
+        select. Route ranking used to select here, and that is gone: routes now
+        only order the letter. None means nothing was selected.
+        """
         trace: list[str] = []
         version, pofa_res = self._applicability(case, trace)
         facts = case.fact_view()
@@ -128,73 +133,59 @@ class ReasoningEngine:
                     trace.append(f"suppressed {c}: conflicts with {m.module_id} (R-04)")
         kept = [m for m in kept if m.module_id not in dropped]
 
-        # 5. choose the grounds.
+        # 5. assemble the chosen grounds. Case analysis already decided, and its
+        # choice was vetoed against do_not_use_when, the PoFA calculation and the
+        # Code resolver. Nothing here re-opens that decision.
+        by_id = {m.module_id: m for m in kept}
+        selected = [by_id[mid] for mid in (selected_ids or []) if mid in by_id]
+        unavailable = [mid for mid in (selected_ids or []) if mid not in by_id]
+        if unavailable:
+            trace.append(f"analysis grounds dropped by conflict resolution: {unavailable}")
+
+        # Empty analysis selection used to ship intro+end alone. Seed with
+        # allegation-shaped records requests only — not always-on LAND filler.
+        if not selected:
+            seeded = [m for m in kept if m.module_id == "KB-REC-01"]
+            selected = seeded
+            if seeded:
+                trace.append(f"seeded grounds after empty analysis selection: "
+                             f"{[m.module_id for m in seeded]}")
+            else:
+                trace.append("empty analysis selection and no allegation-shaped REC ground")
+
+        # KB-GOV-07 and section 16 order the letter: dispositive statutory or
+        # contractual point, then the strongest fact-specific ground, then
+        # Code/evidence/signage, with landowner authority concise and last.
         #
-        # V2: AI case analysis already decided, and its choice was vetoed against
-        # do_not_use_when, the PoFA calculation and the Code resolver. The route
-        # ranking below is the V1 branch selector and is skipped entirely - order
-        # is the analysis engine's, so "which ground leads" is its judgement too.
-        if selected_ids is not None:
-            by_id = {m.module_id: m for m in kept}
-            selected = [by_id[mid] for mid in selected_ids if mid in by_id]
-            unavailable = [mid for mid in selected_ids if mid not in by_id]
-            if unavailable:
-                trace.append(f"analysis grounds dropped by conflict resolution: {unavailable}")
+        # This is ordering, not selection - which ground is argued is the
+        # analysis engine's decision. Leaving the order to the model too
+        # would put a governance rule at the mercy of its judgement, and
+        # "a weak secondary ground must not dilute a strong primary" is not
+        # a matter of taste.
+        selected = self._drafting_priority(selected)
+        trace.append(f"grounds from case analysis: {selected_ids or []}")
+        trace.append(f"ordered by drafting priority (KB-GOV-07): {[m.module_id for m in selected]}")
 
-            # Empty analysis selection used to ship intro+end alone. Seed with
-            # allegation-shaped records requests only — not always-on LAND filler.
-            if not selected:
-                seeded = [m for m in kept if m.module_id == "KB-REC-01"]
-                selected = seeded
-                if seeded:
-                    trace.append(f"seeded grounds after empty analysis selection: "
-                                 f"{[m.module_id for m in seeded]}")
-                else:
-                    trace.append("empty analysis selection and no allegation-shaped REC ground")
-
-            # KB-GOV-07 and section 16 order the letter: dispositive statutory or
-            # contractual point, then the strongest fact-specific ground, then
-            # Code/evidence/signage, with landowner authority concise and last.
-            #
-            # This is ordering, not selection - which ground is argued is the
-            # analysis engine's decision. Leaving the order to the model too
-            # would put a governance rule at the mercy of its judgement, and
-            # "a weak secondary ground must not dilute a strong primary" is not
-            # a matter of taste.
-            selected = self._drafting_priority(selected)
-            trace.append(f"grounds from case analysis: {selected_ids}")
-            trace.append(f"ordered by drafting priority (KB-GOV-07): {[m.module_id for m in selected]}")
-
-            primary = selected[0].route if selected else None
-            secondary = []
-            for m in selected[1:]:
-                if m.route != primary and m.route not in secondary:
-                    secondary.append(m.route)
-            return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
-                              trace, ordered=[m.module_id for m in selected])
-
-        # 5b. V1 route ranking (R-05/R-06/R-07). Retained for the regression suite
-        # only; the customer path never reaches here.
-        score: dict[str, float] = {}
-        for m in kept:
-            s = m.strength + TIER_BONUS.get(self.kg.route_tier(m.route), 0)
-            score[m.route] = max(score.get(m.route, -1e9), s)
-        leaders = [r for r in score if max(mm.strength for mm in kept if mm.route == r) >= SUPPORTING_THRESHOLD]
-        order = sorted(leaders, key=lambda r: -score[r]) + sorted(
-            [r for r in score if r not in leaders], key=lambda r: -score[r])
-        order = [r for r in order if r != "LANDOWNER"] + (["LANDOWNER"] if "LANDOWNER" in order else [])
-        primary = order[0] if order and order[0] in leaders else None
-        secondary = [r for r in order[1:] if r != "POFA" or pofa_res.findings][: self.kg.max_secondary]
-        if "LANDOWNER" in order and "LANDOWNER" not in secondary:
-            secondary = secondary[: self.kg.max_secondary - 1] + ["LANDOWNER"]
-        routes = ([primary] if primary else []) + secondary
-        selected = [m for m in kept if m.route in routes or m.module_id == "KB-POFA-01"]
-        trace.append(f"routes={routes}")
-        ordered = [m.module_id for m in sorted(selected, key=lambda m: (
-            routes.index(m.route) if m.route in routes else -1,
-            0 if m.strength < SUPPORTING_THRESHOLD else 1))]   # framing point before its finding
+        primary = selected[0].route if selected else None
+        secondary = []
+        for m in selected[1:]:
+            if m.route != primary and m.route not in secondary:
+                secondary.append(m.route)
         return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
-                          trace, ordered=ordered)
+                          trace, ordered=[m.module_id for m in selected])
+
+    def leading_grounds(self, module_ids) -> list[str]:
+        """Of `module_ids`, those the KB allows to carry the letter.
+
+        The strength calibration in kb_modules.yaml is explicit that below
+        SUPPORTING_THRESHOLD a module is "evidence / signage / authority support
+        only" and "can never lead the letter". A selection made up entirely of
+        those has nothing to support: the letter comes out as a landowner-authority
+        or keeper-liability-framing paragraph presented as an appeal.
+        """
+        return [mid for mid in (module_ids or [])
+                if (self.kg.modules.get(mid) and
+                    self.kg.modules[mid].strength >= SUPPORTING_THRESHOLD)]
 
     def _drafting_priority(self, selected: list) -> list:
         """KB-GOV-07 / section 16 priorities 1-4.
@@ -209,6 +200,12 @@ class ReasoningEngine:
         Within a route the weaker module comes first, so the framing paragraph
         introduces the finding that follows it rather than trailing behind it.
 
+        Within a tier, `rank` is the admin's declared order: tier says how strong
+        a class of argument is, rank settles which of two equally-tiered routes
+        goes first, and strength only breaks a remaining tie. Ordering on tier and
+        strength alone let the KB's stated sequence be overridden by a weight set
+        for a different purpose.
+
         Landowner authority is pinned last whatever it scores (section 16.4), and
         every tie breaks on a name so one case never yields two orderings.
         """
@@ -221,6 +218,7 @@ class ReasoningEngine:
                 1 if route == "LANDOWNER" else 0,
                 0 if best[route] >= SUPPORTING_THRESHOLD else 1,   # may this route lead?
                 self.kg.route_tier(route),
+                self.kg.route_rank(route),
                 -best[route],
                 route,
             )
@@ -242,17 +240,30 @@ class ReasoningEngine:
         hits = self.retriever.search(query, allowed_ids=allowed, k=40)
         uploaded = {e.kind for e in case.evidence.values() if e.uploaded}
         chunks = []
+        placeholder_maps: dict[str, dict[str, str]] = {}
         for d in hits:
             if d.meta["kind"] == "block":
                 blk = self.kg.blocks[d.meta["block_id"]]
+                if blk.status != "ACTIVE":
+                    trace.append(f"withheld block {blk.block_id}: status {blk.status}")
+                    continue
                 if blk.requires_evidence and not (set(blk.requires_evidence) & uploaded):
                     trace.append(f"withheld block {blk.block_id}: evidence not uploaded (R-08)")
                     continue
                 if not all(facts.get(f) for f in blk.requires_facts):
                     trace.append(f"withheld block {blk.block_id}: asserts unproven fact {blk.requires_facts} (R-08b)")
                     continue
-            chunks.append({"id": d.doc_id, "module_id": d.meta["module_id"], "kind": d.meta["kind"],
-                           "text": d.text, "sources": self.kg.sources(d.meta["module_id"])})
+                if blk.placeholder_map:
+                    placeholder_maps[blk.block_id] = dict(blk.placeholder_map)
+            chunk = {"id": d.doc_id, "module_id": d.meta["module_id"], "kind": d.meta["kind"],
+                     "text": d.text, "sources": self.kg.sources(d.meta["module_id"])}
+            # Which verified fact fills each {{placeholder}} in this block, where
+            # the approved wording's own noun differs from the fact's name. Without
+            # it the drafter sees a hole it has no fact to fill and either invents
+            # a value or leaves the template marker in the letter.
+            if d.doc_id in placeholder_maps:
+                chunk["placeholder_map"] = placeholder_maps[d.doc_id]
+            chunks.append(chunk)
 
         prohibited = sorted({p for m in selected for p in m.prohibited_claims} | set(GLOBAL_PROHIBITED))
         missing = sorted({f for m in selected for f in m.required_facts if not case.has(f)})
@@ -262,7 +273,7 @@ class ReasoningEngine:
         # Free-text answer values and raw material points must never reach the
         # drafter as pasteable copy — only structured / professionally authored facts.
         withheld_from_drafter = (
-            "route_hints", "lease_clauses", "keeper_name", "keeper_address",
+            "lease_clauses", "keeper_name", "keeper_address",
             "material_account_points", "material_account_summary",
         )
         verified = {}

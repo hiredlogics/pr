@@ -1,37 +1,89 @@
-# Route hierarchy (KB-GOV-07 + KB section 16). tier 1 = leads the letter.
+# Route hierarchy (KB-GOV-07 + KB section 16 + Appendix B). tier 1 = leads the letter.
+#
+# What the source says, in the order it applies:
+#   KB-GOV-07  dispositive statutory/contractual issue -> strong factual issue
+#              -> evidence challenge -> secondary signage/authority point.
+#   Sec 16 p1  a confirmed dispositive keeper-liability or contractual-rights point.
+#   Sec 16 p2  the strongest fact-specific ground: "payment, breakdown, residential
+#              right, multiple visits, authorisation, etc."
+#   Sec 16 p3  relevant Code / evidence / signage issues.
+#   Sec 16 p4  landowner authority, normally concise.
+#
+# `tier` keeps its meaning (1-4 = section 16 priorities 1-4).
+# `rank` is NEW: a total order used to break ties inside a tier, so the Appendix B
+# "X before Y" rules and the KB-GOV-07 evidence-before-signage rule are enforced by
+# data rather than by module strength happening to come out right.
+# ENGINE CHANGE NEEDED: sort by (tier, rank, -strength) instead of (tier, -strength).
+#
+# REVIEW PASS 2026-09-29 - changes from the previous file:
+#   - ANPR split into ANPR (multiple visits, tier 2 - named in section 16 p2) and
+#     ANPR_EVIDENCE (missing capture, timestamp/VRM discrepancy, presence-vs-parking
+#     time, tier 3 - these are evidence challenges under KB-GOV-07). Previously
+#     KB-ANPR-02 and KB-ANPR-03 sat at tier 2 and could outrank payment-adjacent
+#     or Code points they should follow. Three module route values change in
+#     kb_modules_corrected.yaml to match.
+#   - EQUALITY 3 -> 2. Appendix B makes Equality Act / reasonable-adjustment
+#     analysis the route for the "disability-related extra time" pattern, and it
+#     is a fact-specific ground under section 16 p2 ("etc."), not a Code,
+#     evidence or signage issue under p3.
+#   - ACTIVITY, EV_CHARGING, CUSTOMER 3 -> 2. They are fact-specific grounds
+#     (section 16 p2 "etc."), and CUSTOMER / KB-ACT-03 are authorisation routes -
+#     AUTHORISATION was already tier 2, so tier 3 was inconsistent. The previous
+#     comment treated source hedging ("analyse", "do not assume") as a reason for
+#     tier 3, but every tier-2 route is hedged the same way (e.g. KB-AUTH-01,
+#     KB-BREAK-01); hedging is handled by module strength and gates, not by tier.
+#   - rank puts CONSIDERATION before GRACE (Appendix B: "Consideration/contract
+#     formation before grace"; the two could previously tie at tier 3) and
+#     evidence challenges before SIGNAGE (KB-GOV-07).
+#   - HOSPITAL comment corrected: Appendix B names the route for a hospital
+#     emergency; it does not say that route "leads the letter".
 routes:
-  POFA:          {tier: 1, label: Keeper liability (PoFA Schedule 4)}
-  RESIDENTIAL:   {tier: 1, label: Pre-existing residential parking rights}
-  BREAKDOWN:     {tier: 2, label: Breakdown / involuntary immobilisation}
-  PAYMENT:       {tier: 2, label: Payment made / payment system failure}
-  KEYING:        {tier: 2, label: Keying error}
-  ANPR:          {tier: 2, label: ANPR sequence / duration}
-  AUTHORISATION: {tier: 2, label: Permit / authorisation}
-  # Appendix B: "Hospital emergency -> Hospital/emergency/Code route" leads the
-  # letter, so this sits with the other strong fact-specific grounds.
-  HOSPITAL:      {tier: 2, label: Hospital / medical attendance}
-  CONSIDERATION: {tier: 3, label: Consideration period / contract formation}
-  GRACE:         {tier: 3, label: End grace period / exit delay}
-  EQUALITY:      {tier: 3, label: Equality Act / additional time}
-  SIGNAGE:       {tier: 3, label: Signage / term prominence}
-  # Sections 13-14 and 6: these are fact/contract-formation and evidence points.
-  # The source hedges every one of them ("analyse", "do not assume"), so none is
-  # a tier-1 dispositive route; they sit at section 16 priority 2-3.
-  ACTIVITY:      {tier: 3, label: Loading, drop-off and other non-parking activity}
-  EV_CHARGING:   {tier: 3, label: EV charging session vs parking}
-  INFRASTRUCTURE: {tier: 3, label: Barrier / access system failure}
-  # Records / clarification requests are NOT contradiction grounds. KB-REC-01
-  # previously sat on EVIDENCE, so the UI labelled a cautious records request as
-  # "Independent evidence contradicting the allegation".
-  RECORDS:       {tier: 3, label: Proportionate request for operator records}
-  EVIDENCE:      {tier: 3, label: Independent evidence contradicting the allegation}
+  # ---- tier 1: dispositive statutory / contractual point (section 16 p1)
+  POFA:           {tier: 1, rank: 1,  label: Keeper liability (PoFA Schedule 4)}
+  RESIDENTIAL:    {tier: 1, rank: 2,  label: Pre-existing residential parking rights}
+
+  # ---- tier 2: strongest fact-specific ground (section 16 p2)
+  # Appendix B: breakdown current-Code route first; grace only if separately applicable.
+  BREAKDOWN:      {tier: 2, rank: 3,  label: Breakdown / involuntary immobilisation}
+  # Appendix B: payment/keying current-Code route before generic signage.
+  PAYMENT:        {tier: 2, rank: 4,  label: Payment made / payment system failure}
+  KEYING:         {tier: 2, rank: 5,  label: Keying error}
+  # Appendix B: multiple-visit/full-sequence route before generic camera maintenance.
+  ANPR:           {tier: 2, rank: 6,  label: Multiple visits / ANPR sequence}
+  # Appendix B: underlying authorisation first, then admin/display issue;
+  # residential rights (tier 1) may supersede generic permit logic.
+  AUTHORISATION:  {tier: 2, rank: 7,  label: Permit / authorisation}
+  CUSTOMER:       {tier: 2, rank: 8,  label: Genuine customer use of the premises}
+  # Appendix B names "Hospital/emergency/Code route" for a hospital emergency.
+  HOSPITAL:       {tier: 2, rank: 9,  label: Hospital / medical attendance}
+  # Appendix B: Equality Act/reasonable-adjustment analysis plus applicable Code.
+  EQUALITY:       {tier: 2, rank: 10, label: Equality Act / additional time}
+  ACTIVITY:       {tier: 2, rank: 11, label: Loading, drop-off and other non-parking activity}
+  EV_CHARGING:    {tier: 2, rank: 12, label: EV charging session vs parking}
+
+  # ---- tier 3: Code / evidence / signage issues (section 16 p3)
+  # Appendix B: consideration/contract formation before grace.
+  CONSIDERATION:  {tier: 3, rank: 13, label: Consideration period / contract formation}
+  GRACE:          {tier: 3, rank: 14, label: End grace period / exit delay}
+  # Exit-time point of the same kind as KB-GRACE-02, so it sits beside GRACE.
+  INFRASTRUCTURE: {tier: 3, rank: 15, label: Barrier / access system failure}
+  # KB-GOV-07: evidence challenge before secondary signage.
+  EVIDENCE:       {tier: 3, rank: 16, label: Independent evidence contradicting the allegation}
+  ANPR_EVIDENCE:  {tier: 3, rank: 17, label: ANPR evidence and recorded duration}
   # KB-BAY-01 sat on EVIDENCE at first, which made the customer-facing ground
   # label (and the PDF heading) read "Independent evidence contradicting the
   # allegation" on a case with no independent evidence at all - the labels come
-  # from the route, not the module.
-  BAY:           {tier: 3, label: Evidence for a reserved-bay allegation}
-  CUSTOMER:      {tier: 3, label: Genuine customer use of the premises}
-  LANDOWNER:     {tier: 4, label: Landowner authority}
+  # from the route, not the module. (Used only by KB-BAY-01, status REVIEW.)
+  BAY:            {tier: 3, rank: 18, label: Evidence for a reserved-bay allegation}
+  # Records / clarification requests are NOT contradiction grounds. KB-REC-01
+  # previously sat on EVIDENCE, so the UI labelled a cautious records request as
+  # "Independent evidence contradicting the allegation". (Used only by KB-REC-01,
+  # status REVIEW.)
+  RECORDS:        {tier: 3, rank: 19, label: Proportionate request for operator records}
+  SIGNAGE:        {tier: 3, rank: 20, label: Signage / term prominence}
+
+  # ---- tier 4: landowner authority, normally concise (section 16 p4)
+  LANDOWNER:      {tier: 4, rank: 21, label: Landowner authority}
+
 # Route pairs that must never both appear (contradictory case theories)
 route_conflicts: []   # module-level conflicts live in kb_modules.yaml (conflicts_with)
-max_secondary_routes: 3

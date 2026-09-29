@@ -79,6 +79,37 @@ def analysis_llm(extraction: dict, ask: Optional[list[dict]] = None,
     return ReferenceAnalysisLLM(responses, ask=ask)
 
 
+# ------------------------------------------------------- modules under review
+# A module's `status` is the KB's own switch: ACTIVE means approved for use,
+# REVIEW means awaiting legal sign-off. `active_modules()` filters to ACTIVE, so
+# a module at REVIEW cannot be offered to case analysis, selected, retrieved or
+# drafted - deliberately, since an unapproved proposition in a customer's letter
+# is exactly the failure the status field exists to prevent.
+#
+# Some scenarios below are about a ground that is currently at REVIEW. They
+# assert both halves of that, rather than being deleted or pinned to one status:
+# while it is under review it must appear nowhere, and once it is approved it
+# must reach the letter. So neither the approval nor the test has to remember
+# the other.
+
+def is_approved(module_id: str, kg: Optional[KnowledgeGraph] = None) -> bool:
+    """Whether the KB currently approves this module for use in a letter."""
+    mod = (kg or KnowledgeGraph()).modules.get(module_id)
+    return bool(mod and mod.status == "ACTIVE")
+
+
+def assert_absent_while_under_review(test, module_id: str, *, module_ids,
+                                     draft=None, letter=None) -> None:
+    """A module at REVIEW reached nothing: not the selection, not the draft."""
+    test.assertNotIn(module_id, list(module_ids or []),
+                     f"{module_id} is status REVIEW and must not be selected")
+    if draft is not None:
+        test.assertFalse(any(module_id in s.module_refs for s in draft.sentences()),
+                         f"{module_id} is status REVIEW and must not be cited in a draft")
+    if letter:
+        test.assertNotIn(module_id, letter)
+
+
 # --------------------------------------------------------------------- API tests
 # Tests that drive the HTTP surface get whatever `default_client()` returns, which
 # is the demo reader. It reads labelled text well enough, but it cannot judge what

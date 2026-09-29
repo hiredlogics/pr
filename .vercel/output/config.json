@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "handle": "error"
+    },
+    {
+      "status": 404,
+      "src": "^(?!/api).*$",
+      "dest": "/404.html"
+    },
+    {
+      "handle": "rewrite"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/fastapi",
+      "transforms": [
+        {
+          "type": "request.path",
+          "op": "set",
+          "args": "/$1"
+        }
+      ]
+    }
+  ],
+  "crons": []
+}

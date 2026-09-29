@@ -11,7 +11,10 @@ export type CaseState =
   | "VALIDATION_FAILED"
   | "MANUAL_REVIEW"
   | "RELEASED"
-  | "NO_APPEAL_RIGHT";
+  | "NO_APPEAL_RIGHT"
+  /** Our own document classifier returned nothing: retryable, and not the
+   *  customer's fault. Distinct from NO_APPEAL_RIGHT, which is a refusal. */
+  | "CLASSIFICATION_FAILED";
 
 export type QuestionType = "bool" | "choice" | "int" | "text";
 
@@ -71,20 +74,18 @@ export type AppealResponse = {
   skipped_questions: string[];
   read_as?: ReadAs[];
   rejected?: Rejected[];
-  // present once the pipeline has produced an output pack
-  primary_route?: string | null;
-  secondary_routes?: string[];
+  // Present once the pipeline has produced an output pack. Routes, PoFA codes,
+  // Code versions, module IDs and the retrieval trace are deliberately not part
+  // of this contract: they are internal, and live on GET /cases/{id}/trace.
   grounds?: string[]; // plain-English route labels, supplied by the backend
-  pofa_route?: string;
-  pofa_findings?: string[];
-  code_version?: string | null;
-  module_ids?: string[];
   evidence_list?: string[];
   letter?: string; // only when state === "RELEASED"
-  blocking_issues?: BlockingIssue[];
-  /** Set when state === NO_APPEAL_RIGHT (debt recovery / closed appeal window). */
+  blocking_issues?: string[];
+  /** Set when state === NO_APPEAL_RIGHT: the document was routed out of this service. */
+  stop_code?: string;
   stop_reason?: string;
   recommendation?: string;
+  cta?: { label: string | null; action: string | null } | null;
 };
 
 export type Health = {

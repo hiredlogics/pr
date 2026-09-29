@@ -25,7 +25,7 @@ from pcn_appeal.models import (
     FactStatus, SourceKind,
 )
 from pcn_appeal.orchestrator import AppealPipeline
-from support import ReferenceAnalysisLLM
+from support import ReferenceAnalysisLLM, is_approved
 
 
 # --------------------------------------------------------------------------- helpers
@@ -316,9 +316,17 @@ class S10_HireVehicle(unittest.TestCase):
             doc_types={"E1": "NTK"},
         )
         r = run_pipeline(case, pipe, "this is a hire vehicle", scenario="10-hire")
+        # The facts are read off the notice regardless: a hire firm named as
+        # registered keeper, with no hire documents supplied.
         self.assertTrue(case.get("keeper_is_hire_firm"), r.dump())
         self.assertFalse(case.get("hire_docs_supplied"), r.dump())
-        self.assertIn("KB-POFA-06", r.retrieved_modules, r.dump())
+        # KB-POFA-06 is status REVIEW while the wording is with the client, so
+        # the ground those facts would open is withheld rather than argued.
+        if is_approved("KB-POFA-06", pipe.kg):
+            self.assertIn("KB-POFA-06", r.retrieved_modules, r.dump())
+        else:
+            self.assertNotIn("KB-POFA-06", r.retrieved_modules, r.dump())
+            self.assertNotRegex((r.letter or "").lower(), r"hire (agreement|documents)")
 
 
 # =========================================================================== 11 debt recovery
@@ -399,11 +407,13 @@ class S17_CustomerQuestionSurface(unittest.TestCase):
 
 # =========================================================================== 18 both sides
 class S18_NoticeBothSides(unittest.TestCase):
-    def test_single_face_flags_both_sides(self):
+    def test_single_face_is_recorded_without_asking_the_customer(self):
+        """One face of the notice gates KB-POFA-04 but raises nothing on screen:
+        the customer cannot resolve it, and a bare flag only worried them."""
         case, pipe = make_case()
         flags = pipe.ingest(case)
-        self.assertIn("confirm:notice_both_sides", flags)
         self.assertFalse(case.get("notice_sides_complete"))
+        self.assertEqual([f for f in flags if "both_sides" in f], [])
 
     def test_content_defect_blocked_without_both_sides(self):
         case, pipe = make_case()

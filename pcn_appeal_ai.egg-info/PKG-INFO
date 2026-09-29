@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: pcn-appeal-ai
+Version: 2.0.0
+Summary: UK private parking appeal generation: four engines, a legal knowledge graph and a hard validation gate.
+Requires-Python: >=3.12
+Requires-Dist: pyyaml>=6
+Requires-Dist: networkx>=3
+Requires-Dist: numpy>=1.26
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.30
+Requires-Dist: pydantic>=2.8
+Requires-Dist: python-multipart>=0.0.9
+Requires-Dist: openai>=1.40
+Requires-Dist: pypdf>=5.0
+Requires-Dist: pymupdf>=1.24
+Requires-Dist: jinja2>=3.1
+Requires-Dist: psycopg[binary]>=3.2
+Requires-Dist: pgvector>=0.3

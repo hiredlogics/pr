@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getTrace } from "@/lib/api";
-import type { AppealResponse, Trace } from "@/lib/types";
+import type { AppealResponse } from "@/lib/types";
 import { FlagNotes, ReadAsNotes, RejectedNotes } from "./Notices";
 
 /**
@@ -63,44 +62,22 @@ function CopyButton({ text }: { text: string }) {
 }
 
 /**
- * Reviewer-grade provenance, kept behind a disclosure. A customer who wants to
- * know why a paragraph is there can look; nobody is made to.
+ * Where each routing stop sends the customer.
+ *
+ * The API returns a stable action key rather than a URL, so these routes stay
+ * owned by the frontend. An unknown key falls back to the resources index: a
+ * dead link is worse than a page that lists everything.
  */
-function WhyThisLetter({ caseId }: { caseId: string }) {
-  const [trace, setTrace] = useState<Trace | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const CTA_ROUTES: Record<string, string> = {
+  DEBT_RECOVERY_TEMPLATE: "/resources/debt-recovery-template",
+  COUNCIL_PCN_SERVICE: "/council-pcn",
+  COURT_CLAIM_GUIDANCE: "/resources/court-claims",
+  OUT_OF_STAGE_GUIDANCE: "/resources/missed-the-deadline",
+  RETRY_UPLOAD: "/",
+};
 
-  async function load() {
-    if (trace || error) return;
-    try {
-      setTrace(await getTrace(caseId));
-    } catch {
-      setError("The detail behind this letter could not be loaded.");
-    }
-  }
-
-  return (
-    <details className="why" onToggle={load}>
-      <summary>Why this letter says what it says</summary>
-      <div className="why-body">
-        {error && <p>{error}</p>}
-        {!trace && !error && <p>Loading&hellip;</p>}
-        {trace && (
-          <>
-            <p>
-              Each line below is a decision the system recorded while assembling your appeal.
-            </p>
-            {trace.trace.length > 0 && <pre className="tracelog">{trace.trace.join("\n")}</pre>}
-            {trace.missing_facts.length > 0 && (
-              <p style={{ marginTop: 10 }}>
-                Facts that were never established: {trace.missing_facts.join(", ")}.
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    </details>
-  );
+function ctaHref(action?: string | null): string {
+  return (action && CTA_ROUTES[action]) || "/resources";
 }
 
 export default function ResultStep({
@@ -110,18 +87,20 @@ export default function ResultStep({
   data: AppealResponse;
   onRestart: () => void;
 }) {
-  const grounds = data.grounds?.length
-    ? data.grounds
-    : [data.primary_route, ...(data.secondary_routes ?? [])].filter(
-        (g): g is string => typeof g === "string" && g.length > 0,
-      );
+  const grounds = data.grounds ?? [];
 
   const released = data.state === "RELEASED" && typeof data.letter === "string" && data.letter.trim().length > 0;
   const noAppeal = data.state === "NO_APPEAL_RIGHT";
+  // Our document classifier returned nothing. Kept separate from both the
+  // refusals above and the review outcome below: the customer did nothing wrong,
+  // so telling them their notice cannot be appealed would be false, and telling
+  // them a reviewer will look at it would be wrong — they can just try again.
+  const technicalError = data.state === "CLASSIFICATION_FAILED";
   const awaitingQuestions = (data.questions?.length ?? 0) > 0;
   const needsReview =
     !released &&
     !noAppeal &&
+    !technicalError &&
     !awaitingQuestions &&
     (data.state === "MANUAL_REVIEW" ||
       data.state === "VALIDATION_FAILED" ||
@@ -135,19 +114,43 @@ export default function ResultStep({
       {noAppeal ? (
         <div className="card stack">
           <div>
-            <h1>We cannot proceed with an appeal</h1>
-            <p className="lede">
-              {data.stop_reason ??
-                "The documents show this case has reached debt recovery and the right to appeal is no longer available."}
-            </p>
+            <h1>We cannot generate an appeal for this</h1>
+            {/* Wording comes from the routing table, which knows which kind of
+                document this was. A fallback here would be a guess, and the old
+                one told every stopped customer they were in debt recovery. */}
+            <p className="lede">{data.stop_reason}</p>
           </div>
-          <div className="notice" data-tone="attention">
-            <h3>What to do instead</h3>
-            <p>
-              {data.recommendation ??
-                "Use the Debt Recovery Letter service instead of an ordinary parking appeal."}
-            </p>
+          {data.recommendation && (
+            <div className="notice" data-tone="attention">
+              <h3>What to do instead</h3>
+              <p>{data.recommendation}</p>
+              {data.cta?.label && (
+                <p style={{ marginTop: 12 }}>
+                  <a className="btn btn-primary btn-inline" href={ctaHref(data.cta.action)}>
+                    {data.cta.label} &rarr;
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : technicalError ? (
+        <div className="card stack">
+          <div>
+            <h1>Something went wrong at our end</h1>
+            <p className="lede">{data.stop_reason}</p>
           </div>
+          {data.recommendation && (
+            <div className="notice" data-tone="attention">
+              <h3>What to do next</h3>
+              <p>{data.recommendation}</p>
+              <p style={{ marginTop: 12 }}>
+                <button className="btn btn-primary btn-inline" onClick={onRestart}>
+                  {data.cta?.label || "Try again"} &rarr;
+                </button>
+              </p>
+            </div>
+          )}
         </div>
       ) : awaitingQuestions ? (
         <div className="card stack">
@@ -195,26 +198,14 @@ export default function ResultStep({
             </p>
           </div>
 
-          {data.blocking_issues && data.blocking_issues.length > 0 ? (
+          {data.blocking_issues && data.blocking_issues.length > 0 && (
             <div className="notice" data-tone="attention">
               <h3>What stopped it</h3>
               <ul>
-                {data.blocking_issues.map((issue, i) => (
-                  <li key={`${issue.rule}:${i}`}>
-                    {issue.message}
-                    {issue.sentence && (
-                      <>
-                        {" "}
-                        <code>{issue.sentence}</code>
-                      </>
-                    )}
-                  </li>
+                {data.blocking_issues.map((message, i) => (
+                  <li key={i}>{message}</li>
                 ))}
               </ul>
-            </div>
-          ) : (
-            <div className="notice" data-tone="attention">
-              The case finished in state <code>{data.state}</code> without a released letter.
             </div>
           )}
         </div>
@@ -249,24 +240,6 @@ export default function ResultStep({
               <span className="v">{data.evidence_list.join(", ")}</span>
             </li>
           )}
-          {data.pofa_route && (
-            <li>
-              <span className="k">Notice route</span>
-              <span className="v">
-                {data.pofa_route === "POSTAL"
-                  ? "Posted to the registered keeper"
-                  : data.pofa_route === "WINDSCREEN"
-                    ? "Left on the windscreen"
-                    : data.pofa_route}
-              </span>
-            </li>
-          )}
-          {data.pofa_findings && data.pofa_findings.length > 0 && (
-            <li>
-              <span className="k">Keeper liability</span>
-              <span className="v">{data.pofa_findings.join(" ")}</span>
-            </li>
-          )}
           {data.skipped_questions.length > 0 && (
             <li>
               <span className="k">Questions skipped</span>
@@ -276,15 +249,7 @@ export default function ResultStep({
               </span>
             </li>
           )}
-          {data.code_version && (
-            <li>
-              <span className="k">Code of practice</span>
-              <span className="v">{data.code_version}</span>
-            </li>
-          )}
         </ul>
-
-        {released && <WhyThisLetter caseId={data.case_id} />}
       </div>
 
       <button type="button" className="btn btn-secondary" onClick={onRestart}>

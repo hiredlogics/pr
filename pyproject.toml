@@ -1,0 +1,23 @@
+[project]
+name = "pcn-appeal-ai"
+version = "2.0.0"
+description = "UK private parking appeal generation: four engines, a legal knowledge graph and a hard validation gate."
+requires-python = ">=3.12"
+# Dependencies live in requirements.txt, which is what both Vercel and the
+# Dockerfile install. Duplicating them here would give two lists to keep in step.
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools]
+packages = ["pcn_appeal"]
+
+# Vercel's FastAPI support finds the app by static analysis, looking for a
+# top-level FastAPI instance. `app` is created inside pcn_appeal/api.py, so it is
+# named explicitly here rather than re-exported through an adapter module - an
+# adapter that assigns `app` conditionally is invisible to that analysis, which
+# is what made the first three deploys fail with FUNCTION_INVOCATION_FAILED and
+# no traceback anywhere.
+[tool.vercel]
+entrypoint = "pcn_appeal.api:app"

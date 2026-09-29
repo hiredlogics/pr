@@ -1,6 +1,28 @@
-# Structured KB modules converted from "Private Parking AI Legal Knowledge Base V2".
+# Structured KB modules converted from "Private Parking AI Legal Knowledge Base V2"
+# (Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx).
 # use_when / do_not_use_when are machine predicates (see rules/dsl.py).
-# All 51 KB-* records in the source document are converted here.
+#
+# CONTENTS
+#   51 modules converted from the 51 KB-* records in the source document (status ACTIVE).
+#   3 modules NOT in the source document - KB-POFA-06, KB-BAY-01, KB-REC-01 -
+#   held at status REVIEW. Under KB-GOV-03 they must not be used to draft until
+#   they are added to the approved knowledge base and legally reviewed.
+#
+# SOURCE FIDELITY
+#   `topic` and `core_proposition` are copied verbatim from the source document
+#   for every source module. Where the previous conversion shortened or reworded
+#   them, the change is recorded in that module's `change_notes`.
+#   `legal_basis_origin` records where each legal basis comes from:
+#     SOURCE_MODULE    - the module's own LEGAL / CODE BASIS field
+#     SOURCE_REGISTER  - Section 2 Source Register (Single Code scope) only
+#     SOURCE_APPENDIX  - an Appendix A block or Appendix B rule, not the module
+#     NOT_IN_SOURCE    - added in conversion; needs legal review (KB-GOV-06)
+#
+# ADMINISTRATION (Section 19)
+#   Every module carries version, effective_from, effective_to, status,
+#   source_reference, last_legal_review and change_notes. Dates are null where
+#   the source does not state them - an administrator must set them; they are
+#   not invented here.
 #
 # Strength calibration (KB section 16 / Appendix B):
 #   90-100  confirmed dispositive statutory or contractual point (may lead)
@@ -10,81 +32,140 @@
 #           SUPPORTING_THRESHOLD means these can never lead the letter
 #
 # NOTE on `ne`: rules/dsl.py returns True for `ne` when the fact is MISSING, so
-# every `ne` gate below is paired with an `exists` gate.
+# every `ne` gate below is paired with an `exists` gate (KB-PAY-02's
+# do_not_use_when relies on the missing-is-True behaviour deliberately).
+#
+# NOTE on evidence codes: WITNESS and CCTV are new codes added so that
+# evidence_helpful matches the source EVIDENCE fields. Add them to the
+# evidence-code enum if your loader validates codes.
 modules:
   - module_id: KB-POFA-01
     route: POFA
-    topic: Keeper liability threshold
+    topic: "Keeper liability threshold"
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {eq: [jurisdiction, ENGLAND_WALES]}]}
     do_not_use_when: {eq: [relevant_land, false]}
-    core_proposition: Keeper liability is not automatic; if the operator seeks recovery from the keeper under Schedule 4 the statutory conditions must be satisfied.
+    core_proposition: "Keeper liability is not automatic. If the operator seeks recovery from the keeper under Schedule 4, the applicable statutory conditions must be satisfied."
     required_facts: [notice_route, parking_event_date, notice_issue_date]
     evidence_helpful: [PCN, NTK]
     legal_basis: [PoFA-2012-Sch4]
-    drafting_notes: State that liability cannot transfer to the keeper; never that the charge is void.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: State that liability cannot be transferred to the keeper under Schedule 4. Do not say the underlying charge is automatically invalid merely because keeper liability fails.
     prohibited_claims: [charge automatically invalid]
     building_blocks: [PP-INTRO-002, PP-POFA-001]
     strength: 40
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-01"
+    change_notes: Core proposition restored to source wording. Admin fields added. The jurisdiction gate is not in the source USE WHEN; kept because Schedule 4 applies in England and Wales only.
+
   - module_id: KB-POFA-02
     route: POFA
-    topic: Postal NTK timing
+    topic: "Postal NTK timing"
     use_when: {all: [{eq: [pofa_route, POSTAL]}, {in: [pofa_finding, [POFA_POSTAL_LATE]]}]}
     do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
-    core_proposition: The NTK was not given within the statutory period for the postal route, so keeper liability is not established under Schedule 4.
+    core_proposition: "Assess the statutory delivery timing applicable to a postal Notice to Keeper before alleging lateness."
     required_facts: [parking_event_date, notice_issue_date]
     evidence_helpful: [NTK]
     legal_basis: [PoFA-2012-Sch4-para9]
-    drafting_notes: Only after deterministic timing calculation confirms the failure.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Do not allege a timing failure until the correct statutory calculation is confirmed. Only after the deterministic timing calculation confirms the failure may the letter state that the NTK was not given within the statutory period for the postal route, so keeper liability is not established under Schedule 4.
     prohibited_claims: []
     building_blocks: [PP-POFA-003, PP-POFA-006, PP-POFA-007]
     strength: 95
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-02"
+    change_notes: Core proposition restored to the source instruction ("Assess ... before alleging lateness"). The previous conclusion sentence moved to drafting_notes, where the use_when gate already ensures it is only stated after a confirmed finding. Admin fields added.
+
   - module_id: KB-POFA-03
     route: POFA
-    topic: Windscreen notice then NTK
+    topic: "Windscreen notice followed by NTK"
     use_when: {all: [{eq: [pofa_route, WINDSCREEN]}, {in: [pofa_finding, [POFA_NTD_NTK_LATE, POFA_NTD_NTK_TOO_EARLY]]}]}
     do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
-    core_proposition: The NTK following a Notice to Driver did not meet the route-specific timing requirement.
+    core_proposition: "Assess the separate Schedule 4 route and timing/content requirements for a notice following a Notice to Driver."
     required_facts: [ntd_date, notice_issue_date]
     evidence_helpful: [NTK]
     legal_basis: [PoFA-2012-Sch4-para8]
-    drafting_notes: Verified finding only.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Verified finding only. State the specific route requirement that was not met. Content defects on this route are pleaded through KB-POFA-04, never inferred here.
     prohibited_claims: []
     building_blocks: [PP-POFA-004, PP-POFA-006, PP-POFA-007]
     strength: 95
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-03"
+    change_notes: Core proposition restored to source wording, which covers timing AND content requirements (the previous version covered timing only). Drafting note points content defects to KB-POFA-04. Admin fields added.
+
   - module_id: KB-POFA-04
     route: POFA
-    topic: Mandatory notice content
+    topic: "Mandatory notice content"
     # One boolean per statutory element so that exactly the confirmed defect is
     # pleaded (source: "do not generate a generic checklist challenge"), plus a
     # document-confirmation flag for the DO NOT on OCR uncertainty.
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
     do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [relevant_land, false]}, {eq: [notice_sides_complete, false]}]}
-    core_proposition: Use only the precise Schedule 4 defect established from the notice itself; do not generate a generic checklist challenge.
+    core_proposition: "Use only the precise defect established from the notice; do not generate a generic checklist challenge."
     required_facts: [notice_route, ntk_defect_document_confirmed]
     evidence_helpful: [NTK, PCN]
     legal_basis: [PoFA-2012-Sch4]
-    drafting_notes: State only the element actually confirmed against the document. Never infer a defect from unclear or low-confidence text.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: State only the element actually confirmed against the document. Do not assert defects from OCR uncertainty; require document confirmation where text is unclear.
     prohibited_claims: [generic checklist of defects, defect inferred from unclear text]
     building_blocks: [PP-POFA-005A, PP-POFA-005B, PP-POFA-005C, PP-POFA-005D, PP-POFA-005E, PP-POFA-006, PP-POFA-007]
+    strength: 90
     status: ACTIVE
     version: "1.0"
-    strength: 90
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-04"
+    change_notes: Core proposition restored to source wording (previous version added "Schedule 4" and "itself"). Source DO NOT quoted verbatim in drafting_notes. Admin fields added.
+
   - module_id: KB-POFA-05
     route: POFA
-    topic: Driver not established
-    use_when: {all: [{exists: pofa_finding}, {eq: [driver_status, UNIDENTIFIED]}]}
+    topic: "Driver not established"
+    # FIXED: previously {exists: pofa_finding}, which would also fire if the
+    # PoFA checker ever returns a PASS/compliant value. Now fires only on a
+    # confirmed failure: a timing finding, a document-confirmed content defect,
+    # or (while KB-POFA-06 is in REVIEW) the hire-documentation failure.
+    # If your checker emits other FAILURE codes (e.g. no NTK served), add them
+    # to the `in` list below.
+    use_when:
+      all:
+        - {eq: [driver_status, UNIDENTIFIED]}
+        - any:
+            - {in: [pofa_finding, [POFA_POSTAL_LATE, POFA_NTD_NTK_LATE, POFA_NTD_NTK_TOO_EARLY]]}
+            - all:
+                - {is: ntk_defect_document_confirmed}
+                - any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]
     do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
-    core_proposition: Where the Schedule 4 conditions are not met and the driver has not been established, the operator cannot transfer the driver's liability to the registered keeper under Schedule 4.
+    core_proposition: "If Schedule 4 conditions are not met and the driver has not been established, the operator cannot transfer the driver's liability to the registered keeper under Schedule 4."
     required_facts: [pofa_finding]
     evidence_helpful: [NTK, PCN]
     legal_basis: [PoFA-2012-Sch4]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Never invite or infer driver identity. This is the conclusion that follows a verified finding, not a free-standing ground.
     prohibited_claims: [the driver was, identity of the driver]
     building_blocks: [PP-POFA-002, PP-POFA-006, PP-POFA-007]
-    status: ACTIVE
-    version: "1.0"
     strength: 93
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-05"
+    change_notes: use_when gate fixed so it fires only on a confirmed PoFA failure, never on any value of pofa_finding. Core proposition restored to source wording ("If Schedule 4 conditions ..."). The source module has no LEGAL / CODE BASIS field; PoFA Sch 4 is named in its core proposition, so the basis is kept but marked NOT_IN_SOURCE. Admin fields added.
 
+  # ---- NOT IN SOURCE DOCUMENT - held at REVIEW (KB-GOV-03) ----
   - module_id: KB-POFA-06
     route: POFA
     topic: Hire vehicle keeper documentation
@@ -94,249 +175,383 @@ modules:
     required_facts: [keeper_is_hire_firm, hire_docs_supplied]
     evidence_helpful: [HIRE_AGREEMENT, NTK, PCN]
     legal_basis: [PoFA-2012-Sch4]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: State only that the hire-specific documents have not been evidenced. Do not invent which paragraph failed. Never identify a driver.
     prohibited_claims: [the driver was, identity of the driver]
+    # PP-POFA-008 does not exist in Appendix A. Draft and approve it before activation.
     building_blocks: [PP-POFA-008, PP-POFA-006, PP-POFA-007]
-    status: ACTIVE
-    version: "1.0"
     strength: 88
+    status: REVIEW
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: null  # not in source document
+    change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building block PP-POFA-008 is not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
 
   - module_id: KB-PAY-01
     route: PAYMENT
-    topic: Payment made
+    topic: "Payment made"
     use_when: {is: payment_made}
     do_not_use_when: {is: terms_rejected_left}
-    core_proposition: Lead with payment and require the operator to reconcile its transaction records with the parking event.
+    core_proposition: "Lead with payment and require the operator to reconcile its transaction records with the parking event."
     required_facts: [payment_made, payment_method]
     evidence_helpful: [RECEIPT, APP_SCREENSHOT, BANK_STATEMENT]
     legal_basis: [SCOP-payment]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Merge repeated payment statements into one.
     prohibited_claims: []
     building_blocks: [PP-PAY-001, PP-PAY-002, PP-PAY-006]
     strength: 85
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 5. Payment, Keying and Systems / KB-PAY-01"
+    change_notes: Admin fields added. The source module has no LEGAL / CODE BASIS; SCOP-payment rests on the Section 2 Source Register (keying/payment).
+
   - module_id: KB-PAY-02
     route: PAYMENT
-    topic: Machine failure
+    topic: "Machine failure"
     use_when: {all: [{is: payment_attempt_failed}, {eq: [payment_method, MACHINE]}]}
     # Negation of the discriminator, so the module (and its questions) are
     # pruned until payment_method is known to be MACHINE. `ne` is True when the
     # fact is missing, which is the behaviour wanted here.
     do_not_use_when: {ne: [payment_method, MACHINE]}
-    core_proposition: Analyse the payment mechanism the operator provided and the genuine attempt to comply, and request the relevant fault, maintenance and transaction records where appropriate.
+    core_proposition: "Analyse the operator-provided payment mechanism and the genuine attempt to comply; request relevant fault/maintenance/transaction records where appropriate."
     required_facts: [payment_attempt_failed, payment_method, payment_failure_detail]
-    evidence_helpful: [PHOTO, RECEIPT, APP_SCREENSHOT]
+    evidence_helpful: [PHOTO, WITNESS, RECEIPT, APP_SCREENSHOT]
     legal_basis: [SCOP-payment]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Request records; do not assert a fault the evidence does not show.
     prohibited_claims: [the machine was broken all day]
     building_blocks: [PP-PAY-003, PP-PAY-005, PP-PAY-006]
-    status: ACTIVE
-    version: "1.0"
     strength: 75
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 5. Payment, Keying and Systems / KB-PAY-02"
+    change_notes: Core proposition restored to source wording. WITNESS added to evidence_helpful (source EVIDENCE lists witness evidence). Admin fields added.
+
   - module_id: KB-PAY-03
     route: PAYMENT
-    topic: App / digital payment failure
+    topic: "App / digital payment failure"
     use_when: {all: [{is: payment_attempt_failed}, {in: [payment_method, [APP, PHONE, WEBSITE]]}]}
     do_not_use_when: {not: {in: [payment_method, [APP, PHONE, WEBSITE]]}}
-    core_proposition: Consider whether a genuine attempt to comply was prevented by the system the operator provided and whether an alternative payment method was realistically available.
+    core_proposition: "Consider whether a genuine attempt to comply was prevented by the provided system and whether alternative payment was realistically available."
     required_facts: [payment_attempt_failed, payment_method, payment_failure_detail]
-    evidence_helpful: [APP_SCREENSHOT, BANK_STATEMENT, PHOTO]
+    evidence_helpful: [APP_SCREENSHOT, BANK_STATEMENT, CORRESPONDENCE, PHOTO]
     legal_basis: [SCOP-payment]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Name only the system problem the customer actually reported.
     prohibited_claims: []
     building_blocks: [PP-PAY-004, PP-PAY-005, PP-PAY-006]
-    status: ACTIVE
-    version: "1.0"
     strength: 75
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 5. Payment, Keying and Systems / KB-PAY-03"
+    change_notes: Core proposition restored to source wording. CORRESPONDENCE added to evidence_helpful (source EVIDENCE lists support messages). Admin fields added.
+
   - module_id: KB-KEY-01
     route: KEYING
-    topic: Minor keying error
+    topic: "Minor keying error"
     use_when: {all: [{is: payment_made}, {eq: [keying_error_type, MINOR]}]}
     do_not_use_when: {always: false}
-    core_proposition: Treat as a paid event with a registration mismatch and apply the applicable Code keying-error requirements.
+    core_proposition: "Treat as a paid parking event with a registration mismatch and apply the applicable Code/keying-error requirements."
     required_facts: [vrm, vrm_entered, keying_error_type]
     evidence_helpful: [RECEIPT, APP_SCREENSHOT]
     legal_basis: [SCOP-keying]
+    legal_basis_origin: SOURCE_MODULE
     drafting_notes: Keying and payment are one case theory - do not repeat.
     prohibited_claims: []
     building_blocks: [PP-KEY-002, PP-KEY-004]
     strength: 90
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 5. Payment, Keying and Systems / KB-KEY-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-KEY-02
     route: KEYING
-    topic: Different vehicle registration entered
+    topic: "Different vehicle registration entered"
     use_when: {all: [{is: payment_made}, {eq: [keying_error_type, DIFFERENT_VEHICLE]}]}
     do_not_use_when: {always: false}
-    core_proposition: Require transaction matching and analyse the applicable Code treatment; do not describe the event as simply unpaid parking where the tariff was paid.
+    core_proposition: "Require transaction matching and analyse applicable Code treatment; do not describe the event as simply unpaid parking where tariff was paid."
     required_facts: [vrm, vrm_entered, payment_made, vrm_entered_is_known_vehicle]
     evidence_helpful: [RECEIPT, APP_SCREENSHOT, BANK_STATEMENT]
     legal_basis: [SCOP-keying]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Code treatment of a different-vehicle entry is not the same as a minor keying error - do not claim the minor-error outcome.
     prohibited_claims: [unpaid parking, automatically cancels]
     building_blocks: [PP-KEY-001, PP-KEY-003, PP-KEY-004]
-    status: ACTIVE
-    version: "1.0"
     strength: 80
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 5. Payment, Keying and Systems / KB-KEY-02"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-BREAK-01
     route: BREAKDOWN
-    topic: Mechanical breakdown
+    topic: "Mechanical breakdown"
     use_when: {all: [{is: vehicle_immobilised}, {is: immobilisation_prevented_departure}]}
     do_not_use_when: {is: fault_pre_existing_not_preventing}
-    core_proposition: An unforeseen supervening event outside control made departure impossible or materially prevented it; frame as a substantive contractual issue where the facts support it.
+    core_proposition: "Consider whether an unforeseen supervening event outside the relevant party's control made contractual performance/departure impossible or materially prevented it. Frame as a substantive contractual issue where facts support it, not merely a plea for discretion."
     required_facts: [vehicle_immobilised, immobilisation_cause, immobilisation_prevented_departure]
     evidence_helpful: [RECOVERY_REPORT, GARAGE_INVOICE, CALL_LOG, PHOTO]
     legal_basis: [CL-frustration-impossibility, SCOP-breakdown]
-    drafting_notes: Never 'breakdown = automatic frustration'. Conclusion must follow the facts.
-    prohibited_claims: [automatically frustrated, automatically void]
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Do not state 'breakdown = automatic frustration'. Do not invent the fault or recovery attendance. The conclusion must follow the facts. Order per Appendix B - current-Code breakdown route (AI-BREAK-001) first, frustration/impossibility (AI-BREAK-002) second if the facts support it.
+    prohibited_claims: [automatically frustrated, automatically void, invented fault, invented recovery attendance]
     building_blocks: [AI-BREAK-001, AI-BREAK-002]
     strength: 85
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 9. Breakdown / Frustration / Involuntary Immobilisation / KB-BREAK-01"
+    change_notes: Core proposition restored to full source wording (previous version dropped "not merely a plea for discretion"). Missing source DO NOT ("Do not invent the fault or recovery attendance") added. Of the two legal bases, only CL-frustration-impossibility is in the module's own field; SCOP-breakdown comes from block AI-BREAK-001 and Appendix B (see legal_sources). Admin fields added.
+
   - module_id: KB-BREAK-02
     route: BREAKDOWN
-    topic: Puncture / battery / immobilisation
+    topic: "Puncture / battery / immobilisation"
     use_when: {all: [{is: vehicle_immobilised}, {is: immobilisation_prevented_departure}, {exists: immobilisation_cause}]}
     do_not_use_when: {always: false}
-    core_proposition: Treat a puncture, flat battery or similar event as a breakdown only where the facts and evidence show the vehicle could not reasonably depart or comply; otherwise assess it as ordinary delay.
+    core_proposition: "Treat as breakdown only where evidence/facts show the vehicle could not reasonably depart or comply; otherwise assess as ordinary delay."
     required_facts: [vehicle_immobilised, immobilisation_cause, immobilisation_prevented_departure]
     evidence_helpful: [RECOVERY_REPORT, GARAGE_INVOICE, PHOTO, CALL_LOG]
     legal_basis: [CL-frustration-impossibility, SCOP-breakdown]
+    legal_basis_origin: SOURCE_APPENDIX
     drafting_notes: Severity and safety must come from the answers; never upgrade an inconvenience into an immobilisation.
     prohibited_claims: [automatically frustrated, automatically void]
     building_blocks: [AI-BREAK-001, AI-BREAK-002]
-    status: ACTIVE
-    version: "1.0"
     strength: 80
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 9. Breakdown / Frustration / Involuntary Immobilisation / KB-BREAK-02"
+    change_notes: Core proposition restored to source wording. The source module has no LEGAL / CODE BASIS; bases follow the breakdown blocks and Appendix B. Admin fields added.
+
   - module_id: KB-BREAK-03
     route: BREAKDOWN
-    topic: Recovery / assistance time
+    topic: "Recovery vehicle / assistance time"
     use_when: {all: [{is: vehicle_immobilised}, {is: recovery_attended}]}
     do_not_use_when: {always: false}
-    core_proposition: Separate time caused by necessary recovery arrangements from voluntary parking.
+    core_proposition: "Separate time caused by necessary recovery arrangements from voluntary parking and require operator to address the documented incident."
     required_facts: [recovery_attended]
     evidence_helpful: [RECOVERY_REPORT]
     legal_basis: [SCOP-breakdown]
-    drafting_notes: Refer to recovery evidence accurately.
+    legal_basis_origin: SOURCE_APPENDIX
+    drafting_notes: Refer to recovery evidence accurately and require the operator to address the documented incident.
     prohibited_claims: []
     building_blocks: [AI-BREAK-002]
     strength: 70
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 9. Breakdown / Frustration / Involuntary Immobilisation / KB-BREAK-03"
+    change_notes: Core proposition restored to full source wording (previous version dropped "and require operator to address the documented incident"). Admin fields added.
 
   - module_id: KB-RES-01
     route: RESIDENTIAL
-    topic: Primacy of pre-existing parking rights
+    topic: "Primacy of pre-existing parking rights"
     use_when: {all: [{in: [resident_status, [RESIDENT, TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}]}
     do_not_use_when: {always: false}
-    core_proposition: The actual lease/tenancy is the starting point; later operator signage should not be assumed to vary or extinguish pre-existing rights.
+    core_proposition: "The actual lease/tenancy/parking grant is the starting point. Later operator signage should not automatically be assumed to vary or extinguish pre-existing contractual/property rights."
     required_facts: [resident_status, lease_parking_clause_found]
-    evidence_helpful: [LEASE, TENANCY]
-    legal_basis: [CL-primacy-of-contract]
-    drafting_notes: Quote only verbatim uploaded clause text.
+    evidence_helpful: [LEASE, TENANCY, SITE_PLAN, CORRESPONDENCE]
+    legal_basis: [Lease, CL-primacy-of-contract]
+    legal_basis_origin: SOURCE_REGISTER
+    drafting_notes: Quote only verbatim uploaded clause text. Do not assert primacy merely because the appellant is a resident - the lease_parking_clause_found gate enforces this.
     prohibited_claims: [unfettered]
     building_blocks: [AI-RES-001]
     strength: 90
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-01"
+    change_notes: Core proposition restored to full source wording (previous version dropped "parking grant", "automatically" and "contractual/property"). SITE_PLAN (title/plan) and CORRESPONDENCE (managing-agent correspondence) added to match the source EVIDENCE field. Lease added to legal_basis because the Source Register names the uploaded lease as the primary source for residential rights. Admin fields added.
+
   - module_id: KB-RES-02
     route: RESIDENTIAL
-    topic: Unfettered right to park
+    topic: "Unfettered right to park"
     # "Grant without the restriction now alleged" is expressed as: a parking
     # clause was found AND the clause finder found no regulations/permit power
     # (the mechanism by which the restriction would have been introduced).
+    # REVIEW POINT: a lease may contain a regulations clause that does NOT cover
+    # the restriction now alleged; this gate would then wrongly exclude RES-02.
     use_when: {all: [{in: [resident_status, [RESIDENT, TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}, {not: {is: lease_has_regulations_clause}}]}
     do_not_use_when: {is: lease_has_regulations_clause}
-    core_proposition: Where the uploaded wording genuinely grants a parking right that does not contain the restriction now alleged, analyse whether the later permit or payment condition is inconsistent with that grant.
+    core_proposition: "Where the wording genuinely grants an unrestricted/unfettered right, analyse whether a later permit/payment condition is inconsistent with that grant."
     required_facts: [resident_status, lease_parking_clause_found, lease_clauses]
     evidence_helpful: [LEASE, TENANCY]
     legal_basis: [Lease, CL-primacy-of-contract]
-    drafting_notes: Never write "unfettered" unless that word appears in the uploaded instrument. Describe the grant in the document's own words.
+    legal_basis_origin: SOURCE_REGISTER
+    drafting_notes: Never use the word 'unfettered' unless the document supports it. Describe the grant in the document's own words.
     prohibited_claims: [unfettered, absolute right to park]
     building_blocks: [AI-RES-002]
-    status: ACTIVE
-    version: "1.0"
     strength: 85
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-02"
+    change_notes: Core proposition restored to source wording (the previous version replaced it with the USE WHEN wording). Rule logic unchanged; review point on the regulations-clause gate added as a comment. Admin fields added.
+
   - module_id: KB-RES-03
     route: RESIDENTIAL
-    topic: Allocated bay
+    topic: "Allocated bay"
     use_when: {all: [{is: lease_parking_clause_found}, {exists: allocated_bay}]}
     do_not_use_when: {always: false}
-    core_proposition: Analyse the resident's rights in the identified bay and whether the operator can impose the alleged additional term.
+    core_proposition: "Analyse the resident's rights in that bay and whether the operator has authority to impose the alleged additional contractual term."
     required_facts: [allocated_bay]
     evidence_helpful: [LEASE, SITE_PLAN]
     legal_basis: [CL-primacy-of-contract]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Bay reference must come from the lease or plan.
     prohibited_claims: []
     building_blocks: [AI-RES-003]
     strength: 80
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-03"
+    change_notes: Core proposition restored to source wording ("has authority to impose the alleged additional contractual term"). Admin fields added.
+
   - module_id: KB-RES-04
     route: RESIDENTIAL
-    topic: Derogation from grant
+    topic: "Derogation from grant"
     use_when: {all: [{is: lease_parking_clause_found}, {is: substantial_interference}]}
     do_not_use_when: {always: false}
-    core_proposition: Consider derogation from grant only where the actual grant and the later interference support the doctrine.
+    core_proposition: "Consider derogation from grant only where the actual grant and later interference support the doctrine."
     required_facts: [lease_parking_clause_found, substantial_interference, lease_clauses]
     evidence_helpful: [LEASE, TENANCY, CORRESPONDENCE]
     legal_basis: [Lease, CL-derogation-from-grant]
-    drafting_notes: Not boilerplate for every residential appeal. Describe the actual interference, then the principle.
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Do not use as boilerplate in every residential appeal. Describe the actual interference, then the principle.
     prohibited_claims: [any parking scheme is a derogation]
     building_blocks: [AI-RES-004]
+    strength: 65
     status: ACTIVE
     version: "1.0"
-    strength: 65
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-04"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-RES-05
     route: RESIDENTIAL
-    topic: Quiet enjoyment
+    topic: "Quiet enjoyment"
     use_when: {all: [{in: [resident_status, [TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}, {is: enforcement_interference}]}
     do_not_use_when: {always: false}
-    core_proposition: Use a quiet-enjoyment point only where the contractual wording and the facts support it; it is not a universal answer to a parking charge.
+    core_proposition: "Use only where the contractual wording/facts support a quiet-enjoyment point; it is not a universal answer to a PCN."
     required_facts: [resident_status, enforcement_interference, lease_clauses]
     evidence_helpful: [LEASE, TENANCY, CORRESPONDENCE]
     legal_basis: [Lease, CL-quiet-enjoyment]
-    drafting_notes: Supporting point only. Quiet enjoyment does not mean freedom from all parking regulation, so never say that.
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Supporting point only. Do not treat quiet enjoyment as meaning freedom from all parking regulation.
     prohibited_claims: [freedom from all parking regulation]
     building_blocks: []
+    strength: 45
     status: ACTIVE
     version: "1.0"
-    strength: 45
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-05"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-RES-06
     route: RESIDENTIAL
-    topic: Permit scheme expressly incorporated
+    topic: "Permit scheme expressly incorporated"
     use_when: {all: [{is: lease_parking_clause_found}, {is: lease_has_regulations_clause}]}
     do_not_use_when: {always: false}
-    core_proposition: Confront the regulations/permit clause and analyse its scope; primacy may be weaker.
+    core_proposition: "The AI must confront the clause and analyse its scope rather than omitting it. Primacy may be weaker or differently framed."
     required_facts: [lease_has_regulations_clause]
     evidence_helpful: [LEASE]
     legal_basis: [CL-primacy-of-contract]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Mandatory when the clause exists - omission is a validator failure.
     prohibited_claims: [unfettered]
     building_blocks: []
     strength: 60
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-06"
+    change_notes: Core proposition restored to full source wording (previous version dropped "rather than omitting it"). Admin fields added.
+
   - module_id: KB-RES-07
     route: RESIDENTIAL
-    topic: Managing agent / operator authority
+    topic: "Managing agent / operator authority"
     use_when: {all: [{in: [resident_status, [RESIDENT, TENANT, LEASEHOLDER]]}, {is: lease_parking_clause_found}]}
     do_not_use_when: {always: false}
-    core_proposition: Assess whether the managing agent or landowner could grant enforcement rights consistent with the resident's existing agreement.
+    core_proposition: "Assess whether the managing agent/landowner could grant enforcement rights consistent with the resident's existing agreement."
     required_facts: [resident_status, lease_parking_clause_found, parking_location]
     evidence_helpful: [LEASE, TENANCY, MANAGEMENT_AGREEMENT, SITE_PLAN]
     legal_basis: [Lease, SCOP-authority]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: One request, merged with the landowner-authority point so the letter asks once. Never assert that no authority exists.
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-001]
+    strength: 55
     status: ACTIVE
     version: "1.0"
-    strength: 55
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 10. Residential Parking / Primacy of Contract / KB-RES-07"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-CON-01
     route: CONSIDERATION
-    topic: Consideration period
+    topic: "Consideration period"
     use_when: {all: [{is: short_presence_before_acceptance}, {not: {is: payment_made}}]}
     do_not_use_when: {is: permitted_period_ended}
-    core_proposition: Entry onto land is not automatically acceptance of parking terms.
+    core_proposition: "Entry onto land is not automatically acceptance of parking terms. Consider time reasonably required to find a space, locate/read terms, decide whether to stay and attempt initial compliance."
     required_facts: [total_recorded_duration_min]
     evidence_helpful: []
     legal_basis: [SCOP-consideration]
-    drafting_notes: Never merge with end grace.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Do not merge consideration time with an end-of-parking grace period.
     prohibited_claims: [free allowance]
     building_blocks: [PP-CON-001, PP-CON-002, PP-CON-004, PP-CON-005]
     strength: 65
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 4. Consideration, Grace and Actual Parking Time / KB-CON-01"
+    change_notes: Core proposition restored to full source wording (previous version dropped the second sentence on finding a space, reading terms, deciding and attempting initial compliance). Admin fields added.
+
   - module_id: KB-CON-02
     route: CONSIDERATION
-    topic: Terms rejected / vehicle left
+    topic: "Terms rejected / vehicle left"
     # `terms_rejected_left` is deliberately NOT the gate here: it is an
     # unanswerable contraindication on KB-PAY-01 in the shipped subset, and
     # giving it a question would put a third gating question on KB-PAY-01.
@@ -344,450 +559,662 @@ modules:
     # asks for ("whether parking actually took place").
     use_when: {all: [{is: no_parking_took_place}, {not: {is: payment_made}}]}
     do_not_use_when: {is: permitted_period_ended}
-    core_proposition: Analyse whether a parking contract was ever accepted rather than treating all site presence as parking.
+    core_proposition: "Analyse whether a parking contract was ever accepted rather than treating all site presence as parking."
     required_facts: [no_parking_took_place, short_presence_before_acceptance, total_recorded_duration_min]
     evidence_helpful: [DASHCAM, PHOTO]
     legal_basis: [CL-contract-formation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: The case theory is that no contract was accepted - it cannot be combined with a payment or an overstay account.
     prohibited_claims: [free allowance, entry is never acceptance]
     building_blocks: [PP-CON-003, PP-CON-001]
+    strength: 75
     status: ACTIVE
     version: "1.0"
-    strength: 75
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 4. Consideration, Grace and Actual Parking Time / KB-CON-02"
+    change_notes: Admin fields added.
+
   - module_id: KB-GRACE-01
     route: GRACE
-    topic: End grace period
+    topic: "End grace period"
     use_when: {all: [{is: permitted_period_ended}, {exists: exit_delay_min}]}
     do_not_use_when: {always: false}
-    core_proposition: Apply the applicable end-of-parking grace requirement only after establishing it applies.
+    core_proposition: "Apply the applicable end-of-parking grace requirement only after establishing that it applies to the site/event."
     required_facts: [exit_delay_min]
     evidence_helpful: []
     legal_basis: [SCOP-grace]
-    drafting_notes: No universal 10-minute rule; use resolved Code version values.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Do not hard-code '10 minutes always cancels'; use the resolved Code version values.
     prohibited_claims: [10 minutes always]
     building_blocks: [PP-GRACE-001, PP-GRACE-002, PP-GRACE-003, PP-GRACE-004]
     strength: 60
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 4. Consideration, Grace and Actual Parking Time / KB-GRACE-01"
+    change_notes: Core proposition restored to full source wording ("... that it applies to the site/event"). Admin fields added.
+
   - module_id: KB-GRACE-02
     route: GRACE
-    topic: Exit congestion / barrier delay
+    topic: "Exit congestion / barrier delay"
     use_when: {all: [{is: exit_congestion}, {exists: exit_delay_min}]}
     do_not_use_when: {always: false}
-    core_proposition: An exit-camera timestamp may include non-parking time caused by the process of leaving the site.
+    core_proposition: "An exit-camera timestamp may include non-parking time caused by the process of leaving the site."
     required_facts: [exit_congestion, exit_delay_min, exit_time]
     evidence_helpful: [PHOTO, DASHCAM, CALL_LOG]
     legal_basis: [CL-evidential-weight]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: The source gives this record no Code basis - argue what the exit timestamp does and does not prove, not a Code entitlement.
     prohibited_claims: [10 minutes always]
     building_blocks: [PP-GRACE-003, PP-GRACE-002, PP-GRACE-004]
+    strength: 70
     status: ACTIVE
     version: "1.0"
-    strength: 70
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 4. Consideration, Grace and Actual Parking Time / KB-GRACE-02"
+    change_notes: Admin fields added.
 
   - module_id: KB-ANPR-01
     route: ANPR
-    topic: Multiple visits
+    topic: "Multiple visits / double visit"
     use_when: {is: multiple_visits}
     do_not_use_when: {always: false}
-    core_proposition: Require review of the complete ANPR sequence rather than two selected images.
+    core_proposition: "Require review of the complete ANPR sequence rather than two selected images."
     required_facts: [multiple_visits]
-    evidence_helpful: [DASHCAM, RECEIPT, LOCATION_RECORD]
+    evidence_helpful: [DASHCAM, RECEIPT, LOCATION_RECORD, CCTV, WITNESS]
     legal_basis: [SCOP-evidence]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Keeper-safe - 'the vehicle attended on more than one occasion'.
     prohibited_claims: [calibration]
     building_blocks: [PP-ANPR-003, PP-ANPR-005]
     strength: 80
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 6. ANPR and Evidence Integrity / KB-ANPR-01"
+    change_notes: Topic restored to source ("Multiple visits / double visit"). CCTV and WITNESS added to match the source EVIDENCE field. Admin fields added.
+
   - module_id: KB-ANPR-02
-    route: ANPR
-    topic: Missing capture / incorrect pairing
+    route: ANPR_EVIDENCE
+    topic: "Missing capture / incorrect pairing"
     use_when: {is: anpr_sequence_incomplete}
     do_not_use_when: {always: false}
-    core_proposition: An absent intermediate capture does not prove continuous presence; the operator should verify the full record and its pairing logic.
+    core_proposition: "An absent intermediate capture does not prove continuous presence; the operator should verify the full record and pairing logic."
     required_facts: [anpr_sequence_incomplete]
     evidence_helpful: [DASHCAM, LOCATION_RECORD, RECEIPT]
     legal_basis: [SCOP-evidence]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Ask for the full sequence. Never allege calibration or maintenance failure.
     prohibited_claims: [calibration, camera maintenance]
     building_blocks: [PP-ANPR-010, PP-ANPR-011, PP-ANPR-005, PP-ANPR-002]
-    status: ACTIVE
-    version: "1.0"
     strength: 55
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 6. ANPR and Evidence Integrity / KB-ANPR-02"
+    change_notes: Core proposition restored to source wording. Admin fields added. Route changed ANPR -> ANPR_EVIDENCE (evidence challenge, section 16 p3 / KB-GOV-07); see kb_routes_corrected.yaml.
+
   - module_id: KB-ANPR-03
-    route: ANPR
-    topic: Timestamp / VRM discrepancy
+    route: ANPR_EVIDENCE
+    topic: "Timestamp / VRM discrepancy"
     use_when: {is: anpr_discrepancy}
     do_not_use_when: {always: false}
-    core_proposition: Challenge only the identified discrepancy and request verification of the evidence relied upon.
+    core_proposition: "Challenge only the identified discrepancy and request verification of the evidence relied upon."
     required_facts: [anpr_discrepancy]
     evidence_helpful: [PHOTO, DASHCAM]
     legal_basis: [SCOP-evidence]
-    drafting_notes: The discrepancy must be the one the customer identified. No generic calibration allegation (VAL-ANPR).
+    legal_basis_origin: SOURCE_REGISTER
+    drafting_notes: The discrepancy must be the one the customer identified. Do not make generic calibration allegations with no factual trigger (VAL-ANPR).
     prohibited_claims: [calibration, camera maintenance, cameras are unreliable]
     building_blocks: [PP-ANPR-007, PP-ANPR-008]
-    status: ACTIVE
-    version: "1.0"
     strength: 60
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 6. ANPR and Evidence Integrity / KB-ANPR-03"
+    change_notes: Source DO NOT quoted verbatim in drafting_notes. Admin fields added. Route changed ANPR -> ANPR_EVIDENCE (evidence challenge, section 16 p3 / KB-GOV-07); see kb_routes_corrected.yaml.
+
   - module_id: KB-EV-01
     route: EVIDENCE
-    topic: Independent evidence contradicts the allegation
+    topic: "Independent evidence contradicts allegation"
     use_when: {all: [{is: independent_evidence_contradicts}, {any: [{has_evidence: DASHCAM}, {has_evidence: PHOTO}, {has_evidence: RECEIPT}, {has_evidence: LOCATION_RECORD}, {has_evidence: BANK_STATEMENT}]}]}
     # A shopping receipt that leaves parking validation UNKNOWN is inconclusive,
     # not contradictory. Never promote inconclusive evidence into this ground.
     do_not_use_when:
       any:
         - {eq: [parking_validation_status, "UNKNOWN"]}
-    core_proposition: Give the independent evidence appropriate weight and require the operator to reconcile the contradiction.
+    core_proposition: "Give the independent evidence appropriate weight and require the operator to reconcile the contradiction."
     required_facts: [independent_evidence_contradicts]
     evidence_helpful: [DASHCAM, PHOTO, RECEIPT, LOCATION_RECORD, BANK_STATEMENT]
     legal_basis: [CL-evidential-weight]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Only describe evidence that is actually uploaded, and only the contradiction it actually shows. A purchase receipt alone is not a contradiction of a validation allegation.
     prohibited_claims: [proves the operator fabricated, shopping receipt proves parking validation]
     building_blocks: [PP-ANPR-004]
+    strength: 70
     status: ACTIVE
     version: "1.1"
-    strength: 70
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 6. ANPR and Evidence Integrity / KB-EV-01"
+    change_notes: Topic restored to source wording. Admin fields added.
+
+  # ---- NOT IN SOURCE DOCUMENT - held at REVIEW (KB-GOV-03) ----
   # Added 2026-09-28; revised 2026-09-29. Evidential observation-window point
-  # always available for restricted-bay allegations. When the customer's account
-  # materially contradicts the allegation's factual premise (system-wide
-  # material-account assessment — not bay-type hard-coding), PP-BAY-002 also
-  # states that keeper-safe account. Never invent occupancy/eligibility detail.
-  # Basis is CL-evidential-weight, not a SCOP- source, deliberately - the point
-  # is the operator's burden of proof, so it must not be withheld by R-01 on
-  # notices that do not print a trade association.
+  # for restricted-bay allegations. When the customer's account materially
+  # contradicts the allegation's factual premise, PP-BAY-002 also states that
+  # keeper-safe account. Never invent occupancy/eligibility detail.
   - module_id: KB-BAY-01
     route: BAY
     topic: Observation window too narrow to establish a bay-eligibility breach
     # A window of 0 is the strongest case, not an absent one, so `exists` plus a
     # comparison - `is` would read 0 as false and drop exactly that case.
     use_when: {all: [{is: restricted_bay_alleged}, {exists: observation_window_min}, {lte: [observation_window_min, 5]}]}
-    # No fact in the KB falsifies this argument, so this gate is a genuine no-op
-    # rather than a guard on a fact nothing can ever set.
     do_not_use_when: {always: false}
     core_proposition: A record spanning only the operator's own observation window does not establish that the conditions of use for a reserved bay were unmet over the visit.
     required_facts: [restricted_bay_alleged, observation_window_min]
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: State the recorded observation and event times and the operator's burden. When account_contradicts_allegation is present, incorporate the professional material_account_proposition (system-authored) as inconsistent with the allegation's factual premise. Never paste customer free-text wording. Never invent who was driving.
     prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text]
+    # PP-BAY-001 and PP-BAY-002 do not exist in Appendix A. Draft and approve them before activation.
     building_blocks: [PP-BAY-001, PP-BAY-002]
-    status: ACTIVE
-    version: "1.1"
     strength: 65
+    status: REVIEW
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: null  # not in source document
+    change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building blocks PP-BAY-001 and PP-BAY-002 are not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
+
   - module_id: KB-TIME-01
-    route: ANPR
-    topic: ANPR presence is not parking time
+    route: ANPR_EVIDENCE
+    topic: "ANPR presence is not necessarily parking time"
     # `exists: entry_time` alone was true of almost every properly-documented
-    # notice, so this fired on cases that never alleged an overstay at all - a
-    # Parent-and-Child-bay charge and a keying-error charge were both told
-    # their "alleged parking duration is disputed". The duration has to
-    # actually be in dispute, and a disputed interval needs both ends of it.
+    # notice, so this fired on cases that never alleged an overstay at all.
+    # The duration has to actually be in dispute, and a disputed interval
+    # needs both ends of it.
     use_when: {all: [{exists: entry_time}, {exists: exit_time}, {is: anpr_duration_disputed}]}
-    core_proposition: Distinguish total presence on controlled land from the period actually parked.
+    do_not_use_when: {always: false}
+    core_proposition: "Distinguish total presence on controlled land from the period actually parked."
     required_facts: [entry_time, exit_time, anpr_duration_disputed]
     evidence_helpful: []
     legal_basis: [SCOP-evidence]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Supporting point only.
     prohibited_claims: []
     building_blocks: [PP-ANPR-001, PP-ANPR-002]
     strength: 30
+    status: ACTIVE
+    version: "1.2"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 4. Consideration, Grace and Actual Parking Time / KB-TIME-01"
+    change_notes: Topic restored to source ("ANPR presence is not necessarily parking time") - the previous version dropped "necessarily", which made the claim absolute. Explicit no-op do_not_use_when added for consistency. Admin fields added. Route changed ANPR -> ANPR_EVIDENCE (evidence challenge, section 16 p3 / KB-GOV-07); see kb_routes_corrected.yaml.
 
   - module_id: KB-AUTH-01
     route: AUTHORISATION
-    topic: Underlying authorisation
+    topic: "Underlying authorisation"
     use_when: {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}
     do_not_use_when: {is: lease_parking_clause_found}
-    core_proposition: Analyse the underlying permission before treating an administrative or display mismatch as an absence of authority.
+    core_proposition: "Analyse the underlying permission before treating an admin/display mismatch as absence of authority."
     required_facts: [authorisation_source, parking_event_date, vrm]
     evidence_helpful: [PERMIT, CORRESPONDENCE, BOOKING, RECEIPT]
     legal_basis: [SCOP-permits, CL-authorisation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Appendix B - underlying authorisation first, then the admin/display issue. Residential rights supersede this.
     prohibited_claims: [automatically cancels]
     building_blocks: [PP-AUTH-001, PP-AUTH-004]
+    strength: 75
     status: ACTIVE
     version: "1.0"
-    strength: 75
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 8. Authorisation, Permits and Genuine Use / KB-AUTH-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-AUTH-02
     route: AUTHORISATION
-    topic: Permit held
+    topic: "Permit held / digital permit"
     use_when: {is: permit_held}
     do_not_use_when: {is: lease_parking_clause_found}
-    core_proposition: Distinguish entitlement from display/registration administration.
+    core_proposition: "Require operator to check physical/digital permit and whitelist records; distinguish entitlement from display/registration administration."
     required_facts: [permit_held]
     evidence_helpful: [PERMIT]
     legal_basis: [SCOP-permits]
-    drafting_notes: Residential rights supersede generic permit logic.
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Require the operator to check physical/digital permit and whitelist records. Residential rights supersede generic permit logic.
     prohibited_claims: [automatically cancels]
     building_blocks: [PP-AUTH-002, PP-AUTH-004]
     strength: 70
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 8. Authorisation, Permits and Genuine Use / KB-AUTH-02"
+    change_notes: Topic restored to source ("Permit held / digital permit"). Core proposition restored to full source wording - the previous version dropped the main instruction to check physical/digital permit and whitelist records. Admin fields added.
+
   - module_id: KB-AUTH-03
     route: AUTHORISATION
-    topic: Visitor authorisation
+    topic: "Visitor authorisation"
     use_when: {is: visitor_authorised}
     do_not_use_when: {always: false}
-    core_proposition: Analyse the visitor permission and any registration process; do not assume that a registration error extinguished the underlying permission.
+    core_proposition: "Analyse visitor permission and any registration process; do not assume a registration error extinguished underlying permission."
     required_facts: [visitor_authorised, parking_event_date]
     evidence_helpful: [CORRESPONDENCE, PERMIT]
     legal_basis: [SCOP-permits, CL-authorisation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Refer to host/resident confirmation only where it has actually been supplied.
     prohibited_claims: [registration error extinguished the permission]
     building_blocks: [PP-AUTH-006, PP-AUTH-004]
+    strength: 72
     status: ACTIVE
     version: "1.0"
-    strength: 72
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 8. Authorisation, Permits and Genuine Use / KB-AUTH-03"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-CUST-01
     route: CUSTOMER
-    topic: Genuine customer
+    topic: "Genuine customer"
     use_when: {all: [{is: genuine_customer}, {is: customer_only_site}, {any: [{has_evidence: RECEIPT}, {has_evidence: BANK_STATEMENT}]}]}
     do_not_use_when: {always: false}
-    core_proposition: Genuine use of the premises is a factual and authorisation route where it is relevant, not an automatic cancellation rule.
+    core_proposition: "Use as a factual/authorisation route where relevant, not as an automatic cancellation rule."
     required_facts: [genuine_customer, customer_only_site, parking_location]
     evidence_helpful: [RECEIPT, BANK_STATEMENT, BOOKING]
     legal_basis: [CL-authorisation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Use where site terms, policy or landholder authorisation make it relevant. Never present it as a rule that the charge must be cancelled.
     prohibited_claims: [automatic cancellation, customers are always exempt]
     building_blocks: [PP-AUTH-001]
+    strength: 55
     status: ACTIVE
     version: "1.0"
-    strength: 55
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 8. Authorisation, Permits and Genuine Use / KB-CUST-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-SIGN-01
     route: SIGNAGE
-    topic: Signage adequacy
+    topic: "Entrance signage"
+    # REVIEW POINT: the PHOTO requirement is stricter than the source USE WHEN
+    # ("credible facts/evidence"). Rule logic kept unchanged.
     use_when: {all: [{is: signage_issue_raised}, {has_evidence: PHOTO}]}
     do_not_use_when: {always: false}
-    core_proposition: Assess whether the relevant terms were reasonably brought to attention.
+    core_proposition: "Assess whether relevant terms were reasonably brought to attention before/at contract formation."
     required_facts: [signage_issue_raised]
-    evidence_helpful: [PHOTO]
+    evidence_helpful: [PHOTO, SITE_PLAN]
     legal_basis: [SCOP-signage]
-    drafting_notes: Only with a factual trigger; never from 'I didn't see it' alone.
+    legal_basis_origin: SOURCE_REGISTER
+    drafting_notes: Concerns terms not adequately communicated on entry. Only with a factual trigger; never from 'I didn't see it' alone.
     prohibited_claims: []
     building_blocks: [PP-SIGN-001, PP-SIGN-002]
     strength: 45
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 7. Signage and Contract Formation / KB-SIGN-01"
+    change_notes: Topic restored to source ("Entrance signage"). Core proposition restored to full source wording ("before/at contract formation"). SITE_PLAN added to match the source EVIDENCE field. Review point on the PHOTO gate added as a comment. Admin fields added.
+
   - module_id: KB-SIGN-02
     route: SIGNAGE
-    topic: Charge / relevant term prominence
+    topic: "Charge / relevant term prominence"
     use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, TERM_PROMINENCE]}]}
     do_not_use_when: {always: false}
-    core_proposition: Focus on the precise term allegedly breached and whether it was adequately communicated.
+    core_proposition: "Focus on the precise term allegedly breached and whether it was adequately communicated."
     required_facts: [signage_issue_raised, signage_issue_type, alleged_breach]
     evidence_helpful: [PHOTO]
     legal_basis: [SCOP-signage]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Tie the point to the term in the allegation, not to signage in general.
     prohibited_claims: []
     building_blocks: [PP-SIGN-004, PP-SIGN-005]
+    strength: 45
     status: ACTIVE
     version: "1.0"
-    strength: 45
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 7. Signage and Contract Formation / KB-SIGN-02"
+    change_notes: Admin fields added.
+
   - module_id: KB-SIGN-03
     route: SIGNAGE
-    topic: Conflicting signage
+    topic: "Conflicting signage"
     use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, CONFLICTING]}, {has_evidence: PHOTO}]}
     do_not_use_when: {always: false}
-    core_proposition: Identify the conflict and require the operator to explain which terms applied and how they were communicated.
+    core_proposition: "Identify the conflict and require the operator to explain which terms applied and how they were communicated."
     required_facts: [signage_issue_raised, signage_issue_type]
     evidence_helpful: [PHOTO]
     legal_basis: [SCOP-signage]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: Requires photographs of each sign relied upon; describe the conflict, do not characterise the site generally.
     prohibited_claims: []
     building_blocks: [PP-SIGN-011]
+    strength: 48
     status: ACTIVE
     version: "1.0"
-    strength: 48
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 7. Signage and Contract Formation / KB-SIGN-03"
+    change_notes: Admin fields added.
+
   - module_id: KB-SIGN-04
     route: SIGNAGE
-    topic: Contemporaneous signage proof
+    topic: "Contemporaneous signage proof"
     use_when: {all: [{is: signage_issue_raised}, {eq: [signage_issue_type, CHANGED_OR_DAMAGED]}]}
     do_not_use_when: {always: false}
-    core_proposition: Require evidence of the signage actually in place at the material time where that is genuinely disputed.
+    core_proposition: "Require evidence of signage actually in place at the material time where this is genuinely disputed."
     required_facts: [signage_issue_raised, signage_issue_type, parking_event_date]
     evidence_helpful: [PHOTO]
     legal_basis: [SCOP-signage, SCOP-evidence]
+    legal_basis_origin: SOURCE_REGISTER
     drafting_notes: A request for dated signage evidence, not an assertion that the signs were absent.
     prohibited_claims: [there were no signs]
     building_blocks: [PP-SIGN-001]
+    strength: 40
     status: ACTIVE
     version: "1.0"
-    strength: 40
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 7. Signage and Contract Formation / KB-SIGN-04"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-EQ-01
     route: EQUALITY
-    topic: Reasonable adjustments
+    topic: "Reasonable adjustments"
     use_when: {is: disability_extra_time}
     do_not_use_when: {always: false}
-    core_proposition: Consider whether reasonable adjustments / additional time were required.
+    core_proposition: "Consider whether reasonable adjustments/additional time were required and whether the operator properly considered the individual circumstances."
     required_facts: [disability_extra_time]
     evidence_helpful: []
     legal_basis: [EqA-2010]
-    drafting_notes: No unnecessary medical detail. Blue Badge is not the legal test.
+    legal_basis_origin: SOURCE_MODULE
+    drafting_notes: Apply only where statutory conditions are met. Do not require the customer to disclose unnecessary medical detail. Do not equate Blue Badge possession with the legal test.
     prohibited_claims: []
     building_blocks: [AI-EQ-001]
     strength: 65
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 11. Equality Act / Additional Time / KB-EQ-01"
+    change_notes: Core proposition restored to full source wording (previous version dropped "and whether the operator properly considered the individual circumstances"). Source DO NOT and basis qualifier quoted in drafting_notes. Admin fields added.
+
   - module_id: KB-EQ-02
     route: EQUALITY
-    topic: Additional time
+    topic: "Additional time"
     use_when: {all: [{is: disability_extra_time}, {is: disability_time_relates_to_breach}]}
     do_not_use_when: {always: false}
-    core_proposition: Do not assess the event solely by automated timestamps where additional time may constitute a reasonable adjustment.
+    core_proposition: "Do not assess the event solely by automated timestamps where additional time may constitute a reasonable adjustment."
     required_facts: [disability_extra_time, disability_time_relates_to_breach]
     evidence_helpful: []
     legal_basis: [EqA-2010]
+    legal_basis_origin: SOURCE_APPENDIX
     drafting_notes: Yes/no facts only. Never state or request clinical detail; explain the link to the allegation in neutral terms.
     prohibited_claims: [Blue Badge proves the legal test]
     building_blocks: [AI-EQ-001]
+    strength: 70
     status: ACTIVE
     version: "1.0"
-    strength: 70
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 11. Equality Act / Additional Time / KB-EQ-02"
+    change_notes: Admin fields added.
+
   - module_id: KB-EQ-03
     route: EQUALITY
-    topic: Hidden disability
+    topic: "Hidden disability"
     use_when: {all: [{is: disability_extra_time}, {not: {is: blue_badge_displayed}}]}
     do_not_use_when: {always: false}
-    core_proposition: The absence of a visible badge or indicator does not itself resolve whether Equality Act duties were engaged.
+    core_proposition: "Absence of visible evidence does not itself resolve whether Equality Act duties were engaged."
     required_facts: [disability_extra_time]
     evidence_helpful: []
     legal_basis: [EqA-2010]
+    legal_basis_origin: SOURCE_APPENDIX
     drafting_notes: Use only facts the customer volunteered. Blue Badge possession or absence is not the legal test.
     prohibited_claims: [Blue Badge proves the legal test, no badge means no duty]
     building_blocks: [AI-EQ-001]
+    strength: 55
     status: ACTIVE
     version: "1.0"
-    strength: 55
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 11. Equality Act / Additional Time / KB-EQ-03"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-HOSP-01
     route: HOSPITAL
-    topic: Hospital attendance
+    topic: "Hospital attendance"
     use_when: {is: hospital_attendance}
     do_not_use_when: {always: false}
-    core_proposition: Analyse the site's parking terms, any exemption or validation process, the appointment or emergency circumstances and any relevant additional-time obligations.
+    core_proposition: "Analyse the site's parking terms, exemptions/validation process, appointment/emergency circumstances and any relevant additional-time obligations."
     required_facts: [hospital_attendance, parking_location]
     evidence_helpful: [APPOINTMENT_LETTER, CORRESPONDENCE, RECEIPT]
-    legal_basis: [CL-contract-formation]
+    # Appendix B: "Hospital/emergency/Code route; Equality Act only if relevant facts exist."
+    legal_basis: [SCOP-hospital]
+    legal_basis_origin: SOURCE_APPENDIX
     drafting_notes: Site terms and validation process first. Equality Act wording only where the disability facts exist (Appendix B).
     prohibited_claims: [hospital parking is always exempt, invented medical facts]
     building_blocks: [AI-HOSP-001]
-    status: ACTIVE
-    version: "1.0"
     strength: 60
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 12. Hospital / Medical Sites / KB-HOSP-01"
+    change_notes: Core proposition restored to source wording. Legal basis changed from CL-contract-formation (not supported by the source) to SCOP-hospital, following Appendix B ("Hospital/emergency/Code route") and block AI-HOSP-001 ("applicable Code"). Admin fields added.
+
   - module_id: KB-HOSP-02
     route: HOSPITAL
-    topic: Emergency treatment / unpredictable delay
+    topic: "Emergency treatment / unpredictable delay"
     use_when: {all: [{is: hospital_attendance}, {is: clinical_delay}]}
     do_not_use_when: {always: false}
-    core_proposition: Treat the factual cause seriously and assess the contractual, Code and adjustment issues rather than using generic sympathy wording.
+    core_proposition: "Treat the factual cause seriously and assess contractual/Code/adjustment issues rather than using generic sympathy wording."
     required_facts: [hospital_attendance, clinical_delay]
     evidence_helpful: [APPOINTMENT_LETTER, CORRESPONDENCE]
-    legal_basis: [CL-contract-formation]
-    drafting_notes: Never invent medical facts and never request excessive health information. No generic sympathy wording.
+    legal_basis: [SCOP-hospital]
+    legal_basis_origin: SOURCE_APPENDIX
+    drafting_notes: Do not invent medical facts or request excessive health information. No generic sympathy wording.
     prohibited_claims: [invented medical facts, generic sympathy plea]
     building_blocks: [AI-HOSP-001]
-    status: ACTIVE
-    version: "1.0"
     strength: 70
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 12. Hospital / Medical Sites / KB-HOSP-02"
+    change_notes: Core proposition restored to source wording. Legal basis changed from CL-contract-formation to SCOP-hospital (see KB-HOSP-01). Admin fields added.
+
   - module_id: KB-HOSP-03
     route: HOSPITAL
-    topic: Landholder / PALS cancellation route
+    topic: "PALS / Trust cancellation route"
     use_when: {all: [{is: hospital_attendance}, {is: landholder_cancellation_route_available}]}
     do_not_use_when: {always: false}
-    core_proposition: Where appropriate, flag the landholder cancellation or exemption mechanism as a parallel practical route while still generating the operator appeal.
+    core_proposition: "Where appropriate, flag landholder/PALS cancellation as a parallel practical route while still generating the operator appeal."
     required_facts: [hospital_attendance, landholder_cancellation_route_available]
     evidence_helpful: [CORRESPONDENCE]
     legal_basis: []
+    legal_basis_origin: SOURCE_MODULE
     drafting_notes: A practical signpost for the customer, not a legal ground and not a paragraph of the appeal letter. Never presented as an entitlement.
     prohibited_claims: [the Trust must cancel]
     building_blocks: []
+    strength: 25
     status: ACTIVE
     version: "1.0"
-    strength: 25
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 12. Hospital / Medical Sites / KB-HOSP-03"
+    change_notes: Topic restored to source ("PALS / Trust cancellation route"). Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-ACT-01
     route: ACTIVITY
-    topic: Loading / unloading
+    topic: "Loading / unloading"
     use_when: {all: [{is: loading_activity}, {exists: alleged_breach}]}
     do_not_use_when: {always: false}
-    core_proposition: Distinguish the activity from ordinary parking where the contract or site terms recognise the distinction; analyse the actual terms and the evidence.
+    core_proposition: "Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence."
     required_facts: [loading_activity, alleged_breach]
     evidence_helpful: [PHOTO, RECEIPT, CORRESPONDENCE]
     legal_basis: [CL-contract-formation]
-    drafting_notes: Loading is not always exempt on private land - the argument is about the site terms actually in force.
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Do not assume loading is always exempt on private land - the argument is about the site terms actually in force.
     prohibited_claims: [loading is always exempt, automatic exemption]
     building_blocks: [AI-ACT-001]
+    strength: 60
     status: ACTIVE
     version: "1.0"
-    strength: 60
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 13. Loading, Drop-off, Collection and Non-Parking Activity / KB-ACT-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-ACT-02
     route: ACTIVITY
-    topic: Passenger drop-off / pick-up
+    topic: "Passenger drop-off / pick-up"
     use_when: {all: [{is: dropoff_activity}, {not: {is: permitted_period_ended}}]}
     do_not_use_when: {is: payment_made}
-    core_proposition: Analyse the precise site restriction and whether stopping, parking or contract formation is established; do not assume a universal exemption.
+    core_proposition: "Analyse the precise site restriction and whether stopping/parking/contract formation is established; do not assume a universal exemption."
     required_facts: [dropoff_activity, alleged_breach, total_recorded_duration_min]
     evidence_helpful: [PHOTO, DASHCAM]
     legal_basis: [CL-contract-formation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: No numeric threshold is invented - argue from the site restriction and the recorded duration actually derived.
     prohibited_claims: [stopping is never parking, universal exemption]
     building_blocks: [PP-CON-001]
+    strength: 55
     status: ACTIVE
     version: "1.0"
-    strength: 55
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 13. Loading, Drop-off, Collection and Non-Parking Activity / KB-ACT-02"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-ACT-03
     route: ACTIVITY
-    topic: Hotel / restaurant / collection delay
+    topic: "Hotel / restaurant / collection delay"
     use_when: {all: [{is: collection_or_checkin_delay}, {any: [{is: genuine_customer}, {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}]}]}
     do_not_use_when: {always: false}
-    core_proposition: Use the underlying authorisation and the factual delay where relevant; do not convert ordinary waiting into an automatic exemption.
+    core_proposition: "Use the underlying authorisation and factual delay where relevant; do not convert ordinary waiting into an automatic exemption."
     required_facts: [collection_or_checkin_delay]
     evidence_helpful: [RECEIPT, BANK_STATEMENT, BOOKING, CORRESPONDENCE]
     legal_basis: [CL-authorisation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: The authorisation carries the point; the delay is context.
     prohibited_claims: [waiting is automatically exempt]
     building_blocks: [PP-AUTH-001]
+    strength: 55
     status: ACTIVE
     version: "1.0"
-    strength: 55
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 13. Loading, Drop-off, Collection and Non-Parking Activity / KB-ACT-03"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-EVCH-01
     route: EV_CHARGING
-    topic: EV charging
+    topic: "EV charging"
     use_when: {all: [{is: ev_charging_session}, {exists: alleged_breach}]}
     do_not_use_when: {always: false}
-    core_proposition: Analyse the charging terms separately from ordinary parking terms and establish whether the charge concerned parking, charging, overstay or tariff.
+    core_proposition: "Analyse charging terms separately from ordinary parking terms and establish whether the charge concerned parking, charging, overstay or tariff."
     required_facts: [ev_charging_session, alleged_breach]
     evidence_helpful: [APP_SCREENSHOT, RECEIPT, BANK_STATEMENT]
     legal_basis: [CL-contract-formation]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Ask the operator to reconcile the charge-session record with the allegation before arguing the parking terms.
     prohibited_claims: [charging bays are not parking bays]
     building_blocks: [AI-EVCH-001]
+    strength: 60
     status: ACTIVE
     version: "1.0"
-    strength: 60
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 14. EV Charging and Site Infrastructure / KB-EVCH-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-INFRA-01
     route: INFRASTRUCTURE
-    topic: Barrier / access system failure
+    topic: "Barrier / access system failure"
     use_when: {is: barrier_or_access_failure}
     do_not_use_when: {always: false}
-    core_proposition: Time caused by the operator's or landholder's infrastructure should be distinguished from voluntary parking where the facts support it.
+    core_proposition: "Time caused by operator/landholder infrastructure should be distinguished from voluntary parking where supported."
     required_facts: [barrier_or_access_failure]
     evidence_helpful: [PHOTO, DASHCAM, CALL_LOG]
     legal_basis: [CL-evidential-weight]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Describe only the fault reported; a timestamp records passage at the camera, not a decision to remain.
     prohibited_claims: [the site was unusable]
     building_blocks: [PP-GRACE-003, PP-GRACE-004]
+    strength: 65
     status: ACTIVE
     version: "1.0"
-    strength: 65
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 14. EV Charging and Site Infrastructure / KB-INFRA-01"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
   - module_id: KB-LAND-01
     route: LANDOWNER
-    topic: Authority to operate
+    topic: "Authority to operate"
+    # REVIEW POINT: always:true puts this in every letter. The source USE WHEN is
+    # "A proportionate authority challenge is relevant" and Section 16 priority 4
+    # says it is normally concise at initial stage. Rule logic kept unchanged.
     use_when: {always: true}
     do_not_use_when: {always: false}
-    core_proposition: Require evidence of sufficient landowner authority for the site and date.
+    core_proposition: "Require evidence that the operator had sufficient authority to operate/enforce at the specific site and material date."
     required_facts: []
     evidence_helpful: []
     legal_basis: [SCOP-authority]
-    drafting_notes: One concise sentence at initial appeal. Never assert no authority exists.
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: One concise sentence at initial appeal. At initial appeal do not falsely assert that no authority exists merely because the customer has not seen the contract.
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-001]
     strength: 20
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 15. Landowner Authority / KB-LAND-01"
+    change_notes: Core proposition restored to full source wording ("to operate/enforce at the specific site and material date"). Source DO NOT quoted in drafting_notes. Review point on the always-true gate added as a comment. Admin fields added.
+
+  # ---- NOT IN SOURCE DOCUMENT - held at REVIEW (KB-GOV-03) ----
   - module_id: KB-REC-01
     # Must NOT sit on EVIDENCE: that route's customer-facing label is
     # "Independent evidence contradicting the allegation", which mislabels a
@@ -811,6 +1238,7 @@ modules:
     required_facts: [alleged_breach]
     evidence_helpful: [RECEIPT, PHOTO, CORRESPONDENCE, APP_SCREENSHOT]
     legal_basis: [SCOP-evidence]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: >
       Evidence request only. Never claim validation occurred, never claim the
       charge is invalid solely because records were not produced in advance, and
@@ -820,83 +1248,110 @@ modules:
       - validation failed
       - the charge is automatically invalid
       - shopping receipt proves parking validation
+    # PP-REC-001 does not exist in Appendix A. Draft and approve it before activation.
     building_blocks: [PP-REC-001]
-    status: ACTIVE
-    version: "1.0"
     strength: 55
+    status: REVIEW
+    version: "1.0"
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: null  # not in source document
+    change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building block PP-REC-001 is not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
+
   - module_id: KB-LAND-02
     route: LANDOWNER
-    topic: Scope / site boundary / material date
+    topic: "Scope / site boundary / material date"
     use_when: {is: authority_mismatch_identified}
     do_not_use_when: {always: false}
-    core_proposition: Focus on the specific mismatch - land boundary, term, expiry, cancellation powers or enforcement scope.
+    core_proposition: "Focus on the specific mismatch: land boundary, term, expiry, cancellation powers or enforcement scope."
     required_facts: [authority_mismatch_identified, parking_location, parking_event_date]
     evidence_helpful: [SITE_PLAN, CORRESPONDENCE, MANAGEMENT_AGREEMENT]
     legal_basis: [SCOP-authority]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Name the mismatch only. Concise at initial operator stage (section 16 priority 4).
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-002, PP-LAND-005, PP-LAND-006]
+    strength: 45
     status: ACTIVE
     version: "1.0"
-    strength: 45
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 15. Landowner Authority / KB-LAND-02"
+    change_notes: Core proposition restored to source wording. Admin fields added.
+
   - module_id: KB-LAND-03
     route: LANDOWNER
-    topic: Redacted authority evidence
+    topic: "Redacted authority evidence"
     use_when: {is: authority_evidence_redacted}
     do_not_use_when: {always: false}
-    core_proposition: Challenge only those redactions that prevent verification of the parties, land, duration or enforcement scope.
+    core_proposition: "Challenge only redactions that prevent verification of parties, land, duration or enforcement scope."
     required_facts: [authority_evidence_redacted]
     evidence_helpful: [CORRESPONDENCE, MANAGEMENT_AGREEMENT]
     legal_basis: [SCOP-authority]
+    legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Redaction of commercial terms is not a ground; only redaction that blocks verification of those four matters is.
     prohibited_claims: [the redactions prove there is no authority]
     building_blocks: [PP-LAND-008]
+    strength: 40
     status: ACTIVE
     version: "1.0"
-    strength: 40
+    effective_from: null      # to be set by administrator
+    effective_to: null
+    last_legal_review: null   # to be set after legal review
+    source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 15. Landowner Authority / KB-LAND-03"
+    change_notes: Core proposition restored to source wording. Admin fields added.
 
 # Contradictory case theories (section 16 rule 5, VAL-CONFLICT, Appendix B).
 # reasoning.py R-04 keeps the stronger module and logs the suppression.
+# Pairs marked (belt-and-braces) are already made mutually exclusive by the
+# modules' own gates; they are kept as a safety net if a gate is later edited.
 conflicts_with:
-  - [KB-PAY-01, KB-CON-01]
-  - [KB-RES-01, KB-AUTH-02]
+  - [KB-PAY-01, KB-CON-01]    # (belt-and-braces) KB-CON-01 requires payment not made
+  - [KB-RES-01, KB-AUTH-02]   # (belt-and-braces) KB-AUTH-02 excluded when a lease clause is found
   # "a payment was made" vs "terms were rejected and the vehicle left"
-  - [KB-PAY-01, KB-CON-02]
+  - [KB-PAY-01, KB-CON-02]    # (belt-and-braces) KB-CON-02 requires payment not made
   # "the vehicle could not be moved" vs "the vehicle considered the terms and left"
   - [KB-BREAK-01, KB-CON-02]
   - [KB-BREAK-02, KB-CON-02]
   # "no contract was ever accepted" vs "a permitted period ended and grace applies"
-  - [KB-CON-02, KB-GRACE-01]
+  - [KB-CON-02, KB-GRACE-01]  # (belt-and-braces) KB-CON-02 excluded when a permitted period ended
   # a minor keying error and a different-vehicle entry are alternative accounts
-  - [KB-KEY-01, KB-KEY-02]
+  - [KB-KEY-01, KB-KEY-02]    # (belt-and-braces) keying_error_type has one value
   # "the grant contains no such restriction" vs "the lease expressly incorporates a permit scheme"
-  - [KB-RES-02, KB-RES-06]
+  - [KB-RES-02, KB-RES-06]    # (belt-and-braces) opposite lease_has_regulations_clause gates
   # "stopped only to drop off a passenger" vs "the tariff was paid for the stay"
-  - [KB-ACT-02, KB-PAY-01]
+  - [KB-ACT-02, KB-PAY-01]    # (belt-and-braces) KB-ACT-02 excluded when payment made
 
 legal_sources:
-  PoFA-2012-Sch4:       {title: Protection of Freedoms Act 2012 Schedule 4, jurisdiction: ENGLAND_WALES}
-  PoFA-2012-Sch4-para8: {title: PoFA 2012 Sch 4 para 8, jurisdiction: ENGLAND_WALES}
-  PoFA-2012-Sch4-para9: {title: PoFA 2012 Sch 4 para 9, jurisdiction: ENGLAND_WALES}
-  EqA-2010:             {title: Equality Act 2010, jurisdiction: GB}
-  SCOP-payment:         {title: Single Code - payment, versioned: true}
-  SCOP-keying:          {title: Single Code - keying errors, versioned: true}
-  SCOP-breakdown:       {title: Single Code / Appeals Charter - breakdown, versioned: true}
-  SCOP-consideration:   {title: Single Code - consideration period, versioned: true}
-  SCOP-grace:           {title: Single Code - grace period, versioned: true}
-  SCOP-evidence:        {title: Single Code - evidence / ANPR, versioned: true}
-  SCOP-permits:         {title: Single Code - permits, versioned: true}
-  SCOP-signage:         {title: Single Code - signage, versioned: true}
-  SCOP-authority:       {title: Single Code - landowner authority, versioned: true}
-  CL-frustration-impossibility: {title: Common-law frustration / impossibility, case_law_enabled: false}
-  CL-primacy-of-contract:       {title: Primacy of contract / pre-existing rights, case_law_enabled: false}
+  PoFA-2012-Sch4:       {title: Protection of Freedoms Act 2012 Schedule 4, jurisdiction: ENGLAND_WALES, in_source_register: true, note: Keeper liability only. Apply the correct notice route and statutory requirements.}
+  PoFA-2012-Sch4-para8: {title: PoFA 2012 Sch 4 para 8, jurisdiction: ENGLAND_WALES, in_source_register: true}
+  PoFA-2012-Sch4-para9: {title: PoFA 2012 Sch 4 para 9, jurisdiction: ENGLAND_WALES, in_source_register: true}
+  EqA-2010:             {title: Equality Act 2010, jurisdiction: GB, in_source_register: true, note: Apply only where statutory conditions are met.}
+  # Section 2 implementation note (September 2026): BPA identifies the sector
+  # Single Code as version 1.1 dated 13 April 2026. Stored as data, not code.
+  # Every SCOP-* entry must be re-checked against the event date/transition
+  # before use (KB-GOV-05, VAL-CODE).
+  SCOP-payment:         {title: Single Code - payment, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-keying:          {title: Single Code - keying errors, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-breakdown:       {title: Single Code / Appeals Charter - breakdown, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: false, note: Named in block AI-BREAK-001 and Appendix B only; not listed in the Source Register scope.}
+  SCOP-consideration:   {title: Single Code - consideration period, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-grace:           {title: Single Code - grace period, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-evidence:        {title: Single Code - evidence / ANPR, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-permits:         {title: Single Code - permits, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: false, note: Not named in the Source Register scope ("other applicable requirements" only). Needs legal review.}
+  SCOP-signage:         {title: Single Code - signage, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: true}
+  SCOP-authority:       {title: Single Code - landowner authority, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: false, note: Not named in the Source Register scope ("other applicable requirements" only). Needs legal review.}
+  SCOP-hospital:        {title: Single Code - hospital / emergency provisions, versioned: true, current_version: "1.1", version_date: "2026-04-13", in_source_register: false, note: Named in Appendix B (Hospital emergency - Hospital/emergency/Code route) and block AI-HOSP-001 only. Needs legal review.}
+  CL-frustration-impossibility: {title: Common-law frustration / impossibility, case_law_enabled: false, in_source_register: false, note: Named in KB-BREAK-01 LEGAL / CODE BASIS. Application is fact-sensitive and must not be presented as automatic.}
+  CL-primacy-of-contract:       {title: Primacy of contract / pre-existing rights, case_law_enabled: false, in_source_register: false}
   # Primary uploaded instrument - the AI must read the actual wording (source register, section 2).
-  Lease:                        {title: Uploaded lease / tenancy / parking grant, primary_source: true}
+  Lease:                        {title: Uploaded lease / tenancy / parking grant, primary_source: true, in_source_register: true}
   # Non-SCOP bases for records whose LEGAL / CODE BASIS field is empty in the
   # source. These are categories of argument, not named authorities; case law
   # stays disabled until an administrator verifies it (KB-GOV-06).
-  CL-contract-formation:        {title: Contract formation / acceptance of parking terms, case_law_enabled: false}
-  CL-evidential-weight:         {title: Evidential weight of operator records and ANPR timestamps, case_law_enabled: false}
-  CL-derogation-from-grant:     {title: Derogation from grant, case_law_enabled: false}
-  CL-quiet-enjoyment:           {title: Covenant of quiet enjoyment, case_law_enabled: false}
-  CL-authorisation:             {title: Underlying authorisation / landholder permission, case_law_enabled: false}
+  CL-contract-formation:        {title: Contract formation / acceptance of parking terms, case_law_enabled: false, in_source_register: false}
+  CL-evidential-weight:         {title: Evidential weight of operator records and ANPR timestamps, case_law_enabled: false, in_source_register: false}
+  CL-derogation-from-grant:     {title: Derogation from grant, case_law_enabled: false, in_source_register: false}
+  CL-quiet-enjoyment:           {title: Covenant of quiet enjoyment, case_law_enabled: false, in_source_register: false}
+  CL-authorisation:             {title: Underlying authorisation / landholder permission, case_law_enabled: false, in_source_register: false}

@@ -53,6 +53,11 @@ class CaseState(str, Enum):
     RELEASED = "RELEASED"
     # Debt-recovery / appeal-window closed: normal appeal drafting must not run.
     NO_APPEAL_RIGHT = "NO_APPEAL_RIGHT"
+    # Our own document classifier returned nothing. Distinct from the above
+    # because the customer did nothing wrong and the case is retryable, and
+    # distinct from proceeding because an unclassified document must not enter
+    # the appeal path at all.
+    CLASSIFICATION_FAILED = "CLASSIFICATION_FAILED"
 
 
 # --------------------------------------------------------------------------- facts
@@ -113,6 +118,12 @@ class CaseFile:
     # by the analysis engine, so this is the only record of a question's type and
     # options when the answer comes back.
     pending_questions: list[dict] = field(default_factory=list)
+    # What the classifier itself said each document is, before anything
+    # downstream reassigns EvidenceItem.kind. Empty means the classifier never
+    # answered, which rules/scope.py must not mistake for "not a parking notice".
+    document_classes: dict[str, str] = field(default_factory=dict)
+    # Engine 0's verdict when it routed this case out of the service.
+    scope_stop: Optional[str] = None
     # Grounds chosen by AI case analysis and already vetoed against the KB. The
     # drafter works from these; nothing re-derives them from a route.
     analysis_module_ids: list[str] = field(default_factory=list)
@@ -166,6 +177,13 @@ class KBModule:
     effective_to: Optional[date] = None
     status: str = "ACTIVE"         # ACTIVE / REVIEW / DISABLED
     strength: int = 50             # admin-set base weight 0..100
+    # Provenance for legal review. Carried so a reviewer can trace a proposition
+    # back to the source document without leaving the KB, and so the audit log
+    # can record which review pass a ground came from.
+    source_reference: str = ""
+    legal_basis_origin: str = ""
+    last_legal_review: Optional[date] = None
+    change_notes: str = ""
 
 
 @dataclass
@@ -174,6 +192,12 @@ class BuildingBlock:
     text: str
     requires_evidence: list[str] = field(default_factory=list)
     requires_facts: list[str] = field(default_factory=list)
+    status: str = "ACTIVE"         # ACTIVE / REVIEW / DISABLED, as for a module
+    # Placeholder name in `text` -> fact name that fills it, for the cases where
+    # the approved wording reads better with its own noun ({{bay_reference}})
+    # than with the fact's name (allocated_bay).
+    placeholder_map: dict[str, str] = field(default_factory=dict)
+    source_reference: str = ""
 
 
 # --------------------------------------------------------------------------- reasoning output
@@ -218,6 +242,10 @@ class Draft:
     case_id: str
     paragraphs: list[list[DraftSentence]]
     attempt: int = 1
+    # Set when the drafter declined to write because the retrieved wording
+    # supported no ground at all. An internal line: it is a hold for manual
+    # review, never an error to retry and never shown to the customer.
+    no_ground_reason: Optional[str] = None
 
     def sentences(self) -> list[DraftSentence]:
         return [s for p in self.paragraphs for s in p]

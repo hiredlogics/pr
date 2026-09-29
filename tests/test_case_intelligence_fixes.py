@@ -20,7 +20,7 @@ from pcn_appeal.models import (
 )
 from pcn_appeal.orchestrator import AppealPipeline
 from pcn_appeal.rules.dsl import evaluate
-from support import ReferenceAnalysisLLM
+from support import ReferenceAnalysisLLM, assert_absent_while_under_review, is_approved
 
 
 def fields(**kw):
@@ -269,9 +269,23 @@ class SainsburysPipelineTests(unittest.TestCase):
             [n for n, f in case.facts.items() if f.status == FactStatus.EXTRACTED],
             "Visited Sainsbury's. Shopping receipt is available. Cannot remember using the kiosk.",
         )
-        self.assertIn("KB-REC-01", case.analysis_module_ids)
-        self.assertNotIn("KB-LAND-01", case.analysis_module_ids)
         out = pipe.generate(case)
+        if not is_approved("KB-REC-01", pipe.kg):
+            # The records-request ground is awaiting legal sign-off, so nothing
+            # may argue it and nothing may stand in for it. With the only ground
+            # that answers this allegation withheld, the KB has nothing
+            # fact-specific left, and the letter must still not overstate: it may
+            # not claim the validation step was or was not completed.
+            assert_absent_while_under_review(
+                self, "KB-REC-01", module_ids=case.analysis_module_ids,
+                draft=out.draft, letter=out.letter)
+            low = (out.letter or "").lower()
+            self.assertNotIn("validation occurred", low)
+            self.assertNotIn("was not validated", low)
+            return
+        self.assertIn("KB-REC-01", case.analysis_module_ids)
+        # A records case must not be argued as generic landowner authority.
+        self.assertNotIn("KB-LAND-01", case.analysis_module_ids)
         self.assertIsNotNone(out.letter)
         low = out.letter.lower()
         self.assertIn("8812545842", out.letter)
@@ -468,7 +482,13 @@ class FactRecoveryTests(unittest.TestCase):
         self.assertTrue(case.has("parking_event_date"), case.recovery_report)
         self.assertTrue(case.has("notice_issue_date"))
         self.assertNotIn("parking_event_date", [q["fact"] for q in qs])
-        self.assertIn("KB-REC-01", case.analysis_module_ids)
+        # The subject of this test is recovery, not the ground: a date read off
+        # the notice text must not be asked for. Which ground the recovered facts
+        # then open depends on what the KB currently approves.
+        if is_approved("KB-REC-01", pipe.kg):
+            self.assertIn("KB-REC-01", case.analysis_module_ids)
+        else:
+            self.assertNotIn("KB-REC-01", case.analysis_module_ids)
 
     def test_incomplete_notice_does_not_guess_content_defect(self):
         """One-sided notice: both-sides flag set; no invented PoFA content ground."""
@@ -479,8 +499,7 @@ class FactRecoveryTests(unittest.TestCase):
                                text="Parking Charge Notice Number 8812545842\nEuro Car Parks"),
         })
         pipe = AppealPipeline(llm)
-        flags = pipe.ingest(case)
-        self.assertIn("confirm:notice_both_sides", flags)
+        pipe.ingest(case)
         self.assertFalse(case.get("notice_sides_complete"))
         pipe.confirm(case, {}, [n for n, f in case.facts.items()
                                 if f.status == FactStatus.EXTRACTED], "")
@@ -521,23 +540,34 @@ class GroundClassificationTests(unittest.TestCase):
             "Cannot remember whether the kiosk was used. Receipt available.",
         )
         out = pipe.generate(case)
-        self.assertIn("KB-REC-01", out.pack.module_ids)
-        self.assertEqual(out.pack.primary_route, "RECORDS", out.pack.trace)
-        self.assertNotEqual(out.pack.primary_route, "EVIDENCE")
+        # The point of this test is the route LABEL the customer is shown: a
+        # cautious request for the operator's records is not a claim that
+        # independent evidence contradicts the allegation. That must hold whether
+        # or not the ground itself is currently approved - what must never happen
+        # is the case being labelled EVIDENCE.
+        self.assertNotEqual(out.pack.primary_route, "EVIDENCE", out.pack.trace)
         self.assertNotIn("KB-EV-01", out.pack.module_ids)
         labels = [
             pipe.kg.routes.get(r, {}).get("label", r)
             for r in ([out.pack.primary_route] + list(out.pack.secondary_routes or []))
             if r
         ]
-        self.assertTrue(any("records" in (lab or "").lower() for lab in labels), labels)
         self.assertFalse(
             any("contradict" in (lab or "").lower() for lab in labels), labels)
-        # Diagnostic audit recorded (not fabricated).
-        events = [a for a in case.audit if a.get("event") == "retrieval_pack"]
-        self.assertTrue(events)
-        self.assertEqual(events[-1]["primary_route"], "RECORDS")
         self.assertEqual(case.get("parking_validation_status"), "UNKNOWN")
+
+        events = [a for a in case.audit if a.get("event") == "retrieval_pack"]
+        self.assertTrue(events, "the pack must be recorded either way")
+        if not is_approved("KB-REC-01", pipe.kg):
+            assert_absent_while_under_review(
+                self, "KB-REC-01", module_ids=out.pack.module_ids,
+                draft=out.draft, letter=out.letter)
+            self.assertNotEqual(out.pack.primary_route, "RECORDS")
+            return
+        self.assertIn("KB-REC-01", out.pack.module_ids)
+        self.assertEqual(out.pack.primary_route, "RECORDS", out.pack.trace)
+        self.assertTrue(any("records" in (lab or "").lower() for lab in labels), labels)
+        self.assertEqual(events[-1]["primary_route"], "RECORDS")
 
     def test_genuine_contradiction_still_uses_evidence_route(self):
         llm = ReferenceAnalysisLLM(

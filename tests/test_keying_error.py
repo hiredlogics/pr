@@ -16,6 +16,7 @@ from pcn_appeal.engines.validation import ValidationEngine
 from pcn_appeal.llm import FakeLLM
 from pcn_appeal.models import CaseFile, CaseState, Draft, DraftSentence, EvidenceItem, RetrievalPack
 from pcn_appeal.orchestrator import AppealPipeline
+from support import assert_absent_while_under_review, is_approved
 
 KG = KnowledgeGraph()
 
@@ -223,6 +224,17 @@ class RestrictedBayGround(unittest.TestCase):
         analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
         case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
         out = run(case, pipe, "parent and child bay at Sainsburys", {})
+        # KB-BAY-01 is status REVIEW while the wording is with the client. A
+        # ground the KB has not approved must not reach the letter even when the
+        # analysis engine asks for it by ID: the scripted selection below is
+        # exactly the attempt the status field exists to refuse.
+        if not is_approved("KB-BAY-01", pipe.kg):
+            assert_absent_while_under_review(
+                self, "KB-BAY-01", module_ids=out.pack.module_ids,
+                draft=out.draft, letter=out.letter)
+            self.assertNotIn("observation time of 12:23", out.letter or "")
+            self.assertNotRegex(out.letter or "", r"(?i)\ba child (was|had been|remained)\b")
+            return
         self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
         self.assertIn("KB-BAY-01", out.pack.module_ids)
         self.assertIn("observation time of 12:23", out.letter)
@@ -234,14 +246,24 @@ class RestrictedBayGround(unittest.TestCase):
         analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
         case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
         out = run(case, pipe, "Left Kidd in car with their brother and ran into Sainsbury's.", {})
-        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
+        # The account is still read and normalised - that is extraction's job and
+        # does not depend on any ground - but with KB-BAY-01 under review there is
+        # no approved ground for it to support, so nothing may be argued from it.
         self.assertTrue(case.get("account_contradicts_allegation"))
+        # Customer free text must never be pasted, whichever branch runs.
+        self.assertNotRegex(out.letter or "", r"(?i)left kidd")
+        self.assertNotRegex(out.letter or "", r"(?i)ran into sainsbury")
+        if not is_approved("KB-BAY-01", pipe.kg):
+            assert_absent_while_under_review(
+                self, "KB-BAY-01", module_ids=out.pack.module_ids,
+                draft=out.draft, letter=out.letter)
+            self.assertNotRegex(out.letter or "",
+                                r"(?i)(child remained in the vehicle|presence of children)")
+            return
+        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
         self.assertIn("KB-BAY-01", out.pack.module_ids)
         self.assertRegex(out.letter, r"(?i)(child remained in the vehicle|presence of children)")
         self.assertRegex(out.letter, r"(?i)inconsistent with the factual premise")
-        # Customer free text must not be pasted.
-        self.assertNotRegex(out.letter, r"(?i)left kidd")
-        self.assertNotRegex(out.letter, r"(?i)ran into sainsbury")
 
     def test_bay_case_does_not_ask_ata_or_postcode_when_irrelevant(self):
         from pcn_appeal.engines.analysis import AnalysisEngine, CaseAnalysis

@@ -17,12 +17,13 @@ from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.extraction import ExtractionEngine
 from .engines.questioning import QuestionEngine
-from .engines.reasoning import SUPPORTING_THRESHOLD, ReasoningEngine
+from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine
 from .engines.validation import ValidationEngine
 from .kg.graph import KnowledgeGraph
 from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationResult
-from .rules.dsl import evaluate
+from .rules import scope
+from .rules.scope import ScopeStop
 
 MAX_ATTEMPTS = 3
 
@@ -43,8 +44,8 @@ class AutoAppealResult:
     missing fact gates a ground that would change the letter; answer them and
     call auto_appeal again to finish. Otherwise `output` holds the appeal.
 
-    `NO_APPEAL_RIGHT` (debt recovery / closed window) sets `stop_reason` and
-    never produces an ordinary parking appeal letter.
+    `NO_APPEAL_RIGHT` means Engine 0 routed the document out of this service, so
+    `stop_reason` carries the explanation and no appeal letter is ever produced.
     """
     case_id: str
     state: CaseState
@@ -54,13 +55,16 @@ class AutoAppealResult:
     skipped_questions: list[str]
     stop_reason: Optional[str] = None
     recommendation: Optional[str] = None
+    stop_code: Optional[str] = None
+    cta_label: Optional[str] = None
+    cta_action: Optional[str] = None
 
 
 class AppealPipeline:
     def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None):
         self.kg = kg or KnowledgeGraph()
         self.extraction = ExtractionEngine(llm)
-        self.questions = QuestionEngine(self.kg, llm)
+        self.questions = QuestionEngine(self.kg)
         self.reasoning = ReasoningEngine(self.kg)
         # Exhaust documents + UK rule calculators before any customer question.
         self.recovery = FactRecoveryEngine(self.kg)
@@ -81,10 +85,7 @@ class AppealPipeline:
 
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
         self.extraction.confirm(case, corrections, confirmed)
-        if case.get("debt_recovery_stage"):
-            case.state = CaseState.NO_APPEAL_RIGHT
-            case.audit.append({"event": "no_appeal_right",
-                               "reason": "debt_recovery_stage after confirmation"})
+        if self._apply_scope_stop(case):
             return []
         self.reasoning.enrich(case)
         # Stored raw for audit; assess_material_account promotes keeper-safe
@@ -161,7 +162,7 @@ class AppealPipeline:
             if stopped:
                 return stopped
             questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
-        if case.state == CaseState.NO_APPEAL_RIGHT:
+        if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
             return self._stop_if_no_appeal_right(case, flags)  # type: ignore[return-value]
         if answers:
             questions = self.answer(case, answers)
@@ -178,24 +179,37 @@ class AppealPipeline:
         out = self.generate(case)
         return AutoAppealResult(case.case_id, out.state, [], out, flags, skipped)
 
-    def _stop_if_no_appeal_right(self, case: CaseFile, flags: list[str]) -> Optional[AutoAppealResult]:
-        """Debt-recovery / closed appeal window: do not draft an ordinary appeal.
+    @staticmethod
+    def _apply_scope_stop(case: CaseFile) -> Optional[ScopeStop]:
+        """Engine 0's verdict, applied to the case. Returns the stop, if any.
 
-        The fact is document-derived (EX-13). This is a product eligibility stop,
-        not a legal ground selector - there is no question path and no letter.
+        A product eligibility stop, not a legal ground selector: there is no
+        question path and no letter beyond this point.
         """
-        if not case.get("debt_recovery_stage"):
+        stop = scope.decide(case)
+        if stop is None:
             return None
-        case.state = CaseState.NO_APPEAL_RIGHT
-        reason = ("We cannot proceed with a parking appeal because the documents "
-                  "show the case has reached debt recovery and the right to appeal "
-                  "is no longer available.")
-        recommendation = ("Use the Debt Recovery Letter service instead of an "
-                          "ordinary parking appeal.")
-        case.audit.append({"event": "no_appeal_right", "reason": reason,
-                           "recommendation": recommendation})
+        # A classifier that returned nothing is our failure, not a verdict on the
+        # document, so it gets its own state: the case is retryable and must not
+        # be recorded as having no appeal right.
+        technical = stop.code in scope.TECHNICAL_STOPS
+        case.state = (CaseState.CLASSIFICATION_FAILED if technical
+                      else CaseState.NO_APPEAL_RIGHT)
+        case.scope_stop = stop.code
+        case.audit.append({"event": "classification_failed" if technical else "no_appeal_right",
+                           "document_class": stop.code,
+                           "classified": dict(case.document_classes)})
+        return stop
+
+    def _stop_if_no_appeal_right(self, case: CaseFile, flags: list[str]) -> Optional[AutoAppealResult]:
+        stop = self._apply_scope_stop(case)
+        if stop is None:
+            return None
         return AutoAppealResult(case.case_id, case.state, [], None, flags, [],
-                                stop_reason=reason, recommendation=recommendation)
+                                stop_reason=stop.message,
+                                recommendation=stop.recommendation,
+                                stop_code=stop.code, cta_label=stop.cta_label,
+                                cta_action=stop.cta_action)
 
     @staticmethod
     def _auto_confirmable(case: CaseFile) -> list[str]:
@@ -207,8 +221,8 @@ class AppealPipeline:
 
     # step 4-6
     def generate(self, case: CaseFile) -> AppealOutput:
-        if case.get("debt_recovery_stage"):
-            case.state = CaseState.NO_APPEAL_RIGHT
+        stop = self._apply_scope_stop(case)
+        if stop:
             empty = RetrievalPack(
                 primary_route=None, secondary_routes=[], module_ids=[],
                 verified_facts={}, fact_refs={}, missing_facts=[], evidence_refs=[],
@@ -216,7 +230,7 @@ class AppealPipeline:
                 pofa_findings=[], driver_status=case.driver_status.value,
                 jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
                 context_chunks=[], lease_clauses=[],
-                trace=["stopped: debt_recovery_stage - no ordinary appeal"])
+                trace=[f"stopped: {stop.code} - no ordinary appeal"])
             return AppealOutput(case.state, None, empty,
                                 Draft(case.case_id, []), ValidationResult(False, []), [])
         # Unresolved PCN-number conflict must not ship a letter that may cite
@@ -266,6 +280,26 @@ class AppealPipeline:
                     (case.recovery_report or {}).get("operator_requestable") or []),
             },
         })
+        # Release gate: at least one selected ground must be one the KB allows to
+        # lead. Below SUPPORTING_THRESHOLD the calibration in kb_modules.yaml
+        # reads "evidence / signage / authority support only ... can never lead
+        # the letter", and section 16 p4 keeps landowner authority last and
+        # concise - so a selection made only of those has nothing to support and
+        # no substantive ground paragraph to write. Held before drafting rather
+        # than after: there is nothing a second attempt could add, and the
+        # alternative outcome is a landowner-authority paragraph sent to a
+        # customer as their appeal. The reason is ours and stays in the audit.
+        if not self.reasoning.leading_grounds(pack.module_ids):
+            case.state = CaseState.MANUAL_REVIEW
+            case.audit.append({
+                "event": "no_leading_ground",
+                "module_ids": list(pack.module_ids or []),
+                "reason": "every selected ground is below the strength at which "
+                          "the KB allows a ground to lead the letter",
+            })
+            return AppealOutput(case.state, None, pack, Draft(case.case_id, []),
+                                ValidationResult(False, []), self._evidence_list(case))
+
         feedback: list[str] = []
         draft = result = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -275,6 +309,19 @@ class AppealPipeline:
             except Exception as exc:                     # LLM outage / bad JSON / demo reader
                 case.audit.append({"event": "draft_error", "attempt": attempt, "error": str(exc)})
                 draft = self.fallback.draft(case.case_id, pack, feedback, attempt)
+            # The drafter is allowed to decline: the alternative to "every letter
+            # must contain a ground paragraph" was inventing one. A declined draft
+            # is a hold, so it must not be retried and must not fall through to the
+            # template drafter, which would write the paragraph anyway.
+            if draft.no_ground_reason:
+                case.state = CaseState.MANUAL_REVIEW
+                case.audit.append({"event": "no_ground", "attempt": attempt,
+                                   "reason": draft.no_ground_reason})
+                # The reason is internal and stays in the audit; the customer
+                # gets the manual-review outcome, not the drafter's note.
+                return AppealOutput(case.state, None, pack, draft,
+                                    result or ValidationResult(False, []),
+                                    self._evidence_list(case))
             case.state = CaseState.DRAFTED
             result = self.validation.validate(draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
