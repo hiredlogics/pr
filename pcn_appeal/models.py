@@ -6,6 +6,7 @@ In production, mirror these as Pydantic v2 models at the FastAPI boundary
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
@@ -186,6 +187,13 @@ class KBModule:
     change_notes: str = ""
 
 
+# Sentences inside approved block text that address the DRAFTER, not the
+# operator: "Use only where the actual sign evidence supports this factual
+# proposition." Three Appendix A blocks carry one, and a drafter that renders the
+# block verbatim posts it to the operator as part of the customer's appeal.
+_DRAFTER_NOTE = re.compile(r"^\s*(use\s+(only|where|when)|only\s+use|do\s+not\s+use)\b", re.I)
+
+
 @dataclass
 class BuildingBlock:
     block_id: str
@@ -198,6 +206,19 @@ class BuildingBlock:
     # than with the fact's name (allocated_bay).
     placeholder_map: dict[str, str] = field(default_factory=dict)
     source_reference: str = ""
+
+    @property
+    def letter_text(self) -> str:
+        """`text` with the drafter's own instructions removed.
+
+        `text` stays verbatim, because that is what the KB approved and what a
+        reviewer compares against Appendix A. This is the same wording with the
+        sentences that are addressed to whoever is writing taken out, and it is
+        what any letter is built from.
+        """
+        keep = [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", self.text)
+                if not _DRAFTER_NOTE.match(s)]
+        return " ".join(keep).strip() or self.text
 
 
 # --------------------------------------------------------------------------- reasoning output

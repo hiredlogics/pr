@@ -69,6 +69,13 @@ ANPR_GENERIC = R(r"\b(calibrat|camera maintenance|synchroni[sz]ation of the came
 STAGE = R(r"\b(POPLA|IAS|Independent Appeals Service|county court|small claims|claim form|letter of claim)\b")
 OBSOLETE = R(r"(genuine pre-?estimate|unlawful penalty|penalty charge is unenforceable)")
 LEAK = R(r"(\b(KB|PP|AI|VAL)-[A-Z]{2,}|\{\{|\}\}|as an AI|language model|module_id)")
+# A block's own guidance to whoever drafts from it. Three Appendix A blocks carry
+# such a sentence inside their approved text, so a drafter that renders the block
+# verbatim sent "Use only where the actual sign evidence supports this factual
+# proposition." to the operator. BuildingBlock.letter_text strips them; this
+# refuses a draft that reintroduces one.
+DRAFTER_NOTE = R(r"^\s*(use\s+(only|where|when)\b|only\s+use\b|do\s+not\s+use\b)"
+                 r"|\bthis\s+factual\s+proposition\b|\bafter\s+legal/factual\s+validation\b")
 DATE_TOKEN = R(r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
 MONEY_TOKEN = R(r"£\s?\d+")
 REPORTED = R(r"\b(allegation|alleged|disputed|operator (says|claims|asserts))\b")   # reported speech, not a claim
@@ -167,6 +174,8 @@ class ValidationEngine:
                 block("VAL-OBSOLETE", "Obsolete penalty / pre-estimate argument", t)
             if LEAK.search(t):
                 block("VAL-LEAK", "Internal IDs, placeholders or AI self-reference in output", t)
+            if DRAFTER_NOTE.search(t):
+                block("VAL-LEAK", "Drafting guidance from a building block left in the letter", t)
             if facts.get("payment_made") and NOT_PAID.search(t) and not REPORTED.search(t):
                 block("VAL-CONFLICT", "Contradicts confirmed payment", t)
             # The docstring promised "payment status contradicting source facts";

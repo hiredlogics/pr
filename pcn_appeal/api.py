@@ -340,18 +340,18 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
         return payload
     out = result.output
     payload["evidence_list"] = out.evidence_list
-    # Plain-English route labels. These are a customer-facing summary of what the
-    # letter argues, not the internal grounds: no module ID, route code or
-    # reasoning reaches this list.
-    payload["grounds"] = _ground_labels(out.pack)
     if out.state == CaseState.RELEASED:
+        # Plain-English route labels summarising what this letter argues. Only a
+        # released letter gets them: on a held case they described grounds the
+        # customer never received, which read as a letter that had been written.
+        payload["grounds"] = _ground_labels(out.pack)
         payload["letter"] = out.letter
         # the plain-text field above is what validation checked; this is the
         # same letter laid out as a document a customer can actually send
         payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"
-    else:
-        payload["blocking_issues"] = [i.message for i in out.validation.issues
-                                      if i.severity == "BLOCK"]
+    # A held case sends state only. Validator messages name the rule, the
+    # sentence and the fact it could not stand on - that is internal reasoning,
+    # and it belongs to GET /cases/{id}/trace, not to the customer.
     return payload
 
 
@@ -540,14 +540,11 @@ def confirm(case_id: str, body: ConfirmIn):
     _persist(case, out)
     payload = {"case_id": case.case_id, "state": out.state.value,
                "flags": _customer_flags(rec.get("flags") or []), "questions": [],
-               "skipped_questions": [], "evidence_list": out.evidence_list,
-               "grounds": _ground_labels(out.pack)}
+               "skipped_questions": [], "evidence_list": out.evidence_list}
     if out.state == CaseState.RELEASED:
+        payload["grounds"] = _ground_labels(out.pack)      # see /auto_appeal
         payload["letter"] = out.letter
         payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
-    else:
-        payload["blocking_issues"] = [i.message for i in out.validation.issues
-                                      if i.severity == "BLOCK"]
     return payload
 
 

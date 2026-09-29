@@ -382,6 +382,13 @@ class ExtractionEngine:
                           confidence=1.0))
             if "pcn_number" in case.facts:
                 case.facts["pcn_number"].status = FactStatus.UNCERTAIN
+            # Kept as a fact, not only in the audit, so the pipeline can put the
+            # candidates to the customer as a closed choice. Without them the
+            # conflict was unresolvable in the one-click flow: the number is
+            # UNCERTAIN so auto-confirm skips it (EX-02) and nothing asked.
+            case.put(Fact("F-pcn_candidates", "pcn_candidates", sorted(scanned),
+                          FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "pcn_cross_check")))
             case.audit.append({"event": "pcn_conflict",
                                "candidates": sorted(scanned)})
 

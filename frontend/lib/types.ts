@@ -77,10 +77,9 @@ export type AppealResponse = {
   // Present once the pipeline has produced an output pack. Routes, PoFA codes,
   // Code versions, module IDs and the retrieval trace are deliberately not part
   // of this contract: they are internal, and live on GET /cases/{id}/trace.
-  grounds?: string[]; // plain-English route labels, supplied by the backend
+  grounds?: string[]; // plain-English route labels; only when state === "RELEASED"
   evidence_list?: string[];
   letter?: string; // only when state === "RELEASED"
-  blocking_issues?: string[];
   /** Set when state === NO_APPEAL_RIGHT: the document was routed out of this service. */
   stop_code?: string;
   stop_reason?: string;

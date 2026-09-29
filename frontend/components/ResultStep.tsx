@@ -97,7 +97,12 @@ export default function ResultStep({
   // them a reviewer will look at it would be wrong — they can just try again.
   const technicalError = data.state === "CLASSIFICATION_FAILED";
   const awaitingQuestions = (data.questions?.length ?? 0) > 0;
-  const needsReview =
+  // The pipeline asks for what it is missing, retrieves more of the knowledge
+  // base, re-analyses, drops a ground it cannot stand behind and re-drafts
+  // before it ever lands here. So this is not "a reviewer will pick it up" —
+  // automatic recovery has already run and could not get to a letter we are
+  // willing to put someone's name on. The customer's next move is their own.
+  const couldNotFinish =
     !released &&
     !noAppeal &&
     !technicalError &&
@@ -106,8 +111,7 @@ export default function ResultStep({
       data.state === "VALIDATION_FAILED" ||
       data.state === "DRAFTED" ||
       data.state === "CONFIRMED" ||
-      data.state === "ANALYSED" ||
-      Boolean(data.blocking_issues?.length));
+      data.state === "ANALYSED");
 
   return (
     <div className="stack">
@@ -187,25 +191,30 @@ export default function ResultStep({
         <div className="card stack">
           <div>
             <h1>
-              {needsReview
-                ? "This one needs a person to look at it"
+              {couldNotFinish
+                ? "We could not write an appeal for this notice"
                 : "No final appeal is ready yet"}
             </h1>
             <p className="lede">
-              {needsReview
-                ? "We could not release a letter for this case automatically. The checks below stopped it, and a reviewer needs to resolve them first."
+              {couldNotFinish
+                ? "Nothing in what you sent us gives an appeal that would stand up, so we will not send you a letter that is likely to be rejected. If there is more to the story — photos of the signs, a receipt, a permit, or anything else from that day — start again and add it."
                 : "A generic introduction or incomplete draft is never shown as a finished appeal. Continue the steps, or start again if something went wrong."}
             </p>
           </div>
 
-          {data.blocking_issues && data.blocking_issues.length > 0 && (
+          {couldNotFinish && (
             <div className="notice" data-tone="attention">
-              <h3>What stopped it</h3>
-              <ul>
-                {data.blocking_issues.map((message, i) => (
-                  <li key={i}>{message}</li>
-                ))}
-              </ul>
+              <h3>What to do next</h3>
+              <p>
+                You can still appeal to the operator in your own words using the method on your
+                notice, and if they reject it you can take it to the operator&rsquo;s appeals
+                service. Doing that keeps your options open and costs nothing.
+              </p>
+              <p style={{ marginTop: 12 }}>
+                <button className="btn btn-primary btn-inline" onClick={onRestart}>
+                  Start again with more detail &rarr;
+                </button>
+              </p>
             </div>
           )}
         </div>

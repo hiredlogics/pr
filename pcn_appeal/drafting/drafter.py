@@ -221,9 +221,9 @@ class TemplateDrafter:
         # ordering has already been applied to pack.module_ids.
         grouped: list[tuple[str, list[DraftSentence]]] = []
 
-        intro = self._sentences(self.kg.blocks["PP-INTRO-001"].text, pack, "STRUCTURAL")
+        intro = self._sentences(self.kg.blocks["PP-INTRO-001"].letter_text, pack, "STRUCTURAL")
         if pack.driver_status == "UNIDENTIFIED":
-            intro += self._sentences(self.kg.blocks["PP-INTRO-002"].text, pack, "STRUCTURAL")
+            intro += self._sentences(self.kg.blocks["PP-INTRO-002"].letter_text, pack, "STRUCTURAL")
         paras.append(intro)
         used |= {"PP-INTRO-001", "PP-INTRO-002"}
 
@@ -287,14 +287,14 @@ class TemplateDrafter:
                             pack.verified_facts.get(f) for f in blk.requires_facts):
                         continue
                     ev = [eid for eid, kind in pack.evidence_index.items() if kind in blk.requires_evidence]
-                    para += self._sentences(blk.text, pack, mid, ev, blk.placeholder_map)
+                    para += self._sentences(blk.letter_text, pack, mid, ev, blk.placeholder_map)
                     used.add(bid)
             if para:
                 grouped.append((mod.route, para))
 
         paras += self._one_argument_per_theory(grouped)
 
-        closing = self._sentences(self.kg.blocks["PP-END-001"].text, pack, "STRUCTURAL") + \
-            self._sentences(self.kg.blocks["PP-END-002"].text, pack, "STRUCTURAL")
+        closing = self._sentences(self.kg.blocks["PP-END-001"].letter_text, pack, "STRUCTURAL") + \
+            self._sentences(self.kg.blocks["PP-END-002"].letter_text, pack, "STRUCTURAL")
         paras.append(closing)
         return Draft(case_id, paras, attempt)

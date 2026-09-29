@@ -26,6 +26,10 @@ from .rules import scope
 from .rules.scope import ScopeStop
 
 MAX_ATTEMPTS = 3
+# Re-analysis rounds inside generate() before the last-resort safety stop. The
+# customer flow always attempts automatic completion: a case whose first
+# analysis produced nothing that can lead is re-analysed, not held.
+MAX_ANALYSIS_ROUNDS = 3
 
 
 @dataclass
@@ -111,6 +115,8 @@ class AppealPipeline:
         assess_material_account(case)
         analysis = self.analysis_of(case, narrative)
         case.analysis_module_ids = analysis.module_ids
+        questions = self._pcn_conflict_question(case) + analysis.questions
+        analysis.questions = questions
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
         # next round. Mark as asked when presented; record_answer is idempotent.
@@ -121,6 +127,32 @@ class AppealPipeline:
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
                            "asking": [q["fact"] for q in analysis.questions]})
         return analysis.questions
+
+    @staticmethod
+    def _pcn_conflict_question(case: CaseFile) -> list[dict]:
+        """The one question a missing value is never allowed to generate, and a
+        conflict has to.
+
+        Two documents carrying different charge numbers is not an absent field:
+        the letter must cite one of them, and citing the wrong one puts the
+        customer's appeal against a charge that is not theirs. The extractor
+        marks the number UNCERTAIN, which correctly bars it from grounding
+        anything (EX-02) and also stops auto-confirm settling it, so before this
+        the case could only be held. Asking is the resolution; the options are
+        the numbers actually read off the documents, so it cannot invent one.
+        """
+        if not case.get("pcn_conflict") or "pcn_number" in case.asked_questions:
+            return []
+        options = [str(c) for c in (case.get("pcn_candidates") or [])]
+        if len(options) < 2:
+            return []
+        return [{
+            "fact": "pcn_number",
+            "text": "Your documents show more than one charge number. "
+                    "Which one is on the notice you are appealing?",
+            "type": "choice",
+            "options": options,
+        }]
 
     def analysis_of(self, case: CaseFile, narrative: str):
         """Case analysis with the deterministic inputs it must respect.
@@ -233,8 +265,11 @@ class AppealPipeline:
                 trace=[f"stopped: {stop.code} - no ordinary appeal"])
             return AppealOutput(case.state, None, empty,
                                 Draft(case.case_id, []), ValidationResult(False, []), [])
-        # Unresolved PCN-number conflict must not ship a letter that may cite
-        # the wrong reference. Confirm/correct on the confirmation screen first.
+        # Unresolved PCN-number conflict must not ship a letter that may cite the
+        # wrong reference: an appeal against a charge that is not the customer's
+        # is worse than no appeal. Reaching here means the question above was put
+        # and not answered, or the conflict was never confirmed away - so this is
+        # the safety stop, not the first response to the conflict.
         if case.get("pcn_conflict"):
             case.state = CaseState.MANUAL_REVIEW
             case.audit.append({"event": "blocked_pcn_conflict",
@@ -254,7 +289,7 @@ class AppealPipeline:
                                       "Confirm the correct number before a letter can be released.")]
             return AppealOutput(case.state, None, empty, Draft(case.case_id, []),
                                 ValidationResult(False, issues), [])
-        pack = self.reasoning.analyse(case, selected_ids=getattr(case, 'analysis_module_ids', None))
+        pack = self._analyse_until_a_ground_can_lead(case)
         # Structured diagnostic for audit / support — never invents retrieval hits.
         case.audit.append({
             "event": "retrieval_pack",
@@ -280,48 +315,52 @@ class AppealPipeline:
                     (case.recovery_report or {}).get("operator_requestable") or []),
             },
         })
-        # Release gate: at least one selected ground must be one the KB allows to
-        # lead. Below SUPPORTING_THRESHOLD the calibration in kb_modules.yaml
-        # reads "evidence / signage / authority support only ... can never lead
-        # the letter", and section 16 p4 keeps landowner authority last and
-        # concise - so a selection made only of those has nothing to support and
-        # no substantive ground paragraph to write. Held before drafting rather
-        # than after: there is nothing a second attempt could add, and the
-        # alternative outcome is a landowner-authority paragraph sent to a
-        # customer as their appeal. The reason is ours and stays in the audit.
+        # Last-resort safety, reached only after the recovery above. The KB's own
+        # strength calibration says a module below SUPPORTING_THRESHOLD is
+        # "support only ... can never lead the letter", so with nothing else there
+        # is no appeal to write - only an intro, a landowner paragraph and a
+        # request to cancel. That is not a letter to send a customer, and it is
+        # the one outcome automatic completion cannot produce its way out of.
         if not self.reasoning.leading_grounds(pack.module_ids):
             case.state = CaseState.MANUAL_REVIEW
             case.audit.append({
                 "event": "no_leading_ground",
                 "module_ids": list(pack.module_ids or []),
-                "reason": "every selected ground is below the strength at which "
-                          "the KB allows a ground to lead the letter",
+                "reason": "recovery exhausted: no ground the KB allows to lead",
             })
             return AppealOutput(case.state, None, pack, Draft(case.case_id, []),
                                 ValidationResult(False, []), self._evidence_list(case))
 
         feedback: list[str] = []
         draft = result = None
-        for attempt in range(1, MAX_ATTEMPTS + 1):
+        widened = False
+        attempt = 0
+        while attempt < MAX_ATTEMPTS:
+            attempt += 1
             drafter = self.drafter if attempt < MAX_ATTEMPTS else self.fallback
             try:
                 draft = drafter.draft(case.case_id, pack, feedback, attempt)
             except Exception as exc:                     # LLM outage / bad JSON / demo reader
                 case.audit.append({"event": "draft_error", "attempt": attempt, "error": str(exc)})
                 draft = self.fallback.draft(case.case_id, pack, feedback, attempt)
-            # The drafter is allowed to decline: the alternative to "every letter
-            # must contain a ground paragraph" was inventing one. A declined draft
-            # is a hold, so it must not be retried and must not fall through to the
-            # template drafter, which would write the paragraph anyway.
+
+            # The drafter declined for want of anything to argue from. That is
+            # missing knowledge, not a dead end: widen retrieval over the same
+            # grounds and let it try again. Only if it declines a second time,
+            # with every approved block of every chosen ground in front of it,
+            # is there really nothing there - and the template drafter, which
+            # works straight from those blocks, gets the last word.
             if draft.no_ground_reason:
-                case.state = CaseState.MANUAL_REVIEW
                 case.audit.append({"event": "no_ground", "attempt": attempt,
-                                   "reason": draft.no_ground_reason})
-                # The reason is internal and stays in the audit; the customer
-                # gets the manual-review outcome, not the drafter's note.
-                return AppealOutput(case.state, None, pack, draft,
-                                    result or ValidationResult(False, []),
-                                    self._evidence_list(case))
+                                   "reason": draft.no_ground_reason, "widened": widened})
+                if not widened:
+                    widened = True
+                    pack = self.reasoning.analyse(
+                        case, selected_ids=case.analysis_module_ids, widen=True)
+                    attempt -= 1                     # the retry is not an attempt
+                    continue
+                draft = self.fallback.draft(case.case_id, pack, feedback, attempt)
+
             case.state = CaseState.DRAFTED
             result = self.validation.validate(draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
@@ -331,8 +370,72 @@ class AppealPipeline:
                 return AppealOutput(case.state, render(draft), pack, draft, result, self._evidence_list(case))
             case.state = CaseState.VALIDATION_FAILED
             feedback = [f"{i.rule}: {i.message} :: {i.sentence}" for i in result.issues]
+
+        # Every attempt was refused for something a specific sentence said. Drop
+        # those sentences and check what is left: an unsupported point is meant
+        # to be omitted, not to take the rest of a sound letter down with it.
+        trimmed, dropped = self._without_failing_sentences(draft, result)
+        if dropped:
+            checked = self.validation.validate(trimmed, pack)
+            case.audit.append({"event": "dropped_failing_sentences",
+                               "dropped": dropped, "passed": checked.passed,
+                               "issues": [i.rule for i in checked.issues]})
+            if checked.passed:
+                case.state = CaseState.RELEASED
+                return AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
+                                    self._evidence_list(case))
+
         case.state = CaseState.MANUAL_REVIEW
         return AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case))
+
+    # --------------------------------------------------------- recovery rungs
+    def _analyse_until_a_ground_can_lead(self, case: CaseFile) -> RetrievalPack:
+        """Build the pack, re-analysing while nothing can carry the letter.
+
+        Case analysis reads the notice and the account afresh each round, and a
+        round that came back with only the keeper-liability framing point is the
+        commonest reason a perfectly ordinary case used to stop: the same facts
+        re-analysed return the grounds that answer the allegation. So an unclear
+        case is re-analysed rather than held.
+
+        Questions a later round raises are recorded but not put to the customer -
+        by this point they have finished answering or declined to, and going back
+        to ask would loop. The facts stay absent, so any module they gate simply
+        does not fire.
+        """
+        pack = self.reasoning.analyse(case, selected_ids=case.analysis_module_ids)
+        for round_no in range(2, MAX_ANALYSIS_ROUNDS + 1):
+            if self.reasoning.leading_grounds(pack.module_ids):
+                return pack
+            before = list(case.analysis_module_ids or [])
+            asked = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            case.audit.append({"event": "ground_recovery", "round": round_no,
+                               "was": before, "now": list(case.analysis_module_ids or []),
+                               "questions_not_put": [q.get("fact") for q in asked]})
+            pack = self.reasoning.analyse(case, selected_ids=case.analysis_module_ids)
+            if list(case.analysis_module_ids or []) == before:
+                break              # the same answer twice; another round is waste
+        return pack
+
+    @staticmethod
+    def _without_failing_sentences(draft: Optional[Draft],
+                                   result: Optional[ValidationResult]):
+        """The draft minus the sentences validation blocked.
+
+        Only usable when every blocking issue names a sentence. A document-level
+        refusal - a missing PCN number, no substantive ground at all - is about
+        what the letter does not say, and dropping sentences cannot answer it.
+        """
+        if draft is None or result is None:
+            return draft, []
+        blocking = [i for i in result.issues if i.severity == "BLOCK"]
+        if not blocking or any(not i.sentence for i in blocking):
+            return draft, []
+        bad = {i.sentence for i in blocking}
+        paragraphs = [[s for s in p if s.text not in bad] for p in draft.paragraphs]
+        kept = [p for p in paragraphs if p]
+        dropped = sorted(bad)
+        return Draft(draft.case_id, kept, draft.attempt), dropped
 
     @staticmethod
     def _evidence_list(case: CaseFile) -> list[str]:

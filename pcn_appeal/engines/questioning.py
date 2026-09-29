@@ -104,6 +104,12 @@ class QuestionEngine:
             return
         case.put(Fact(f"F-{fact}", fact, value, FactStatus.ANSWERED,
                       FactSource(SourceKind.ANSWER, f"answer:{fact}")))
+        # Answering which charge number is the right one settles the conflict the
+        # extractor found, exactly as confirming it on the confirmation screen
+        # does. Without this the gate stayed shut on an answered question.
+        if fact == "pcn_number" and case.get("pcn_conflict"):
+            case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
+                          FactSource(SourceKind.ANSWER, "answer:pcn_number")))
         case.state = CaseState.QUESTIONING
 
     @staticmethod

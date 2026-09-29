@@ -51,7 +51,7 @@ class ReasoningEngine:
                 # A block awaiting legal review is not approved wording, so it
                 # never enters the corpus - it must not be retrievable at all.
                 if b in kg.blocks and kg.blocks[b].status == "ACTIVE":
-                    corpus.append(Doc(b, kg.blocks[b].text, {"module_id": m.module_id, "kind": "block",
+                    corpus.append(Doc(b, kg.blocks[b].letter_text, {"module_id": m.module_id, "kind": "block",
                                                             "block_id": b}))
         self.retriever = HybridRetriever(corpus, embedder)
 
@@ -98,13 +98,20 @@ class ReasoningEngine:
         return version if status == "RESOLVED" else None, res
 
     # ------------------------------------------------------------------ main
-    def analyse(self, case: CaseFile, selected_ids: Optional[list[str]] = None) -> RetrievalPack:
+    def analyse(self, case: CaseFile, selected_ids: Optional[list[str]] = None,
+                widen: bool = False) -> RetrievalPack:
         """Build the drafting pack for the grounds case analysis chose.
 
         `selected_ids` are those grounds, already vetoed against the KB. This
         engine gates them again, resolves conflicts and orders them; it does not
         select. Route ranking used to select here, and that is gone: routes now
         only order the letter. None means nothing was selected.
+
+        `widen` retrieves more knowledge for the SAME grounds: every approved
+        block of a selected module, not only those the ranked search surfaced.
+        It never adds a ground - a module analysis did not choose stays out -
+        so the widest pack is still only the chosen case, argued with more of
+        the knowledge base behind it.
         """
         trace: list[str] = []
         version, pofa_res = self._applicability(case, trace)
@@ -172,7 +179,7 @@ class ReasoningEngine:
             if m.route != primary and m.route not in secondary:
                 secondary.append(m.route)
         return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
-                          trace, ordered=[m.module_id for m in selected])
+                          trace, ordered=[m.module_id for m in selected], widen=widen)
 
     def leading_grounds(self, module_ids) -> list[str]:
         """Of `module_ids`, those the KB allows to carry the letter.
@@ -227,7 +234,8 @@ class ReasoningEngine:
 
     # ------------------------------------------------------------------ pack
     def _pack(self, case: CaseFile, selected, primary, secondary, facts,
-              version, pofa_res, trace: list[str], ordered: list[str]) -> RetrievalPack:
+              version, pofa_res, trace: list[str], ordered: list[str],
+              widen: bool = False) -> RetrievalPack:
         """Retrieval restricted to the chosen grounds, then the pack the drafter sees.
 
         The block gates below are safeguards, not selection: a paragraph that
@@ -238,6 +246,20 @@ class ReasoningEngine:
         allowed = {m.module_id for m in selected}
         query = f"{primary or ''} {case.get('alleged_breach', '')} " + " ".join(m.topic for m in selected)
         hits = self.retriever.search(query, allowed_ids=allowed, k=40)
+        if widen:
+            # Ranked search can leave a selected ground's own wording out of the
+            # top hits, and the drafter then argues that ground with nothing to
+            # argue it from. Adding the rest of its approved blocks is more
+            # knowledge for the same case, not a wider case: the gates below
+            # still apply to every one of them.
+            found = {d.doc_id for d in hits}
+            extra = [Doc(b, self.kg.blocks[b].letter_text,
+                         {"module_id": m.module_id, "kind": "block", "block_id": b})
+                     for m in selected for b in m.building_blocks
+                     if b in self.kg.blocks and b not in found]
+            if extra:
+                trace.append(f"widened retrieval: +{[d.doc_id for d in extra]}")
+                hits = list(hits) + extra
         uploaded = {e.kind for e in case.evidence.values() if e.uploaded}
         chunks = []
         placeholder_maps: dict[str, dict[str, str]] = {}
