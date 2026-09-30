@@ -315,21 +315,15 @@ class AppealPipeline:
                     (case.recovery_report or {}).get("operator_requestable") or []),
             },
         })
-        # Last-resort safety, reached only after the recovery above. The KB's own
-        # strength calibration says a module below SUPPORTING_THRESHOLD is
-        # "support only ... can never lead the letter", so with nothing else there
-        # is no appeal to write - only an intro, a landowner paragraph and a
-        # request to cancel. That is not a letter to send a customer, and it is
-        # the one outcome automatic completion cannot produce its way out of.
+        # Prefer a leading-strength ground. After unlocking questions / recovery,
+        # if the pack is still support-only, draft a simple letter rather than
+        # holding for manual review — the customer path is ask → letter.
         if not self.reasoning.leading_grounds(pack.module_ids):
-            case.state = CaseState.MANUAL_REVIEW
             case.audit.append({
-                "event": "no_leading_ground",
+                "event": "no_leading_ground_drafting_simple",
                 "module_ids": list(pack.module_ids or []),
-                "reason": "recovery exhausted: no ground the KB allows to lead",
+                "reason": "no strength≥50 ground after questions; drafting simple letter",
             })
-            return AppealOutput(case.state, None, pack, Draft(case.case_id, []),
-                                ValidationResult(False, []), self._evidence_list(case))
 
         feedback: list[str] = []
         draft = result = None

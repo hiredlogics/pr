@@ -54,6 +54,31 @@ ANPR_SHAPED_FACTS = {
     "multiple_visits",
 }
 
+# Strength at or above this may lead a letter (mirrors reasoning.SUPPORTING_THRESHOLD).
+LEADING_STRENGTH = 50
+
+# When analysis has no leading ground and the model asked nothing, ask plain
+# situation facts that can unlock payment / permit / bay / signage / auth paths.
+SITUATION_FALLBACK: list[dict[str, Any]] = [
+    {"fact": "payment_made", "text": "Was a parking payment made or attempted for this visit?",
+     "type": "bool", "material_because": "unlocks payment / keying grounds"},
+    {"fact": "genuine_customer",
+     "text": "Was the visit connected with genuine use of the premises at this location?",
+     "type": "bool", "material_because": "unlocks customer / authorisation grounds"},
+    {"fact": "permit_held",
+     "text": "Was a permit or permission to park held for this location?",
+     "type": "bool", "material_because": "unlocks permit grounds"},
+    {"fact": "signage_issue_raised",
+     "text": "Is there a specific problem with the signs (missing, hidden, damaged, unlit or contradictory)?",
+     "type": "bool", "material_because": "unlocks signage grounds"},
+    {"fact": "short_presence_before_acceptance",
+     "text": "Did the vehicle leave without parking, or was time spent looking for a space or reading the terms?",
+     "type": "bool", "material_because": "unlocks consideration / presence grounds"},
+    {"fact": "vehicle_immobilised",
+     "text": "Did the vehicle become mechanically unable to move (for example breakdown, flat battery or puncture)?",
+     "type": "bool", "material_because": "unlocks breakdown grounds"},
+]
+
 # Semantic topic clusters. Exact fact-name dedupe alone lets the model re-ask
 # "did you use the kiosk?" as "can you remember validating?" under a new name.
 # Any prior ask or answered fact whose name/text hits a cluster blocks further
@@ -180,6 +205,9 @@ class AnalysisEngine:
         # it chose. Both go through the same safeguards below.
         asking = list(raw.get("questions") or []) + self._unlocking_questions(case, result, facts)
         result.questions = self._safe_questions(case, asking, result)
+        # Thin packs (support-only / landowner-only) must ask before drafting —
+        # never dump the customer into manual review with nothing to answer.
+        result.questions = self._ensure_situation_questions(case, result)
 
         case.audit.append({
             "event": "case_analysis",
@@ -460,6 +488,29 @@ class AnalysisEngine:
                     "kb_gated": True,
                 })
         return out
+
+    def _has_leading_ground(self, module_ids: list[str]) -> bool:
+        return any(
+            (m := self.kg.modules.get(mid)) and m.strength >= LEADING_STRENGTH
+            for mid in (module_ids or [])
+        )
+
+    def _ensure_situation_questions(self, case: CaseFile,
+                                    result: CaseAnalysis) -> list[dict]:
+        """If nothing selected can lead a letter and the model asked nothing,
+        ask a short set of situation facts instead of ending in manual review."""
+        if result.questions:
+            return result.questions
+        if self._has_leading_ground(result.module_ids):
+            return result.questions
+        injected = self._safe_questions(case, list(SITUATION_FALLBACK), result)
+        if injected:
+            result.trace.append(
+                f"injected situation questions (no leading ground): "
+                f"{[q['fact'] for q in injected]}")
+            return injected
+        result.trace.append("no leading ground and no further situation questions available")
+        return result.questions
 
     def _safe_questions(self, case: CaseFile, proposed: list[dict],
                         result: CaseAnalysis) -> list[dict]:

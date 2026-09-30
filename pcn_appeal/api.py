@@ -298,10 +298,20 @@ def _ground_labels(pack) -> list[str]:
 # a customer shown a raw flag name learns nothing and worries anyway. The
 # internal view of a case lives at GET /cases/{id}/trace.
 CUSTOMER_FLAG_KINDS = ("uncertain", "conflict", "chronology")
+# OCR hints that never gate the letter and cannot be corrected by the customer.
+_CUSTOMER_FLAG_HIDE_FIELDS = frozenset({"relevant_land_hint"})
 
 
 def _customer_flags(flags: list[str]) -> list[str]:
-    return [f for f in (flags or []) if f.split(":", 1)[0] in CUSTOMER_FLAG_KINDS]
+    out: list[str] = []
+    for f in (flags or []):
+        kind, _, field = f.partition(":")
+        if kind not in CUSTOMER_FLAG_KINDS:
+            continue
+        if field in _CUSTOMER_FLAG_HIDE_FIELDS:
+            continue
+        out.append(f)
+    return out
 
 
 def _stop_payload(case: CaseFile) -> dict:

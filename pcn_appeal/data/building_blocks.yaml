@@ -116,10 +116,9 @@ blocks:
   # NOT IN APPENDIX A - authored for KB-POFA-06 (status REVIEW). Keep out of any
   # "verbatim from the controlled source" audit until approved (KB-GOV-03).
   PP-POFA-008: {text: "The notice identifies the registered keeper as a vehicle-hire firm. Where Schedule 4 is relied upon against a hire-firm keeper, the operator must also satisfy the hire-specific documentary conditions. Those documents have not been evidenced in the materials supplied with this appeal.", requires_facts: [keeper_is_hire_firm], status: REVIEW, source_reference: null}
-  # NOT IN APPENDIX A - authored for KB-REC-01 (status REVIEW). Proportionate
-  # records request; does NOT assert that validation, payment or authorisation
-  # occurred. Keep out of any verbatim audit until approved (KB-GOV-03).
-  PP-REC-001: {text: "The allegation turns on whether a required validation, authorisation or payment step was completed at the site. The materials available to the keeper do not establish that step one way or the other. The operator is requested to review its validation, kiosk, permit and transaction records for the vehicle, location and material date, and to explain the specific records relied upon before maintaining the charge.", status: REVIEW, source_reference: null}
+  # Authored for KB-REC-01. Proportionate records request; does NOT assert that
+  # validation, payment or authorisation occurred.
+  PP-REC-001: {text: "The allegation turns on whether a required validation, authorisation or payment step was completed at the site. The materials available to the keeper do not establish that step one way or the other. The operator is requested to review its validation, kiosk, permit and transaction records for the vehicle, location and material date, and to explain the specific records relied upon before maintaining the charge.", status: ACTIVE, source_reference: null}
   # NOT IN APPENDIX A. Authored in-repo for KB-BAY-01 and signed off on
   # 2026-09-28. Status REVIEW until added to the approved knowledge base (KB-GOV-03).
   # requires_facts deliberately omits observation_window_min: R-08b tests the

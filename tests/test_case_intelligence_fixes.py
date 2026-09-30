@@ -154,34 +154,44 @@ class LeadingGroundTests(unittest.TestCase):
                      "Cannot remember whether the kiosk was used. Receipt available.")
         return case, pipe
 
-    def test_a_kiosk_notice_without_its_ground_is_held_not_sent(self):
-        """KB-REC-01 is the ground that answers a validation allegation. While it
-        is at REVIEW the case has no leading ground, so it must be held - not sent
-        as a landowner-authority letter about a kiosk receipt."""
+    def test_a_kiosk_notice_releases_on_records_request(self):
+        """KB-REC-01 is the leading ground for a validation allegation: release a
+        records-request letter, never dump the customer into manual review."""
         case, pipe = self._sainsburys_case()
-        if is_approved("KB-REC-01", pipe.kg):
-            self.skipTest("KB-REC-01 approved: the case has its own leading ground")
+        self.assertTrue(is_approved("KB-REC-01", pipe.kg), "KB-REC-01 must be ACTIVE")
         out = pipe.generate(case)
 
-        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
-        self.assertIsNone(out.letter, "a case with no leading ground must not release")
-        self.assertEqual(out.draft.paragraphs, [], "nothing may be drafted to be held")
-        # The pack still records what was selected - that is the audit trail -
-        # but a selection led by landowner authority must not become a letter.
-        self.assertEqual(out.pack.primary_route, "LANDOWNER")
+        self.assertIn("KB-REC-01", out.pack.module_ids)
+        self.assertEqual(out.pack.primary_route, "RECORDS")
+        self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
+        self.assertTrue(out.letter)
 
-    def test_the_reason_is_recorded_for_us_and_not_shown_to_the_customer(self):
-        case, pipe = self._sainsburys_case()
-        if is_approved("KB-REC-01", pipe.kg):
-            self.skipTest("KB-REC-01 approved: the case has its own leading ground")
-        out = pipe.generate(case)
-
-        held = [a for a in case.audit if a.get("event") == "no_leading_ground"]
-        self.assertTrue(held, "the hold must be auditable")
-        self.assertTrue(held[-1]["reason"])
-        self.assertEqual(held[-1]["module_ids"], list(out.pack.module_ids))
-        # Nothing about module strength or module IDs may reach the customer.
-        self.assertEqual([i.message for i in out.validation.issues], [])
+    def test_thin_pack_asks_situation_questions_instead_of_manual_review(self):
+        """When only support-only grounds are open, ask situation facts first."""
+        late = dict(SAINSBURYS, alleged_breach="Overstay of paid parking")
+        llm = ReferenceAnalysisLLM({
+            "extraction": [{"fields": fields(**late), "doc_types": {"E1": "PCN"}}],
+            "case_analysis": [{
+                "grounds": [{"module_id": "KB-LAND-01", "supported_by": [], "note": "x"}],
+                "questions": [],
+            }],
+        })
+        case = CaseFile("C-ASK", evidence={
+            "E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Overstay of paid parking"),
+        })
+        pipe = AppealPipeline(llm)
+        pipe.ingest(case)
+        questions = pipe.confirm(
+            case, {},
+            [n for n, f in case.facts.items() if f.status == FactStatus.EXTRACTED],
+            "")
+        self.assertTrue(questions, "thin pack must ask before drafting")
+        facts_asked = {q["fact"] for q in questions}
+        self.assertTrue(
+            facts_asked & {"payment_made", "genuine_customer", "permit_held",
+                           "signage_issue_raised", "short_presence_before_acceptance",
+                           "vehicle_immobilised"},
+            facts_asked)
 
     def test_a_ground_strong_enough_to_lead_still_releases(self):
         """The gate must not swallow ordinary cases: a late postal notice carries

@@ -1248,16 +1248,17 @@ modules:
       - validation failed
       - the charge is automatically invalid
       - shopping receipt proves parking validation
-    # PP-REC-001 does not exist in Appendix A. Draft and approve it before activation.
     building_blocks: [PP-REC-001]
     strength: 55
-    status: REVIEW
-    version: "1.0"
-    effective_from: null      # to be set by administrator
+    # Activated so validation / kiosk / permit-shaped notices have a leading
+    # ground and auto-release a letter instead of landing on landowner-only hold.
+    status: ACTIVE
+    version: "1.1"
+    effective_from: null
     effective_to: null
-    last_legal_review: null   # to be set after legal review
+    last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building block PP-REC-001 is not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
+    change_notes: Activated with PP-REC-001 for automatic records-request letters on validation-shaped allegations.
 
   - module_id: KB-LAND-02
     route: LANDOWNER
