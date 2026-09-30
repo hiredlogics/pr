@@ -16,6 +16,7 @@ from .drafting.drafter import LLMDrafter, TemplateDrafter
 from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.extraction import ExtractionEngine
+from .engines.outcome import classify_hold
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine
@@ -32,6 +33,22 @@ MAX_ATTEMPTS = 3
 MAX_ANALYSIS_ROUNDS = 3
 
 
+def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
+    """Attach a customer outcome when the letter was not released."""
+    if out.state == CaseState.RELEASED:
+        return out
+    info = classify_hold(case, out.pack, out.validation, out.draft)
+    out.outcome = info.get("outcome")
+    out.outcome_title = info.get("outcome_title")
+    out.outcome_message = info.get("outcome_message")
+    out.outcome_next = info.get("outcome_next")
+    out.can_continue = bool(info.get("can_continue", True))
+    case.audit.append({"event": "customer_outcome", **{k: v for k, v in info.items()
+                                                       if k != "detail"},
+                       "detail": info.get("detail")})
+    return out
+
+
 @dataclass
 class AppealOutput:
     state: CaseState
@@ -40,6 +57,14 @@ class AppealOutput:
     draft: Draft
     validation: ValidationResult
     evidence_list: list[str]
+    # Customer hold outcome when state is MANUAL_REVIEW / VALIDATION_FAILED.
+    # Never a legal ground — maps the pipeline stop to the right UI message.
+    outcome: Optional[str] = None
+    outcome_title: Optional[str] = None
+    outcome_message: Optional[str] = None
+    outcome_next: Optional[str] = None
+    can_continue: bool = True
+
 
 
 @dataclass
@@ -266,8 +291,10 @@ class AppealPipeline:
                 jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
                 context_chunks=[], lease_clauses=[],
                 trace=[f"stopped: {stop.code} - no ordinary appeal"])
-            return AppealOutput(case.state, None, empty,
-                                Draft(case.case_id, []), ValidationResult(False, []), [])
+            return _with_outcome(
+                AppealOutput(case.state, None, empty,
+                             Draft(case.case_id, []), ValidationResult(False, []), []),
+                case)
         # Unresolved PCN-number conflict must not ship a letter that may cite the
         # wrong reference: an appeal against a charge that is not the customer's
         # is worse than no appeal. Reaching here means the question above was put
@@ -289,8 +316,10 @@ class AppealPipeline:
             issues = [ValidationIssue("VAL-CONFLICT", "BLOCK",
                                       "Conflicting PCN numbers were read from the documents. "
                                       "Confirm the correct number before a letter can be released.")]
-            return AppealOutput(case.state, None, empty, Draft(case.case_id, []),
-                                ValidationResult(False, issues), [])
+            return _with_outcome(
+                AppealOutput(case.state, None, empty, Draft(case.case_id, []),
+                             ValidationResult(False, issues), []),
+                case)
         pack = self._analyse_until_a_ground_can_lead(case)
         # Structured diagnostic for audit / support — never invents retrieval hits.
         case.audit.append({
@@ -317,6 +346,20 @@ class AppealPipeline:
                     (case.recovery_report or {}).get("operator_requestable") or []),
             },
         })
+        # Completed analysis with nothing to argue: stop here with a truthful
+        # no-supported-grounds outcome. Do not draft an empty pack and then
+        # dress VAL-SUBSTANCE / no_ground as a merits judgment.
+        if not (pack.module_ids or []):
+            case.state = CaseState.MANUAL_REVIEW
+            case.audit.append({
+                "event": "analysis_complete_no_supported_grounds",
+                "module_ids": [],
+                "reason": "case analysis finalized with no selectable grounds",
+            })
+            return _with_outcome(
+                AppealOutput(case.state, None, pack, Draft(case.case_id, []),
+                             ValidationResult(False, []), self._evidence_list(case)),
+                case)
         # Prefer a leading-strength ground. After unlocking questions / recovery,
         # if the pack is still support-only, draft a simple letter rather than
         # holding for manual review — the customer path is ask → letter.
@@ -366,7 +409,9 @@ class AppealPipeline:
                                "issues": [i.rule for i in result.issues]})
             if result.passed:
                 case.state = CaseState.RELEASED
-                return AppealOutput(case.state, render(draft), pack, draft, result, self._evidence_list(case))
+                return _with_outcome(
+                    AppealOutput(case.state, render(draft), pack, draft, result,
+                                 self._evidence_list(case)), case)
             case.state = CaseState.VALIDATION_FAILED
             feedback = [f"{i.rule}: {i.message} :: {i.sentence}" for i in result.issues]
 
@@ -381,15 +426,18 @@ class AppealPipeline:
                                "issues": [i.rule for i in checked.issues]})
             if checked.passed:
                 case.state = CaseState.RELEASED
-                return AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
-                                    self._evidence_list(case))
+                return _with_outcome(
+                    AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
+                                 self._evidence_list(case)), case)
 
         case.state = CaseState.MANUAL_REVIEW
         if result is None:
             result = ValidationResult(False, [ValidationIssue(
                 "VAL-DRAFT", "BLOCK",
                 "AI drafting failed or declined; substantive template fallback is disabled")])
-        return AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case))
+        return _with_outcome(
+            AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
+            case)
 
     # --------------------------------------------------------- recovery rungs
     def _analyse_until_a_ground_can_lead(self, case: CaseFile) -> RetrievalPack:
@@ -412,11 +460,23 @@ class AppealPipeline:
                 return pack
             before = list(case.analysis_module_ids or [])
             asked = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            now = list(case.analysis_module_ids or [])
+            # Never silently wipe a finalized selection to empty — that maps to
+            # a processing failure, not a merits judgment that "nothing stands up".
+            if before and not now:
+                case.analysis_module_ids = before
+                case.audit.append({
+                    "event": "ground_recovery_preserved",
+                    "round": round_no, "was": before, "now": now,
+                    "questions_not_put": [q.get("fact") for q in asked],
+                })
+                pack = self.reasoning.analyse(case, selected_ids=case.analysis_module_ids)
+                break
             case.audit.append({"event": "ground_recovery", "round": round_no,
-                               "was": before, "now": list(case.analysis_module_ids or []),
+                               "was": before, "now": now,
                                "questions_not_put": [q.get("fact") for q in asked]})
             pack = self.reasoning.analyse(case, selected_ids=case.analysis_module_ids)
-            if list(case.analysis_module_ids or []) == before:
+            if now == before:
                 break              # the same answer twice; another round is waste
         return pack
 

@@ -40,6 +40,9 @@ class ReferenceAnalysisLLM:
     def complete_json(self, *, task, system, user, images=None):
         self.calls.append({"task": task, "user": user})
         if task == "case_analysis":
+            queued = self.responses.get("case_analysis")
+            if queued:
+                return queued.pop(0)
             return self._analyse(user)
         if task == "drafting":
             queued = self.responses.get(task)
@@ -101,48 +104,73 @@ class ReferenceAnalysisLLM:
                     "fact_refs": [], "module_refs": [mid], "evidence_refs": [], "quote_of": None,
                 }])
                 continue
+            if mid == "KB-BAY-01":
+                obs = facts.get("observation_time")
+                evt = facts.get("event_time")
+                if obs is not None and evt is not None:
+                    paras.append([{
+                        "text": (
+                            f"The operator's records show an observation time of {obs} and an "
+                            f"event time of {evt}. A restriction of this kind turns on who was "
+                            f"using the bay over the course of the visit, so a record spanning "
+                            f"only that interval does not of itself establish the alleged breach. "
+                            f"The operator is requested to produce the evidence on which it "
+                            f"concluded that the conditions of use for the bay were not met."
+                        ),
+                        "fact_refs": [refs[k] for k in ("observation_time", "event_time",
+                                                       "restricted_bay_alleged") if k in refs],
+                        "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                    }])
+                continue
+            if mid == "KB-BAY-02":
+                prop = (ctx.get("material_account_proposition")
+                        or (ctx.get("material_account_propositions") or [None])[0]
+                        or "the keeper's account is inconsistent with the allegation")
+                paras.append([{
+                    "text": (
+                        f"Further, the information available to the registered keeper indicates "
+                        f"that {prop}. That is inconsistent with the factual premise of the "
+                        f"allegation that the bay's conditions of use were unmet. The operator "
+                        f"is requested to identify the evidence relied upon to conclude otherwise."
+                    ),
+                    "fact_refs": [refs[k] for k in (
+                        "account_contradicts_allegation", "material_account_proposition",
+                        "child_occupant_present") if k in refs],
+                    "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                }])
+                continue
             block_texts = [
                 c.get("text") for c in chunks
                 if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text")
             ]
-            if not block_texts and mid == "KB-BAY-01":
-                obs = facts.get("observation_time")
-                evt = facts.get("event_time")
-                if obs is not None and evt is not None:
-                    block_texts = [(
-                        f"The operator's records show an observation time of {obs} and an "
-                        f"event time of {evt}. A restriction of this kind turns on who was "
-                        f"using the bay over the course of the visit, so a record spanning "
-                        f"only that interval does not of itself establish the alleged breach. "
-                        f"The operator is requested to produce the evidence on which it "
-                        f"concluded that the conditions of use for the bay were not met."
-                    )]
             for text in block_texts[:2]:
                 paras.append([{
                     "text": text, "fact_refs": [], "module_refs": [mid],
                     "evidence_refs": [], "quote_of": None,
                 }])
 
-        # Factual rebuttal is independent of BAY timing / PP-BAY-002 availability.
-        rebuttal = ctx.get("factual_rebuttal") or {}
-        props = list(ctx.get("material_account_propositions") or [])
-        if not props and ctx.get("material_account_proposition"):
-            props = [ctx.get("material_account_proposition")]
-        if rebuttal.get("account_contradicts_allegation") and props:
-            prop = props[0]
-            paras.append([{
-                "text": (
-                    f"Further, the information available to the registered keeper indicates "
-                    f"that {prop}. That is inconsistent with the factual premise of the "
-                    f"allegation that the bay's conditions of use were unmet. The operator "
-                    f"is requested to identify the evidence relied upon to conclude otherwise."
-                ),
-                "fact_refs": [refs[k] for k in (
-                    "account_contradicts_allegation", "material_account_proposition",
-                    "child_occupant_present") if k in refs],
-                "module_refs": (["KB-BAY-01"] if "KB-BAY-01" in modules else ["STRUCTURAL"]),
-                "evidence_refs": [], "quote_of": None,
-            }])
+        # Factual rebuttal if account contradicts but BAY-02 was not selected
+        # (still must not paste customer free text — professional proposition only).
+        if "KB-BAY-02" not in modules:
+            rebuttal = ctx.get("factual_rebuttal") or {}
+            props = list(ctx.get("material_account_propositions") or [])
+            if not props and ctx.get("material_account_proposition"):
+                props = [ctx.get("material_account_proposition")]
+            if rebuttal.get("account_contradicts_allegation") and props:
+                prop = props[0]
+                paras.append([{
+                    "text": (
+                        f"Further, the information available to the registered keeper indicates "
+                        f"that {prop}. That is inconsistent with the factual premise of the "
+                        f"allegation that the bay's conditions of use were unmet. The operator "
+                        f"is requested to identify the evidence relied upon to conclude otherwise."
+                    ),
+                    "fact_refs": [refs[k] for k in (
+                        "account_contradicts_allegation", "material_account_proposition",
+                        "child_occupant_present") if k in refs],
+                    "module_refs": ["STRUCTURAL"],
+                    "evidence_refs": [], "quote_of": None,
+                }])
 
         if len(paras) <= 2 and not modules:
             return {"paragraphs": [], "no_ground_reason": "no finalized claims to draft"}
@@ -170,6 +198,17 @@ class ReferenceAnalysisLLM:
             # this stand-in — production CI must choose them deliberately.
             and not (isinstance(m.use_when, dict) and m.use_when.get("always") is True)
         ]
+        # Bounded reassessment: include omitted gate-satisfied candidates the
+        # claim plan asked the model to reconsider.
+        reassessment = data.get("reassessment") or {}
+        for mid in reassessment.get("omitted_gate_satisfied") or []:
+            m = self.kg.modules.get(mid)
+            if not m or m.status != "ACTIVE" or m.module_id not in offered:
+                continue
+            if any(x.module_id == mid for x in supported):
+                continue
+            if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+                supported.append(m)
         # Strongest first. Production orders by KB-GOV-07 afterwards regardless,
         # so this only has to be stable, not clever.
         supported.sort(key=lambda m: (-m.strength, m.module_id))

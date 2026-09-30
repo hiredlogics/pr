@@ -31,11 +31,12 @@ def make_case(extra_fields=None, case_analysis=None):
     fields = {k: {"value": v, "confidence": 0.97, "evidence_id": "E1", "page": 1} for k, v in f.items()}
     responses = {"extraction": [{"fields": fields, "doc_types": {"E1": "PCN"}}]}
     if case_analysis is not None:
-        # The V2 path has the analysis engine choose the grounds, so a test of a
-        # KB gate has to supply the choice a model would make; DemoLLM proposes
-        # none at all and every case would route to manual review.
+        # Enough copies for the initial analysis + one bounded reassessment.
         responses["case_analysis"] = list(case_analysis)
-    llm = FakeLLM(responses)
+    # ReferenceAnalysisLLM supplies drafting so disabling TemplateDrafter fallback
+    # does not collapse gate tests into VAL-DRAFT / MANUAL_REVIEW.
+    from support import ReferenceAnalysisLLM
+    llm = ReferenceAnalysisLLM(responses)
     case = CaseFile("C-1", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf",
                                                         text="Parking Charge Notice ...")})
     return case, AppealPipeline(llm)
@@ -169,12 +170,12 @@ class AnprDurationModuleIsGated(unittest.TestCase):
 
     def test_the_module_is_vetoed_when_the_duration_is_not_disputed(self):
         # The analysis engine may propose it; the KB gate still decides.
-        case, pipe = make_case(case_analysis=[self.PROPOSED] * 3)
+        case, pipe = make_case(case_analysis=[self.PROPOSED] * 6)
         out = run(case, pipe, self.NARRATIVE, {})
         self.assertNotIn("KB-TIME-01", out.pack.module_ids)
 
     def test_the_module_survives_the_veto_once_the_duration_is_disputed(self):
-        case, pipe = make_case(case_analysis=[self.PROPOSED] * 3)
+        case, pipe = make_case(case_analysis=[self.PROPOSED] * 6)
         out = run(case, pipe, self.NARRATIVE, {"anpr_duration_disputed": "yes"})
         self.assertIn("KB-TIME-01", out.pack.module_ids)
 
@@ -222,7 +223,7 @@ class RestrictedBayGround(unittest.TestCase):
 
     def test_the_ground_reaches_the_letter_without_inventing_occupancy(self):
         analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
-        case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
+        case, pipe = make_case(BAY, case_analysis=[analysis] * 6)
         out = run(case, pipe, "parent and child bay at Sainsburys", {})
         # KB-BAY-01 is status REVIEW while the wording is with the client. A
         # ground the KB has not approved must not reach the letter even when the
@@ -243,8 +244,14 @@ class RestrictedBayGround(unittest.TestCase):
 
     def test_material_account_contradicting_bay_allegation_reaches_the_letter(self):
         """System-wide rule: free-text that contradicts the allegation is drafted professionally."""
-        analysis = {"grounds": [{"module_id": "KB-BAY-01"}], "questions": [], "not_supported": []}
-        case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
+        analysis = {
+            "grounds": [
+                {"module_id": "KB-BAY-01"},
+                {"module_id": "KB-BAY-02"},
+            ],
+            "questions": [], "not_supported": [],
+        }
+        case, pipe = make_case(BAY, case_analysis=[analysis] * 6)
         out = run(case, pipe, "Left Kidd in car with their brother and ran into Sainsbury's.", {})
         # The account is still read and normalised - that is extraction's job and
         # does not depend on any ground - but with KB-BAY-01 under review there is
@@ -253,7 +260,7 @@ class RestrictedBayGround(unittest.TestCase):
         # Customer free text must never be pasted, whichever branch runs.
         self.assertNotRegex(out.letter or "", r"(?i)left kidd")
         self.assertNotRegex(out.letter or "", r"(?i)ran into sainsbury")
-        if not is_approved("KB-BAY-01", pipe.kg):
+        if not is_approved("KB-BAY-01", pipe.kg) and not is_approved("KB-BAY-02", pipe.kg):
             assert_absent_while_under_review(
                 self, "KB-BAY-01", module_ids=out.pack.module_ids,
                 draft=out.draft, letter=out.letter)
@@ -261,7 +268,10 @@ class RestrictedBayGround(unittest.TestCase):
                                 r"(?i)(child remained in the vehicle|presence of children)")
             return
         self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
-        self.assertIn("KB-BAY-01", out.pack.module_ids)
+        self.assertTrue(
+            {"KB-BAY-01", "KB-BAY-02"} & set(out.pack.module_ids or []),
+            out.pack.module_ids,
+        )
         self.assertRegex(out.letter, r"(?i)(child remained in the vehicle|presence of children)")
         self.assertRegex(out.letter, r"(?i)inconsistent with the factual premise")
 

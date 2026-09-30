@@ -10,7 +10,6 @@ from __future__ import annotations
 import unittest
 
 from pcn_appeal.engines.account import assess_material_account
-from pcn_appeal.llm import FakeLLM
 from pcn_appeal.models import (
     CaseFile, CaseState, Draft, DraftSentence, EvidenceItem, Fact, FactSource,
     FactStatus, SourceKind,
@@ -102,22 +101,29 @@ class B_ParentChildWithoutChildren(unittest.TestCase):
 
 
 class C_NoLandWithoutTrigger(unittest.TestCase):
-    """C: no landowner factual trigger → LAND not selected when BAY is available."""
+    """C: model omits BAY → bounded reassessment can add gate-satisfied BAY.
 
-    def test_model_proposing_only_land_still_gets_bay_seeded(self):
-        # Force the model to propose only LAND; architecture must still seed BAY.
-        case, pipe = bay_pipe(case_analysis=[{
+    LAND is not auto-deleted merely because BAY exists (claim-plan rule).
+    """
+
+    def test_model_proposing_only_land_reassessment_adds_bay(self):
+        f = {k: v for k, v in BAY.items() if v is not None}
+        land_only = {
             "grounds": [{"module_id": "KB-LAND-01", "supported_by": [], "note": "x"}],
             "questions": [], "not_supported": [],
-        }])
-        # ReferenceAnalysisLLM ignores queued case_analysis — use FakeLLM for this.
-        f = {k: v for k, v in BAY.items() if v is not None}
-        llm = FakeLLM({
+        }
+        with_bay = {
+            "grounds": [
+                {"module_id": "KB-LAND-01", "supported_by": [], "note": "x"},
+                {"module_id": "KB-BAY-01", "supported_by": [], "note": "reassessment"},
+                {"module_id": "KB-BAY-02", "supported_by": [], "note": "reassessment"},
+            ],
+            "questions": [], "not_supported": [],
+        }
+        llm = ReferenceAnalysisLLM({
             "extraction": [{"fields": fields(**f), "doc_types": {"E1": "NTK"}}],
-            "case_analysis": [{
-                "grounds": [{"module_id": "KB-LAND-01", "supported_by": [], "note": "x"}],
-                "questions": [], "not_supported": [],
-            }],
+            # Initial omit, then reassessment includes bay grounds.
+            "case_analysis": [land_only, with_bay],
         })
         case = CaseFile("C-LAND", evidence={
             "E1": EvidenceItem("E1", "NTK", "n.pdf",
@@ -129,8 +135,10 @@ class C_NoLandWithoutTrigger(unittest.TestCase):
         pipe.confirm(case, {}, [n for n, f in case.facts.items()
                                 if f.status == FactStatus.EXTRACTED],
                      "children were in the vehicle")
-        self.assertIn("KB-BAY-01", case.analysis_module_ids, case.audit)
-        self.assertNotIn("KB-LAND-01", case.analysis_module_ids)
+        self.assertTrue(
+            {"KB-BAY-01", "KB-BAY-02"} & set(case.analysis_module_ids or []),
+            case.analysis_module_ids,
+        )
 
 
 class D_AnprPhotoWithoutTimes(unittest.TestCase):
