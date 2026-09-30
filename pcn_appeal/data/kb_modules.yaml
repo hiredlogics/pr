@@ -713,15 +713,15 @@ modules:
     change_notes: Topic restored to source wording. Admin fields added.
 
   # ---- NOT IN SOURCE DOCUMENT - held at REVIEW (KB-GOV-03) ----
-  # Added 2026-09-28; revised 2026-09-29. Evidential observation-window point
-  # for restricted-bay allegations. When the customer's account materially
-  # contradicts the allegation's factual premise, PP-BAY-002 also states that
-  # keeper-safe account. Never invent occupancy/eligibility detail.
+  # Added 2026-09-28; revised 2026-09-30. Observation/timing point ONLY.
+  # Factual account rebuttal is KB-BAY-02 / PP-BAY-002 — deliberately decoupled
+  # so a wide or missing observation window cannot suppress the customer's account.
+  # A window of 0 minutes is a stored finding (exists + comparison); it is NOT
+  # treated as proof that the operator observed only that instant beyond the
+  # operator's own printed times.
   - module_id: KB-BAY-01
     route: BAY
     topic: Observation window too narrow to establish a bay-eligibility breach
-    # A window of 0 is the strongest case, not an absent one, so `exists` plus a
-    # comparison - `is` would read 0 as false and drop exactly that case.
     use_when: {all: [{is: restricted_bay_alleged}, {exists: observation_window_min}, {lte: [observation_window_min, 5]}]}
     do_not_use_when: {always: false}
     core_proposition: A record spanning only the operator's own observation window does not establish that the conditions of use for a reserved bay were unmet over the visit.
@@ -729,19 +729,41 @@ modules:
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
     legal_basis_origin: NOT_IN_SOURCE
-    drafting_notes: State the recorded observation and event times and the operator's burden. When account_contradicts_allegation is present, incorporate the professional material_account_proposition (system-authored) as inconsistent with the allegation's factual premise. Never paste customer free-text wording. Never invent who was driving.
+    drafting_notes: State the recorded observation and event times and the operator's burden. Do not invent occupancy. Account contradiction is argued under KB-BAY-02, not here.
     prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text]
-    building_blocks: [PP-BAY-001, PP-BAY-002]
+    building_blocks: [PP-BAY-001]
     strength: 65
-    # Active: Parent & Child / restricted-bay notices need this as a leading ground
-    # (observation window + keeper account contradicting the eligibility premise).
     status: ACTIVE
-    version: "1.2"
+    version: "1.3"
     effective_from: null
     effective_to: null
     last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Activated with PP-BAY-001/002 for Parent & Child and similar restricted-bay letters.
+    change_notes: Timing-only. Account rebuttal moved to KB-BAY-02 so material facts are independent of the five-minute gate.
+
+  # Factual account rebuttal for restricted-bay allegations. Uses the existing
+  # PP-BAY-002 wording. Gate does NOT depend on observation_window_min.
+  - module_id: KB-BAY-02
+    route: BAY
+    topic: Keeper account inconsistent with restricted-bay eligibility premise
+    use_when: {all: [{is: restricted_bay_alleged}, {is: account_contradicts_allegation}]}
+    do_not_use_when: {always: false}
+    core_proposition: The keeper's professionally restated account is inconsistent with the factual premise that the bay's conditions of use were unmet.
+    required_facts: [restricted_bay_alleged, account_contradicts_allegation, material_account_proposition]
+    evidence_helpful: [PHOTO]
+    legal_basis: [CL-evidential-weight]
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Incorporate material_account_proposition only. Never paste customer free text. Never invent who was driving. Do not equate child presence with legal entitlement beyond the inconsistency with the allegation's premise.
+    prohibited_claims: [the bay was not reserved, inventing entitlement, pasting customer free text, asserting legal entitlement solely from child presence]
+    building_blocks: [PP-BAY-002]
+    strength: 65
+    status: ACTIVE
+    version: "1.0"
+    effective_from: null
+    effective_to: null
+    last_legal_review: null
+    source_reference: null
+    change_notes: Split from KB-BAY-01 so account rebuttal survives when observation timing is wide, missing, or independently unsupported.
 
   - module_id: KB-TIME-01
     route: ANPR_EVIDENCE
@@ -1193,27 +1215,27 @@ modules:
   - module_id: KB-LAND-01
     route: LANDOWNER
     topic: "Authority to operate"
-    # REVIEW POINT: always:true puts this in every letter. The source USE WHEN is
-    # "A proportionate authority challenge is relevant" and Section 16 priority 4
-    # says it is normally concise at initial stage. Rule logic kept unchanged.
-    use_when: {always: true}
+    # Source USE WHEN: "A proportionate authority challenge is relevant".
+    # Never always-on filler. Claim plan sets authority_challenge_proportionate
+    # only when Case Intelligence selects this module.
+    use_when: {is: authority_challenge_proportionate}
     do_not_use_when: {always: false}
     core_proposition: "Require evidence that the operator had sufficient authority to operate/enforce at the specific site and material date."
     required_facts: []
     evidence_helpful: []
     legal_basis: [SCOP-authority]
     legal_basis_origin: NOT_IN_SOURCE
-    drafting_notes: One concise sentence at initial appeal. At initial appeal do not falsely assert that no authority exists merely because the customer has not seen the contract.
+    drafting_notes: One concise sentence at initial appeal when selected. Never assert no authority exists merely because the customer has not seen the contract. May coexist with fact-specific grounds when CI judged it proportionate.
     prohibited_claims: [no authority exists]
     building_blocks: [PP-LAND-001]
     strength: 20
     status: ACTIVE
-    version: "1.0"
+    version: "1.1"
     effective_from: null      # to be set by administrator
     effective_to: null
     last_legal_review: null   # to be set after legal review
     source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 15. Landowner Authority / KB-LAND-01"
-    change_notes: Core proposition restored to full source wording ("to operate/enforce at the specific site and material date"). Source DO NOT quoted in drafting_notes. Review point on the always-true gate added as a comment. Admin fields added.
+    change_notes: Removed always-true filler. Proportionate only when Case Intelligence selects it (authority_challenge_proportionate).
 
   # ---- NOT IN SOURCE DOCUMENT - held at REVIEW (KB-GOV-03) ----
   - module_id: KB-REC-01

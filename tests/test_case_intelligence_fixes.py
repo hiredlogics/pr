@@ -167,15 +167,18 @@ class LeadingGroundTests(unittest.TestCase):
         self.assertTrue(out.letter)
 
     def test_thin_pack_asks_situation_questions_instead_of_manual_review(self):
-        """When only support-only grounds are open, ask situation facts first."""
+        """When only support-only grounds are open, Case Intelligence must ask."""
         late = dict(SAINSBURYS, alleged_breach="Overstay of paid parking")
         llm = ReferenceAnalysisLLM({
             "extraction": [{"fields": fields(**late), "doc_types": {"E1": "PCN"}}],
-            "case_analysis": [{
-                "grounds": [{"module_id": "KB-LAND-01", "supported_by": [], "note": "x"}],
-                "questions": [],
-            }],
-        })
+        }, ask=[
+            {"fact": "payment_made",
+             "text": "Was a parking payment made or attempted for this visit?",
+             "type": "bool"},
+            {"fact": "genuine_customer",
+             "text": "Was the visit connected with genuine use of the premises?",
+             "type": "bool"},
+        ])
         case = CaseFile("C-ASK", evidence={
             "E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Overstay of paid parking"),
         })

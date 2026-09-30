@@ -149,16 +149,10 @@ class ReasoningEngine:
         if unavailable:
             trace.append(f"analysis grounds dropped by conflict resolution: {unavailable}")
 
-        # Empty analysis selection used to ship intro+end alone. Seed with
-        # allegation-shaped records requests only — not always-on LAND filler.
+        # Empty selection stays empty. Retrieval candidates and Case Intelligence
+        # finalize grounds; this stage must not silently insert REC/LAND/fillers.
         if not selected:
-            seeded = [m for m in kept if m.module_id == "KB-REC-01"]
-            selected = seeded
-            if seeded:
-                trace.append(f"seeded grounds after empty analysis selection: "
-                             f"{[m.module_id for m in seeded]}")
-            else:
-                trace.append("empty analysis selection and no allegation-shaped REC ground")
+            trace.append("empty analysis selection — no grounds seeded downstream")
 
         # KB-GOV-07 and section 16 order the letter: dispositive statutory or
         # contractual point, then the strongest fact-specific ground, then
@@ -370,6 +364,33 @@ class ReasoningEngine:
             "material_account_proposition": case.get("material_account_proposition") or "",
             "account_contradicts_allegation": bool(
                 case.get("account_contradicts_allegation")),
+            "child_occupant_present": bool(case.get("child_occupant_present")),
+            # Factual rebuttal is independent of observation-window / BAY timing gates.
+            "factual_rebuttal": {
+                "account_contradicts_allegation": bool(
+                    case.get("account_contradicts_allegation")),
+                "propositions": props,
+                "child_occupant_present": bool(case.get("child_occupant_present")),
+                "independent_of_timing": True,
+            },
+            "timing_argument": {
+                "observation_window_min": facts.get("observation_window_min"),
+                "observation_time": facts.get("observation_time"),
+                "event_time": facts.get("event_time"),
+                "bay_timing_selected": "KB-BAY-01" in ordered,
+            },
+            "claim_plan": (
+                next((a.get("claim_plan") for a in reversed(case.audit)
+                      if a.get("event") == "case_analysis" and a.get("claim_plan")),
+                     None)
+                or next((a for a in reversed(case.audit) if a.get("event") == "claim_plan"),
+                        {})
+            ),
+            "supported_grounds": [
+                {"module_id": m.module_id, "route": m.route, "topic": m.topic,
+                 "proposition": m.core_proposition}
+                for m in selected
+            ],
             # Provenance chain for audit / intelligence — originals must not be pasted.
             "free_text_provenance": [
                 {k: v for k, v in row.items() if k != "original"}

@@ -119,15 +119,10 @@ blocks:
   # Authored for KB-REC-01. Proportionate records request; does NOT assert that
   # validation, payment or authorisation occurred.
   PP-REC-001: {text: "The allegation turns on whether a required validation, authorisation or payment step was completed at the site. The materials available to the keeper do not establish that step one way or the other. The operator is requested to review its validation, kiosk, permit and transaction records for the vehicle, location and material date, and to explain the specific records relied upon before maintaining the charge.", status: ACTIVE, source_reference: null}
-  # NOT IN APPENDIX A. Authored in-repo for KB-BAY-01 and signed off on
-  # 2026-09-28. Status REVIEW until added to the approved knowledge base (KB-GOV-03).
-  # requires_facts deliberately omits observation_window_min: R-08b tests the
-  # fact for truthiness and a window of 0 minutes - a single instant, the
-  # strongest version of this argument - is falsy and would withhold the block.
-  # The numeric test lives in KB-BAY-01's gate instead.
+  # Timing argument for KB-BAY-01. requires_facts omits observation_window_min:
+  # R-08b truthiness would withhold a window of 0. The numeric ≤5 test is the
+  # module gate only — it does not gate the separate account rebuttal.
   PP-BAY-001: {text: "The operator's records show an observation time of {{observation_time}} and an event time of {{event_time}}. A restriction of this kind turns on who was using the bay over the course of the visit, so a record spanning only that interval does not of itself establish the alleged breach. The operator is requested to produce the evidence on which it concluded that the conditions of use for the bay were not met.", requires_facts: [restricted_bay_alleged], status: ACTIVE, source_reference: null}
-  # NOT IN APPENDIX A - status REVIEW (KB-GOV-03).
-  # Professional system proposition only - never embed customer free text.
-  # material_account_proposition is authored by engines/account.py from structured
-  # free-text extraction (source=CUSTOMER_FREE_TEXT); customer words stay in audit.
+  # Factual account rebuttal for KB-BAY-02. Independent of observation_window_min.
+  # Professional system proposition only — never embed customer free text.
   PP-BAY-002: {text: "Further, the information available to the registered keeper indicates that {{material_account_proposition}}. That is inconsistent with the factual premise of the allegation that the bay's conditions of use were unmet. The operator is requested to identify the evidence relied upon to conclude otherwise.", requires_facts: [account_contradicts_allegation, material_account_proposition], status: ACTIVE, source_reference: null}

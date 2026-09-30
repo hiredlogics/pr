@@ -21,7 +21,7 @@ from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine
 from .engines.validation import ValidationEngine
 from .kg.graph import KnowledgeGraph
-from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationResult
+from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationIssue, ValidationResult
 from .rules import scope
 from .rules.scope import ScopeStop
 
@@ -115,6 +115,9 @@ class AppealPipeline:
         assess_material_account(case)
         analysis = self.analysis_of(case, narrative)
         case.analysis_module_ids = analysis.module_ids
+        if getattr(analysis, "claim_plan", None):
+            case.audit.append({"event": "analysis_claim_plan",
+                               "claim_plan": analysis.claim_plan})
         questions = self._pcn_conflict_question(case) + analysis.questions
         analysis.questions = questions
         case.pending_questions = analysis.questions
@@ -283,7 +286,6 @@ class AppealPipeline:
                 jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
                 context_chunks=[], lease_clauses=[],
                 trace=["blocked: conflicting PCN numbers"])
-            from .models import ValidationIssue
             issues = [ValidationIssue("VAL-CONFLICT", "BLOCK",
                                       "Conflicting PCN numbers were read from the documents. "
                                       "Confirm the correct number before a letter can be released.")]
@@ -331,19 +333,17 @@ class AppealPipeline:
         attempt = 0
         while attempt < MAX_ATTEMPTS:
             attempt += 1
-            drafter = self.drafter if attempt < MAX_ATTEMPTS else self.fallback
             try:
-                draft = drafter.draft(case.case_id, pack, feedback, attempt)
-            except Exception as exc:                     # LLM outage / bad JSON / demo reader
-                case.audit.append({"event": "draft_error", "attempt": attempt, "error": str(exc)})
-                draft = self.fallback.draft(case.case_id, pack, feedback, attempt)
+                draft = self.drafter.draft(case.case_id, pack, feedback, attempt)
+            except Exception as exc:                     # LLM outage / bad JSON
+                case.audit.append({
+                    "event": "draft_error", "attempt": attempt, "error": str(exc),
+                    "fallback": "none_substantive_template_disabled",
+                })
+                # Do not substitute TemplateDrafter substantive prose after AI failure.
+                continue
 
-            # The drafter declined for want of anything to argue from. That is
-            # missing knowledge, not a dead end: widen retrieval over the same
-            # grounds and let it try again. Only if it declines a second time,
-            # with every approved block of every chosen ground in front of it,
-            # is there really nothing there - and the template drafter, which
-            # works straight from those blocks, gets the last word.
+            # Missing knowledge: widen once over the same finalized claims, then hold.
             if draft.no_ground_reason:
                 case.audit.append({"event": "no_ground", "attempt": attempt,
                                    "reason": draft.no_ground_reason, "widened": widened})
@@ -353,7 +353,12 @@ class AppealPipeline:
                         case, selected_ids=case.analysis_module_ids, widen=True)
                     attempt -= 1                     # the retry is not an attempt
                     continue
-                draft = self.fallback.draft(case.case_id, pack, feedback, attempt)
+                case.audit.append({
+                    "event": "no_ground_after_widen",
+                    "reason": draft.no_ground_reason,
+                    "fallback": "none_substantive_template_disabled",
+                })
+                break
 
             case.state = CaseState.DRAFTED
             result = self.validation.validate(draft, pack)
@@ -380,6 +385,10 @@ class AppealPipeline:
                                     self._evidence_list(case))
 
         case.state = CaseState.MANUAL_REVIEW
+        if result is None:
+            result = ValidationResult(False, [ValidationIssue(
+                "VAL-DRAFT", "BLOCK",
+                "AI drafting failed or declined; substantive template fallback is disabled")])
         return AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case))
 
     # --------------------------------------------------------- recovery rungs

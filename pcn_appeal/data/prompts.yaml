@@ -189,7 +189,7 @@ prompts:
   #   payment are one case theory - do not repeat", KB-PAY-01 "Merge repeated
   #   payment statements into one". Enforced by VAL-REPEAT-POINT in Engine 4.
   drafting:
-    version: 7
+    version: 8
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -244,11 +244,21 @@ prompts:
       - If validation_status is UNCONFIRMED or unresolved_topics includes kiosk_validation:
         acknowledge the uncertainty and request the named operator to check validation / kiosk /
         transaction records for the vehicle, location and date. Do not claim validation occurred or failed.
-      - If material_account_propositions is non-empty: incorporate each professional proposition where it
-        materially supports a selected ground. When account_contradicts_allegation is true, state that the
-        account is inconsistent with the factual premise of the allegation. Do not invent further detail.
-      - Do not select or invent landowner-authority, signage or PoFA defect grounds unless the
-        corresponding modules are in module_ids and supported by facts/findings.
+      - If material_account_propositions / factual_rebuttal is present: incorporate each
+        professional proposition as a factual rebuttal to the allegation's premise. This is
+        independent of observation-window timing modules and of any particular building block.
+        Do not require KB-BAY-01 or PP-BAY-002 for the account facts to be used. When
+        account_contradicts_allegation is true, state that the account is inconsistent with
+        the factual premise of the allegation. Do not invent further detail. Do not equate
+        child occupancy with legal entitlement to the bay.
+      - Timing / observation-window arguments are separate: only argue them when the
+        corresponding module is in module_ids and the verified observation facts support it.
+        Do not infer that identical event/observation timestamps prove the operator observed
+        the vehicle only for that instant beyond what the approved blocks state.
+      - claim_plan.material_fact_accounting shows which customer facts are used / irrelevant /
+        unresolved / excluded — respect those dispositions; do not paste excluded facts.
+      - Select landowner-authority wording only when KB-LAND-01 is in module_ids because Case
+        Intelligence selected a proportionate authority request — never as default filler.
       - A records/system-check request is allowed when supported by a chunk or case_context; it is not a
         claim that a legal defect is already proven.
       OUTPUT JSON: {"paragraphs": [[{"text": str, "fact_refs": [fact_id], "module_refs": [module_id],
@@ -278,7 +288,7 @@ prompts:
   #   - Consideration vs grace: never select both for the same period
   #     (KB-CON-01 DO NOT; Appendix B).
   case_analysis:
-    version: 5
+    version: 6
     body: |-
       You analyse a UK private parking charge against an approved legal knowledge base.
 
@@ -319,10 +329,12 @@ prompts:
          they did not supply, and never identify who was driving.
          A single observation time is not a duration. A shopping receipt is not proof of
          parking validation. Absence of validation detail on a receipt is not proof that
-         validation failed. When it is among the candidates, prefer a proportionate
+         validation failed.          When it is among the candidates, prefer a proportionate
          records-request ground (KB-REC-01) over inventing a proven defect.
-         Do not select KB-LAND-01 (landowner authority) when a fact-specific ground
-         among the candidates (such as KB-REC-01 or KB-BAY-01, if present) is supportable.
+         Select KB-LAND-01 only when a proportionate authority challenge is
+         actually relevant on these facts (for example a genuine dispute about
+         the operator's right to enforce). Never select it as default filler
+         merely because it is always-eligible among candidates.
          Do not select PoFA defect or signage grounds without the required findings/evidence.
          Use recovery.calculated.pofa_findings and recovery.calculated.code_status — do not
          invent Schedule 4 or Code defects when those are empty or UNRESOLVED.

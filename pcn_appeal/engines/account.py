@@ -260,6 +260,22 @@ class FreeTextExtraction:
         }
 
 
+_NEGATION = re.compile(
+    r"\b("
+    r"no|not|never|without|didn't|did not|weren't|were not|wasn't|was not|"
+    r"none|neither|nobody"
+    r")\b",
+    re.I,
+)
+
+
+def _match_negated(text: str, match: re.Match) -> bool:
+    """True when a negation appears in the same clause as the match."""
+    start = max(0, match.start() - 40)
+    window = text[start:match.end() + 10]
+    return bool(_NEGATION.search(window))
+
+
 def assess_material_account(case: CaseFile) -> dict[str, Any]:
     """Extract structured facts + professional propositions from all free text.
 
@@ -281,7 +297,14 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
         for rule in _RULES:
             if rule.fact_name in seen_facts:
                 continue
-            if not rule.pattern.search(text):
+            m = rule.pattern.search(text)
+            if not m:
+                continue
+            # Negated wording must not invent affirmative occupancy/eligibility facts.
+            if rule.fact_name in {
+                "child_occupant_present", "blue_badge_displayed", "permit_held",
+                "bay_conditions_met_accounted",
+            } and rule.value is True and _match_negated(text, m):
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
             existing = case.facts.get(rule.fact_name)

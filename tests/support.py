@@ -41,10 +41,119 @@ class ReferenceAnalysisLLM:
         self.calls.append({"task": task, "user": user})
         if task == "case_analysis":
             return self._analyse(user)
+        if task == "drafting":
+            queued = self.responses.get(task)
+            if queued:
+                return queued.pop(0)
+            return self._draft(user)
+        if task == "validation":
+            queued = self.responses.get(task)
+            if queued:
+                return queued.pop(0)
+            return {"issues": []}
         queued = self.responses.get(task)
         if not queued:
             raise RuntimeError(f"no response queued for task {task!r}")
         return queued.pop(0)
+
+    def _draft(self, payload: str) -> dict:
+        """Deterministic letter from the pack the pipeline already finalized.
+
+        Not a TemplateDrafter substitute after AI failure: this is the test
+        double's drafting response so Demo/Fake paths exercise validation.
+        """
+        data = json.loads(payload) if isinstance(payload, str) else payload
+        facts = data.get("verified_facts") or {}
+        ctx = data.get("case_context") or {}
+        modules = list(data.get("module_ids") or [])
+        refs = data.get("fact_refs") or {}
+        chunks = data.get("context_chunks") or []
+
+        paras: list[list[dict]] = []
+        vrm = facts.get("vrm") or ctx.get("vrm") or "the vehicle"
+        pcn = facts.get("pcn_number") or ctx.get("pcn_number") or "the notice"
+        paras.append([{
+            "text": (f"I write as the registered keeper of vehicle {vrm} in respect of "
+                     f"Parking Charge Notice {pcn}. I dispute liability for this parking "
+                     f"charge and require the operator to consider this appeal."),
+            "fact_refs": [refs[k] for k in ("vrm", "pcn_number") if k in refs],
+            "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+        }])
+
+        breach = str(facts.get("alleged_breach") or ctx.get("alleged_breach") or "").strip()
+        location = str(facts.get("parking_location") or ctx.get("parking_location") or "").strip()
+        if breach:
+            where = f" at {location}" if location else ""
+            paras.append([{
+                "text": f"The Parking Charge Notice alleges: {breach}{where}.",
+                "fact_refs": [refs[k] for k in ("alleged_breach",) if k in refs],
+                "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+            }])
+
+        # Timing / module blocks from retrieved wording when present.
+        for mid in modules:
+            if mid == "KB-LAND-01":
+                # Only emit when CI selected it (already in module_ids).
+                paras.append([{
+                    "text": ("The operator is requested to establish that it had sufficient "
+                             "authority from the landowner or other entitled party to operate "
+                             "and enforce the parking scheme at the location on the material date."),
+                    "fact_refs": [], "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                }])
+                continue
+            block_texts = [
+                c.get("text") for c in chunks
+                if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text")
+            ]
+            if not block_texts and mid == "KB-BAY-01":
+                obs = facts.get("observation_time")
+                evt = facts.get("event_time")
+                if obs is not None and evt is not None:
+                    block_texts = [(
+                        f"The operator's records show an observation time of {obs} and an "
+                        f"event time of {evt}. A restriction of this kind turns on who was "
+                        f"using the bay over the course of the visit, so a record spanning "
+                        f"only that interval does not of itself establish the alleged breach. "
+                        f"The operator is requested to produce the evidence on which it "
+                        f"concluded that the conditions of use for the bay were not met."
+                    )]
+            for text in block_texts[:2]:
+                paras.append([{
+                    "text": text, "fact_refs": [], "module_refs": [mid],
+                    "evidence_refs": [], "quote_of": None,
+                }])
+
+        # Factual rebuttal is independent of BAY timing / PP-BAY-002 availability.
+        rebuttal = ctx.get("factual_rebuttal") or {}
+        props = list(ctx.get("material_account_propositions") or [])
+        if not props and ctx.get("material_account_proposition"):
+            props = [ctx.get("material_account_proposition")]
+        if rebuttal.get("account_contradicts_allegation") and props:
+            prop = props[0]
+            paras.append([{
+                "text": (
+                    f"Further, the information available to the registered keeper indicates "
+                    f"that {prop}. That is inconsistent with the factual premise of the "
+                    f"allegation that the bay's conditions of use were unmet. The operator "
+                    f"is requested to identify the evidence relied upon to conclude otherwise."
+                ),
+                "fact_refs": [refs[k] for k in (
+                    "account_contradicts_allegation", "material_account_proposition",
+                    "child_occupant_present") if k in refs],
+                "module_refs": (["KB-BAY-01"] if "KB-BAY-01" in modules else ["STRUCTURAL"]),
+                "evidence_refs": [], "quote_of": None,
+            }])
+
+        if len(paras) <= 2 and not modules:
+            return {"paragraphs": [], "no_ground_reason": "no finalized claims to draft"}
+
+        paras.append([{
+            "text": ("For the reasons set out above, the parking charge is disputed and the "
+                     "operator is requested to cancel the Parking Charge Notice."),
+            "fact_refs": [], "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+        }])
+        return {"paragraphs": paras, "no_ground_reason": None}
+
 
     # ------------------------------------------------------------------ analysis
     def _analyse(self, payload: str) -> dict[str, Any]:
@@ -57,6 +166,9 @@ class ReferenceAnalysisLLM:
             if m.module_id in offered
             and evaluate(m.use_when, facts)
             and not evaluate(m.do_not_use_when, facts)
+            # Always-on fillers are eligible candidates but not auto-selected by
+            # this stand-in — production CI must choose them deliberately.
+            and not (isinstance(m.use_when, dict) and m.use_when.get("always") is True)
         ]
         # Strongest first. Production orders by KB-GOV-07 afterwards regardless,
         # so this only has to be stable, not clever.

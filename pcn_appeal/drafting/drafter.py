@@ -85,9 +85,12 @@ class LLMDrafter:
 
 
 class TemplateDrafter:
-    """Deterministic fallback: used in tests, on LLM outage, and when the model
-    returns unusable JSON. Builds case-specific REC paragraphs from pack facts
-    rather than shipping a one-size-fits-all shell."""
+    """Layout / unit-test helper for approved block assembly.
+
+    Production AI failure paths must NOT call this to silently release a
+    different substantive appeal (see orchestrator generate loop). Keep intro/
+    closing and block rendering for direct unit tests and layout experiments.
+    """
 
     def __init__(self, kg: KnowledgeGraph):
         self.kg = kg

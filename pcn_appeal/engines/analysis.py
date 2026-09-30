@@ -38,6 +38,7 @@ from .. import prompts
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile, KBModule
 from ..rules.dsl import evaluate
+from .claim_plan import build_claim_plan
 
 # A question is a cost to the customer, so the ceiling is low and silence is the
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
@@ -57,8 +58,9 @@ ANPR_SHAPED_FACTS = {
 # Strength at or above this may lead a letter (mirrors reasoning.SUPPORTING_THRESHOLD).
 LEADING_STRENGTH = 50
 
-# When analysis has no leading ground and the model asked nothing, ask plain
-# situation facts that can unlock payment / permit / bay / signage / auth paths.
+# Thin-pack situation prompts when Case Intelligence selected no leading ground
+# and asked nothing. Not a V1 circumstance→ground map: these only unlock
+# customer-answerable facts; grounds still require CI + use_when.
 SITUATION_FALLBACK: list[dict[str, Any]] = [
     {"fact": "payment_made", "text": "Was a parking payment made or attempted for this visit?",
      "type": "bool", "material_because": "unlocks payment / keying grounds"},
@@ -147,6 +149,9 @@ class CaseAnalysis:
     questions: list[dict] = field(default_factory=list)
     trace: list[str] = field(default_factory=list)
     suppressed: list[dict] = field(default_factory=list)
+    # Finalized claim plan + material-fact accounting (engines.claim_plan).
+    claim_plan: dict = field(default_factory=dict)
+    candidate_ids: list[str] = field(default_factory=list)
 
     @property
     def needs_answers(self) -> bool:
@@ -170,6 +175,7 @@ class AnalysisEngine:
         facts = case.fact_view()
         candidates = self._candidates(case, circumstances, facts)
         result = CaseAnalysis()
+        result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
 
         rounds = sum(1 for a in case.audit if a.get("event") == "analysis_round")
@@ -181,7 +187,7 @@ class AnalysisEngine:
                 raw = self.llm.complete_json(
                     task="case_analysis", system=prompts.system("case_analysis"),
                     user=self._payload(case, circumstances, facts, candidates, pofa, code_version))
-                result.module_ids = self._veto(
+                result.module_ids = self._finalize_claims(
                     case, raw.get("grounds") or [], facts, pofa, code_version, result)
             except Exception as exc:
                 case.audit.append({"event": "case_analysis_error", "error": str(exc)})
@@ -200,13 +206,46 @@ class AnalysisEngine:
             return result
 
         proposed = raw.get("grounds") or []
-        result.module_ids = self._veto(case, proposed, facts, pofa, code_version, result)
-        # The model's own questions, then the facts that are holding back a ground
-        # it chose. Both go through the same safeguards below.
+        result.module_ids = self._finalize_claims(
+            case, proposed, facts, pofa, code_version, result)
+
+        # One bounded reassessment when gate-satisfied candidates were omitted.
+        omitted = list((result.claim_plan or {}).get("omitted_gate_satisfied") or [])
+        if omitted:
+            try:
+                hint = json.loads(self._payload(
+                    case, circumstances, facts, candidates, pofa, code_version))
+                hint["reassessment"] = {
+                    "omitted_gate_satisfied": omitted,
+                    "instruction": (
+                        "Reassess only these candidates whose use_when is already "
+                        "satisfied on the case facts. Include a candidate only if "
+                        "the complete facts and account actually support it. "
+                        "Do not select always-on landowner authority as filler."
+                    ),
+                }
+                raw2 = self.llm.complete_json(
+                    task="case_analysis", system=prompts.system("case_analysis"),
+                    user=json.dumps(hint, default=str))
+                proposed = raw2.get("grounds") or proposed
+                result.suppressed = []
+                result.module_ids = self._finalize_claims(
+                    case, proposed, facts, pofa, code_version, result)
+                result.trace.append(
+                    f"bounded reassessment for omitted candidates {omitted} -> "
+                    f"{result.module_ids}")
+                raw = raw2
+            except Exception as exc:
+                case.audit.append({
+                    "event": "case_analysis_reassessment_error", "error": str(exc),
+                    "omitted": omitted,
+                })
+                result.trace.append(
+                    f"reassessment unavailable ({type(exc).__name__}); "
+                    f"keeping first finalized plan")
+
         asking = list(raw.get("questions") or []) + self._unlocking_questions(case, result, facts)
         result.questions = self._safe_questions(case, asking, result)
-        # Thin packs (support-only / landowner-only) must ask before drafting —
-        # never dump the customer into manual review with nothing to answer.
         result.questions = self._ensure_situation_questions(case, result)
 
         case.audit.append({
@@ -214,9 +253,8 @@ class AnalysisEngine:
             "proposed": [g.get("module_id") for g in proposed],
             "kept": result.module_ids,
             "suppressed": result.suppressed,
+            "claim_plan": result.claim_plan,
             "asked": [q["fact"] for q in result.questions],
-            # Kept for audit only. `material_because` explains the system's
-            # reasoning and is stripped before the question reaches a customer.
             "why_asked": {q.get("fact"): q.get("material_because")
                           for q in (raw.get("questions") or []) if q.get("fact")},
             "not_supported": raw.get("not_supported") or [],
@@ -254,7 +292,11 @@ class AnalysisEngine:
         by_id = {m.module_id: m for m in filtered}
         ranked = [by_id[mid] for mid in order if mid in by_id]
         ranked += [m for m in filtered if m.module_id not in order]
-        return self._rerank(ranked, facts)[:CANDIDATE_LIMIT]
+        # Visibility only: gate-satisfied fact-specific modules must be offered
+        # to Case Intelligence even if semantic rank pushed them out of top-N.
+        # This does not finalize them as grounds.
+        ranked = self._ensure_gate_satisfied_visible(ranked, filtered, facts)
+        return ranked[:CANDIDATE_LIMIT]
 
     @staticmethod
     def _jurisdiction_ok(module: KBModule, jurisdiction: Optional[str]) -> bool:
@@ -265,14 +307,46 @@ class AnalysisEngine:
         pofa_only = any("PoFA" in str(s) for s in (module.legal_basis or []))
         return not (pofa_only and jurisdiction != "ENGLAND_WALES")
 
+    @staticmethod
+    def _is_always_on(module: KBModule) -> bool:
+        uw = module.use_when
+        return isinstance(uw, dict) and uw.get("always") is True
+
+    def _ensure_gate_satisfied_visible(self, ranked: list[KBModule],
+                                       filtered: list[KBModule],
+                                       facts: dict[str, Any]) -> list[KBModule]:
+        """Pin gate-satisfied non-filler modules into the candidate window.
+
+        Semantic top-N alone can drop a module whose use_when is already true
+        (e.g. multiple_visits → KB-ANPR-01). This only affects visibility for
+        Case Intelligence — it does not finalize the ground.
+        """
+        leaders: list[KBModule] = []
+        seen: set[str] = set()
+        for m in list(filtered) + list(ranked):
+            if m.module_id in seen:
+                continue
+            if self._is_always_on(m) or m.route == "LANDOWNER":
+                continue
+            if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+                leaders.append(m)
+                seen.add(m.module_id)
+        rest = [m for m in ranked if m.module_id not in seen]
+        return leaders + rest
     def _rerank(self, modules: list[KBModule], facts: dict[str, Any]) -> list[KBModule]:
         """Metadata rerank: a ground whose required facts are already present is
         more useful to consider than one that would need everything asked."""
-        def score(m: KBModule) -> tuple[float, str]:
+        def score(m: KBModule) -> tuple[float, float, str]:
             required = list(m.required_facts or [])
             have = sum(1 for f in required if facts.get(f) not in (None, "", []))
             coverage = (have / len(required)) if required else 0.5
-            return (-coverage, m.module_id)       # id breaks ties deterministically
+            gated = 0.0
+            try:
+                if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+                    gated = -1.0 if not self._is_always_on(m) else 0.0
+            except Exception:
+                gated = 0.0
+            return (gated, -coverage, m.module_id)
         return sorted(modules, key=score)
 
     # --------------------------------------------------------------- payload
@@ -366,59 +440,31 @@ class AnalysisEngine:
             return True
         return any(m in low for m in UNRESOLVED_ANSWER_MARKERS)
 
-    # ------------------------------------------------------------------ veto
-    def _veto(self, case: CaseFile, proposed: list[dict], facts: dict[str, Any],
-              pofa: Any, code_version: Optional[str], result: CaseAnalysis) -> list[str]:
+    # ----------------------------------------------------------- claim plan
+    def _finalize_claims(self, case: CaseFile, proposed: list[dict], facts: dict[str, Any],
+                         pofa: Any, code_version: Optional[str],
+                         result: CaseAnalysis) -> list[str]:
+        """Veto proposed grounds into one finalized claim plan.
+
+        Does not auto-seed strength>=50 grounds and does not strip LAND merely
+        because another ground exists. Omissions are listed for reassessment.
+        """
         findings = list(getattr(pofa, "findings", []) or [])
-        kept: list[str] = []
-
-        for entry in proposed:
-            mid = (entry or {}).get("module_id")
-            module = self.kg.modules.get(mid)
-
-            if module is None or module.status != "ACTIVE":
-                self._suppress(result, mid, "not an active ground in the approved knowledge base")
-                continue
-            if mid in kept:
-                continue
-            if evaluate(module.do_not_use_when, facts):
-                self._suppress(result, mid, "the knowledge base forbids this ground on these facts")
-                continue
-            # Speculative grounds (use_when not yet satisfied) may still drive
-            # questions, but must not enter analysis_module_ids for drafting —
-            # otherwise the pack drops them and the letter collapses to intro+end.
-            if not evaluate(module.use_when, facts):
-                self._suppress(result, mid, "required facts for this ground are not yet established")
-                continue
-            if self._needs_pofa_finding(module) and not findings:
-                self._suppress(result, mid, "statutory defect not confirmed by the PoFA calculation")
-                continue
-            if mid == "KB-POFA-04" and facts.get("notice_sides_complete") is False:
-                self._suppress(result, mid, "both sides of the notice are not confirmed")
-                continue
-            if self._needs_code_version(module) and not code_version:
-                self._suppress(result, mid, "no verified Code of Practice version applies")
-                continue
-            kept.append(mid)
-
-        if not kept:
-            # Allegation-shaped records request only — do not pad with always-on
-            # landowner authority, which turns every thin case into the same letter.
-            rec = self.kg.modules.get("KB-REC-01")
-            if rec and rec.status == "ACTIVE":
-                if evaluate(rec.use_when, facts) and not evaluate(rec.do_not_use_when, facts):
-                    kept.append("KB-REC-01")
-                    result.trace.append("seeded KB-REC-01 from allegation text")
-
-        # When a fact-specific records ground is available, drop always-on LAND
-        # filler so the letter stays about this allegation.
-        if "KB-REC-01" in kept and "KB-LAND-01" in kept:
-            kept = [m for m in kept if m != "KB-LAND-01"]
-            result.trace.append("dropped KB-LAND-01: fact-specific REC ground present")
-
-        if not kept:
+        proposed_ids = [(e or {}).get("module_id") for e in (proposed or [])]
+        plan = build_claim_plan(
+            case, self.kg, proposed_ids, list(result.candidate_ids or []), facts,
+            findings=findings, code_version=code_version,
+            needs_pofa_finding=self._needs_pofa_finding,
+            needs_code_version=self._needs_code_version,
+        )
+        result.claim_plan = plan.as_dict()
+        result.trace.extend(plan.trace)
+        for claim in plan.claims:
+            if claim.get("status") == "excluded":
+                self._suppress(result, claim.get("module_id"), claim.get("reason") or "excluded")
+        if not plan.module_ids:
             result.trace.append("no proposed ground survived the deterministic checks")
-        return kept
+        return list(plan.module_ids)
 
     @staticmethod
     def _needs_pofa_finding(module: KBModule) -> bool:
@@ -497,19 +543,11 @@ class AnalysisEngine:
 
     def _ensure_situation_questions(self, case: CaseFile,
                                     result: CaseAnalysis) -> list[dict]:
-        """If nothing selected can lead a letter and the model asked nothing,
-        ask a short set of situation facts instead of ending in manual review."""
-        if result.questions:
-            return result.questions
-        if self._has_leading_ground(result.module_ids):
-            return result.questions
-        injected = self._safe_questions(case, list(SITUATION_FALLBACK), result)
-        if injected:
-            result.trace.append(
-                f"injected situation questions (no leading ground): "
-                f"{[q['fact'] for q in injected]}")
-            return injected
-        result.trace.append("no leading ground and no further situation questions available")
+        """Thin packs: do not inject a hardcoded situation bank.
+
+        Asking is Case Intelligence's job (prompt thin-pack guidance). A missing
+        field alone must never summon questions (question-authority invariant).
+        """
         return result.questions
 
     def _safe_questions(self, case: CaseFile, proposed: list[dict],
