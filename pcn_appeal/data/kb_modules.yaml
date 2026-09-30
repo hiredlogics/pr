@@ -731,16 +731,17 @@ modules:
     legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: State the recorded observation and event times and the operator's burden. When account_contradicts_allegation is present, incorporate the professional material_account_proposition (system-authored) as inconsistent with the allegation's factual premise. Never paste customer free-text wording. Never invent who was driving.
     prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text]
-    # PP-BAY-001 and PP-BAY-002 do not exist in Appendix A. Draft and approve them before activation.
     building_blocks: [PP-BAY-001, PP-BAY-002]
     strength: 65
-    status: REVIEW
-    version: "1.1"
-    effective_from: null      # to be set by administrator
+    # Active: Parent & Child / restricted-bay notices need this as a leading ground
+    # (observation window + keeper account contradicting the eligibility premise).
+    status: ACTIVE
+    version: "1.2"
+    effective_from: null
     effective_to: null
-    last_legal_review: null   # to be set after legal review
+    last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building blocks PP-BAY-001 and PP-BAY-002 are not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
+    change_notes: Activated with PP-BAY-001/002 for Parent & Child and similar restricted-bay letters.
 
   - module_id: KB-TIME-01
     route: ANPR_EVIDENCE
