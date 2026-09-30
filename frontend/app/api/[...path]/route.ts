@@ -27,12 +27,44 @@ const HOP_BY_HOP = new Set([
   "expect",
 ]);
 
+/**
+ * The customer journey's routes, and nothing else. Operator routes (trace,
+ * console, disclosure correction, the step routes that return module ids and
+ * validator issues) are not reachable through the public site at all - the
+ * backend also refuses them without an admin token, but a public proxy that
+ * forwards every path is a bypass waiting for one misconfigured secret.
+ * Add a route here only when lib/api.ts (or a component) actually calls it.
+ */
+const ALLOWED: ReadonlyArray<readonly [string, RegExp]> = [
+  ["GET", /^health$/],
+  ["POST", /^appeal\/files$/],
+  ["POST", /^appeal\/(?!files$)[^/]+$/],
+  ["POST", /^cases$/],
+  ["POST", /^cases\/[^/]+\/(files|blobs|confirm)$/],
+  ["GET", /^cases\/[^/]+\/(confirmation|letter\.pdf)$/],
+];
+
+// Credentials for operator routes never travel through the customer proxy.
+const STRIPPED = new Set(["authorization", "x-admin-token"]);
+
+function allowed(method: string, path: string[]): boolean {
+  if (path.some((seg) => seg === "" || seg.includes("/") || seg === "." || seg === "..")) {
+    return false;
+  }
+  const joined = path.join("/");
+  return ALLOWED.some(([m, re]) => m === method && re.test(joined));
+}
+
 async function forward(req: NextRequest, path: string[]): Promise<Response> {
+  if (!allowed(req.method, path)) {
+    return Response.json({ detail: { message: "Not found." } }, { status: 404 });
+  }
   const target = `${BACKEND}/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
 
   const headers = new Headers();
   req.headers.forEach((value, key) => {
-    if (!HOP_BY_HOP.has(key.toLowerCase())) headers.set(key, value);
+    const k = key.toLowerCase();
+    if (!HOP_BY_HOP.has(k) && !STRIPPED.has(k)) headers.set(key, value);
   });
 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";

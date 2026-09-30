@@ -337,10 +337,19 @@ def default_client():
     back rather than leaving the app dead - but `probe()` and the UI both report
     which one is actually in use, so a demo run is never mistaken for a real one.
     Set LLM_PROVIDER=openai to make an unusable key a hard startup failure.
+
+    In production none of that fallback exists. The provider must be named
+    explicitly as openai, and a client that cannot be built raises: a demo
+    letter released to a customer is indistinguishable from a real one.
     """
+    from . import runtime
     provider = (os.getenv("LLM_PROVIDER") or "").strip().lower()
     if provider not in ("", "openai", "demo"):
         raise RuntimeError(f"unknown LLM_PROVIDER {provider!r}: use openai or demo")
+    if runtime.is_production() and provider != "openai":
+        raise ProviderPolicyError(
+            f"production requires LLM_PROVIDER=openai (got {provider or 'unset'!r}); "
+            "the demo stand-in is never permitted in production")
     if provider == "demo":
         return DemoLLM()
     if provider == "openai":
@@ -354,17 +363,38 @@ def default_client():
     return DemoLLM()
 
 
+class ProviderPolicyError(RuntimeError):
+    """The configured provider is not allowed in this environment."""
+
+
 _last_error: str = ""
+
+# Provider errors quote a masked fragment of the key ("sk-proj-****abcd"), and
+# this note is shown on /health. No part of a key belongs there.
+_KEY_FRAGMENT = re.compile(r"\bsk-[A-Za-z0-9_\-*]+")
+
+
+def redact(msg: str) -> str:
+    return _KEY_FRAGMENT.sub("sk-[redacted]", msg or "")
 
 
 def _note(msg: str) -> None:
     global _last_error
-    _last_error = msg.splitlines()[0][:200] if msg else ""
+    _last_error = redact(msg.splitlines()[0][:200]) if msg else ""
 
 
 def probe() -> dict[str, Any]:
-    """What the app is really running on - surfaced by /health and the UI."""
-    client = default_client()
+    """What the app is really running on - surfaced by /health and the UI.
+
+    "unavailable" means no client can be built under the current policy (in
+    production: provider not openai, or the key/models failed). It is reported
+    rather than raised so /health can say so instead of returning a bare 500.
+    """
+    try:
+        client = default_client()
+    except Exception as exc:
+        return {"provider": "unavailable", "models": {},
+                "reason": redact(str(exc).splitlines()[0][:200] if str(exc) else type(exc).__name__)}
     if isinstance(client, DemoLLM):
         return {"provider": "demo", "models": {},
                 "reason": _last_error or ("no OPENAI_API_KEY set" if not os.getenv("OPENAI_API_KEY")

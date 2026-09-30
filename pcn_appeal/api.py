@@ -12,6 +12,7 @@ tenant isolation and the product/case binding check in front of every route.
 """
 from __future__ import annotations
 
+import hmac
 import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict
@@ -19,10 +20,10 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from . import config, prompts, version
+from . import config, prompts, runtime, version
 from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
@@ -63,7 +64,25 @@ async def lifespan(_: FastAPI):
     applied = config.load_once()
     if applied:
         print(f"[config] loaded {len(applied)} setting(s) from .env: {', '.join(sorted(applied))}")
+    _verify_provider_at_startup()
     yield
+
+
+def _verify_provider_at_startup() -> None:
+    """Production refuses to start on a provider it cannot use.
+
+    Without this a missing or rejected key surfaced only when the first customer
+    uploaded a notice - or, before the provider policy, not at all: the case ran
+    on the demo stand-in. Failing here keeps a bad deploy from being promoted.
+    """
+    if not runtime.is_production():
+        return
+    from .llm import redact
+    try:
+        default_client()
+    except Exception as exc:
+        raise RuntimeError(
+            f"refusing to start in production: LLM provider unusable ({redact(str(exc))})") from exc
 
 
 app = FastAPI(title="PCN Appeal AI", version="2.0", lifespan=lifespan)
@@ -185,6 +204,49 @@ class DisclosureCorrectionIn(BaseModel):
     reason: str = ""
 
 
+PROVIDER_UNAVAILABLE = {
+    "code": "PROCESSING_ERROR",
+    "message": "Our appeal service is temporarily unavailable. Nothing has been decided "
+               "about your parking charge - please try again in a few minutes.",
+}
+
+
+def _pipeline() -> AppealPipeline:
+    """A pipeline on the configured provider, or a customer-safe 503.
+
+    A provider that cannot be built is our processing failure. It must never
+    become a case silently run on the demo stand-in, and never a merits outcome.
+    """
+    try:
+        client = default_client()
+    except Exception as exc:
+        from .llm import redact
+        print(f"[llm] provider unavailable: {redact(str(exc))}")
+        raise HTTPException(503, PROVIDER_UNAVAILABLE) from exc
+    return AppealPipeline(client, kg=KG)
+
+
+def _require_admin(authorization: Optional[str], x_admin_token: Optional[str]) -> None:
+    """Operator-only routes: trace, console, disclosure correction and the
+    step routes that return module ids, validator ids and PoFA internals.
+
+    With ADMIN_TRACE_TOKEN (or ADMIN_TOKEN) set, the caller must present it as
+    `Authorization: Bearer <token>` or `X-Admin-Token: <token>`. With no token
+    configured these routes stay open in development and are CLOSED in
+    production - an unset secret must not mean "public".
+    """
+    token = (os.getenv("ADMIN_TRACE_TOKEN") or os.getenv("ADMIN_TOKEN") or "").strip()
+    if not token:
+        if runtime.is_production():
+            raise HTTPException(403, "admin endpoints are disabled: no admin token configured")
+        return
+    presented = [f"Bearer {token}", token]
+    offered = [authorization or "", x_admin_token or ""]
+    if not any(hmac.compare_digest(o.encode(), p.encode())
+               for o, p in zip(offered, presented) if o):
+        raise HTTPException(401, "admin authorization required")
+
+
 def _case(case_id: str) -> dict[str, Any]:
     rec = CASES.get(case_id)
     if rec is None and db.enabled():
@@ -202,7 +264,7 @@ def _rehydrate(case_id: str) -> Optional[dict[str, Any]]:
         case = case_store.load(case_id)
     except Exception:
         return None
-    rec = {"case": case, "pipe": AppealPipeline(default_client(), kg=KG),
+    rec = {"case": case, "pipe": _pipeline(),
            "flags": [], "questions": [], "output": None}
     CASES[case_id] = rec
     return rec
@@ -218,12 +280,13 @@ def _persist(case: CaseFile, out=None) -> None:
 
 
 def _new_case() -> tuple[str, dict[str, Any]]:
+    pipe = _pipeline()                   # before the case row: no orphan on a 503
     if db.enabled():
         from .store import cases as case_store
         case = case_store.new_case(kb_release_id=KG.release_id)
     else:
         case = CaseFile(f"C-{len(CASES) + 1:04d}")
-    rec = {"case": case, "pipe": AppealPipeline(default_client(), kg=KG),
+    rec = {"case": case, "pipe": pipe,
            "flags": [], "questions": [], "output": None}
     CASES[case.case_id] = rec
     return case.case_id, rec
@@ -239,8 +302,10 @@ def customer_app():
 
 
 @app.get("/console", include_in_schema=False)
-def reviewer_console():
+def reviewer_console(authorization: Optional[str] = Header(None),
+                     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
     """Reviewer view: facts, confidence, decision trace, per-sentence provenance."""
+    _require_admin(authorization, x_admin_token)
     return FileResponse(WEB / "console.html", media_type="text/html")
 
 
@@ -255,9 +320,14 @@ def health():
     drafter and validator are really using.
     """
     from .engines import validation
-    from .llm import default_client, probe
+    from .llm import probe
     p = probe()
-    return {"status": "ok", "modules": len(KG.modules), "blocks": len(KG.blocks),
+    # Production on anything but the real provider is not a healthy service,
+    # whatever else works: it cannot produce a letter anyone should receive.
+    healthy = p["provider"] == "openai" or not runtime.is_production()
+    body = {"status": "ok" if healthy else "unhealthy",
+            "modules": len(KG.modules), "blocks": len(KG.blocks),
+            "environment": runtime.environment(), "build_id": runtime.build_id(),
             "commit": version.commit(),
             "kb_release": KG.release_id, "kb_source": KB_STATUS["source"],
             "kb_source_note": KB_STATUS["reason"], "kb_drift": KB_STATUS["drift"],
@@ -266,8 +336,12 @@ def health():
             "provider": p["provider"], "models": p["models"], "provider_note": p["reason"],
             # False means a photographed notice or scanned PDF will yield no facts,
             # so the UI can say so before the customer uploads one.
-            "vision": bool(getattr(default_client(), "SUPPORTS_IMAGES", False)),
+            # Only the OpenAI client reads images (DemoLLM.SUPPORTS_IMAGES is
+            # False). Derived from the probe rather than building a second client,
+            # which in production raises when the provider is unusable.
+            "vision": p["provider"] == "openai",
             "max_upload_bytes": MAX_BYTES}
+    return body if healthy else JSONResponse(body, status_code=503)
 
 
 # --------------------------------------------------------------------- one click
@@ -485,8 +559,15 @@ def create_case():
 
 
 @app.post("/cases/{case_id}/documents")
-def upload(case_id: str, body: DocumentsIn):
-    """Production: virus scan -> S3 -> enqueue extraction. Here: inline."""
+def upload(case_id: str, body: DocumentsIn,
+           authorization: Optional[str] = Header(None),
+           x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Production: virus scan -> S3 -> enqueue extraction. Here: inline.
+
+    Operator route (console): takes client-supplied text and document kinds and
+    skips the upload page check, so it is not a customer entry point.
+    """
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     if case.state != CaseState.CREATED:
@@ -694,15 +775,13 @@ def correct_disclosure_status(
     case_id: str,
     body: DisclosureCorrectionIn,
     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+    authorization: Optional[str] = Header(None),
 ):
     """Auditable correction of external driver-disclosure status.
 
-    Requires ADMIN_TRACE_TOKEN when configured. Does not blanket-reset cases.
+    Operator route (see _require_admin). Does not blanket-reset cases.
     """
-    import os
-    expected = os.getenv("ADMIN_TRACE_TOKEN") or os.getenv("ADMIN_TOKEN")
-    if expected and x_admin_token != expected:
-        raise HTTPException(403, "admin token required")
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     from .disclosure import correct_disclosure
@@ -718,7 +797,11 @@ def correct_disclosure_status(
 
 
 @app.post("/cases/{case_id}/answers")
-def answer(case_id: str, body: AnswersIn):
+def answer(case_id: str, body: AnswersIn,
+           authorization: Optional[str] = Header(None),
+           x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Operator route (console). Customers answer through POST /appeal/{id}."""
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
@@ -732,8 +815,11 @@ def answer(case_id: str, body: AnswersIn):
 
 
 @app.post("/cases/{case_id}/generate")
-def generate(case_id: str):
-    """Production: enqueued worker step; the customer polls GET /appeal."""
+def generate(case_id: str,
+             authorization: Optional[str] = Header(None),
+             x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Operator route (console): returns route ids and validator issues."""
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
@@ -747,8 +833,12 @@ def generate(case_id: str):
 
 
 @app.get("/cases/{case_id}/appeal")
-def get_appeal(case_id: str):
-    """RELEASED -> letter (production: PDF url); MANUAL_REVIEW -> status only."""
+def get_appeal(case_id: str,
+               authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Operator route (console): returns module ids, PoFA findings and
+    validator issues. Customers receive their letter from POST /appeal*."""
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     out = rec["output"]
     if out is None:
@@ -763,19 +853,14 @@ def get_appeal(case_id: str):
 
 
 @app.get("/cases/{case_id}/trace")
-def get_trace(case_id: str, authorization: Optional[str] = Header(None)):
+def get_trace(case_id: str, authorization: Optional[str] = Header(None),
+              x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
     """Why the system argued what it argued — admin/audit view only.
 
-    Customer UI must not call this. When ADMIN_TRACE_TOKEN is set, require
-    `Authorization: Bearer <token>`; otherwise the endpoint stays available to
-    operators with network access to the API (no public customer surface).
+    Customer UI must not call this. Operator route (see _require_admin): it
+    was open whenever ADMIN_TRACE_TOKEN was unset, which in production it was.
     """
-    import os
-    token = (os.environ.get("ADMIN_TRACE_TOKEN") or "").strip()
-    if token:
-        expected = f"Bearer {token}"
-        if (authorization or "") != expected:
-            raise HTTPException(401, "admin authorization required")
+    _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     out = rec["output"]
     if out is None:
