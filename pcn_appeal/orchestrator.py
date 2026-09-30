@@ -42,6 +42,7 @@ def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
     out.outcome_title = info.get("outcome_title")
     out.outcome_message = info.get("outcome_message")
     out.outcome_next = info.get("outcome_next")
+    out.cta_label = info.get("cta_label")
     out.can_continue = bool(info.get("can_continue", True))
     case.audit.append({"event": "customer_outcome", **{k: v for k, v in info.items()
                                                        if k != "detail"},
@@ -63,6 +64,7 @@ class AppealOutput:
     outcome_title: Optional[str] = None
     outcome_message: Optional[str] = None
     outcome_next: Optional[str] = None
+    cta_label: Optional[str] = None
     can_continue: bool = True
 
 

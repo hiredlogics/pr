@@ -181,6 +181,16 @@ export default function Page() {
     setErrorRejected(null);
   }
 
+  /** Same case + saved answers — re-run the pipeline without starting again. */
+  const continueCase = () =>
+    run("drafting", async () => {
+      if (!caseId) return;
+      const next = await submitAnswers(caseId, {}, false);
+      setData(next);
+      setRound((r) => (next.questions.length > 0 ? r + 1 : r));
+      setScreen(next.questions.length > 0 ? "questions" : "result");
+    });
+
   return (
     <main className="shell">
       <header className="masthead">
@@ -244,7 +254,7 @@ export default function Page() {
               onSkip={() => answer({}, true)}
             />
           ) : screen === "result" && data ? (
-            <ResultStep data={data} onRestart={restart} />
+            <ResultStep data={data} onRestart={restart} onContinue={continueCase} />
           ) : null}
         </div>
 

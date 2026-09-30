@@ -85,6 +85,18 @@ export type AppealResponse = {
   stop_reason?: string;
   recommendation?: string;
   cta?: { label: string | null; action: string | null } | null;
+  /** Why a held case stopped — never collapsed to a single merits message. */
+  outcome?:
+    | "NO_SUPPORTED_GROUNDS"
+    | "PROCESSING_ERROR"
+    | "NEEDS_DOCUMENTS"
+    | "NEEDS_FACTS"
+    | "SCOPE_INELIGIBLE"
+    | "CLASSIFICATION_FAILED";
+  outcome_title?: string;
+  outcome_message?: string;
+  outcome_next?: string;
+  can_continue?: boolean;
 };
 
 export type Health = {

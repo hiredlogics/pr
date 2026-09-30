@@ -220,19 +220,22 @@ class Safety(unittest.TestCase):
         rules = {i.rule for i in pipe.validation.validate(bad, pack).issues}
         self.assertTrue({"VAL-DRIVER", "VAL-EVIDENCE", "VAL-OBSOLETE", "VAL-LEAK", "VAL-STAGE"} <= rules, rules)
 
-    def test_bad_llm_drafts_fall_back_then_release(self):
+    def test_bad_llm_drafts_hold_as_processing_error_not_template_release(self):
+        """AI drafting that only emits unsafe prose must not release via TemplateDrafter.
+
+        Substantive template substitution after AI failure is disabled: the hold is
+        a processing error, not a merits judgment and not a silent template letter.
+        """
         class BadDrafter:
             def draft(self, case_id, pack, feedback=None, attempt=1):
                 return Draft(case_id, [[DraftSentence("I drove in and parked.", [], ["STRUCTURAL"])]], attempt)
-        # A late postal notice, so the case has a ground the KB lets lead and the
-        # drafting loop actually runs. A bare "overstayed" would now be held
-        # before drafting for having no leading ground, which would test the gate
-        # instead of the fallback.
         case, pipe = make_case({"notice_issue_date": "20/06/2026"})
         pipe.drafter = BadDrafter()
         out = run(case, pipe, "overstayed", {})
-        self.assertEqual(out.state, CaseState.RELEASED)
-        self.assertEqual(out.draft.attempt, 3)   # third attempt = safe template fallback
+        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        self.assertEqual(out.outcome, "PROCESSING_ERROR")
+        self.assertTrue(out.can_continue)
+        self.assertIsNone(out.letter)
 
     def test_prompt_injection_flagged(self):
         case, pipe = make_case(evidence={"E9": EvidenceItem("E9", "OTHER", "x.pdf",

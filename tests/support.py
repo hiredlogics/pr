@@ -15,6 +15,7 @@ question, answered by running it against real notices.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Optional
 
 from pcn_appeal.kg.graph import KnowledgeGraph
@@ -94,6 +95,8 @@ class ReferenceAnalysisLLM:
             }])
 
         # Timing / module blocks from retrieved wording when present.
+        evidence_ids = list(data.get("evidence_refs") or [])
+        seen_text: set[str] = set()
         for mid in modules:
             if mid == "KB-LAND-01":
                 # Only emit when CI selected it (already in module_ids).
@@ -144,9 +147,25 @@ class ReferenceAnalysisLLM:
                 if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text")
             ]
             for text in block_texts[:2]:
+                key = " ".join(str(text).lower().split())
+                if key in seen_text:
+                    continue
+                seen_text.add(key)
+                refs_e = list(evidence_ids) if evidence_ids and re.search(
+                    r"\b(enclosed|attached|supplied)\b", str(text), re.I) else []
+                # If the block claims enclosure but the pack has no evidence refs,
+                # drop the enclosure wording so VAL-EVIDENCE does not fire.
+                out_text = text
+                if not refs_e and re.search(r"\b(enclosed|attached|supplied)\b", str(text), re.I):
+                    out_text = re.sub(
+                        r"\s*(to the enclosed evidence|the enclosed evidence and|"
+                        r"enclosed evidence[, ]*)",
+                        " ", str(text), flags=re.I,
+                    )
+                    out_text = re.sub(r"\s{2,}", " ", out_text).strip()
                 paras.append([{
-                    "text": text, "fact_refs": [], "module_refs": [mid],
-                    "evidence_refs": [], "quote_of": None,
+                    "text": out_text, "fact_refs": [], "module_refs": [mid],
+                    "evidence_refs": refs_e, "quote_of": None,
                 }])
 
         # Factual rebuttal if account contradicts but BAY-02 was not selected

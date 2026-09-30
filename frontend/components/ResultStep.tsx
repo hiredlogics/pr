@@ -83,12 +83,13 @@ function ctaHref(action?: string | null): string {
 export default function ResultStep({
   data,
   onRestart,
+  onContinue,
 }: {
   data: AppealResponse;
   onRestart: () => void;
+  /** Re-run generate on the same case — preserves answers. */
+  onContinue?: () => void;
 }) {
-  const grounds = data.grounds ?? [];
-
   const released = data.state === "RELEASED" && typeof data.letter === "string" && data.letter.trim().length > 0;
   const noAppeal = data.state === "NO_APPEAL_RIGHT";
   // Our document classifier returned nothing. Kept separate from both the
@@ -97,12 +98,9 @@ export default function ResultStep({
   // them a reviewer will look at it would be wrong — they can just try again.
   const technicalError = data.state === "CLASSIFICATION_FAILED";
   const awaitingQuestions = (data.questions?.length ?? 0) > 0;
-  // The pipeline asks for what it is missing, retrieves more of the knowledge
-  // base, re-analyses, drops a ground it cannot stand behind and re-drafts
-  // before it ever lands here. So this is not "a reviewer will pick it up" —
-  // automatic recovery has already run and could not get to a letter we are
-  // willing to put someone's name on. The customer's next move is their own.
-  const couldNotFinish =
+  // Held after automatic recovery. The backend names *why* via `outcome` —
+  // never collapse every MANUAL_REVIEW into a merits judgment.
+  const held =
     !released &&
     !noAppeal &&
     !technicalError &&
@@ -113,22 +111,74 @@ export default function ResultStep({
       data.state === "CONFIRMED" ||
       data.state === "ANALYSED");
 
+  const outcome = data.outcome;
+  const isProcessing = outcome === "PROCESSING_ERROR" || (!outcome && held === false && technicalError);
+  const isNoGrounds = outcome === "NO_SUPPORTED_GROUNDS";
+  const isNeedsDocs = outcome === "NEEDS_DOCUMENTS";
+  const isNeedsFacts = outcome === "NEEDS_FACTS";
+  // Legacy payloads without `outcome` must not imply merits: treat as processing.
+  const legacyHeldAsProcessing = held && !outcome;
+
+  const title =
+    data.outcome_title ||
+    (noAppeal
+      ? "We cannot generate an appeal for this"
+      : technicalError
+        ? "Something went wrong at our end"
+        : isNeedsDocs
+          ? "We need clearer documents"
+          : isNeedsFacts
+            ? "A few more details are needed"
+            : isNoGrounds
+              ? "We could not write an appeal we can stand behind"
+              : held || isProcessing || legacyHeldAsProcessing
+                ? "Something went wrong while preparing your appeal"
+                : "No final appeal is ready yet");
+
+  const lede =
+    data.outcome_message ||
+    (noAppeal
+      ? data.stop_reason
+      : technicalError
+        ? data.stop_reason
+        : isNoGrounds
+          ? "From the notice and the answers you gave, we did not find a supported ground we are willing to put in a letter. That is our assessment of what we can argue — not a ruling that you have no case."
+          : held || legacyHeldAsProcessing
+            ? "A processing error stopped us finishing the letter. This is not a judgment on the strength of your case. Your answers are saved — you can continue this case without starting again."
+            : "A generic introduction or incomplete draft is never shown as a finished appeal. Continue the steps, or start again if something went wrong.");
+
+  const nextCopy =
+    data.outcome_next ||
+    (isNoGrounds
+      ? "You can still appeal to the operator using the method on your notice. If they reject it, you can take it to their appeals service."
+      : "Try continuing this case. If it keeps failing, contact support with your case reference.");
+
+  const ctaLabel =
+    data.cta?.label ||
+    (isNoGrounds
+      ? "Add more detail to this case"
+      : data.can_continue !== false
+        ? "Continue this case"
+        : "Start another appeal");
+
+  const showContinue =
+    (held || isNeedsDocs || isNeedsFacts || isNoGrounds || legacyHeldAsProcessing) &&
+    data.can_continue !== false &&
+    typeof onContinue === "function";
+
   return (
     <div className="stack">
       {noAppeal ? (
         <div className="card stack">
           <div>
             <h1>We cannot generate an appeal for this</h1>
-            {/* Wording comes from the routing table, which knows which kind of
-                document this was. A fallback here would be a guess, and the old
-                one told every stopped customer they were in debt recovery. */}
             <p className="lede">{data.stop_reason}</p>
           </div>
           {data.recommendation && (
             <div className="notice" data-tone="attention">
               <h3>What to do instead</h3>
               <p>{data.recommendation}</p>
-              {data.cta?.label && (
+              {data.cta?.label && data.cta.action && data.cta.action !== "CONTINUE_CASE" && (
                 <p style={{ marginTop: 12 }}>
                   <a className="btn btn-primary btn-inline" href={ctaHref(data.cta.action)}>
                     {data.cta.label} &rarr;
@@ -141,20 +191,24 @@ export default function ResultStep({
       ) : technicalError ? (
         <div className="card stack">
           <div>
-            <h1>Something went wrong at our end</h1>
-            <p className="lede">{data.stop_reason}</p>
+            <h1>{title}</h1>
+            <p className="lede">{lede}</p>
           </div>
-          {data.recommendation && (
-            <div className="notice" data-tone="attention">
-              <h3>What to do next</h3>
-              <p>{data.recommendation}</p>
-              <p style={{ marginTop: 12 }}>
+          <div className="notice" data-tone="attention">
+            <h3>What to do next</h3>
+            <p>{nextCopy}</p>
+            <p style={{ marginTop: 12 }}>
+              {showContinue ? (
+                <button className="btn btn-primary btn-inline" onClick={onContinue}>
+                  {ctaLabel} &rarr;
+                </button>
+              ) : (
                 <button className="btn btn-primary btn-inline" onClick={onRestart}>
                   {data.cta?.label || "Try again"} &rarr;
                 </button>
-              </p>
-            </div>
-          )}
+              )}
+            </p>
+          </div>
         </div>
       ) : awaitingQuestions ? (
         <div className="card stack">
@@ -190,30 +244,24 @@ export default function ResultStep({
       ) : (
         <div className="card stack">
           <div>
-            <h1>
-              {couldNotFinish
-                ? "We could not write an appeal for this notice"
-                : "No final appeal is ready yet"}
-            </h1>
-            <p className="lede">
-              {couldNotFinish
-                ? "Nothing in what you sent us gives an appeal that would stand up, so we will not send you a letter that is likely to be rejected. If there is more to the story — photos of the signs, a receipt, a permit, or anything else from that day — start again and add it."
-                : "A generic introduction or incomplete draft is never shown as a finished appeal. Continue the steps, or start again if something went wrong."}
-            </p>
+            <h1>{title}</h1>
+            <p className="lede">{lede}</p>
           </div>
 
-          {couldNotFinish && (
+          {(held || legacyHeldAsProcessing || isNoGrounds || isNeedsDocs || isNeedsFacts) && (
             <div className="notice" data-tone="attention">
               <h3>What to do next</h3>
-              <p>
-                You can still appeal to the operator in your own words using the method on your
-                notice, and if they reject it you can take it to the operator&rsquo;s appeals
-                service. Doing that keeps your options open and costs nothing.
-              </p>
+              <p>{nextCopy}</p>
               <p style={{ marginTop: 12 }}>
-                <button className="btn btn-primary btn-inline" onClick={onRestart}>
-                  Start again with more detail &rarr;
-                </button>
+                {showContinue ? (
+                  <button className="btn btn-primary btn-inline" onClick={onContinue}>
+                    {ctaLabel} &rarr;
+                  </button>
+                ) : (
+                  <button className="btn btn-primary btn-inline" onClick={onRestart}>
+                    Start another appeal &rarr;
+                  </button>
+                )}
               </p>
             </div>
           )}
@@ -224,41 +272,6 @@ export default function ResultStep({
         {data.rejected && <RejectedNotes rejected={data.rejected} />}
         <FlagNotes flags={data.flags} />
         {data.read_as && <ReadAsNotes readAs={data.read_as} />}
-      </div>
-
-      <div className="card stack">
-        <h2>What went into this</h2>
-        <ul className="meta">
-          {grounds.length > 0 && (
-            <li>
-              <span className="k">Grounds raised</span>
-              <span className="v">
-                <ul className="taglist">
-                  {grounds.map((g) => (
-                    <li className="tag" key={g}>
-                      {g}
-                    </li>
-                  ))}
-                </ul>
-              </span>
-            </li>
-          )}
-          {data.evidence_list && data.evidence_list.length > 0 && (
-            <li>
-              <span className="k">Evidence listed</span>
-              <span className="v">{data.evidence_list.join(", ")}</span>
-            </li>
-          )}
-          {data.skipped_questions.length > 0 && (
-            <li>
-              <span className="k">Questions skipped</span>
-              <span className="v">
-                {data.skipped_questions.length} &mdash; the grounds relying on those facts were not
-                raised.
-              </span>
-            </li>
-          )}
-        </ul>
       </div>
 
       <button type="button" className="btn btn-secondary" onClick={onRestart}>

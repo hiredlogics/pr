@@ -237,6 +237,13 @@ class DemoLLM:
         self.calls.append({"task": task, "user": user})
         if task == "case_analysis":
             return self._reference_analysis(user)
+        if task == "drafting":
+            # Demo must still produce a letter when grounds are selected. This is
+            # not TemplateDrafter-after-AI-failure: the demo *is* the drafter when
+            # no provider key is configured. Production OpenAI failures stay held.
+            return self._demo_draft(user)
+        if task == "validation":
+            return {"issues": []}
         if task != "extraction":
             raise RuntimeError(f"DemoLLM only supports extraction, not {task!r}")
         docs = re.findall(r"<document id='([^']+)' filename='([^']*)'>\n(.*?)\n</document>", user, re.S)
@@ -258,6 +265,69 @@ class DemoLLM:
                     fields[name] = {"value": m.group(1), "confidence": 0.95,
                                     "evidence_id": ev_id, "page": 1}
         return {"fields": fields, "doc_types": doc_types}
+
+    def _demo_draft(self, payload: str) -> dict:
+        """Pack-faithful draft when no provider is configured.
+
+        Uses retrieved block wording when present so VAL-LEAK / VAL-SUBSTANCE pass.
+        Never substitutes TemplateDrafter after an OpenAI failure — this path is
+        only the demo client's own drafting response.
+        """
+        import json
+        data = json.loads(payload) if isinstance(payload, str) else payload
+        facts = data.get("verified_facts") or {}
+        ctx = data.get("case_context") or {}
+        modules = list(data.get("module_ids") or [])
+        refs = data.get("fact_refs") or {}
+        chunks = data.get("context_chunks") or []
+        if not modules:
+            return {"paragraphs": [], "no_ground_reason": "no finalized claims to draft"}
+        vrm = facts.get("vrm") or ctx.get("vrm") or "the vehicle"
+        pcn = facts.get("pcn_number") or ctx.get("pcn_number") or "the notice"
+        breach = str(facts.get("alleged_breach") or ctx.get("alleged_breach") or "").strip()
+        location = str(facts.get("parking_location") or ctx.get("parking_location") or "").strip()
+        paras: list = [[
+            {"text": (f"I write as the registered keeper of vehicle {vrm} in respect of "
+                      f"Parking Charge Notice {pcn}. I dispute liability for this parking "
+                      f"charge and require the operator to consider this appeal."),
+             "fact_refs": [refs[k] for k in ("vrm", "pcn_number") if k in refs],
+             "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None},
+        ]]
+        if breach:
+            where = f" at {location}" if location else ""
+            paras.append([{
+                "text": f"The Parking Charge Notice alleges: {breach}{where}.",
+                "fact_refs": [refs[k] for k in ("alleged_breach",) if k in refs],
+                "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+            }])
+        used = 0
+        for mid in modules:
+            block_texts = [
+                c.get("text") for c in chunks
+                if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text")
+            ]
+            for text in block_texts[:2]:
+                paras.append([{
+                    "text": text, "fact_refs": [], "module_refs": [mid],
+                    "evidence_refs": [], "quote_of": None,
+                }])
+                used += 1
+        if used == 0:
+            # One substantive paragraph covering the selected pack — no module IDs.
+            lead = modules[0]
+            paras.append([{
+                "text": ("The operator is requested to establish that the statutory and "
+                         "contractual conditions for this charge were met on the material "
+                         "date, and to cancel the notice if they were not."),
+                "fact_refs": [], "module_refs": [lead], "evidence_refs": [], "quote_of": None,
+            }])
+            used = 1
+        paras.append([{
+            "text": ("For the reasons set out above, the parking charge is disputed and the "
+                     "operator is requested to cancel the Parking Charge Notice."),
+            "fact_refs": [], "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+        }])
+        return {"paragraphs": paras, "no_ground_reason": None}
 
 
 def default_client():

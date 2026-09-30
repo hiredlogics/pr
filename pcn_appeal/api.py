@@ -17,7 +17,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -293,6 +293,26 @@ def _ground_labels(pack) -> list[str]:
     return [KG.routes.get(r, {}).get("label", r) for r in routes]
 
 
+def _outcome_fields(out) -> dict:
+    """Customer hold outcome — never module IDs or validator internals."""
+    if out is None or out.state == CaseState.RELEASED:
+        return {}
+    if not getattr(out, "outcome", None):
+        return {}
+    fields = {
+        "outcome": out.outcome,
+        "outcome_title": out.outcome_title,
+        "outcome_message": out.outcome_message,
+        "outcome_next": out.outcome_next,
+        "can_continue": bool(getattr(out, "can_continue", True)),
+    }
+    label = getattr(out, "cta_label", None)
+    if label:
+        fields["cta"] = {"label": label, "action": "CONTINUE_CASE"}
+    return fields
+
+
+
 # Flag kinds a customer can actually act on. Everything else extraction raises is
 # a signal for us, not for them: `injection_suspected` is a security finding, and
 # a customer shown a raw flag name learns nothing and worries anyway. The
@@ -359,9 +379,10 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
         # the plain-text field above is what validation checked; this is the
         # same letter laid out as a document a customer can actually send
         payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"
-    # A held case sends state only. Validator messages name the rule, the
-    # sentence and the fact it could not stand on - that is internal reasoning,
-    # and it belongs to GET /cases/{id}/trace, not to the customer.
+    else:
+        # Held cases: say *why* we stopped. Validator rule names and module IDs
+        # stay on GET /cases/{id}/trace (admin/audit), not the customer payload.
+        payload.update(_outcome_fields(out))
     return payload
 
 
@@ -555,6 +576,8 @@ def confirm(case_id: str, body: ConfirmIn):
         payload["grounds"] = _ground_labels(out.pack)      # see /auto_appeal
         payload["letter"] = out.letter
         payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
+    else:
+        payload.update(_outcome_fields(out))
     return payload
 
 
@@ -604,8 +627,19 @@ def get_appeal(case_id: str):
 
 
 @app.get("/cases/{case_id}/trace")
-def get_trace(case_id: str):
-    """Why the system argued what it argued - reviewer/audit view."""
+def get_trace(case_id: str, authorization: Optional[str] = Header(None)):
+    """Why the system argued what it argued — admin/audit view only.
+
+    Customer UI must not call this. When ADMIN_TRACE_TOKEN is set, require
+    `Authorization: Bearer <token>`; otherwise the endpoint stays available to
+    operators with network access to the API (no public customer surface).
+    """
+    import os
+    token = (os.environ.get("ADMIN_TRACE_TOKEN") or "").strip()
+    if token:
+        expected = f"Bearer {token}"
+        if (authorization or "") != expected:
+            raise HTTPException(401, "admin authorization required")
     rec = _case(case_id)
     out = rec["output"]
     if out is None:
@@ -614,7 +648,9 @@ def get_trace(case_id: str):
             "missing_facts": out.pack.missing_facts, "prohibited_claims": out.pack.prohibited_claims,
             "sentences": [{"text": s.text, "fact_refs": s.fact_refs, "module_refs": s.module_refs,
                            "evidence_refs": s.evidence_refs} for s in out.draft.sentences()],
-            "audit": rec["case"].audit}
+            "audit": rec["case"].audit,
+            "outcome": getattr(out, "outcome", None)}
+
 
 
 # Admin (role: legal_admin) - edit without redeploys (Dev Pack Phase 10).
