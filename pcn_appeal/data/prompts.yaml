@@ -202,8 +202,20 @@ prompts:
   #   Named in the source as a rule, not a preference - KB-KEY-01 "Keying and
   #   payment are one case theory - do not repeat", KB-PAY-01 "Merge repeated
   #   payment statements into one". Enforced by VAL-REPEAT-POINT in Engine 4.
+  #
+  # v9 -> v10: DIRECT FACT CONTRADICTION rule, global rather than route-specific.
+  #   A restricted-bay letter argued a genuine account contradiction (customer
+  #   states children were present; notice alleges no child was present) but
+  #   opened on PP-BAY-01's own abstract observation-window phrasing ("turns on
+  #   who was using the bay over the course of the visit") instead of stating the
+  #   plain contradiction first. The fix is not a Mother & Child template or a
+  #   new decision-tree branch - it is a drafting-order principle that applies to
+  #   every route: allegation's premise -> the contradicting fact, in plain terms
+  #   -> direct statement that the two are inconsistent -> operator put to proof.
+  #   Abstract framing is for when no concrete contradicting fact is available,
+  #   not a default the drafter reaches for when one already is.
   drafting:
-    version: 9
+    version: 10
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -267,8 +279,17 @@ prompts:
       - If validation_status is UNCONFIRMED or unresolved_topics includes kiosk_validation:
         acknowledge the uncertainty and request the named operator to check validation / kiosk /
         transaction records for the vehicle, location and date. Do not claim validation occurred or failed.
+      - DIRECT FACT CONTRADICTION (applies to every route, not a per-route rule): where a
+        verified customer fact directly contradicts the specific factual premise of the
+        operator's allegation, draft it in this order: name the allegation's premise,
+        state the contradicting fact plainly, say directly that the two are inconsistent,
+        then put the operator to proof of the premise it relies on. Lead with the plain
+        statement of the concrete fact itself. Do not reach for an abstract formulation of
+        the general point (e.g. what a type of restriction "turns on" or generally depends
+        on) when the concrete contradicting fact is already available to state directly -
+        abstraction is for when no such fact is available, not a default.
       - If material_account_propositions / factual_rebuttal is present: incorporate each
-        professional proposition as a factual rebuttal to the allegation's premise. This is
+        professional proposition as the contradicting fact above. This is
         independent of observation-window timing modules and of any particular building block.
         Do not require KB-BAY-01 or PP-BAY-002 for the account facts to be used. When
         account_contradicts_allegation is true, state that the account is inconsistent with
