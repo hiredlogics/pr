@@ -12,6 +12,7 @@ tenant isolation and the product/case binding check in front of every route.
 """
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
@@ -21,7 +22,7 @@ from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from . import config
+from . import config, prompts, version
 from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
@@ -68,16 +69,64 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="PCN Appeal AI", version="2.0", lifespan=lifespan)
 
 
+# Start anyway when the KB source cannot be trusted: an unreachable release
+# table (serves the authored YAML) or a release that disagrees with the YAML in
+# this build (serves the release, and /health reports the drift). Without it
+# either case stops the API, which is the point of this gate - but an operator
+# still needs a deliberate, logged way to bring the surface up.
+ALLOW_KB_DRIFT = (os.getenv("ALLOW_KB_DRIFT") or "").strip().lower() in ("1", "true", "yes")
+
+# What the running process is actually serving, for /health.
+KB_STATUS: dict[str, Any] = {"source": "yaml", "reason": "no database configured", "drift": []}
+
+
 def _load_kg() -> KnowledgeGraph:
     """Serve the published Postgres release when there is one; fall back to the
-    authored YAML so the dev surface works with no database."""
-    if db.enabled():
-        try:
-            from .store import kb_source
-            return KnowledgeGraph.from_release(kb_source.load_release())
-        except Exception as exc:
-            print(f"[kb] Postgres release unavailable ({exc}); serving YAML")
-    return KnowledgeGraph()
+    authored YAML so the dev surface works with no database.
+
+    A release that EXISTS but cannot be served, or that disagrees with the
+    authored YAML, is a hard failure rather than a fallback. Quietly serving YAML
+    instead is how the app ends up arguing different law from the release every
+    case is stamped with - which is exactly how a client came to be retesting a
+    version nobody could identify.
+    """
+    if not db.enabled():
+        return KnowledgeGraph()
+
+    from .store import kb_source
+    try:
+        released = kb_source.latest_release_id()
+    except Exception as exc:
+        if not ALLOW_KB_DRIFT:
+            raise RuntimeError(
+                f"cannot reach the KB release table ({exc}). The database is the system of "
+                "record when DATABASE_URL is set, so serving the YAML here would argue "
+                "unverified law. Fix the database, or set ALLOW_KB_DRIFT=1 to serve the "
+                "authored YAML deliberately.") from exc
+        KB_STATUS.update(source="yaml", reason=f"release table unreachable: {exc}", drift=[])
+        print(f"[kb] release table unreachable ({exc}); serving YAML by ALLOW_KB_DRIFT")
+        return KnowledgeGraph()
+
+    if released is None:
+        KB_STATUS.update(source="yaml", reason="no KB release published", drift=[])
+        print("[kb] no KB release published; serving YAML "
+              "(publish with `python -m pcn_appeal.store sync`)")
+        return KnowledgeGraph()
+
+    release = kb_source.load_release()
+    drift = kb_source.release_differs_from_yaml(release)
+    if drift and not ALLOW_KB_DRIFT:
+        raise RuntimeError(
+            f"KB release {release['release_id']} does not match the authored YAML in this "
+            f"build:\n  - " + "\n  - ".join(drift)
+            + "\nRepublish with `python -m pcn_appeal.store sync --publish`, deploy the build "
+              "the release was cut from, or set ALLOW_KB_DRIFT=1 to override.")
+    # The release pins a prompt version per task. Without this the pinned prompts
+    # were fetched and then ignored, so the app ran YAML prompts while stamping
+    # every case with a release that named different ones.
+    prompts.use_release(release["prompts"])
+    KB_STATUS.update(source="postgres-release", reason="", drift=drift)
+    return KnowledgeGraph.from_release(release)
 
 
 KG = _load_kg()                       # one graph per process; rebuilt on KB release
@@ -197,10 +246,23 @@ def reviewer_console():
 
 @app.get("/health")
 def health():
+    """What this process is actually running, so a retest can be trusted.
+
+    `commit` is the answer to "is my fix deployed?" - it was previously
+    unanswerable from the running app, and had to be inferred by eye during an
+    incident. `kb_source` says whether the served law came from a published
+    release or the authored YAML, and `prompt_versions` which instructions the
+    drafter and validator are really using.
+    """
+    from .engines import validation
     from .llm import default_client, probe
     p = probe()
     return {"status": "ok", "modules": len(KG.modules), "blocks": len(KG.blocks),
-            "kb_release": KG.release_id, "store": "postgres" if db.enabled() else "memory",
+            "commit": version.commit(),
+            "kb_release": KG.release_id, "kb_source": KB_STATUS["source"],
+            "kb_source_note": KB_STATUS["reason"], "kb_drift": KB_STATUS["drift"],
+            "prompt_versions": prompts.versions(), "validator_version": validation.VERSION,
+            "store": "postgres" if db.enabled() else "memory",
             "provider": p["provider"], "models": p["models"], "provider_note": p["reason"],
             # False means a photographed notice or scanned PDF will yield no facts,
             # so the UI can say so before the customer uploads one.

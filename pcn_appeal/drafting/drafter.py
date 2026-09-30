@@ -69,6 +69,14 @@ class LLMDrafter:
     def __init__(self, llm: LLMClient):
         self.llm = llm
 
+    def _model(self) -> str:
+        """The model that actually drafted, or the stand-in's class name.
+
+        Never None: an unrecorded model is how a letter written by the demo
+        stand-in gets read back as a real provider's work.
+        """
+        return (getattr(self.llm, "models", None) or {}).get("drafting") or type(self.llm).__name__
+
     def draft(self, case_id: str, pack: RetrievalPack, feedback: Optional[list[str]] = None,
               attempt: int = 1) -> Draft:
         payload = {k: getattr(pack, k) for k in (
@@ -81,7 +89,8 @@ class LLMDrafter:
                                      user=json.dumps(payload, default=str))
         paras = [[DraftSentence(**s) for s in p] for p in out["paragraphs"]]
         reason = (out.get("no_ground_reason") or "").strip() or None
-        return Draft(case_id, paras, attempt, no_ground_reason=reason)
+        return Draft(case_id, paras, attempt, no_ground_reason=reason,
+                     model=self._model(), prompt_version=prompts.version("drafting"))
 
 
 class TemplateDrafter:

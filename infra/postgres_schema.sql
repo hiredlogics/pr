@@ -9,10 +9,22 @@ CREATE TABLE cases (
   state          text NOT NULL,                      -- CaseState
   driver_status  text NOT NULL DEFAULT 'UNIDENTIFIED',
   kb_release_id  text,                               -- KB version used (reproducibility)
+  -- Which code and which provider handled this case. The KB release alone does
+  -- not identify a run: the same release under a different build or on the demo
+  -- stand-in produces a different letter, and a case that cannot name its build
+  -- cannot confirm that a deployed fix applied to it.
+  commit_sha     text,
+  llm_provider   text,                               -- openai / demo
   appeal_deadline date,                              -- from notice; drives reminders
   created_at     timestamptz DEFAULT now(),
   retention_until date NOT NULL                      -- UK GDPR retention policy
 );
+
+-- Added after the table shipped. init_schema() skips a CREATE TABLE that already
+-- exists, so a populated database never sees the columns above; these are how it
+-- gets them. IF NOT EXISTS makes both paths idempotent.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS commit_sha text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS llm_provider text;
 
 CREATE TABLE evidence (
   evidence_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

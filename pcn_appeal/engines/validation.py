@@ -42,6 +42,15 @@ from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
 
 R = lambda p: re.compile(p, re.I)  # noqa: E731
 
+# Which rule pack decided a release, recorded against every validation.
+#
+# Lives here rather than at the call site that stores it: the store hardcoded the
+# string, so it could not track this file and every case ever validated claimed
+# the same version no matter which rules had actually run. Bump it whenever a
+# rule above is added, removed or changed in what it blocks - the stored value is
+# how a past release decision is explained, so a stale one misattributes it.
+VERSION = "VAL-1"
+
 DRIVER_PATTERNS = [
     R(r"\bI (drove|was driving|parked|left the (car|vehicle)|returned to the (car|vehicle)|arrived|came back|"
       r"broke down|stopped|pulled in|overstayed)\b"),

@@ -267,6 +267,12 @@ class Draft:
     # supported no ground at all. An internal line: it is a hold for manual
     # review, never an error to retry and never shown to the customer.
     no_ground_reason: Optional[str] = None
+    # What wrote this letter. Carried on the draft because the letter and the
+    # thing that produced it are only auditable together: a stored draft with no
+    # model and no prompt version cannot be replayed or explained afterwards,
+    # and a demo stand-in's letter cannot be told from a real provider's.
+    model: Optional[str] = None
+    prompt_version: Optional[int] = None
 
     def sentences(self) -> list[DraftSentence]:
         return [s for p in self.paragraphs for s in p]

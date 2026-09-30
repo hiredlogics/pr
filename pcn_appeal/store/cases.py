@@ -29,14 +29,23 @@ DEV_CUSTOMER_ID = os.getenv("DEV_CUSTOMER_ID", "00000000-0000-0000-0000-00000000
 
 
 def new_case(customer_id: Optional[str] = None, kb_release_id: Optional[str] = None) -> CaseFile:
-    """Insert a row and return a CaseFile whose case_id IS the database uuid."""
+    """Insert a row and return a CaseFile whose case_id IS the database uuid.
+
+    `commit_sha` and `llm_provider` are recorded at creation so a case can be
+    tied to the code and the provider that handled it. Without them, confirming
+    that a deployed fix was the one a case actually ran on means guessing.
+    """
+    from .. import version
+    from ..llm import probe
     case_id = str(uuid.uuid4())
     with connect() as conn:
         conn.execute("""
-            INSERT INTO cases (case_id, customer_id, state, driver_status, kb_release_id, retention_until)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO cases (case_id, customer_id, state, driver_status, kb_release_id,
+                               commit_sha, llm_provider, retention_until)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (case_id, customer_id or DEV_CUSTOMER_ID, CaseState.CREATED.value,
               DriverStatus.UNIDENTIFIED.value, kb_release_id,
+              version.commit(), probe()["provider"],
               date.today() + timedelta(days=RETENTION_DAYS)))
         conn.commit()
     return CaseFile(case_id)
@@ -128,22 +137,34 @@ def load(case_id: str) -> CaseFile:
 
 def save_output(case: CaseFile, out) -> None:
     """Persist the draft + its validation result (drafts.retrieval_pack keeps the
-    exact context the letter was written from, for replay)."""
+    exact context the letter was written from, for replay).
+
+    `model`, `prompt_version` and `validator_version` come from the draft and the
+    validator themselves. They were a hardcoded None and a hardcoded "VAL-1"
+    here, so every stored case claimed the same validator and no model at all -
+    a replay could reach the right KB release and still not know what wrote the
+    letter or which rules cleared it.
+    """
     from dataclasses import asdict
+
+    from ..engines import validation
     draft_id = str(uuid.uuid4())
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO drafts (draft_id, case_id, attempt, drafter, model, structured, retrieval_pack)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (draft_id, case.case_id, out.draft.attempt, type(out.draft).__name__, None,
+                INSERT INTO drafts (draft_id, case_id, attempt, drafter, model, prompt_version,
+                                    structured, retrieval_pack)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (draft_id, case.case_id, out.draft.attempt, type(out.draft).__name__,
+                  out.draft.model, out.draft.prompt_version,
                   _json(_jsonable([[asdict(s) for s in p] for p in out.draft.paragraphs])),
                   _json(_jsonable(asdict(out.pack)))))
             cur.execute("""
                 INSERT INTO validations (draft_id, passed, issues, validator_version)
                 VALUES (%s, %s, %s, %s)
             """, (draft_id, out.validation.passed,
-                  _json(_jsonable([asdict(i) for i in out.validation.issues])), "VAL-1"))
+                  _json(_jsonable([asdict(i) for i in out.validation.issues])),
+                  validation.VERSION))
             if out.state == CaseState.MANUAL_REVIEW:
                 cur.execute("INSERT INTO review_queue (case_id, reason, sla_due) VALUES (%s, %s, now())",
                             (case.case_id, "validation failed after max attempts"))

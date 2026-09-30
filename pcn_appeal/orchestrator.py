@@ -536,7 +536,10 @@ class AppealPipeline:
         paragraphs = [[s for s in p if s.text not in bad] for p in draft.paragraphs]
         kept = [p for p in paragraphs if p]
         dropped = sorted(bad)
-        return Draft(draft.case_id, kept, draft.attempt), dropped
+        # Same letter, fewer sentences: it keeps the provenance of the draft it
+        # came from, or a trimmed release records no model and no prompt version.
+        return Draft(draft.case_id, kept, draft.attempt,
+                     model=draft.model, prompt_version=draft.prompt_version), dropped
 
     @staticmethod
     def _evidence_list(case: CaseFile) -> list[str]:

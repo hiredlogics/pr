@@ -19,6 +19,45 @@ def latest_release_id() -> Optional[str]:
     return row[0] if row else None
 
 
+def release_differs_from_yaml(release: dict[str, Any]) -> list[str]:
+    """Where the release being served and the authored YAML disagree.
+
+    The YAML in the deployed image is what a reviewer reads and what the next
+    release is built from. If it disagrees with the release actually being
+    served, the running app argues law nobody on the team is looking at - and
+    every case is stamped with a release id that does not describe it.
+
+    Modules and prompts are compared because both carry a real version. Block
+    text is NOT compared: no block in building_blocks.yaml declares a version, so
+    `kb_sync` pins them all at "1.0" and a wording change re-syncs over the same
+    row. Block drift is therefore invisible here and to replay - a separate gap,
+    not one this check can honestly cover.
+    """
+    from .. import prompts
+    from ..kg.graph import KnowledgeGraph
+
+    out: list[str] = []
+    authored = {mid: str(m.version) for mid, m in KnowledgeGraph().modules.items()}
+    pinned = {m["module_id"]: str(m.get("version") or "1.0")
+              for m in release["kb_modules"]["modules"]}
+    for module_id in sorted(set(pinned) | set(authored)):
+        served, local = pinned.get(module_id), authored.get(module_id)
+        if served is None:
+            out.append(f"module {module_id}@{local} is authored but not in the release")
+        elif local is None:
+            out.append(f"module {module_id}@{served} is in the release but no longer authored")
+        elif served != local:
+            out.append(f"module {module_id}: release serves {served}, YAML has {local}")
+
+    pinned_prompts = {t: int(p["version"]) for t, p in (release.get("prompts") or {}).items()}
+    authored_prompts = {t: int(p["version"]) for t, p in prompts.load().items()}
+    for task in sorted(set(pinned_prompts) | set(authored_prompts)):
+        served, local = pinned_prompts.get(task), authored_prompts.get(task)
+        if served != local:
+            out.append(f"prompt {task}: release serves {served}, YAML has {local}")
+    return out
+
+
 def load_release(release_id: Optional[str] = None) -> dict[str, Any]:
     """-> {"kb_modules": ..., "building_blocks": ..., "routes": ..., "questions": ...,
            "release_id": ...} in YAML-equivalent shape."""
