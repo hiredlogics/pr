@@ -50,6 +50,14 @@ FIRST_PERSON = [
 ]
 
 
+def _is_prose_answer(text: str) -> bool:
+    """Free-form customer prose vs short closed-form text (codes, labels)."""
+    words = str(text or "").strip().split()
+    if len(words) >= 6:
+        return True
+    return len(str(text or "").strip()) > 40 and " " in str(text)
+
+
 def keeper_safe_text(s: str) -> str:
     """Deterministic first-pass neutraliser for free-text answers (Q-06).
     Production: LLM rewrite + this regex as a floor + validator as backstop."""
@@ -87,18 +95,26 @@ class QuestionEngine:
             if value is None:
                 raise ValueError(f"{fact}: {raw!r} not in {options}")
         else:
-            # Free-text answers: keep raw for audit; fact value stays keeper-safe
-            # for closed short answers. Long prose is still input — structured
-            # extraction in engines.account turns it into CUSTOMER_FREE_TEXT facts.
-            value = keeper_safe_text(str(raw))
+            # Free-text answers: raw stays in raw_answers for provenance.
+            # Prose is INPUT only — engines.account extracts structured facts and
+            # professional propositions. Short closed-form text (ATA codes, labels)
+            # may remain as the fact value.
+            text = str(raw).strip()
+            if _is_prose_answer(text):
+                case.put(Fact(
+                    f"F-{fact}", fact, True, FactStatus.ANSWERED,
+                    FactSource(
+                        SourceKind.CUSTOMER_FREE_TEXT,
+                        f"answer:{fact}",
+                        excerpt=text[:240],
+                    ),
+                ))
+                case.state = CaseState.QUESTIONING
+                return
+            value = keeper_safe_text(text)
             case.put(Fact(
                 f"F-{fact}", fact, value, FactStatus.ANSWERED,
-                FactSource(
-                    SourceKind.CUSTOMER_FREE_TEXT if len(str(raw).strip()) > 48
-                    else SourceKind.ANSWER,
-                    f"answer:{fact}",
-                    excerpt=str(raw).strip()[:240] if len(str(raw).strip()) > 48 else None,
-                ),
+                FactSource(SourceKind.ANSWER, f"answer:{fact}"),
             ))
             case.state = CaseState.QUESTIONING
             return

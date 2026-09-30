@@ -29,6 +29,7 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-SUBSTANCE draft is only structural intro/conclusion with no substantive ground
   VAL-EVIDENCE-CONTRADICTION contradiction claims / EVIDENCE route without the required fact
   VAL-CUSTOMER-COPY customer free-text pasted into the letter instead of rewritten
+  VAL-ACCOUNT-COVERAGE material account fact marked used but professional proposition absent
 """
 from __future__ import annotations
 
@@ -112,6 +113,66 @@ def _copy_fingerprint(text: str) -> str:
     return compact
 
 
+# Canonical identifiers / short factual phrases that may match the original
+# response without being treated as questionnaire paste.
+_IDENTIFIER_FACT_NAMES = frozenset({
+    "pcn_number", "vrm", "vrm_entered", "operator_name", "parking_location",
+    "site_postcode", "charge_amount", "parking_event_date", "notice_issue_date",
+    "observation_time", "event_time", "entry_time", "exit_time",
+})
+
+
+def _phrase_windows(fingerprint: str, min_words: int = 6) -> list[str]:
+    words = fingerprint.split()
+    if len(words) < min_words:
+        return [fingerprint] if fingerprint else []
+    return [" ".join(words[i:i + min_words]) for i in range(len(words) - min_words + 1)]
+
+
+def _is_justified_customer_quote(quote: str, ctx: dict) -> bool:
+    """Exact customer wording may appear only when claim plan recorded a reason."""
+    q = (quote or "").strip()
+    if not q:
+        return False
+    for row in (ctx.get("customer_quotations") or []):
+        text = str((row or {}).get("text") or "").strip()
+        reason = str((row or {}).get("reason") or "").strip()
+        if text and reason and text == q:
+            return True
+    return False
+
+
+def _customer_prose_pasted(source: str, letter: str, facts: dict,
+                           justified_fps: Optional[list] = None) -> bool:
+    """True when a meaningful multi-word customer phrase is copied into the letter.
+
+    Not a blanket word-overlap ban: short shared tokens and canonical identifiers
+    (PCN, VRM, dates, amounts) that also appear in verified_facts are ignored.
+    Overlap that is only the text of a justified customer quotation is ignored.
+    """
+    src_fp = _copy_fingerprint(source)
+    letter_fp = _copy_fingerprint(letter)
+    if not src_fp or not letter_fp:
+        return False
+    justified_fps = [j for j in (justified_fps or []) if j]
+    # Full informal sentence pasted (unless that sentence is itself a justified quote).
+    if src_fp in letter_fp and len(src_fp.split()) >= 5:
+        if not any(src_fp == j or src_fp in j or j in src_fp for j in justified_fps):
+            return True
+    protected = set(justified_fps)
+    for name in _IDENTIFIER_FACT_NAMES:
+        val = facts.get(name)
+        fp = _copy_fingerprint(str(val or ""))
+        if fp:
+            protected.add(fp)
+    for phrase in _phrase_windows(src_fp, min_words=6):
+        if any(phrase == p or phrase in p or p in phrase for p in protected):
+            continue
+        if phrase in letter_fp:
+            return True
+    return False
+
+
 class ValidationEngine:
     def __init__(self, judge: Optional[LLMClient] = None, allowed_next_step: str = ""):
         self.judge = judge
@@ -154,8 +215,12 @@ class ValidationEngine:
                 block("VAL-CODE", "Universal cancellation rule stated", t)
             if s.quote_of or re.search(r'"[^"]{12,}"', t):
                 for q in re.findall(r'"([^"]{12,})"', t):
-                    if not any(q.strip() in lt for lt in lease_texts):
-                        block("VAL-RES", "Quoted text is not verbatim from an uploaded agreement", t)
+                    if any(q.strip() in lt for lt in lease_texts):
+                        continue
+                    if _is_justified_customer_quote(q, getattr(pack, "case_context", None) or {}):
+                        continue
+                    block("VAL-RES", "Quoted text is not verbatim from an uploaded agreement "
+                          "and is not a justified customer quotation", t)
             if re.search(r"\bunfettered\b", t, re.I) and not any("unfettered" in lt.lower() for lt in lease_texts):
                 block("VAL-RES", "'Unfettered' not supported by the uploaded agreement", t)
             if BREAK_AUTO.search(t):
@@ -232,14 +297,83 @@ class ValidationEngine:
                 block("VAL-CONFLICT",
                       "Draft treats a shopping receipt as proof of parking validation")
 
-        # Customer free text is input, never letter copy.
+        # Customer free text / adaptive answers are INPUT, never letter copy.
+        # Phrase-level paste detection — not a blanket word-overlap ban.
+        # Justified customer quotations (exact text + recorded reason) are exempt.
+        justified_texts = [
+            str((row or {}).get("text") or "").strip()
+            for row in (ctx.get("customer_quotations") or [])
+            if (row or {}).get("text") and (row or {}).get("reason")
+        ]
+        justified_fps = [_copy_fingerprint(t) for t in justified_texts if _copy_fingerprint(t)]
+
+        def _covered_by_justified_quote(src: str) -> bool:
+            s = str(src).strip()
+            if s in justified_texts:
+                return True
+            # Source that only wraps a justified quote is still allowed to overlap
+            # the quotation itself — but not other informal wording.
+            return False
+
         for src in (ctx.get("customer_source_texts") or []):
-            snippet = _copy_fingerprint(src)
-            if snippet and snippet in _copy_fingerprint(full):
+            if _covered_by_justified_quote(src):
+                continue
+            if _customer_prose_pasted(src, full, facts, justified_fps=justified_fps):
                 block("VAL-CUSTOMER-COPY",
-                      "Draft pastes customer free-text wording; rewrite professionally",
-                      src[:120])
+                      "Draft pastes customer free-text wording; rewrite professionally "
+                      "from structured facts / material_account_propositions",
+                      str(src)[:120])
                 break
+
+        # Coverage: material facts marked "used" in the claim plan must leave a
+        # professional trace — not the raw answer, and not invented extras.
+        accounting = ((ctx.get("claim_plan") or {}).get("material_fact_accounting")
+                      if isinstance(ctx.get("claim_plan"), dict) else None) or []
+        props = [str(p) for p in (ctx.get("material_account_propositions") or []) if p]
+        low_full = full.lower()
+
+        def _prop_reflected(prop: str) -> bool:
+            tokens = [
+                t for t in re.findall(r"[a-z]{5,}", prop.lower())
+                if t not in {
+                    "which", "their", "there", "would", "could", "should", "about",
+                    "after", "before", "being", "where", "while",
+                }
+            ]
+            if not tokens:
+                return False
+            hits = sum(1 for t in tokens[:8] if t in low_full)
+            return hits >= min(2, len(tokens))
+
+        for row in accounting:
+            if not isinstance(row, dict) or row.get("disposition") != "used":
+                continue
+            fact_name = row.get("fact_name") or ""
+            if fact_name not in (
+                "account_contradicts_allegation", "material_account_proposition",
+                "material_account_propositions", "child_occupant_present",
+                "payment_made", "payment_attempt_failed", "vehicle_immobilised",
+                "multiple_visits", "resident_connection_stated",
+                "blue_badge_displayed", "disability_extra_time",
+            ):
+                continue
+            prop_hit = any(_prop_reflected(p) for p in props)
+            inconsistency = "inconsistent" in low_full or "factual premise" in low_full
+            # Account-contradiction facts may be reflected via inconsistency language.
+            if fact_name.startswith("account") or fact_name.startswith("material_account"):
+                if not (prop_hit or inconsistency):
+                    block("VAL-ACCOUNT-COVERAGE",
+                          f"Material account fact {fact_name} was marked used but the "
+                          "letter does not reflect the professional proposition")
+                    break
+            elif props and not prop_hit:
+                # Non-account used facts: require professional proposition reflection
+                # when propositions exist for this case.
+                if any(fact_name.replace("_", " ")[:8] in p.lower() for p in props) and not prop_hit:
+                    block("VAL-ACCOUNT-COVERAGE",
+                          f"Material fact {fact_name} was marked used but its "
+                          "professional proposition is missing from the letter")
+                    break
 
         # Pack-level: EVIDENCE route / KB-EV-01 requires the contradiction fact.
         routes = {pack.primary_route, *(pack.secondary_routes or [])}

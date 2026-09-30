@@ -22,7 +22,7 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 EXPECTED_VERSIONS = {
     "extraction": 8,
     "case_analysis": 6,
-    "drafting": 8,
+    "drafting": 9,
     "validation": 2,
 }
 
@@ -36,7 +36,9 @@ DRAFTING_RULES = {
     "no PoFA defect without a finding": ["pofa_findings", r"\bnon-empty\b"],
     "no Code values without a resolved version": ["code_version", r"code values?"],
     "no case law": ["case law"],
-    "customer free text is input, not copy": ["customer_source_texts", "untrusted"],
+    "customer free text is input, not copy": [
+        "customer_source_texts", "untrusted", "INPUT", "not letter copy",
+    ],
     "no ground invented when none is supported": ["no_ground_reason"],
 }
 

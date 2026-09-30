@@ -293,18 +293,32 @@ class ReasoningEngine:
             "material_account_points", "material_account_summary",
         )
         verified = {}
+        customer_reported: list[str] = []
+        document_established: list[str] = []
         for k, v in facts.items():
             if k in withheld_from_drafter:
                 continue
             fact_obj = case.facts.get(k)
-            if fact_obj and fact_obj.source.kind in (
-                    SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT) \
-                    and isinstance(v, str) and len(v) > 48:
-                # Long free-text answers are input, not letter copy.
+            if fact_obj:
+                if fact_obj.source.kind in (
+                        SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT):
+                    customer_reported.append(k)
+                elif fact_obj.source.kind in (
+                        SourceKind.DOCUMENT, SourceKind.CALCULATION):
+                    document_established.append(k)
+            if fact_obj and fact_obj.source.kind == SourceKind.CUSTOMER_FREE_TEXT \
+                    and isinstance(v, str):
+                # Any free-text string value is INPUT — never letter copy.
+                # Structured bools/enums from free text remain draftable below.
                 verified[f"{k}_provided"] = True
                 continue
-            # Structured free-text facts (bools/enums) ARE draftable — they are
-            # normalized facts, not customer wording.
+            if fact_obj and fact_obj.source.kind == SourceKind.ANSWER \
+                    and isinstance(v, str) and (" " in v.strip()) and len(v.strip()) > 24:
+                # Prose-like adaptive answers must not be interpolated.
+                verified[f"{k}_provided"] = True
+                continue
+            # Structured free-text facts (bools/enums) and short closed answers
+            # ARE draftable — they are normalized facts, not customer wording.
             verified[k] = v
 
         # Structured digest so drafting can name the allegation, evidence and
@@ -365,6 +379,14 @@ class ReasoningEngine:
             "account_contradicts_allegation": bool(
                 case.get("account_contradicts_allegation")),
             "child_occupant_present": bool(case.get("child_occupant_present")),
+            # Customer-reported vs independently established — drafting must not
+            # present the former as if proven by the notice alone.
+            "customer_reported_facts": sorted(set(customer_reported)),
+            "document_established_facts": sorted(set(document_established)),
+            # Exact customer quotations are exceptional; each needs a reason.
+            "customer_quotations": list(
+                (case.raw_answers or {}).get("_customer_quotations") or []
+            )[:5],
             # Factual rebuttal is independent of observation-window / BAY timing gates.
             "factual_rebuttal": {
                 "account_contradicts_allegation": bool(
