@@ -62,14 +62,15 @@ async function call(path: string, init?: RequestInit): Promise<Response> {
 export async function submitFiles(
   files: File[],
   narrative: string,
-  driverAlreadyNamed: boolean,
+  driverAlreadyNamed: boolean | null = null,
 ): Promise<AppealResponse> {
   const body = new FormData();
   for (const f of files) body.append("files", f, f.name);
   body.append("narrative", narrative);
-  // Status only. This says the operator has already been formally told who was
-  // driving; it never asks us, or tells us, who that was.
-  body.append("driver_already_named_to_operator", String(driverAlreadyNamed));
+  // Status only. Omit when unknown — Form string \"false\" must not become yes.
+  if (driverAlreadyNamed === true || driverAlreadyNamed === false) {
+    body.append("driver_already_named_to_operator", String(driverAlreadyNamed));
+  }
   return unwrap<AppealResponse>(await call("/appeal/files", { method: "POST", body }));
 }
 
@@ -118,18 +119,23 @@ export async function confirmDetails(
   corrections: Record<string, string>,
   confirmed: string[],
   narrative: string,
-  driverAlreadyNamed = false,
+  driverAlreadyNamed: boolean | null = null,
 ): Promise<AppealResponse> {
+  const body: Record<string, unknown> = {
+    corrections,
+    confirmed,
+    narrative,
+  };
+  // Omit the field when unknown so the API records UNKNOWN (not a false yes).
+  // Only an explicit boolean is sent.
+  if (driverAlreadyNamed === true || driverAlreadyNamed === false) {
+    body.driver_already_named_to_operator = driverAlreadyNamed;
+  }
   return unwrap<AppealResponse>(
     await call(`/cases/${encodeURIComponent(caseId)}/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        corrections,
-        confirmed,
-        narrative,
-        driver_already_named_to_operator: driverAlreadyNamed,
-      }),
+      body: JSON.stringify(body),
     }),
   );
 }

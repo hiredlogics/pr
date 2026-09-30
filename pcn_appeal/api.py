@@ -26,9 +26,28 @@ from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
 from .models import CaseFile, CaseState, EvidenceItem
+from .notice_completeness import BOTH_SIDES_MESSAGE, upload_pages_sufficient
 from .orchestrator import AppealPipeline
 from .rules import scope
 from .store import db
+
+
+def _require_both_sides(case: CaseFile) -> None:
+    """Block progression when front+reverse (or multipage PDF) are not present.
+
+    Clears in-memory evidence on failure so the same case stays CREATED and the
+    customer can retry from the upload screen without a 409.
+    """
+    ok, reason = upload_pages_sufficient(list(case.evidence.values()))
+    if ok:
+        return
+    case.evidence.clear()
+    case.audit.append({"event": "upload_rejected_incomplete_sides", "reason": reason})
+    raise HTTPException(422, {
+        "message": BOTH_SIDES_MESSAGE,
+        "code": "NOTICE_SIDES_REQUIRED",
+        "reason": reason,
+    })
 
 
 @asynccontextmanager
@@ -83,7 +102,9 @@ class ConfirmIn(BaseModel):
     # collect the customer's account on the next; route hints are recomputed
     # whenever this arrives.
     narrative: str = ""
-    driver_already_named_to_operator: bool = False   # status only - never identity
+    # External disclosure only. Absent / null / unrecognised → UNKNOWN.
+    # Never inferred from narrative. Strictly parsed (not generic truthiness).
+    driver_already_named_to_operator: Optional[Any] = None
 
 
 class AnswersIn(BaseModel):
@@ -106,7 +127,13 @@ class AppealIn(BaseModel):
     documents: list[DocumentIn] = []
     narrative: str = ""
     answers: dict = {}
-    driver_already_named_to_operator: bool = False   # status only - never identity
+    driver_already_named_to_operator: Optional[Any] = None
+
+
+class DisclosureCorrectionIn(BaseModel):
+    """Auditable correction of driver-disclosure status. Not a blanket reset."""
+    status: str                         # CONFIRMED_YES | CONFIRMED_NO | UNKNOWN
+    reason: str = ""
 
 
 def _case(case_id: str) -> dict[str, Any]:
@@ -191,9 +218,8 @@ def appeal(body: AppealIn):
     """
     case_id, rec = _new_case()
     case: CaseFile = rec["case"]
-    if body.driver_already_named_to_operator:
-        from .models import DriverStatus
-        case.driver_status = DriverStatus.FORMALLY_IDENTIFIED
+    from .disclosure import apply_disclosure
+    apply_disclosure(case, body.driver_already_named_to_operator, source="appeal_json")
     for d in body.documents:
         case.evidence[d.evidence_id] = EvidenceItem(d.evidence_id, d.kind, d.filename, text=d.text)
     return _run_auto(rec, body.narrative, body.answers or None)
@@ -201,19 +227,21 @@ def appeal(body: AppealIn):
 
 @app.post("/appeal/files")
 async def appeal_files(files: list[UploadFile] = File(...), narrative: str = Form(""),
-                       driver_already_named_to_operator: bool = Form(False)):
+                       driver_already_named_to_operator: Optional[str] = Form(None)):
     """Same one-click journey, but taking the files a customer actually has:
     a photo of the notice, a PDF that arrived by email, a receipt screenshot.
 
     Each file is decoded to text, or to JPEG pages for the vision model, by
     ingest.py. A file we cannot read is reported in `rejected` rather than
     failing the whole upload - one unreadable receipt should not lose the case.
+
+    `driver_already_named_to_operator` is parsed strictly as a string Form field
+    (never a coerced bool): the string \"false\" must not become True.
     """
     case_id, rec = _new_case()
     case: CaseFile = rec["case"]
-    if driver_already_named_to_operator:
-        from .models import DriverStatus
-        case.driver_status = DriverStatus.FORMALLY_IDENTIFIED
+    from .disclosure import apply_disclosure
+    apply_disclosure(case, driver_already_named_to_operator, source="appeal_files_form")
 
     rejected: list[dict] = []
     for i, upload in enumerate(files, start=1):
@@ -235,6 +263,8 @@ async def appeal_files(files: list[UploadFile] = File(...), narrative: str = For
 
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
+
+    _require_both_sides(case)
 
     payload = _run_auto(rec, narrative, None)
     payload["rejected"] = rejected
@@ -441,6 +471,8 @@ async def upload_files(case_id: str, files: list[UploadFile] = File(...)):
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
+    _require_both_sides(case)
+
     rec["flags"] = rec["pipe"].ingest(case)
     _persist(case)
     return {"case_id": case_id, "state": case.state.value, "flags": rec["flags"],
@@ -506,6 +538,8 @@ def upload_blobs(case_id: str, body: BlobsIn):
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
+    _require_both_sides(case)
+
     rec["flags"] = rec["pipe"].ingest(case)
     _persist(case)
     return {"case_id": case_id, "state": case.state.value, "flags": rec["flags"],
@@ -548,9 +582,21 @@ def confirm(case_id: str, body: ConfirmIn):
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
         raise HTTPException(409, "upload documents first")
-    if body.driver_already_named_to_operator:
-        from .models import DriverStatus
-        case.driver_status = DriverStatus.FORMALLY_IDENTIFIED
+    from .disclosure import apply_disclosure
+    apply_disclosure(case, body.driver_already_named_to_operator, source="cases_confirm")
+
+    from .notice_completeness import incompleteness_payload, requires_complete_notice
+    # Server-side completeness gate for in-scope private parking. Preserve answers;
+    # do not run merits analysis on a front-only notice.
+    if requires_complete_notice(case):
+        # Still accept narrative into audit so the account is not lost.
+        if body.narrative:
+            case.raw_answers["narrative"] = body.narrative
+        case.audit.append({"event": "blocked_notice_sides_incomplete",
+                           "stage": "confirm"})
+        _persist(case)
+        return incompleteness_payload(case)
+
     rec["questions"] = rec["pipe"].confirm(case, body.corrections, body.confirmed, body.narrative)
     _persist(case)
     if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
@@ -579,6 +625,34 @@ def confirm(case_id: str, body: ConfirmIn):
     else:
         payload.update(_outcome_fields(out))
     return payload
+
+
+@app.post("/cases/{case_id}/disclosure")
+def correct_disclosure_status(
+    case_id: str,
+    body: DisclosureCorrectionIn,
+    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+):
+    """Auditable correction of external driver-disclosure status.
+
+    Requires ADMIN_TRACE_TOKEN when configured. Does not blanket-reset cases.
+    """
+    import os
+    expected = os.getenv("ADMIN_TRACE_TOKEN") or os.getenv("ADMIN_TOKEN")
+    if expected and x_admin_token != expected:
+        raise HTTPException(403, "admin token required")
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    from .disclosure import correct_disclosure
+    if not body.reason.strip():
+        raise HTTPException(422, "reason is required for an auditable correction")
+    status = correct_disclosure(case, body.status, reason=body.reason.strip(), actor="admin")
+    _persist(case)
+    return {
+        "case_id": case.case_id,
+        "disclosure_status": status,
+        "driver_status": case.driver_status.value,
+    }
 
 
 @app.post("/cases/{case_id}/answers")

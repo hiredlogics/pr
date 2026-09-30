@@ -7,6 +7,9 @@ import { MAX_UPLOAD_BYTES } from "@/lib/upload";
 const ACCEPT = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
 const MAX_LABEL = 1024 * 1024;
 
+const BOTH_SIDES_MESSAGE =
+  "Please upload the front and back of your notice. Both sides are mandatory, even if the back is blank. You cannot continue until both sides have been uploaded.";
+
 /** The four documents an operator sends, so it is obvious what to photograph. */
 const SAMPLES: { label: string; tone?: "warn" }[] = [
   { label: "Parking Charge Notice" },
@@ -18,6 +21,16 @@ const SAMPLES: { label: string; tone?: "warn" }[] = [
 function size(bytes: number): string {
   if (bytes < MAX_LABEL) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isPdf(f: File): boolean {
+  return f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+}
+
+/** Photos need front + reverse (2 files). One multipage PDF is enough. */
+function sidesReady(files: File[]): boolean {
+  if (files.some(isPdf)) return true;
+  return files.length >= 2;
 }
 
 export default function UploadStep({
@@ -41,6 +54,8 @@ export default function UploadStep({
   const pickRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
+  const ready = sidesReady(files);
+
   function add(incoming: FileList | null) {
     if (!incoming || incoming.length === 0) return;
     setLocalError(null);
@@ -54,12 +69,13 @@ export default function UploadStep({
 
   function remove(target: File) {
     onFilesChange(files.filter((f) => f !== target));
+    setLocalError(null);
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (files.length === 0) {
-      setLocalError("Add at least one file - a photo of the notice is enough.");
+    if (!ready) {
+      setLocalError(BOTH_SIDES_MESSAGE);
       return;
     }
     onSubmit();
@@ -71,6 +87,16 @@ export default function UploadStep({
         <h1>Upload your Private Parking Notice</h1>
         <p className="lede">
           Upload a clear photo or PDF of your notice and we will extract the key details for you.
+        </p>
+      </div>
+
+      <div className="notice" data-tone="attention" role="status">
+        <p>
+          <b>Please upload the front and back of your notice.</b> Both sides are mandatory, even if
+          the back is blank. You cannot continue until both sides have been uploaded.
+        </p>
+        <p style={{ marginTop: 8 }}>
+          Use two photos (front and reverse), or one multipage PDF of the whole notice.
         </p>
       </div>
 
@@ -124,7 +150,7 @@ export default function UploadStep({
                 <path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1A6.5 6.5 0 1 0 5 14.2" />
               </svg>
             </div>
-            <p className="dz-title">Drag and drop your file here or click to upload</p>
+            <p className="dz-title">Drag and drop front and back here, or click to upload</p>
             <p className="dz-sub">
               {vision
                 ? `Accepted formats: JPG, PNG, PDF (Max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)`
@@ -147,7 +173,6 @@ export default function UploadStep({
             </button>
           </div>
 
-          {/* Camera: capture attribute; kept out of the main overlay so photo vs library stay separate. */}
           <input
             ref={cameraRef}
             id="camera-files"
@@ -199,6 +224,12 @@ export default function UploadStep({
           </ul>
         )}
 
+        {files.length > 0 && !ready && (
+          <p className="lede" style={{ marginTop: 8 }}>
+            Add the other side of the notice (or a multipage PDF) before continuing.
+          </p>
+        )}
+
         <p className="trust">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -217,7 +248,7 @@ export default function UploadStep({
         </div>
       )}
 
-      <button className="btn btn-primary" type="submit" disabled={busy || files.length === 0}>
+      <button className="btn btn-primary" type="submit" disabled={busy || !ready}>
         {busy ? "Reading your notice…" : "Upload notice"}
       </button>
     </form>

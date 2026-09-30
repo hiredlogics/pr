@@ -3,43 +3,46 @@
 import { useState } from "react";
 
 /**
- * Customer's account of what happened.
- *
- * Does not itself select a legal ground. The backend assesses the text for
- * material relevance to the allegation and, where it supports or contradicts
- * an available ground, incorporates keeper-safe points into the appeal.
+ * Free-text account of the parking event. External driver-disclosure status is
+ * NOT collected here. An unchecked or absent control must not mark the driver
+ * as formally identified to the operator — that killed Schedule 4 keeper analysis.
  */
 export default function SituationStep({
-  busy,
   onSubmit,
+  busy,
 }: {
-  busy: boolean;
-  onSubmit: (narrative: string, driverAlreadyNamed: boolean) => void;
+  onSubmit: (narrative: string, driverAlreadyNamed: boolean | null) => void;
+  busy?: boolean;
 }) {
   const [free, setFree] = useState("");
-  const [alreadyNamed, setAlreadyNamed] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const text = free.trim();
     if (!text) {
-      setLocalError("Tell us briefly what happened, in your own words.");
+      setLocalError("Please say briefly what happened, even if it is only a few words.");
       return;
     }
-    onSubmit(text, alreadyNamed);
+    setLocalError(null);
+    // null → API UNKNOWN. Never send true from this screen.
+    onSubmit(text, null);
   }
 
   return (
-    <form className="card stack" onSubmit={submit} noValidate>
+    <form className="card stack" onSubmit={submit}>
       <div>
         <h1>What happened?</h1>
-        <p className="lede">Describe the situation in your own words.</p>
+        <p className="lede">
+          In your own words — anything that helps explain the charge. You do not need legal
+          language.
+        </p>
       </div>
 
-      <label className="stack" style={{ gap: 6 }}>
-        <span className="qtext">Your account</span>
+      <label className="field">
+        <span className="field-label">Your account</span>
         <textarea
+          className="input"
           value={free}
           onChange={(e) => {
             setLocalError(null);
@@ -51,23 +54,9 @@ export default function SituationStep({
         />
       </label>
 
-      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: "0.95rem" }}>
-        <input
-          type="checkbox"
-          checked={alreadyNamed}
-          onChange={(e) => setAlreadyNamed(e.target.checked)}
-          disabled={busy}
-          style={{ marginTop: 3 }}
-        />
-        <span>
-          The operator has already been formally told who was driving (status only — we never ask
-          who that was).
-        </span>
-      </label>
-
       {localError && (
         <div className="notice" data-tone="attention" role="alert">
-          {localError}
+          <p>{localError}</p>
         </div>
       )}
 

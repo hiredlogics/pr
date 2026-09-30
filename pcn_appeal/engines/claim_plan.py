@@ -154,7 +154,7 @@ def build_claim_plan(
         if mid == "KB-POFA-04" and facts.get("notice_sides_complete") is False:
             plan.claims.append({
                 "module_id": mid, "status": "excluded",
-                "reason": "notice sides incomplete",
+                "reason": "notice sides incomplete — both sides required before content defect",
             })
             continue
         if needs_code_version and needs_code_version(module) and not code_version:

@@ -18,10 +18,16 @@ from typing import Any, Optional
 
 from ..legal import code_versions, pofa
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+from ..disclosure import keeper_route_blocked
 from .extraction import (
     DATE_FIELDS, TIME_FIELDS, VRM_FIELDS, _hhmm, _pcn_candidates_from_text,
     derive_jurisdiction, known_operator_ata, normalise_operator_ata, parse_uk_date,
 )
+
+
+def _disclosure_blocks_keeper(case: CaseFile) -> bool:
+    """Only an explicit external disclosure blocks Schedule 4 keeper analysis."""
+    return keeper_route_blocked(case)
 
 # Material gaps that can change assessment / drafting when still unknown.
 MATERIAL_FACTS = (
@@ -144,6 +150,7 @@ class FactRecoveryEngine:
         self._recover_from_documents(case, report)
         self._classify_receipt_vs_validation(case, report)
         self._run_calculations(case, report)
+        self._assess_ntk_schedule4_content(case, report)
         self._classify_gaps(case, report)
 
         case.recovery_report = report.as_dict()
@@ -338,11 +345,20 @@ class FactRecoveryEngine:
             actual_delivery_date=(
                 case.get("notice_received_date") if case.get("delivery_date_proven") else None
             ),
-            driver_identified=case.driver_status.value == "FORMALLY_IDENTIFIED",
+            driver_identified=_disclosure_blocks_keeper(case),
         )
         report.calculated["pofa_route"] = res.route
         report.calculated["pofa_findings"] = list(res.findings)
         report.calculated["pofa_notes"] = list(res.notes)
+        case.put(Fact(
+            "F-pofa_route", "pofa_route", res.route, FactStatus.DERIVED,
+            FactSource(SourceKind.CALCULATION, "pofa.assess"),
+        ))
+        case.put(Fact(
+            "F-pofa_finding", "pofa_finding",
+            res.findings[0] if res.findings else None, FactStatus.DERIVED,
+            FactSource(SourceKind.CALCULATION, "pofa.assess"),
+        ))
         if res.deadline:
             report.calculated["pofa_deadline"] = res.deadline.isoformat()
         if res.presumed_delivery:
@@ -355,6 +371,166 @@ class FactRecoveryEngine:
 
         report.trace.append(
             f"calculators: code={code_status} pofa={res.route} findings={res.findings}")
+
+    def _assess_ntk_schedule4_content(self, case: CaseFile, report: RecoveryReport) -> None:
+        """Global Schedule 4 invitation scan on notice text (all postal NTKs).
+
+        Records pofa_9_2_e_status as one of:
+          SATISFIED / DEFECT_IDENTIFIED / UNRESOLVED / NOT_APPLICABLE / NOT_RUN
+
+        Does not invent defects from an empty image upload: insufficient text
+        yields UNRESOLVED (request reverse / clearer copy) rather than a pleaded
+        content ground. First-person narrative never disables this assessment.
+        Missing findings are not proof of compliance; missing pages are not a
+        confirmed statutory omission.
+        """
+        route = str(case.get("notice_route") or "")
+        if route not in ("POSTAL", "WINDSCREEN"):
+            case.put(Fact(
+                "F-pofa_9_2_e_status", "pofa_9_2_e_status", "NOT_APPLICABLE",
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+            report.calculated["pofa_9_2_e_status"] = "NOT_APPLICABLE"
+            return
+
+        if _disclosure_blocks_keeper(case):
+            # Keeper content is not the pleaded route when disclosure is confirmed;
+            # still record that the scan was not used for keeper liability.
+            case.put(Fact(
+                "F-pofa_9_2_e_status", "pofa_9_2_e_status", "NOT_APPLICABLE",
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+            report.calculated["pofa_9_2_e_status"] = "NOT_APPLICABLE"
+            report.trace.append("ntk content: NOT_APPLICABLE (external driver disclosure confirmed)")
+            return
+
+        notice_ev = [
+            e for e in case.evidence.values()
+            if e.kind in ("PCN", "NTK", "NTD") or "pcn" in (e.filename or "").lower()
+            or "ntk" in (e.filename or "").lower()
+        ]
+        # Prefer evidence text; vision may have left OCR chars=0 while still
+        # extracting structured fields — that is not unreadability for those fields,
+        # but invitation wording still needs text or explicit invitation flags.
+        blob = "\n".join((e.text or "") for e in notice_ev).strip()
+        name_flag = case.get("ntk_invites_name_driver")
+        pass_flag = case.get("ntk_invites_pass_to_driver")
+        scan = pofa.scan_ntk_invitations(blob)
+        if name_flag is not None or pass_flag is not None:
+            has_name = bool(name_flag) if name_flag is not None else scan.has_name_driver_invitation
+            has_pass = bool(pass_flag) if pass_flag is not None else scan.has_pass_to_driver_invitation
+            defect = has_pass is False
+            notes = list(scan.notes) + [
+                f"extraction flags: name_driver={name_flag!r} pass_to_driver={pass_flag!r}"
+            ]
+        else:
+            has_name = scan.has_name_driver_invitation
+            has_pass = scan.has_pass_to_driver_invitation
+            defect = scan.defect_statutory_invitation
+            notes = list(scan.notes)
+
+        report.calculated["ntk_content_notes"] = notes
+        report.calculated["ntk_has_name_driver_invitation"] = has_name
+        report.calculated["ntk_has_pass_to_driver_invitation"] = has_pass
+        for n in notes:
+            report.trace.append(f"pofa-content:{n}")
+
+        if has_name is not None:
+            case.put(Fact(
+                "F-ntk_invites_name_driver", "ntk_invites_name_driver", bool(has_name),
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
+            ))
+        if has_pass is not None:
+            case.put(Fact(
+                "F-ntk_invites_pass_to_driver", "ntk_invites_pass_to_driver", bool(has_pass),
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
+            ))
+
+        if has_pass is None and name_flag is None and pass_flag is None:
+            status = "UNRESOLVED"
+            case.put(Fact(
+                "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+            report.calculated["pofa_9_2_e_status"] = status
+            report.unknown_material.append({
+                "fact": "notice_reverse_or_clear_copy",
+                "why_material": (
+                    "Schedule 4 invitation wording must be read from the notice; "
+                    "available upload has insufficient text (often a single photo of one side)."
+                ),
+                "sources_checked": report.sources_checked,
+                "action": "request_document",
+            })
+            report.trace.append("ntk content: UNRESOLVED — insufficient text")
+            return
+
+        if not defect:
+            status = "SATISFIED"
+            case.put(Fact(
+                "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+            report.calculated["pofa_9_2_e_status"] = status
+            report.trace.append("ntk content: SATISFIED — pass-to-driver invitation present")
+            return
+
+        # Both sides must have been checked before concluding wording is absent.
+        # A single face that lacks pass-on wording is UNRESOLVED, not a pleaded defect.
+        sides_complete = case.get("notice_sides_complete")
+        if sides_complete is not True:
+            status = "UNRESOLVED"
+            case.put(Fact(
+                "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+            report.calculated["pofa_9_2_e_status"] = status
+            report.unknown_material.append({
+                "fact": "notice_reverse_or_clear_copy",
+                "why_material": (
+                    "Both sides of the notice must be reviewed before concluding that "
+                    "Schedule 4 invitation wording is absent."
+                ),
+                "sources_checked": report.sources_checked,
+                "action": "request_document",
+            })
+            report.trace.append(
+                "ntk content: UNRESOLVED — cannot plead invitation defect without both sides"
+            )
+            return
+
+        status = "DEFECT_IDENTIFIED"
+        case.put(Fact(
+            "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
+            FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
+        ))
+        report.calculated["pofa_9_2_e_status"] = status
+        case.put(Fact(
+            "F-ntk_defect_statutory_invitation", "ntk_defect_statutory_invitation", True,
+            FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
+        ))
+        case.put(Fact(
+            "F-ntk_defect_document_confirmed", "ntk_defect_document_confirmed", True,
+            FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
+        ))
+        findings = list(report.calculated.get("pofa_findings") or [])
+        if "POFA_NTK_INVITATION_DEFECT" not in findings:
+            findings.append("POFA_NTK_INVITATION_DEFECT")
+        report.calculated["pofa_findings"] = findings
+        if (report.calculated.get("pofa_route") in (None, "UNRESOLVED", "NOT_APPLICABLE")
+                and not _disclosure_blocks_keeper(case)
+                and case.get("jurisdiction") == "ENGLAND_WALES"
+                and route == "POSTAL"):
+            report.calculated["pofa_route"] = "POSTAL"
+            case.put(Fact(
+                "F-pofa_route", "pofa_route", "POSTAL", FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "pofa.content"),
+            ))
+        case.put(Fact(
+            "F-pofa_finding", "pofa_finding", "POFA_NTK_INVITATION_DEFECT",
+            FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
+        ))
+        report.trace.append("ntk content: DEFECT_IDENTIFIED after both sides reviewed")
 
     # -------------------------------------------------------------- gaps
     def _classify_gaps(self, case: CaseFile, report: RecoveryReport) -> None:

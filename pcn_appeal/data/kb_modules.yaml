@@ -112,7 +112,13 @@ modules:
     # pleaded (source: "do not generate a generic checklist challenge"), plus a
     # document-confirmation flag for the DO NOT on OCR uncertainty.
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
-    do_not_use_when: {any: [{eq: [pofa_route, NOT_APPLICABLE]}, {eq: [relevant_land, false]}, {eq: [notice_sides_complete, false]}]}
+    do_not_use_when:
+      any:
+        - {eq: [pofa_route, NOT_APPLICABLE]}
+        - {eq: [relevant_land, false]}
+        # Single-face upload may still plead invitation wording that is clearly
+        # readable on that face (pass-to-driver explicitly false).
+        - {all: [{eq: [notice_sides_complete, false]}, {ne: [ntk_invites_pass_to_driver, false]}]}
     core_proposition: "Use only the precise defect established from the notice; do not generate a generic checklist challenge."
     required_facts: [notice_route, ntk_defect_document_confirmed]
     evidence_helpful: [NTK, PCN]
@@ -143,7 +149,7 @@ modules:
       all:
         - {eq: [driver_status, UNIDENTIFIED]}
         - any:
-            - {in: [pofa_finding, [POFA_POSTAL_LATE, POFA_NTD_NTK_LATE, POFA_NTD_NTK_TOO_EARLY]]}
+            - {in: [pofa_finding, [POFA_POSTAL_LATE, POFA_NTD_NTK_LATE, POFA_NTD_NTK_TOO_EARLY, POFA_NTK_INVITATION_DEFECT]]}
             - all:
                 - {is: ntk_defect_document_confirmed}
                 - any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]

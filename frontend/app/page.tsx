@@ -150,7 +150,7 @@ export default function Page() {
   }
 
   /** Step 3: confirm + narrative in a single call, then ask what is missing. */
-  const submitSituation = (narrative: string, alreadyNamed: boolean) =>
+  const submitSituation = (narrative: string, alreadyNamed: boolean | null) =>
     run("drafting", async () => {
       if (!caseId || !confirmation) return;
       const confirmed = confirmation.details.filter((d) => d.value).map((d) => d.name);

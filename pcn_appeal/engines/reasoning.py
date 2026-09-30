@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Optional
 
 from ..kg.graph import KnowledgeGraph
+from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
 from ..legal import code_versions, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
@@ -89,12 +90,31 @@ class ReasoningEngine:
             notice_issue_date=case.get("notice_issue_date"),
             ntd_date=case.get("ntd_date"),
             actual_delivery_date=case.get("notice_received_date") if case.get("delivery_date_proven") else None,
-            driver_identified=case.driver_status.value == "FORMALLY_IDENTIFIED")
-        trace += [f"pofa:{n}" for n in res.notes]
-        case.put(Fact("F-pofa_route", "pofa_route", res.route, FactStatus.DERIVED,
+            driver_identified=keeper_route_blocked(case))
+        # Recovery may already have confirmed a Schedule 4 invitation defect from
+        # notice text/vision. Timing assess must not wipe that finding, and must
+        # not leave the route NOT_APPLICABLE solely because dates were missing.
+        findings = list(res.findings)
+        notes = list(res.notes)
+        route = res.route
+        if case.get("ntk_defect_statutory_invitation") or case.get("pofa_finding") == "POFA_NTK_INVITATION_DEFECT":
+            if "POFA_NTK_INVITATION_DEFECT" not in findings:
+                findings.append("POFA_NTK_INVITATION_DEFECT")
+            notes.append("Preserved Schedule 4 invitation-content finding from notice scan.")
+            if (route in ("NOT_APPLICABLE", "UNRESOLVED")
+                    and not keeper_route_blocked(case)
+                    and case.get("jurisdiction") == "ENGLAND_WALES"
+                    and case.get("notice_route") == "POSTAL"):
+                route = "POSTAL"
+        trace += [f"pofa:{n}" for n in notes]
+        case.put(Fact("F-pofa_route", "pofa_route", route, FactStatus.DERIVED,
                       FactSource(SourceKind.CALCULATION, "pofa.assess")))
-        case.put(Fact("F-pofa_finding", "pofa_finding", res.findings[0] if res.findings else None,
+        case.put(Fact("F-pofa_finding", "pofa_finding",
+                      findings[0] if findings else None,
                       FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.assess")))
+        from ..legal.pofa import PofaResult
+        res = PofaResult(route, findings, notes,
+                         presumed_delivery=res.presumed_delivery, deadline=res.deadline)
         return version if status == "RESOLVED" else None, res
 
     # ------------------------------------------------------------------ main

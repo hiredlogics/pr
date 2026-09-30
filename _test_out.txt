@@ -1,0 +1,56 @@
+﻿python : test_confirm_blocks_incomplete_notice_server_side 
+(tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... ok
+At C:\Users\Abdul\AppData\Local\Temp\ps-script-bfdd10be-4019-49b6-b105-06f1c64b356f.ps1:88 char:1
++ python -m unittest tests.test_disclosure_provenance tests.test_outcom ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test_confirm_bl...eteness) ... ok:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+test_duplicate_front_images_rejected_by_gate (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... ok
+test_explicit_yes_sets_formally_identified (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... ok
+test_files_upload_accepts_distinct_front_and_back (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... 
+ok
+test_files_upload_rejects_single_side (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness)
+Server gate used by /cases/.../files before ingest advances the case. ... ok
+test_omitted_field_is_unknown (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... ok
+test_string_false_form_does_not_identify (tests.test_disclosure_provenance.ApiDisclosureAndCompleteness) ... ok
+test_auditable_correction_not_blanket (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_explicit_no_and_string_false (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_explicit_yes_blocks_keeper (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_first_person_does_not_set_disclosure (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_reanalysis_preserves_disclosure (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_unanswered_keeps_keeper_path (tests.test_disclosure_provenance.DisclosureVsNarrative) ... ok
+test_stale_state_not_shared (tests.test_disclosure_provenance.IndependentCases) ... ok
+test_rewrite_does_not_touch_disclosure (tests.test_disclosure_provenance.KeeperSafeRewriteUnchanged) ... ok
+test_distinct_pages_complete (tests.test_disclosure_provenance.NoticeCompleteness) ... ok
+test_duplicate_fronts_rejected (tests.test_disclosure_provenance.NoticeCompleteness) ... ok
+test_front_only_incomplete (tests.test_disclosure_provenance.NoticeCompleteness) ... ok
+test_multipage_text_complete (tests.test_disclosure_provenance.NoticeCompleteness) ... ok
+test_out_of_scope_not_forced (tests.test_disclosure_provenance.NoticeCompleteness) ... ok
+test_empty_grounds_processing_not_merits_copy (tests.test_disclosure_provenance.OutcomeBoundaryCopy) ... ok
+test_variants (tests.test_disclosure_provenance.ParseDisclosure) ... ok
+test_both_sides_without_pass_on_is_defect (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_content_finding_survives_timing_assessment (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_disclosure_does_not_run_keeper_content (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_face_without_pass_on_unresolved_until_both_sides (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_first_person_does_not_disable_content (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_insufficient_text_unresolved (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_reverse_with_pass_on_satisfied (tests.test_disclosure_provenance.PofaContentStatus) ... ok
+test_held_payload_exposes_outcome_not_grounds (tests.test_outcome_boundary.ApiOutcomePayload) ... ok
+test_completed_analysis_no_grounds_is_truthful (tests.test_outcome_boundary.ClassifyHoldBoundary) ... ok
+test_draft_error_is_processing_error (tests.test_outcome_boundary.ClassifyHoldBoundary) ... ok
+test_empty_pack_no_ground_is_processing_error (tests.test_outcome_boundary.ClassifyHoldBoundary) ... ok
+test_ground_recovery_wipe_is_processing_error_not_merits (tests.test_outcome_boundary.ClassifyHoldBoundary)
+Live 3cb620c9 path: was=[KB-LAND-01] now=[] ΓåÆ not 'nothing stands up'. ... ok
+test_pcn_conflict_maps_to_needs_facts (tests.test_outcome_boundary.ClassifyHoldBoundary) ... ok
+test_empty_selection_short_circuits_to_no_supported_grounds (tests.test_outcome_boundary.GenerateShortCircuit) ... ok
+test_generate_does_not_wipe_selection_to_empty (tests.test_outcome_boundary.GroundRecoveryPreserve)
+Re-analysis that returns [] must not clear a prior finalized selection. ... ok
+test_insufficient_text_does_not_invent_defect (tests.test_pofa_invitation_content.NtkInvitationScan) ... ok
+test_name_invite_without_pass_on_is_defect (tests.test_pofa_invitation_content.NtkInvitationScan) ... ok
+test_pass_on_invitation_clears_defect (tests.test_pofa_invitation_content.NtkInvitationScan) ... ok
+
+----------------------------------------------------------------------
+Ran 40 tests in 14.182s
+
+OK

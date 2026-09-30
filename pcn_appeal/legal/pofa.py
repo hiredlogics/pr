@@ -20,6 +20,7 @@ Design choices (legal team must sign off before go-live):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Optional
@@ -110,3 +111,79 @@ def assess(*, jurisdiction: str, relevant_land: Optional[bool], notice_route: st
         return PofaResult("WINDSCREEN", [code], notes, delivered, latest)
 
     return PofaResult("UNRESOLVED", [], notes + ["Notice route unknown."])
+
+
+# ---------------------------------------------------------------------------
+# Paragraph 9 / 8 mandatory invitations (content) — deterministic text scan.
+# The LLM must not invent these findings; OCR/vision text is scanned here.
+# ---------------------------------------------------------------------------
+
+# 9(2)(e)(i): invite keeper to pay *or* to name the driver with a serviceable address.
+_NAME_DRIVER_INVITE = re.compile(
+    r"(?:"
+    r"(?:if\s+you\s+were\s+not\s+the\s+driver).{0,120}?"
+    r"(?:name|identity).{0,40}?(?:address|postal)"
+    r"|"
+    r"(?:supply|provide|give).{0,40}?(?:full\s+)?name.{0,60}?"
+    r"(?:address|postal).{0,40}?driver"
+    r"|"
+    r"driver.{0,40}?(?:full\s+)?name.{0,40}?(?:address|postal)"
+    r"|"
+    r"transfer(?:red)?\s+to\s+the\s+driver"
+    r")",
+    re.I | re.S,
+)
+
+# 9(2)(e)(ii): invite the keeper to pass the notice on to the driver.
+_PASS_NOTICE_INVITE = re.compile(
+    r"(?:"
+    r"pass\s+(?:this|the|a)\s+(?:notice|letter|document|ntk).{0,40}?driver"
+    r"|"
+    r"(?:give|hand|send|forward)\s+(?:this|the|a)\s+(?:notice|letter|document).{0,40}?driver"
+    r"|"
+    r"pass\s+(?:it|them)\s+on\s+to\s+the\s+driver"
+    r"|"
+    r"driver.{0,30}?(?:should|must|may)\s+(?:be\s+)?(?:given|passed|sent)\s+(?:this|the)\s+notice"
+    r")",
+    re.I | re.S,
+)
+
+
+@dataclass
+class NtkContentScan:
+    """Result of scanning notice text for Schedule 4 invitation wording."""
+    has_name_driver_invitation: Optional[bool]  # None = insufficient text
+    has_pass_to_driver_invitation: Optional[bool]
+    defect_statutory_invitation: bool
+    notes: list[str]
+    text_chars: int
+
+
+def scan_ntk_invitations(text: str, *, min_chars: int = 80) -> NtkContentScan:
+    """Detect para 9(2)(e)(i)/(ii)-style invitations in notice text.
+
+    Global for all postal NTKs — not operator-specific. Returns
+    `has_*=None` when there is too little text to judge (e.g. image-only upload
+    with no OCR), so callers can ask for a clearer scan or the reverse side
+    rather than inventing a defect.
+    """
+    raw = (text or "").strip()
+    notes: list[str] = []
+    if len(raw) < min_chars:
+        return NtkContentScan(None, None, False,
+                              ["Insufficient notice text to assess Schedule 4 invitations."],
+                              len(raw))
+    name_invite = bool(_NAME_DRIVER_INVITE.search(raw))
+    pass_invite = bool(_PASS_NOTICE_INVITE.search(raw))
+    notes.append(
+        f"Invitation scan: name/address-or-pay={( 'yes' if name_invite else 'no' )}; "
+        f"pass-notice-to-driver={( 'yes' if pass_invite else 'no' )}."
+    )
+    # Postal Sch 4 para 9(2)(e) requires both limbs. Missing pass-on is a content gap.
+    defect = (not pass_invite)
+    if defect:
+        notes.append(
+            "Pass-notice-to-driver invitation not found on available text "
+            "(para 9(2)(e)(ii) style). Subject to any reverse side not yet uploaded."
+        )
+    return NtkContentScan(name_invite, pass_invite, defect, notes, len(raw))

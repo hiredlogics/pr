@@ -35,6 +35,10 @@ VRM_FIELDS = {"vrm", "vrm_entered"}              # both normalised the same way 
 # Normalised for the same reason dates are: notices print "19/09/2026 12:23" in a
 # field labelled as a time, and the raw value ends up quoted in the letter.
 TIME_FIELDS = {"entry_time", "exit_time", "observation_time", "event_time"}
+BOOL_FIELDS = {
+    "notice_sides_complete", "ntk_invites_name_driver", "ntk_invites_pass_to_driver",
+    "ntk_defect_statutory_invitation", "ntk_defect_document_confirmed",
+}
 
 # Canonical ATA codes used by Code version resolution and choice questions.
 ATA_CODES = ("BPA", "IPC", "NOT_SHOWN")
@@ -222,6 +226,18 @@ def derive_jurisdiction(case: CaseFile) -> str:
             and held.status in (FactStatus.CORRECTED, FactStatus.CONFIRMED, FactStatus.ANSWERED):
         return held.value
     j = jurisdiction_from_postcode(case.get("site_postcode"))
+    # Keeper letterhead postcodes must not decide site jurisdiction. If the
+    # postcode lookup is UNKNOWN, a clear England/Wales site wording on the
+    # notice is enough to open Schedule 4 for further checks (timing/content).
+    if j == "UNKNOWN":
+        loc = " ".join(str(case.get(n) or "") for n in (
+            "parking_location", "relevant_land_hint", "alleged_breach"))
+        if re.search(
+            r"\b(London|Wembley|Manchester|Birmingham|Leeds|Liverpool|Bristol|"
+            r"Sheffield|England|Wales|EW|United\s+Kingdom|UK)\b",
+            loc, re.I,
+        ) and not re.search(r"\b(Scotland|Northern\s+Ireland|\bNI\b)\b", loc, re.I):
+            j = "ENGLAND_WALES"
     case.put(Fact("F-jurisdiction", "jurisdiction", j,
                   FactStatus.DERIVED if j != "UNKNOWN" else FactStatus.UNCERTAIN,
                   FactSource(SourceKind.CALCULATION, "postcode_jurisdiction")))
@@ -342,6 +358,17 @@ class ExtractionEngine:
                 val = _hhmm(val)
                 if val is None:
                     conf = 0.0
+            if name in BOOL_FIELDS:
+                if isinstance(val, str):
+                    low = val.strip().lower()
+                    if low in ("1", "true", "yes", "on"):
+                        val = True
+                    elif low in ("0", "false", "no", "off"):
+                        val = False
+                    else:
+                        conf = 0.0
+                else:
+                    val = bool(val)
             if name == "operator_ata":
                 normalised = normalise_operator_ata(val)
                 if normalised:
@@ -478,20 +505,10 @@ class ExtractionEngine:
 
         # EX-15 both sides of a paper notice. Content defects (KB-POFA-04) must
         # not be asserted from a single photographed face: Schedule 4 particulars
-        # often sit on the reverse. Page images + multi-page text are the signal.
-        notice_ev = [e for e in case.evidence.values()
-                     if e.kind in ("PCN", "NTK", "NTD") or "pcn" in (e.filename or "").lower()
-                     or "ntk" in (e.filename or "").lower()]
-        page_images = sum(len(e.images or []) for e in notice_ev)
-        multi_page_text = any((e.text or "").count("\f") >= 1 or (e.text or "").count("--- page") >= 1
-                              for e in notice_ev)
-        sides_complete = page_images >= 2 or multi_page_text or len(notice_ev) >= 2
-        if notice_ev:
-            # No flag: the customer cannot act on this. It gates KB-POFA-04 so a
-            # content defect is never asserted from one photographed face, which
-            # is a drafting safeguard, not something to put on the screen.
-            case.put(Fact("F-notice_sides_complete", "notice_sides_complete", sides_complete,
-                          FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "notice_sides")))
+        # often sit on the reverse. Distinct page images / multipage text only —
+        # two copies of the same front are not completeness.
+        from ..notice_completeness import apply_notice_sides_fact
+        apply_notice_sides_fact(case)
 
         # EX-05 jurisdiction. Unresolved jurisdiction alone raises nothing: it
         # withholds the Code and PoFA grounds that depend on it, and case analysis

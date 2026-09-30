@@ -116,12 +116,12 @@ class AppealPipeline:
 
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
         self.extraction.confirm(case, corrections, confirmed)
+        # Store narrative before any scope stop so free-text provenance survives
+        # out-of-scope routing. Does not change disclosure status.
+        case.raw_answers["narrative"] = narrative
         if self._apply_scope_stop(case):
             return []
         self.reasoning.enrich(case)
-        # Stored raw for audit; assess_material_account promotes keeper-safe
-        # points into facts when they materially address the allegation.
-        case.raw_answers["narrative"] = narrative
         return self._reanalyse(case, narrative)
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
@@ -218,11 +218,47 @@ class AppealPipeline:
             stopped = self._stop_if_no_appeal_right(case, flags)
             if stopped:
                 return stopped
+            from .notice_completeness import requires_complete_notice
+            if requires_complete_notice(case):
+                if narrative:
+                    case.raw_answers["narrative"] = narrative
+                case.audit.append({"event": "blocked_notice_sides_incomplete",
+                                   "stage": "auto_appeal"})
+                case.state = CaseState.EXTRACTED
+                return AutoAppealResult(
+                    case.case_id, case.state,
+                    [{
+                        "fact": "notice_reverse_pages",
+                        "text": (
+                            "Please upload the reverse (and any continuation pages) of the "
+                            "parking notice, or a multipage PDF of the whole notice. "
+                            "Two copies of the front are not enough."
+                        ),
+                        "type": "text",
+                    }],
+                    None, flags + ["notice_sides_incomplete"], [],
+                )
             questions = self.confirm(case, {}, self._auto_confirmable(case), narrative)
         else:
             stopped = self._stop_if_no_appeal_right(case, flags)
             if stopped:
                 return stopped
+            from .notice_completeness import requires_complete_notice
+            if requires_complete_notice(case):
+                case.audit.append({"event": "blocked_notice_sides_incomplete",
+                                   "stage": "auto_appeal_continue"})
+                return AutoAppealResult(
+                    case.case_id, case.state,
+                    [{
+                        "fact": "notice_reverse_pages",
+                        "text": (
+                            "Please upload the reverse (and any continuation pages) of the "
+                            "parking notice, or a multipage PDF of the whole notice."
+                        ),
+                        "type": "text",
+                    }],
+                    None, flags + ["notice_sides_incomplete"], [],
+                )
             questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
         if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
             return self._stop_if_no_appeal_right(case, flags)  # type: ignore[return-value]
