@@ -140,6 +140,10 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if analysis_failed(case):
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="case_analysis_error")
 
+    # A ground is withheld only because the site postcode is unknown.
+    if "held_needs_site_postcode" in events and not case.has("site_postcode"):
+        return _pack(OUTCOME_NEEDS_FACTS, case, detail={"missing": ["site_postcode"]})
+
     # Truthful completed analysis with nothing to argue — set before drafting.
     if "analysis_complete_no_supported_grounds" in events:
         return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case)

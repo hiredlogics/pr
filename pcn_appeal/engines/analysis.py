@@ -751,9 +751,9 @@ class AnalysisEngine:
         if kind == "operator_ata":
             return self._ata_would_unlock(case)
         if kind == "site_postcode":
-            if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
-                return False
-            return True
+            # Material only when it would unlock a leading Schedule 4 ground.
+            from .recovery import postcode_unlocks
+            return bool(postcode_unlocks(case, self.kg))
         return True
 
     def _fact_specific_path_open(self, case: CaseFile, result: CaseAnalysis) -> bool:

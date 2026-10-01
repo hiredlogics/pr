@@ -20,7 +20,7 @@ from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
-from .engines.recovery import FactRecoveryEngine
+from .engines.recovery import FactRecoveryEngine, postcode_unlocks
 from .engines.validation import ValidationEngine
 from .kg.graph import KnowledgeGraph
 from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationIssue, ValidationResult
@@ -147,6 +147,7 @@ class AppealPipeline:
             case.audit.append({"event": "analysis_claim_plan",
                                "claim_plan": analysis.claim_plan})
         questions = self._pcn_conflict_question(case) + analysis.questions
+        questions += self._site_postcode_question(case, analysis.module_ids, questions)
         analysis.questions = questions
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
@@ -158,6 +159,24 @@ class AppealPipeline:
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
                            "asking": [q["fact"] for q in analysis.questions]})
         return analysis.questions
+
+    def _site_postcode_question(self, case: CaseFile, module_ids, already: list[dict]) -> list[dict]:
+        """The site postcode, asked only when nothing selected can lead the
+        letter and knowing the site is in England & Wales would unlock a
+        leading Schedule 4 ground (`postcode_unlocks`). Otherwise an unreadable
+        postcode silently withheld PoFA and the letter fell back to landowner
+        authority alone. Asked once; never the keeper's address."""
+        if "site_postcode" in case.asked_questions or any(q.get("fact") == "site_postcode" for q in already):
+            return []
+        if self.reasoning.leading_grounds(module_ids):
+            return []
+        unlocks = postcode_unlocks(case, self.kg)
+        q = self.kg.question_for("site_postcode")
+        if not unlocks or not q:
+            return []
+        case.audit.append({"event": "site_postcode_material", "unlocks": unlocks})
+        return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
+                 "material_because": f"needed to apply {', '.join(unlocks)}"}]
 
     @staticmethod
     def _pcn_conflict_question(case: CaseFile) -> list[dict]:
@@ -398,25 +417,16 @@ class AppealPipeline:
                              ValidationResult(False, []), self._evidence_list(case)),
                 case)
         if not (pack.module_ids or []):
-            case.state = CaseState.MANUAL_REVIEW
-            case.audit.append({
-                "event": "analysis_complete_no_supported_grounds",
-                "module_ids": [],
-                "reason": "case analysis finalized with no selectable grounds",
-            })
-            return _with_outcome(
-                AppealOutput(case.state, None, pack, Draft(case.case_id, []),
-                             ValidationResult(False, []), self._evidence_list(case)),
-                case)
-        # Prefer a leading-strength ground. After unlocking questions / recovery,
-        # if the pack is still support-only, draft a simple letter rather than
-        # holding for manual review — the customer path is ask → letter.
+            return self._hold_without_a_leading_ground(
+                case, pack, "case analysis finalized with no selectable grounds")
+        # Support-only grounds (landowner authority, the general keeper-liability
+        # framing) can never lead the letter, so a pack of nothing else is not
+        # drafted: it used to go out as a landowner-only letter. The customer is
+        # told the truth instead - a detail is missing that would unlock a
+        # ground, or nothing we can stand behind was found.
         if not self.reasoning.leading_grounds(pack.module_ids):
-            case.audit.append({
-                "event": "no_leading_ground_drafting_simple",
-                "module_ids": list(pack.module_ids or []),
-                "reason": "no strength≥50 ground after questions; drafting simple letter",
-            })
+            return self._hold_without_a_leading_ground(
+                case, pack, "support-only grounds; none can lead the letter")
 
         feedback: list[str] = []
         draft = result = None
@@ -530,6 +540,26 @@ class AppealPipeline:
             if now == before:
                 break              # the same answer twice; another round is waste
         return pack
+
+    def _hold_without_a_leading_ground(self, case: CaseFile, pack, reason: str) -> AppealOutput:
+        """No ground that can lead the letter: a detail is missing that would
+        unlock one (the site postcode, `postcode_unlocks`), or nothing we can
+        stand behind was found. Neither drafts a letter."""
+        case.state = CaseState.MANUAL_REVIEW
+        unlocks = postcode_unlocks(case, self.kg)
+        q = self.kg.question_for("site_postcode")
+        if unlocks and q:
+            case.pending_questions = [{"fact": "site_postcode", "type": q.get("type", "text"),
+                                       "text": q["text"]}]
+            case.audit.append({"event": "held_needs_site_postcode", "unlocks": unlocks,
+                               "module_ids": list(pack.module_ids or [])})
+        else:
+            case.audit.append({"event": "analysis_complete_no_supported_grounds",
+                               "module_ids": list(pack.module_ids or []), "reason": reason})
+        return _with_outcome(
+            AppealOutput(case.state, None, pack, Draft(case.case_id, []),
+                         ValidationResult(False, []), self._evidence_list(case)),
+            case)
 
     def _with_closing(self, draft, pack) -> bool:
         """Appends the approved closing (PP-END-001 / PP-END-002) when a drafted

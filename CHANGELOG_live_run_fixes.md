@@ -43,6 +43,23 @@ If an AI letter has no cancel request, the approved closing (PP-END-001 and PP-E
 
 VAL-RES accepts a quotation that reproduces a verified fact, such as the allegation as printed. Before this, three attempts were refused and the case ended in PROCESSING_ERROR.
 
+## 9. Support-only grounds were sent as a letter (review decision 2)
+
+| | |
+|---|---|
+| **What** | When no selected ground can lead the letter, nothing is drafted. Leading means strength ≥ 50; landowner authority (KB-LAND-01, 20) and the general keeper-liability framing (KB-POFA-01, 40) are support-only. The case ends as **NO_SUPPORTED_GROUNDS**, or as **NEEDS_FACTS** when a missing detail would unlock a ground (see 10). |
+| **Root cause** | The orchestrator logged `no_leading_ground_drafting_simple` and drafted anyway. Live, an overstay notice went out as a landowner-only letter. |
+| **Blast radius** | `orchestrator.generate`: the empty-selection branch and the support-only branch now share `_hold_without_a_leading_ground`. The thin-pack rule, where analysis must ask 1–3 situation questions first, is unchanged. Strong grounds are unaffected. |
+
+## 10. An unreadable site postcode silently withheld PoFA (review decision 1)
+
+| | |
+|---|---|
+| **What** | `recovery.postcode_unlocks(case, kg)` re-runs the Schedule 4 calculator as if the site were in England & Wales. It returns the ACTIVE PoFA modules of leading strength that would then apply. The site postcode is asked only when that check returns something and nothing else can lead. If the customer skips the question, the case is held as NEEDS_FACTS and the hold response carries the question. Once answered on the same case, the letter is released. |
+| **Unchanged** | The postcode is still not asked when it would change nothing, or when a fact-specific ground already leads. The `JurisdictionIsNeverAskedAutomatically` tests pass unchanged, because their notice is in time. The keeper's address never decides jurisdiction. |
+| **Blast radius** | `recovery.py` (`pofa_inputs`, `postcode_unlocks`), the analysis materiality gate for postcode questions, `orchestrator._site_postcode_question`, `outcome.classify_hold` (NEEDS_FACTS), and `api._held_questions`. |
+| **Frontend** | Check that a NEEDS_FACTS response with `questions` shows the question and posts the answer to `/appeal/{id}`. |
+
 ## Considered and not changed
 
 - **Asking for the site postcode when it can't be read.** This would conflict with the deliberate, tested rule (`test_question_authority.JurisdictionIsNeverAskedAutomatically`) that unknown jurisdiction withholds the PoFA grounds instead of asking. That is a decision for the client.
@@ -50,8 +67,16 @@ VAL-RES accepts a quotation that reproduces a verified fact, such as the allegat
 
 ## Tests
 
-- `tests/test_live_findings.py`: 22 tests.
-- **Full suite:** 506 run. 23 failures and 6 errors, the same 29 tests as the baseline, compared by test id.
+- `tests/test_live_findings.py`: 22 tests. `tests/test_no_weak_fallback.py`: 7 tests:
+  - postcode asked when material, and not asked when it isn't;
+  - postcode skipped gives NEEDS_FACTS with the question;
+  - postcode answered releases the letter;
+  - landowner-only gives NO_SUPPORTED_GROUNDS.
+- **Full suite:** 513 run. 23 failures and 6 errors, the same 29 tests as the baseline, compared by test id.
+- **Repeatability** (live, the same files and the same answer policy, 5 runs each):
+  - **Bay notice:** RELEASED 5 of 5, with the same claim plan {KB-BAY-01, KB-POFA-01}.
+  - **Overstay:** NO_SUPPORTED_GROUNDS 5 of 5. The intermediate selection depends on whether the photo's postcode is read ({LAND} or {POFA-01, LAND}), but both are support-only, so the outcome doesn't change.
+  - **Questions:** the analysis model's follow-up questions vary between runs (for example, the disability question was asked in 2 of 5).
 - **Live:** see the report given to the client.
 
 ## Deployment

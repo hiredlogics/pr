@@ -619,7 +619,16 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
         # Held cases: say *why* we stopped. Validator rule names and module IDs
         # stay on GET /cases/{id}/trace (admin/audit), not the customer payload.
         payload.update(_outcome_fields(out))
+        payload.update(_held_questions(rec["case"], out))
     return payload
+
+
+def _held_questions(case: CaseFile, out) -> dict:
+    """A NEEDS_FACTS hold carries the question that would unblock it, so the
+    customer can answer it on this case (it was already shown once and skipped)."""
+    if out.outcome == "NEEDS_FACTS" and case.pending_questions:
+        return {"questions": list(case.pending_questions)}
+    return {}
 
 
 @app.post("/cases")
@@ -867,6 +876,7 @@ def confirm(case_id: str, body: ConfirmIn):
         payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
     else:
         payload.update(_outcome_fields(out))
+        payload.update(_held_questions(case, out))
     return payload
 
 

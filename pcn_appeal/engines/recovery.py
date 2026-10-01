@@ -336,18 +336,7 @@ class FactRecoveryEngine:
         report.calculated["code_status"] = code_status
         report.calculated["code_version"] = getattr(version, "version_id", None)
 
-        res = pofa.assess(
-            jurisdiction=derive_jurisdiction(case),
-            relevant_land=case.get("relevant_land"),
-            notice_route=case.get("notice_route", "UNKNOWN"),
-            parking_event_date=case.get("parking_event_date"),
-            notice_issue_date=case.get("notice_issue_date"),
-            ntd_date=case.get("ntd_date"),
-            actual_delivery_date=(
-                case.get("notice_received_date") if case.get("delivery_date_proven") else None
-            ),
-            driver_identified=_disclosure_blocks_keeper(case),
-        )
+        res = pofa.assess(jurisdiction=derive_jurisdiction(case), **pofa_inputs(case))
         report.calculated["pofa_route"] = res.route
         report.calculated["pofa_findings"] = list(res.findings)
         report.calculated["pofa_notes"] = list(res.notes)
@@ -681,3 +670,41 @@ class FactRecoveryEngine:
             if evaluate(m.use_when, facts):
                 return True
         return False
+
+
+def pofa_inputs(case: CaseFile) -> dict:
+    """Everything the Schedule 4 calculator reads, except the jurisdiction."""
+    return dict(
+        relevant_land=case.get("relevant_land"),
+        notice_route=case.get("notice_route", "UNKNOWN"),
+        parking_event_date=case.get("parking_event_date"),
+        notice_issue_date=case.get("notice_issue_date"),
+        ntd_date=case.get("ntd_date"),
+        actual_delivery_date=(
+            case.get("notice_received_date") if case.get("delivery_date_proven") else None
+        ),
+        driver_identified=_disclosure_blocks_keeper(case),
+    )
+
+
+def postcode_unlocks(case: CaseFile, kg) -> list[str]:
+    """The leading Schedule 4 grounds that only an unknown jurisdiction is
+    withholding: re-runs the calculator as if the site were in England & Wales
+    and returns the ACTIVE PoFA modules of leading strength that would then
+    apply. Empty when jurisdiction is known, the postcode is held, or knowing it
+    would change nothing - the only case in which asking for it is material.
+    Never the keeper's address: this only decides whether to ask."""
+    from ..rules.dsl import evaluate
+    from .reasoning import SUPPORTING_THRESHOLD
+    if case.has("site_postcode") or case.get("jurisdiction") not in (None, "", "UNKNOWN"):
+        return []
+    res = pofa.assess(jurisdiction="ENGLAND_WALES", **pofa_inputs(case))
+    facts = dict(case.fact_view(), jurisdiction="ENGLAND_WALES", pofa_route=res.route,
+                 pofa_finding=res.findings[0] if res.findings else None)
+    out = []
+    for m in kg.active_modules():
+        if m.route != "POFA" or m.strength < SUPPORTING_THRESHOLD:
+            continue
+        if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+            out.append(m.module_id)
+    return out
