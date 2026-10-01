@@ -319,8 +319,8 @@ function render() {
          The legal reasoning and the letter are unaffected.</div>`);
     }
     $("provider").textContent = h.provider === "openai"
-      ? `Reading notices with ${h.models.extraction || "OpenAI"}.`
-      : "Running without a model (demo mode).";
+      ? `${h.app_version ? h.app_version + " · " : ""}Reading notices with ${h.models.extraction || "OpenAI"}.`
+      : `${h.app_version ? h.app_version + " · " : ""}Running without a model (demo mode).`;
   } catch { /* the banner is optional; never block the journey on it */ }
 })();
 </script>

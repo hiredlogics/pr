@@ -20,6 +20,8 @@ BUILD_VARS = ("BUILD_ID", "RAILWAY_DEPLOYMENT_ID", "VERCEL_DEPLOYMENT_ID")
 DEVELOPMENT = "development"
 PRODUCTION = "production"
 UNKNOWN = "unknown"
+# Product surface label so Railway / frontend retests can tell this build apart.
+DEFAULT_APP_VERSION = "version_2"
 
 
 def _first(names: tuple[str, ...]) -> str:
@@ -42,3 +44,8 @@ def is_production() -> bool:
 def build_id() -> str:
     """The platform's deployment id, or "unknown". Never raises."""
     return _first(BUILD_VARS) or UNKNOWN
+
+
+def app_version() -> str:
+    """Human-readable product version shown on /health and the frontend."""
+    return (os.getenv("APP_VERSION") or "").strip() or DEFAULT_APP_VERSION

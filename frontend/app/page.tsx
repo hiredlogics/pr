@@ -214,7 +214,7 @@ export default function Page() {
           {healthFailed
             ? "Appeal service unreachable"
             : health
-              ? `${health.provider === "demo" ? "Demo reader" : `${health.provider} reader`} · ${health.modules} legal modules`
+              ? `${health.app_version ? `${health.app_version} · ` : ""}${health.provider === "demo" ? "Demo reader" : `${health.provider} reader`} · ${health.modules} legal modules`
               : "Checking service…"}
         </p>
         <button className="menubtn" type="button" aria-label="Menu">

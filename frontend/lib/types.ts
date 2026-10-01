@@ -130,6 +130,8 @@ export type Health = {
   status: string;
   modules: number;
   blocks: number;
+  /** Product label from the API (e.g. version_2) so deploys are identifiable. */
+  app_version?: string;
   kb_release: string | null;
   store: string;
   provider: string;

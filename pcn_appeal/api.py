@@ -382,6 +382,7 @@ def health():
     healthy = p["provider"] == "openai" or not runtime.is_production()
     body = {"status": "ok" if healthy else "unhealthy",
             "modules": len(KG.modules), "blocks": len(KG.blocks),
+            "app_version": runtime.app_version(),
             "environment": runtime.environment(), "build_id": runtime.build_id(),
             "commit": version.commit(),
             "kb_release": KG.release_id, "kb_source": KB_STATUS["source"],

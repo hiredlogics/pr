@@ -117,12 +117,18 @@ class Health(unittest.TestCase):
     def test_reports_build_identity(self):
         with env(BUILD_ID="build-42"):
             body = self.client.get("/health").json()
-        for key in ("environment", "build_id", "commit", "provider", "models", "kb_release",
-                    "kb_source", "prompt_versions", "validator_version", "store"):
+        for key in ("app_version", "environment", "build_id", "commit", "provider", "models",
+                    "kb_release", "kb_source", "prompt_versions", "validator_version", "store"):
             self.assertIn(key, body)
+        self.assertEqual(body["app_version"], "version_2")
         self.assertEqual(body["environment"], "development")
         self.assertEqual(body["build_id"], "build-42")
         self.assertEqual(body["status"], "ok")
+
+    def test_app_version_can_be_overridden(self):
+        with env(APP_VERSION="version_2-staging"):
+            body = self.client.get("/health").json()
+        self.assertEqual(body["app_version"], "version_2-staging")
 
     def test_production_without_the_real_provider_is_unhealthy(self):
         with env(**PROD):
