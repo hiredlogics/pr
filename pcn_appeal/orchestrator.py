@@ -9,6 +9,7 @@ signals/API calls that resume the workflow; LLM steps are retried idempotently.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -450,6 +451,9 @@ class AppealPipeline:
                 })
                 break
 
+            if self._with_closing(draft, pack):
+                case.audit.append({"event": "closing_added", "attempt": attempt,
+                                   "blocks": ["PP-END-001", "PP-END-002"]})
             case.state = CaseState.DRAFTED
             result = self.validation.validate(draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
@@ -527,6 +531,23 @@ class AppealPipeline:
                 break              # the same answer twice; another round is waste
         return pack
 
+    def _with_closing(self, draft, pack) -> bool:
+        """Appends the approved closing (PP-END-001 / PP-END-002) when a drafted
+        letter has paragraphs but never asks for the charge to be cancelled.
+        Live, the AI drafter ended some letters on a ground with no request at
+        all. The template drafter always closes this way; this gives AI letters
+        the same ending, in approved wording, before validation sees them."""
+        if not draft.paragraphs or _CANCEL_REQUEST.search(draft.plain_text()):
+            return False
+        closing = []
+        for bid in ("PP-END-001", "PP-END-002"):
+            blk = self.kg.blocks.get(bid)
+            if blk is None or blk.status != "ACTIVE":
+                return False
+            closing += self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL")
+        draft.paragraphs.append(closing)
+        return True
+
     @staticmethod
     def _without_failing_sentences(draft: Optional[Draft],
                                    result: Optional[ValidationResult]):
@@ -556,7 +577,26 @@ class AppealPipeline:
                 if e.uploaded and e.kind not in ("PCN", "NTK", "NTD")]
 
 
+# A request to cancel, not any mention of cancelling ("not an automatic
+# cancellation ground" asks for nothing).
+_CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
+_ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+
+
+def uk_dates(text: str) -> str:
+    """ISO dates as a UK letter writes them: 2026-09-19 -> 19 September 2026.
+    Facts carry dates as date objects, which reach the drafter as ISO strings."""
+    import calendar
+
+    def fmt(m: re.Match) -> str:
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if not (1 <= mo <= 12 and 1 <= d <= 31):
+            return m.group(0)
+        return f"{d} {calendar.month_name[mo]} {y}"
+    return _ISO_DATE.sub(fmt, text or "")
+
+
 def render(draft: Draft) -> str:
     """Strip provenance and return the customer-facing letter body.
     Production: Jinja2 -> HTML -> WeasyPrint PDF, plus evidence list page."""
-    return draft.plain_text()
+    return uk_dates(draft.plain_text())

@@ -50,6 +50,24 @@ CANDIDATE_LIMIT = 24
 QUESTION_TYPES = {"bool", "int", "choice", "text"}
 
 # Facts that only make sense when the notice itself shows an ANPR entry/exit pair.
+# Facts the engines derive themselves. Asking the customer for one puts an
+# internal judgment ("does your account contradict the allegation?") on screen
+# and lets an answer overwrite a calculation.
+INTERNAL_FACTS = {
+    "account_contradicts_allegation", "material_account_proposition",
+    "material_account_propositions", "restricted_bay_alleged", "observation_window_min",
+    "total_recorded_duration_min", "duration_min", "jurisdiction", "code_version",
+    "notice_route", "notice_sides_complete", "pcn_conflict", "pcn_candidates",
+    "authority_challenge_proportionate", "independent_evidence_contradicts",
+    "driver_status",
+}
+INTERNAL_PREFIXES = ("pofa_", "ntk_", "_")
+
+
+def is_internal_fact(fact: str) -> bool:
+    return fact in INTERNAL_FACTS or fact.startswith(INTERNAL_PREFIXES)
+
+
 ANPR_SHAPED_FACTS = {
     "anpr_sequence_incomplete", "anpr_discrepancy", "anpr_duration_disputed",
     "multiple_visits",
@@ -621,6 +639,9 @@ class AnalysisEngine:
                 fact = "operator_ata"
             elif admin_kind == "site_postcode":
                 fact = "site_postcode"
+            if is_internal_fact(fact):
+                result.trace.append(f"dropped question {fact}: derived by the engines, not asked")
+                continue
             if fact in seen or case.has(fact) or fact in known_on_notice:
                 result.trace.append(f"dropped question {fact}: already known or already asked")
                 continue

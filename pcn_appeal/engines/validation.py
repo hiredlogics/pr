@@ -189,6 +189,16 @@ def _phrase_windows(fingerprint: str, min_words: int = 6) -> list[str]:
     return [" ".join(words[i:i + min_words]) for i in range(len(words) - min_words + 1)]
 
 
+def _quotes_a_verified_fact(quote: str, facts: dict) -> bool:
+    """A quotation that reproduces a verified string fact (the allegation or
+    location as printed on the notice), ignoring case, spacing and a trailing
+    full stop. Verified facts are page-backed or customer-confirmed."""
+    def norm(v):
+        return re.sub(r"\s+", " ", str(v)).strip().rstrip(".").lower()
+    q = norm(quote)
+    return len(q) >= 12 and any(isinstance(v, str) and q in norm(v) for v in (facts or {}).values())
+
+
 def _is_justified_customer_quote(quote: str, ctx: dict) -> bool:
     """Exact customer wording may appear only when claim plan recorded a reason."""
     q = (quote or "").strip()
@@ -278,6 +288,10 @@ class ValidationEngine:
                     if any(q.strip() in lt for lt in lease_texts):
                         continue
                     if _is_justified_customer_quote(q, getattr(pack, "case_context", None) or {}):
+                        continue
+                    # The notice's own wording, as verified (live: the allegation
+                    # quoted from the PCN held a sound letter for a processing error).
+                    if _quotes_a_verified_fact(q, facts):
                         continue
                     block("VAL-RES", "Quoted text is not verbatim from an uploaded agreement "
                           "and is not a justified customer quotation", t)

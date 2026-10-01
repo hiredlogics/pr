@@ -26,6 +26,15 @@ REVERSE_TEXT = re.compile("|".join(g.pattern for g in REVERSE_TEXT_GROUPS), re.I
 # Page sides (from the classifier) that show something other than the face.
 NON_FRONT_SIDES = {"REVERSE", "CONTINUATION", "BLANK"}
 
+DIFFERENT_NOTICES_MESSAGE = (
+    "These pages look like they come from different notices: the charge number or the "
+    "vehicle registration does not match. Please upload the front and back of the same notice."
+)
+DUPLICATE_PAGES_MESSAGE = (
+    "Two of your photos are the same picture. Please upload the front and the back of "
+    "your notice. Both sides are mandatory, even if the back is blank."
+)
+
 BOTH_SIDES_MESSAGE = (
     "Please upload the front and back of your notice. Both sides are mandatory, "
     "even if the back is blank. You cannot continue until both sides have been uploaded."
@@ -72,14 +81,81 @@ def _page_sides(case: CaseFile, notice_ev: list) -> list[str]:
     return sides if any(s != "UNKNOWN" for s in sides) else []
 
 
+def rejection_message(reason: str) -> str:
+    """Customer wording for an upload refused by the notice gate."""
+    if reason == "different_notices":
+        return DIFFERENT_NOTICES_MESSAGE
+    if reason == "duplicate_front_images":
+        return DUPLICATE_PAGES_MESSAGE
+    return BOTH_SIDES_MESSAGE
+
+
+def _norm_ref(value) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
+def _charge_number_like(value: str) -> bool:
+    """A normalised reading that could be a charge number: mostly digits.
+    Form and print codes on a reverse ("ABCDEF/P/0524") are mostly letters,
+    and comparing them with the face's charge number refused genuine pairs."""
+    digits = sum(ch.isdigit() for ch in value)
+    return len(value) >= 6 and digits >= 5 and digits * 10 >= len(value) * 6
+
+
+def _edits(a: str, b: str) -> int:
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def different_notices(case: CaseFile) -> Optional[dict]:
+    """Pages that print a different vehicle registration or charge number are
+    not two sides of one notice. Read from the classifier's per-document
+    references, because a photo has no text layer for the extractor's own
+    cross-check to scan. Values count as different only when more than 60% of
+    their characters differ. Live, repeated reads of one blurred notice put its
+    two sides up to four characters of seven apart, while two different
+    notices differed in every character: refusing a genuine pair leaves the
+    customer stuck, and a smaller misread is shown on the confirmation screen."""
+    seen: dict[str, dict[str, str]] = {"vrm": {}, "pcn_number": {}}
+    for ev_id, c in (case.classifications or {}).items():
+        if (c or {}).get("document_type") not in (None, "PRIVATE_PARKING_NOTICE"):
+            continue
+        refs = (c or {}).get("references") or {}
+        for key in ("vrm", "pcn_number"):
+            value = _norm_ref(refs.get(key))
+            if len(value) < 4 or (key == "pcn_number" and not _charge_number_like(value)):
+                continue
+            for other_id, other in seen[key].items():
+                # Charge numbers from one scheme share a length. A long print or
+                # barcode number on a reverse is not another notice's PCN.
+                if key == "pcn_number" and abs(len(value) - len(other)) > 2:
+                    continue
+                if _edits(value, other) * 10 > max(len(value), len(other)) * 6:
+                    return {"field": key, "documents": [other_id, ev_id]}
+            seen[key][ev_id] = value
+    return None
+
+
 def notice_pages_sufficient(case: CaseFile) -> tuple[bool, str]:
-    """upload_pages_sufficient, with the classifier's page sides deciding when
-    it gave them: two distinct photos that are both the face are not front and
-    back. Falls back to the page-count rule when no page is labelled."""
+    """upload_pages_sufficient, with two cross-checks first: identical images
+    and pages from different notices are refused whatever their labels. Then
+    the classifier's page sides decide when it gave them: two distinct photos
+    that are both the face are not front and back. Falls back to the
+    page-count rule when no page is labelled."""
     evidence = list(case.evidence.values())
+    hashes = [_image_sha(img) for e in evidence for img in (e.images or [])]
+    unique = len(set(hashes))
+    if len(hashes) >= 2 and unique < 2:
+        return False, "duplicate_front_images"
+    if different_notices(case):
+        return False, "different_notices"
     sides = _page_sides(case, evidence)
     if sides:
-        unique = len({_image_sha(img) for e in evidence for img in (e.images or [])})
         if any(s in NON_FRONT_SIDES for s in sides) and unique >= 2:
             return True, "classifier_labelled_reverse_page"
         if all(s == "FRONT" for s in sides):
@@ -163,7 +239,13 @@ def assess_notice_sides(case: CaseFile) -> dict[str, Any]:
         or case.get("ntk_invites_name_driver") is not None
     )
 
-    # Same-notice check: conflicting PCN numbers across uploads → not complete.
+    # Same-notice check: a different registration or charge number printed on
+    # another page, or conflicting PCN numbers across uploads → not complete.
+    if different_notices(case):
+        result["complete"] = False
+        result["same_notice"] = False
+        result["reason"] = "different_notices"
+        return result
     if case.get("pcn_conflict"):
         result["complete"] = False
         result["same_notice"] = False

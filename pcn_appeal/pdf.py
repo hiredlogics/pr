@@ -212,7 +212,6 @@ _TEMPLATE = """<!doctype html>
 
   <div class="footer-note">
     {{ brand_footer }}
-    Grounds cited: {{ grounds|join(', ') if grounds else 'none' }}.
   </div>
 </body>
 </html>"""
@@ -236,6 +235,7 @@ def render_letter_pdf(draft: Draft, pack: RetrievalPack, case_id: str,
     looks finished and cannot be posted.
     """
     from weasyprint import HTML  # imported lazily: not every deployment needs it
+    from .orchestrator import uk_dates
 
     facts: dict[str, Any] = pack.verified_facts or {}
     address_lines = [ln.strip() for ln in (keeper_address or "").replace(",", "\n").splitlines()
@@ -252,6 +252,8 @@ def render_letter_pdf(draft: Draft, pack: RetrievalPack, case_id: str,
         operator_name=facts.get("operator_name"),
         pcn_number=facts.get("pcn_number"), vrm=facts.get("vrm"),
         pcn_label="PCN " if facts.get("pcn_number") else "",
-        paragraphs=[" ".join(s.text for s in p) for p in draft.paragraphs],
+        # Same text as the API letter; dates in UK form. Grounds are not printed:
+        # route labels are internal (client issue 5).
+        paragraphs=[uk_dates(" ".join(s.text for s in p)) for p in draft.paragraphs],
         evidence_list=evidence_list or [], grounds=grounds or [])
     return HTML(string=html).write_pdf()

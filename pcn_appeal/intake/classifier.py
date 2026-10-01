@@ -180,12 +180,43 @@ def classify(case: CaseFile, llm) -> dict[str, DocumentClassification]:
     if not result:
         raise ClassificationFailed("classifier named none of the uploaded documents")
 
+    _read_references_per_document(case, llm, result)
+
     for ev_id in case.evidence:
         if ev_id not in result:
             result[ev_id] = DocumentClassification(
                 ev_id, T.UNKNOWN, T.UNKNOWN, T.default_stage(T.UNKNOWN),
                 ambiguity_reason="not classified", notes=["missing from classifier answer"])
     return result
+
+
+def _read_references_per_document(case: CaseFile, llm,
+                                  result: dict[str, DocumentClassification]) -> None:
+    """With two or more notice documents, re-read each one's printed PCN and
+    VRM from its own pages alone. The joint call can attribute one notice's
+    references to another's page, which is exactly what the different-notices
+    gate compares. A failed read keeps the joint reading (noted), so this only
+    ever adds a check."""
+    notices = [c for c in result.values() if c.document_type == T.PRIVATE_PARKING_NOTICE
+               and c.evidence_id in case.evidence]
+    if len(notices) < 2:
+        return
+    for c in notices:
+        e = case.evidence[c.evidence_id]
+        user = f"<document id='{e.evidence_id}' filename='{e.filename}'>\n{e.text}\n</document>"
+        try:
+            out = llm.complete_json(task="page_references", system=prompts.system("page_references"),
+                                    user=user, images=list(e.images or []) or None)
+        except Exception as exc:
+            c.notes.append(f"per-document reference read failed: {type(exc).__name__}")
+            continue
+        if not isinstance(out, dict):
+            continue
+        refs = {k: out.get(k) for k in ("pcn_number", "vrm") if out.get(k) not in (None, "", [])}
+        other = c.references.get("other") if isinstance(c.references, dict) else None
+        if c.references != refs:
+            c.notes.append(f"references re-read per document: {c.references} -> {refs}")
+        c.references = {**refs, **({"other": other} if other else {})}
 
 
 def from_legacy_doc_types(doc_types: dict[str, str], confidence: float = 0.9) -> dict[str, Any]:

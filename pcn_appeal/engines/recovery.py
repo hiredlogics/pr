@@ -151,6 +151,7 @@ class FactRecoveryEngine:
         self._classify_receipt_vs_validation(case, report)
         self._run_calculations(case, report)
         self._assess_ntk_schedule4_content(case, report)
+        self._assess_keeper_warning(case, report)
         self._classify_gaps(case, report)
 
         case.recovery_report = report.as_dict()
@@ -371,6 +372,38 @@ class FactRecoveryEngine:
 
         report.trace.append(
             f"calculators: code={code_status} pofa={res.route} findings={res.findings}")
+
+    def _assess_keeper_warning(self, case: CaseFile, report: RecoveryReport) -> None:
+        """Para 9(2)(f): a postal Notice to Keeper must warn that the keeper
+        becomes liable if the charge is unpaid after 28 days and the driver's
+        name and address are not known. A notice without it cannot found keeper
+        liability, which is what KB-POFA-04 / KB-POFA-05 (PP-POFA-005B) state.
+
+        Concluded only from the notice's own text (a PDF text layer or OCR) with
+        BOTH sides uploaded. The extractor's `ntk_keeper_liability_warning`
+        reading of a photo is recorded but never pleaded: live, on a blurred
+        reverse the model returned statutory wording that is not printed on it.
+        Unknown stays unknown - nothing is pleaded from a missing page."""
+        if str(case.get("notice_route") or "") != "POSTAL" or _disclosure_blocks_keeper(case):
+            return
+        blob = "\n".join((e.text or "") for e in case.evidence.values()
+                         if e.kind in ("PCN", "NTK", "NTD"))
+        flag = pofa.scan_keeper_warning(blob)
+        model_read = case.get("ntk_keeper_liability_warning")
+        report.calculated["ntk_keeper_liability_warning"] = flag
+        if flag is None and model_read is not None:
+            report.trace.append(f"keeper warning: image read only ({model_read}), not relied on")
+            return
+        if flag is not False:
+            report.trace.append(f"keeper warning: {'present' if flag else 'not determinable'}")
+            return
+        if case.get("notice_sides_complete") is not True:
+            report.trace.append("keeper warning: not seen, but both sides are not confirmed")
+            return
+        for name in ("ntk_defect_keeper_warning", "ntk_defect_document_confirmed"):
+            case.put(Fact(f"F-{name}", name, True, FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "pofa.keeper_warning")))
+        report.trace.append("keeper warning: absent on a two-sided postal notice (para 9(2)(f))")
 
     def _assess_ntk_schedule4_content(self, case: CaseFile, report: RecoveryReport) -> None:
         """Global Schedule 4 invitation scan on notice text (all postal NTKs).

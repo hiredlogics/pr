@@ -39,6 +39,9 @@ OPENAI_PREFERENCES = {
     "classification": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # vision-capable: PCN photos and scanned notices
     "extraction":  ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
+    # one document's printed PCN / VRM, read from its own pages only, so a
+    # reference on one notice cannot be attributed to another (intake gate)
+    "page_references": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # case analysis decides which grounds the evidence supports and what is
     # still worth asking - the most consequential judgement in the system, so it
     # gets the strongest model available.

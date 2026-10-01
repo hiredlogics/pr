@@ -38,6 +38,7 @@ TIME_FIELDS = {"entry_time", "exit_time", "observation_time", "event_time"}
 BOOL_FIELDS = {
     "notice_sides_complete", "ntk_invites_name_driver", "ntk_invites_pass_to_driver",
     "ntk_defect_statutory_invitation", "ntk_defect_document_confirmed",
+    "ntk_keeper_liability_warning",
 }
 
 # Canonical ATA codes used by Code version resolution and choice questions.
@@ -402,6 +403,23 @@ class ExtractionEngine:
             scanned |= _pcn_candidates_from_text(ev.text or "")
         if extracted_pcn:
             scanned.add(extracted_pcn)
+            # The classifier reads each notice's printed references
+            # independently. A photo has no text layer, so without this a
+            # misread digit ("...45642" for "...45842") had nothing to disagree
+            # with and went into the letter. Two readings of the same page that
+            # differ make the number UNCERTAIN: the confirmation screen marks it
+            # for the customer to check against the notice. It is not the
+            # cross-document conflict below - both readings may be wrong, so a
+            # closed choice between them would not help.
+            readings = {_normalise_pcn(((c or {}).get("references") or {}).get("pcn_number"))
+                        for c in (case.classifications or {}).values()
+                        if (c or {}).get("document_type") == "PRIVATE_PARKING_NOTICE"}
+            readings = {r for r in readings if len(r) >= 6}
+            if readings and extracted_pcn not in readings and "pcn_number" in case.facts:
+                case.facts["pcn_number"].status = FactStatus.UNCERTAIN
+                flags.append("uncertain:pcn_number")
+                case.audit.append({"event": "pcn_read_disagreement",
+                                   "readings": sorted(readings | {extracted_pcn})})
         if len(scanned) > 1:
             flags.append("conflict:pcn_number")
             case.put(Fact("F-pcn_conflict", "pcn_conflict", True, FactStatus.DERIVED,

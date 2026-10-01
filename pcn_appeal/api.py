@@ -71,12 +71,17 @@ def _reject_incomplete(case: CaseFile, reason: str, policy: str) -> None:
     retry from the upload screen without a 409, and forget the intake decision
     so the retry is classified afresh."""
     from .intake import reset
+    from .notice_completeness import different_notices
+    # Which reference differed, read before the reset forgets the classifications.
+    differed = different_notices(case) if reason == "different_notices" else None
     case.evidence.clear()
     case.audit.append({"event": "upload_rejected_incomplete_sides", "reason": reason,
-                       "policy": policy, "route": case.route})
+                       "policy": policy, "route": case.route,
+                       **({"differed": differed} if differed else {})})
     reset(case)
+    from .notice_completeness import rejection_message
     raise HTTPException(422, {
-        "message": BOTH_SIDES_MESSAGE,
+        "message": rejection_message(reason),
         "code": "NOTICE_SIDES_REQUIRED",
         "reason": reason,
     })

@@ -159,6 +159,26 @@ class NtkContentScan:
     text_chars: int
 
 
+# Para 9(2)(f): the keeper warning has two parts - the driver's name and
+# address not being known, and the right to recover from the keeper.
+_KEEPER_WARNING_DRIVER_UNKNOWN = re.compile(
+    r"(do not|don'?t|does not) know (both )?the (full )?name and (a |the )?(current )?"
+    r"(serviceable )?(postal )?address (for service )?of the driver", re.I)
+_KEEPER_WARNING_RECOVER = re.compile(
+    r"right to recover[\s\S]{0,120}?(from (you|the keeper)|keeper)|"
+    r"recover[\s\S]{0,60}?from (you|the keeper)", re.I)
+
+
+def scan_keeper_warning(text: str, *, min_chars: int = 200) -> Optional[bool]:
+    """Para 9(2)(f) keeper-liability warning in notice text: True when both
+    parts appear, False when there is enough text and they do not, None when
+    the text is too short to judge (an image-only upload)."""
+    raw = (text or "").strip()
+    if len(raw) < min_chars:
+        return None
+    return bool(_KEEPER_WARNING_DRIVER_UNKNOWN.search(raw) and _KEEPER_WARNING_RECOVER.search(raw))
+
+
 def scan_ntk_invitations(text: str, *, min_chars: int = 80) -> NtkContentScan:
     """Detect para 9(2)(e)(i)/(ii)-style invitations in notice text.
 
