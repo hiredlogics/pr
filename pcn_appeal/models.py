@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import Enum
+from collections.abc import Mapping
 from typing import Any, Optional
 
 
@@ -61,15 +62,6 @@ class CaseState(str, Enum):
     CLASSIFICATION_FAILED = "CLASSIFICATION_FAILED"
 
 
-# Statuses only a customer action produces: confirming a reading, correcting
-# it, or answering a question. A machine status is a reading or a calculation.
-CUSTOMER_STATUSES = frozenset({"CONFIRMED", "CORRECTED", "ANSWERED"})
-MACHINE_STATUSES = frozenset({"EXTRACTED", "DERIVED", "UNCERTAIN"})
-# Values that hold no information. Replacing one is never a conflict: an
-# UNKNOWN jurisdiction becomes a known one as soon as the postcode is read.
-_PLACEHOLDERS = (None, "", "UNKNOWN", [])
-
-
 # --------------------------------------------------------------------------- facts
 @dataclass
 class FactSource:
@@ -78,7 +70,7 @@ class FactSource:
     excerpt: Optional[str] = None   # verbatim text span (needed for lease quotes)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Fact:
     """Every value the drafter may use is a Fact with provenance.
 
@@ -91,10 +83,13 @@ class Fact:
     status: FactStatus
     source: FactSource
     confidence: float = 1.0
+    # Set by FactManager while a NEEDS_CONFIRMATION conflict is open: the value
+    # is held, but nothing may rely on it until the customer confirms it.
+    disputed: bool = False
 
     @property
     def usable(self) -> bool:
-        return self.status != FactStatus.UNCERTAIN
+        return self.status != FactStatus.UNCERTAIN and not self.disputed
 
 
 @dataclass
@@ -139,63 +134,106 @@ class RunAudit(list):
         return self
 
 
-def _now() -> str:
+class FactWriteError(TypeError):
+    """A write to the fact graph that did not go through FactManager."""
+
+
+class FactGraph(Mapping):
+    """The case's facts: a read-only mapping of name -> Fact.
+
+    Every engine reads through it; only FactManager (fact_graph.py) writes,
+    through the underscore methods. Each fact is a node with a stable id
+    (`node_id`), kept across updates and reloads, and created/updated times.
+    """
+
+    def __init__(self, items: Optional[dict] = None):
+        self._data: dict[str, Fact] = {}
+        self._ids: dict[str, str] = {}
+        self._times: dict[str, list[str]] = {}
+        self._gone: dict[str, Fact] = {}
+        for f in (items or {}).values() if isinstance(items, dict) else (items or []):
+            self._write(f)
+
+    # Mapping ---------------------------------------------------------------
+    def __getitem__(self, name: str) -> Fact:
+        try:
+            return self._data[name]
+        except KeyError:
+            from .fact_graph import canonical      # an alias reads its canonical fact
+            if canonical(name) == name:
+                raise
+            return self._data[canonical(name)]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __repr__(self) -> str:
+        return f"FactGraph({self._data!r})"
+
+    # Refused writes ----------------------------------------------------------
+    def _refuse(self, *_a, **_k):
+        raise FactWriteError("facts are written through FactManager "
+                             "(case.put / case.set_status / case.retract)")
+
+    __setitem__ = __delitem__ = pop = popitem = clear = update = setdefault = _refuse
+
+    # FactManager only --------------------------------------------------------
+    def _write(self, fact: Fact, node_id: Optional[str] = None,
+               updated_at: Optional[str] = None, created_at: Optional[str] = None) -> None:
+        import uuid
+        self._data[fact.name] = fact
+        self._gone.pop(fact.name, None)
+        self._ids.setdefault(fact.name, node_id or str(uuid.uuid4()))
+        stamp = updated_at or _utc_now()
+        self._times.setdefault(fact.name, [created_at or stamp, stamp])
+
+    def _reserve(self, name: str, node_id: str) -> None:
+        """A retracted fact's id, restored on load so a re-established fact
+        keeps its node (and its history) rather than starting a new one."""
+        self._ids.setdefault(name, node_id)
+
+    def retracted(self) -> list[str]:
+        """Names that had a node and no longer hold a value."""
+        return [n for n in self._ids if n not in self._data]
+
+    def _touch(self, name: str) -> None:
+        if name in self._times:
+            self._times[name][1] = _utc_now()
+
+    def _remove(self, name: str) -> None:
+        gone = self._data.pop(name, None)
+        if gone is not None:
+            self._gone[name] = gone
+
+    def last_value(self, name: str) -> Optional[Fact]:
+        """A retracted fact's last value (store.save keeps its row, inactive)."""
+        return self._gone.get(name)
+
+    def node_id(self, name: str) -> Optional[str]:
+        return self._ids.get(name)
+
+    def name_of(self, node_id: str) -> Optional[str]:
+        """The fact a node id belongs to, held or retracted."""
+        return next((n for n, i in self._ids.items() if i == node_id), None)
+
+    def created_at(self, name: str) -> Optional[str]:
+        return (self._times.get(name) or [None, None])[0]
+
+    def updated_at(self, name: str) -> Optional[str]:
+        return (self._times.get(name) or [None, None])[1]
+
+
+def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-
-
-def _plain(value: Any) -> Any:
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, (date, datetime)):
-        return value.isoformat()
-    if isinstance(value, (list, tuple)):
-        return [_plain(v) for v in value]
-    if isinstance(value, dict):
-        return {k: _plain(v) for k, v in value.items()}
-    return value
-
-
-def _same_value(a: Any, b: Any) -> bool:
-    if a == b:
-        return True
-    norm = lambda v: re.sub(r"\s+", "", str(v)).upper()  # noqa: E731
-    return isinstance(a, str) and isinstance(b, str) and norm(a) == norm(b)
-
-
-def _is_explicit_customer(f: "Fact") -> bool:
-    """A value the customer settled: confirmed, corrected, or answered to a
-    question. An ANSWERED value inferred from free text is a reading of the
-    account, not an answer."""
-    status = f.status.value
-    if status in ("CONFIRMED", "CORRECTED"):
-        return True
-    return status == "ANSWERED" and f.source.kind != SourceKind.CUSTOMER_FREE_TEXT
-
-
-def _is_machine(f: "Fact") -> bool:
-    return f.status.value in MACHINE_STATUSES or f.source.kind == SourceKind.CUSTOMER_FREE_TEXT
-
-
-def _refusal(old: "Fact", new: "Fact") -> Optional[str]:
-    """Why `new` may not replace `old` (a rule name), or None."""
-    from .fact_ownership import CUSTOMER, DOCUMENT, EVIDENCE, owner_of
-    if _is_explicit_customer(new):
-        return None
-    if _is_explicit_customer(old) and _is_machine(new):
-        return "customer_settled"
-    owner = owner_of(new.name)
-    if owner in (DOCUMENT, EVIDENCE) and new.source.kind == SourceKind.CUSTOMER_FREE_TEXT \
-            and old.source.kind in (SourceKind.DOCUMENT, SourceKind.CALCULATION):
-        return f"{owner.lower()}_owned"
-    if owner == CUSTOMER and new.source.kind == SourceKind.DOCUMENT \
-            and old.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT):
-        return "customer_owned"
-    return None
 
 
 @dataclass
 class CaseFile:
     case_id: str
+    # The fact graph (FactGraph): read-only here, written by FactManager.
     facts: dict[str, Fact] = field(default_factory=dict)
     evidence: dict[str, EvidenceItem] = field(default_factory=dict)
     # Raw customer text for audit. Material points are promoted into Facts by
@@ -246,6 +284,8 @@ class CaseFile:
     # P0.4: every fact write and removal, and the writes that were refused.
     fact_history: list[dict] = field(default_factory=list)
     fact_conflicts: list[dict] = field(default_factory=list)
+    # P1: every reading of every fact, accepted or not (fact_graph.py).
+    fact_sources: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -256,80 +296,20 @@ class CaseFile:
         f = self.facts.get(name)
         return bool(f and f.usable and f.value not in (None, "", []))
 
-    def put(self, fact: Fact, reason: str = "") -> bool:
-        """Set a fact, recording the change; returns False when it was refused.
+    def put(self, fact: Fact, reason: str = "", changed_by: Optional[str] = None) -> bool:
+        """Write a fact through FactManager (fact_graph.py). Returns False when
+        the write was refused (a conflict) or ignored; the held value stands."""
+        from .fact_graph import FactManager
+        return FactManager.update_fact(self, fact, reason=reason, changed_by=changed_by).applied
 
-        Every write is recorded in `fact_history` (previous and new value,
-        source, run, time, reason). A write is refused - the held value stays and
-        a CONFLICT is recorded in `fact_conflicts` - when it would silently
-        overwrite something the customer settled or a source does not own:
+    def set_status(self, name: str, status: "FactStatus", reason: str = "",
+                   changed_by: str = "system") -> None:
+        from .fact_graph import FactManager
+        FactManager.set_status(self, name, status, reason=reason, changed_by=changed_by)
 
-          A. a machine reading (EXTRACTED, DERIVED, UNCERTAIN, or an inference
-             from the customer's free text) never replaces a different value the
-             customer confirmed, corrected or answered;
-          B. ownership (fact_ownership.py): the customer's account never
-             rewrites a DOCUMENT- or EVIDENCE-owned value read from a document,
-             and a document reading never rewrites a CUSTOMER-owned value the
-             customer gave.
-
-        An explicit customer act (CONFIRMED, CORRECTED, or ANSWERED from a
-        question) is always applied: that is how a customer fixes a misreading.
-        The same value at a lower status is not applied, so a re-read never
-        demotes a confirmation.
-        """
-        old = self.facts.get(fact.name)
-        if old is not None and _same_value(old.value, fact.value):
-            if _is_explicit_customer(old) and not _is_explicit_customer(fact):
-                return True                     # unchanged; keep the customer's status
-        elif old is not None and old.value not in _PLACEHOLDERS \
-                and fact.value not in _PLACEHOLDERS:
-            refused = _refusal(old, fact)
-            if refused:
-                self._record_fact_change(old, fact, "CONFLICT", reason or refused)
-                conflict = {"fact": fact.name, "old": old.value, "new": fact.value,
-                            "old_status": old.status.value, "new_status": fact.status.value,
-                            "old_source": old.source.ref, "new_source": fact.source.ref,
-                            "rule": refused, "status": "CONFLICT",
-                            "run_id": self.run_id, "at": _now()}
-                self.fact_conflicts.append(conflict)
-                self.audit.append({"event": "fact_conflict", **conflict})
-                return False
-        self.facts[fact.name] = fact
-        self._record_fact_change(old, fact, "APPLIED", reason)
-        self.audit.append({"event": "fact_set", "name": fact.name,
-                           "status": fact.status.value, "source": fact.source.ref})
-        return True
-
-    def set_status(self, name: str, status: "FactStatus", reason: str = "") -> None:
-        """Change a held fact's status without changing its value (the
-        confirmation screen promoting a reading to CONFIRMED)."""
-        f = self.facts.get(name)
-        if f is None or f.status == status:
-            return
-        new = Fact(f.fact_id, f.name, f.value, status, f.source, f.confidence)
-        self._record_fact_change(f, new, "APPLIED", reason or "status")
-        f.status = status
-
-    def retract(self, name: str, reason: str) -> None:
-        """Remove a fact, recording that it was removed and why."""
-        old = self.facts.pop(name, None)
-        if old is not None:
-            self.fact_history.append({
-                "fact": name, "previous": _plain(old.value), "new": None,
-                "previous_status": old.status.value, "status": None,
-                "source_kind": None, "source_ref": None, "reason": reason,
-                "outcome": "RETRACTED", "run_id": self.run_id, "at": _now()})
-
-    def _record_fact_change(self, old: Optional["Fact"], new: "Fact", outcome: str,
-                            reason: str) -> None:
-        self.fact_history.append({
-            "fact": new.name,
-            "previous": None if old is None else _plain(old.value),
-            "new": _plain(new.value),
-            "previous_status": None if old is None else old.status.value,
-            "status": new.status.value,
-            "source_kind": new.source.kind.value, "source_ref": new.source.ref,
-            "reason": reason, "outcome": outcome, "run_id": self.run_id, "at": _now()})
+    def retract(self, name: str, reason: str, changed_by: str = "system") -> None:
+        from .fact_graph import FactManager
+        FactManager.retract(self, name, reason=reason, changed_by=changed_by)
 
     # runs ------------------------------------------------------------------
     def begin_run(self, trigger: str) -> int:
@@ -364,6 +344,10 @@ class CaseFile:
         # assigned (the constructor, a store load, a test).
         if name == "audit" and not isinstance(value, RunAudit):
             value = RunAudit(self, value or [])
+        # The facts are the fact graph, whatever was assigned (a dict in a
+        # constructor or a test fixture is the graph's starting state).
+        if name == "facts" and not isinstance(value, FactGraph):
+            value = FactGraph(value or {})
         object.__setattr__(self, name, value)
 
     def fact_view(self) -> dict[str, Any]:

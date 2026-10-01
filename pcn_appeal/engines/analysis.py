@@ -60,7 +60,7 @@ INTERNAL_FACTS = {
     "total_recorded_duration_min", "duration_min", "jurisdiction", "code_version",
     "notice_route", "notice_sides_complete", "pcn_conflict", "pcn_candidates",
     "authority_challenge_proportionate", "independent_evidence_contradicts",
-    "driver_status",
+    "driver_status", "customer_described_event",
 }
 INTERNAL_PREFIXES = ("pofa_", "ntk_", "_")
 

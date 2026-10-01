@@ -106,6 +106,9 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if getattr(case, "scope_stop", None) or state_val == "NO_APPEAL_RIGHT":
         return _pack(OUTCOME_SCOPE, case)
 
+    if "held_needs_fact_confirmation" in events:
+        return _pack(OUTCOME_NEEDS_FACTS, case, detail="fact_confirmation")
+
     if "draft_error" in events:
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="draft_error")
 

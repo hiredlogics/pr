@@ -349,6 +349,8 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             ))
             seen_facts.add(rule.fact_name)
 
+    _record_described_event(case, texts)
+
     if not extractions:
         case.free_text_provenance = []
         case.audit.append({
@@ -407,6 +409,29 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
         "contradicts": contradicts,
         "source_texts": [e.original for e in extractions],
     }
+
+
+# The customer telling what happened ("I parked", "we stopped"): a first-person
+# account of the event. It records only that an account was given. It is not
+# a disclosure and never identifies the driver: who drove is the tri-state
+# driver_disclosure_to_operator fact, which free text never sets.
+_DESCRIBED_EVENT = re.compile(
+    r"\b(?:i|we)\s+(?:had\s+|have\s+|was\s+|were\s+)?"
+    r"(?:parked|park|drove|stopped|pulled\s+(?:in|up|into)|left\s+(?:the|my|our)\s+car|arrived)\b",
+    re.I)
+
+
+def _record_described_event(case: CaseFile, texts: list[str]) -> None:
+    for raw in texts:
+        m = _DESCRIBED_EVENT.search(str(raw))
+        if m and not _match_negated(str(raw), m):
+            case.put(Fact(
+                "F-customer_described_event", "customer_described_event", True,
+                FactStatus.DERIVED,
+                FactSource(SourceKind.CUSTOMER_FREE_TEXT, "free_text:customer_described_event",
+                           excerpt=str(raw)[:240]),
+            ), reason="account_describes_event")
+            return
 
 
 def _relevant_to_allegation(rule: CircumstanceRule, breach: str) -> bool:

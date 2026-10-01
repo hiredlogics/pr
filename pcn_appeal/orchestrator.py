@@ -22,6 +22,7 @@ from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine, postcode_unlocks
 from .engines.validation import ValidationEngine
+from .fact_graph import FactManager
 from .kg.graph import KnowledgeGraph
 from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationIssue, ValidationResult
 from .rules import scope
@@ -154,7 +155,11 @@ class AppealPipeline:
         if getattr(analysis, "claim_plan", None):
             case.audit.append({"event": "analysis_claim_plan",
                                "claim_plan": analysis.claim_plan})
-        questions = self._pcn_conflict_question(case) + analysis.questions
+        # P1: a document value the customer contradicted is asked about before
+        # anything else; the case does not proceed silently past it.
+        confirm = [q for q in FactManager.confirmation_questions(case)
+                   if q["fact"] not in {x.get("fact") for x in analysis.questions}]
+        questions = self._pcn_conflict_question(case) + confirm + analysis.questions
         questions += self._site_postcode_question(case, analysis.module_ids, questions)
         analysis.questions = questions
         case.pending_questions = analysis.questions
@@ -370,6 +375,28 @@ class AppealPipeline:
             return _with_outcome(
                 AppealOutput(case.state, None, empty,
                              Draft(case.case_id, []), ValidationResult(False, []), []),
+                case)
+        # P1: a document-owned fact the customer contradicted is not confirmed,
+        # so nothing may be drafted from it, and the customer is asked rather
+        # than the case being held without a route forward.
+        pending = FactManager.needs_confirmation(case)
+        if pending:
+            case.state = CaseState.MANUAL_REVIEW
+            case.pending_questions = FactManager.confirmation_questions(case)
+            case.audit.append({"event": "held_needs_fact_confirmation",
+                               "facts": [c["fact"] for c in pending]})
+            empty = RetrievalPack(
+                primary_route=None, secondary_routes=[], module_ids=[],
+                verified_facts=case.fact_view(), fact_refs={},
+                missing_facts=[c["fact"] for c in pending], evidence_refs=[],
+                prohibited_claims=[], code_version=None, pofa_route="UNRESOLVED",
+                pofa_findings=[], driver_status=case.driver_status.value,
+                jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
+                context_chunks=[], lease_clauses=[],
+                trace=["held: facts need the customer's confirmation"])
+            return _with_outcome(
+                AppealOutput(case.state, None, empty, Draft(case.case_id, []),
+                             ValidationResult(False, []), []),
                 case)
         # Unresolved PCN-number conflict must not ship a letter that may cite the
         # wrong reference: an appeal against a charge that is not the customer's

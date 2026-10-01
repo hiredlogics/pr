@@ -314,12 +314,14 @@ class FactProvenance(unittest.TestCase):
         self.assertIs(case.facts["children_present"].value, True)
         self.assertEqual(len(case.fact_conflicts), 1)
         c = case.fact_conflicts[0]
-        self.assertEqual((c["old"], c["new"], c["status"]), (True, False, "CONFLICT"))
+        # P1: the customer's answer is kept, the reading recorded beside it.
+        self.assertEqual((c["held_value"], c["proposed_value"], c["status"]),
+                         (True, False, "KEPT_EXISTING"))
         self.assertTrue(any(a["event"] == "fact_conflict" for a in case.audit))
 
     def test_every_write_records_previous_new_source_time_and_reason(self):
         case = CaseFile("C-H")
-        case.put(_fact("vrm", "AB12CDE", FactStatus.EXTRACTED), reason="extraction")
+        case.put(_fact("vrm", "AB12CDE", FactStatus.UNCERTAIN), reason="extraction")
         case.put(_fact("vrm", "AB12CDF", FactStatus.CORRECTED, SourceKind.ANSWER, "confirm:vrm"),
                  reason="customer correction")
         h = case.fact_history[-1]
@@ -329,9 +331,12 @@ class FactProvenance(unittest.TestCase):
                           "customer correction", "APPLIED"))
         self.assertRegex(h["at"], r"^\d{4}-\d{2}-\d{2}T")
 
-    def test_the_customer_can_always_correct_a_reading(self):
+    def test_the_customer_can_correct_an_uncertain_reading(self):
+        # P1 changed this: a correction of a CONFIDENT document reading is a
+        # NEEDS_CONFIRMATION conflict (test_p1_fact_graph); an uncertain one,
+        # which the system itself doubts, is corrected directly.
         case = CaseFile("C-C")
-        case.put(_fact("pcn_number", "AB123456", FactStatus.CONFIRMED))
+        case.put(_fact("pcn_number", "AB123456", FactStatus.UNCERTAIN))
         self.assertTrue(case.put(_fact("pcn_number", "AB123457", FactStatus.CORRECTED,
                                        SourceKind.ANSWER, "confirm:pcn_number")))
         self.assertEqual(case.facts["pcn_number"].value, "AB123457")
@@ -376,7 +381,8 @@ class FactProvenance(unittest.TestCase):
         store.save(case)
         again = store.load(case.case_id)
         self.assertIs(again.facts["children_present"].value, True)
-        self.assertEqual([(c["old"], c["new"]) for c in again.fact_conflicts], [(True, False)])
+        self.assertEqual([(c["held_value"], c["proposed_value"]) for c in again.fact_conflicts],
+                         [(True, False)])
         self.assertEqual([h["outcome"] for h in again.fact_history], ["APPLIED", "CONFLICT"])
         self.assertEqual((again.run_id, again.run_status), (1, "OPEN"))
         store.save(again)                       # nothing is written twice

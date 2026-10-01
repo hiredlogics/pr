@@ -290,11 +290,11 @@ class RestrictedBayGround(unittest.TestCase):
         }
         case, pipe = make_case(BAY, case_analysis=[analysis] * 3)
         pipe.ingest(case)
-        case.facts.pop("operator_ata", None)
-        case.facts.pop("site_postcode", None)
+        case.retract("operator_ata", "test: absent")
+        case.retract("site_postcode", "test: absent")
         # Jurisdiction already known from fixture postcode before we popped it —
         # re-derive as UNKNOWN so the postcode question would otherwise look useful.
-        case.facts.pop("jurisdiction", None)
+        case.retract("jurisdiction", "test: absent")
         from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
         case.put(Fact("F-jur", "jurisdiction", "UNKNOWN", FactStatus.DERIVED,
                       FactSource(SourceKind.CALCULATION, "t")))
@@ -321,8 +321,8 @@ class RestrictedBayGround(unittest.TestCase):
         case, pipe = make_case(BAY, case_analysis=[{"grounds": [{"module_id": "KB-BAY-01"}],
                                                     "questions": [], "not_supported": []}] * 3)
         pipe.ingest(case)
-        case.facts.pop("operator_ata", None)
-        case.facts.pop("site_postcode", None)
+        case.retract("operator_ata", "test: absent")
+        case.retract("site_postcode", "test: absent")
         case.put(Fact("F-jur", "jurisdiction", "UNKNOWN", FactStatus.DERIVED,
                       FactSource(SourceKind.CALCULATION, "t")))
         eng = AnalysisEngine(KG, FakeLLM({}))

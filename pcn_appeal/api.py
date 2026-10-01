@@ -872,12 +872,22 @@ def confirmation_screen(case_id: str):
             "flags": _customer_flags(rec["flags"]), "details": details}
 
 
+_UUID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+def _public(rows: list[dict]) -> list[dict]:
+    """Graph records without their working keys ("_held", "_persisted")."""
+    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
+
+
 @app.get("/cases/{case_id}/facts")
 def case_facts(case_id: str, authorization: Optional[str] = Header(None),
                x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    """Every fact with its status, confidence and source, and the raw flags -
-    the reviewer console's view. Operator route: confidence and source refs
-    are not customer output (they were on /confirmation until P0.1)."""
+    """The case's Fact Graph: every fact node with its source type, status,
+    owner and confidence; every reading of each fact (sources); conflicts; and
+    the raw flags - the reviewer console's view. Operator route: none of this
+    is customer output (it was on /confirmation until P0.1)."""
+    from . import fact_graph
     _require_admin(authorization, x_admin_token)
     rec = _case(case_id)
     case: CaseFile = rec["case"]
@@ -885,7 +895,86 @@ def case_facts(case_id: str, authorization: Optional[str] = Header(None),
             "facts": [{"name": f.name, "value": str(f.value), "status": f.status.value,
                        "confidence": f.confidence, "source": f.source.ref}
                       for f in case.facts.values()],
-            "fact_conflicts": list(getattr(case, "fact_conflicts", []))}
+            "nodes": fact_graph.nodes(case),
+            "fact_sources": _public(case.fact_sources),
+            "fact_conflicts": _public(case.fact_conflicts),
+            "needs_confirmation": [c["fact"] for c in
+                                   fact_graph.FactManager.needs_confirmation(case)]}
+
+
+class FactWriteIn(BaseModel):
+    """An operator write. Either a fact (`fact_name` + `value`) or the
+    settlement of a conflict (`conflict_id` + `value`). `reason` is required:
+    every write is in the fact's history."""
+    reason: str
+    value: Any = None
+    fact_name: Optional[str] = None
+    conflict_id: Optional[str] = None
+
+
+@app.post("/cases/{case_id}/facts")
+def write_fact(case_id: str, body: FactWriteIn, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Internal Fact API write. Goes through FactManager like every other
+    write, so an operator cannot silently overwrite a document reading either:
+    the same ownership rules apply, and a conflict is settled by naming it."""
+    from . import fact_graph
+    from .models import Fact, FactSource, FactStatus, SourceKind
+    from .store.cases import _revived
+    _require_admin(authorization, x_admin_token)
+    if not body.reason.strip():
+        raise HTTPException(422, "reason is required")
+    if bool(body.fact_name) == bool(body.conflict_id):
+        raise HTTPException(422, "give fact_name or conflict_id")
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    value = _revived(body.value)
+    if body.conflict_id:
+        try:
+            result = fact_graph.FactManager.resolve_conflict(
+                case, body.conflict_id, value, changed_by="admin", reason=body.reason.strip())
+        except KeyError:
+            raise HTTPException(404, "no open conflict with that id")
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+    else:
+        name = fact_graph.canonical(body.fact_name.strip())
+        result = fact_graph.FactManager.update_fact(
+            case, Fact(f"F-{name}", name, value, FactStatus.CONFIRMED,
+                       FactSource(SourceKind.ANSWER, f"admin:{name}")),
+            reason=body.reason.strip(), changed_by="admin")
+    case.audit.append({"event": "fact_api_write", "outcome": result.outcome,
+                       "fact": body.fact_name or (result.conflict or {}).get("fact")})
+    _persist(case)
+    conflict = result.conflict and {k: v for k, v in result.conflict.items()
+                                    if not k.startswith("_")}
+    fact = (result.conflict or {}).get("fact") or fact_graph.canonical(body.fact_name or "")
+    return {"outcome": result.outcome, "conflict": conflict,
+            "fact": fact_graph.node(case, fact)}
+
+
+@app.get("/facts/{fact_id}/history")
+def fact_history(fact_id: str, authorization: Optional[str] = Header(None),
+                 x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Every write to one fact node, oldest first: previous and new value,
+    source, who, why, when and whether it was applied."""
+    from . import fact_graph
+    _require_admin(authorization, x_admin_token)
+    case = next((r["case"] for r in CASES.values() if r["case"].facts.name_of(fact_id)), None)
+    if case is None and db.enabled() and _UUID.fullmatch(fact_id):
+        with db.connect() as conn:
+            row = conn.execute("SELECT case_id FROM facts WHERE fact_id = %s",
+                               (fact_id,)).fetchone()
+        if row is not None:
+            case = _case(str(row[0]))["case"]
+    if case is None:
+        raise HTTPException(404, "unknown fact")
+    name = case.facts.name_of(fact_id)
+    if name is None:
+        raise HTTPException(404, "unknown fact")
+    return {"fact_id": fact_id, "case_id": case.case_id, "fact_name": name,
+            "current": fact_graph.node(case, name),
+            "history": _public(fact_graph.history_of(case, fact_id))}
 
 
 @app.post("/cases/{case_id}/confirm")

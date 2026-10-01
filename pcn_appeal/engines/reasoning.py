@@ -312,6 +312,7 @@ class ReasoningEngine:
         withheld_from_drafter = (
             "lease_clauses", "keeper_name", "keeper_address",
             "material_account_points", "material_account_summary",
+            "customer_described_event",          # provenance only (P1), not letter content
         )
         verified = {}
         customer_reported: list[str] = []

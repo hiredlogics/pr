@@ -30,7 +30,7 @@ DOCUMENT_OWNED = frozenset({
 
 CUSTOMER_OWNED = frozenset({
     # circumstances
-    "child_occupant_present", "children_present",
+    "child_occupant_present", "children_present", "customer_described_event",
     "vehicle_immobilised", "immobilisation_cause", "immobilisation_prevented_departure",
     "recovery_attended",
     # payment attempt (what the customer did, not what a record shows)

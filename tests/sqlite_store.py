@@ -27,7 +27,7 @@ sqlite3.register_adapter(date, lambda d: d.isoformat())
 
 # created_at is a per-table counter, set by trigger, so ORDER BY created_at is
 # insertion order exactly as it is across Postgres transactions.
-_ORDERED = ("facts", "raw_answers", "drafts", "validations", "evidence_pages")
+_ORDERED = ("raw_answers", "drafts", "validations", "evidence_pages")
 
 DDL = """
 CREATE TABLE cases (case_id PRIMARY KEY, customer_id, state, driver_status, kb_release_id,
@@ -38,8 +38,15 @@ CREATE TABLE evidence (evidence_id PRIMARY KEY, case_id, label, kind, filename, 
   ocr_text);
 CREATE TABLE evidence_pages (case_id, label, page_no, sha256, image, created_at,
   PRIMARY KEY (case_id, label, page_no));
-CREATE TABLE facts (fact_id, case_id, name, value, status, source_kind, source_ref, excerpt,
-  confidence, superseded DEFAULT 0, created_at);
+CREATE TABLE facts (fact_id PRIMARY KEY, case_id, fact_name, fact_value, source_type, status,
+  confidence, engine_status, source_kind, source_ref, excerpt, fact_ref, disputed DEFAULT 0,
+  active DEFAULT 1, created_at, updated_at, UNIQUE (case_id, fact_name));
+CREATE TABLE fact_sources (id INTEGER PRIMARY KEY, case_id, fact_id, fact_name, source_type,
+  source_ref, excerpt, value, confidence, accepted, run_id, observed_at);
+CREATE TABLE fact_conflicts (conflict_id PRIMARY KEY, case_id, fact_id, fact_name, held_value,
+  held_status, held_source_type, held_source, proposed_value, proposed_status,
+  proposed_source_type, proposed_source, rule, status, resolution, resolved_by, run_id,
+  created_at, resolved_at);
 CREATE TABLE raw_answers (case_id, question, raw_text, created_at);
 CREATE TABLE drafts (draft_id PRIMARY KEY, case_id, attempt, drafter, model, prompt_version,
   structured, retrieval_pack, state, letter, evidence_list, outcome, no_ground_reason,
@@ -47,8 +54,9 @@ CREATE TABLE drafts (draft_id PRIMARY KEY, case_id, attempt, drafter, model, pro
 CREATE TABLE validations (draft_id, passed, issues, validator_version, created_at);
 CREATE TABLE review_queue (case_id, reason, assigned_to, sla_due, resolution, resolved_at);
 CREATE TABLE audit_log (id INTEGER PRIMARY KEY, case_id, actor, event, detail, run_id, at);
-CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, previous, new,
-  previous_status, status, source_kind, source_ref, reason, outcome, at, recorded_at);
+CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, fact_id, previous,
+  new, previous_status, status, source_kind, source_ref, source_type, changed_by, reason,
+  outcome, at, recorded_at);
 """ + "".join(
     f"CREATE TRIGGER {t}_order AFTER INSERT ON {t} BEGIN UPDATE {t} SET created_at = "
     f"(SELECT COALESCE(MAX(created_at), 0) + 1 FROM {t}) WHERE rowid = NEW.rowid; END;\n"
