@@ -32,8 +32,12 @@ MIN_TEXT_CHARS = 120                # below this a PDF is treated as scanned
 JPEG_QUALITY = 80
 
 TEXT_TYPES = {"text/plain", "text/markdown", "text/csv", ""}
-IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic",
-               "image/heif", "image/tiff", "image/gif"}
+# Only formats _to_jpeg can actually decode. HEIC/HEIF were listed here while
+# nothing could read them, and WebP while only PyMuPDF (which cannot) was tried,
+# so the API accepted a phone screenshot and then rejected it as unreadable.
+IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/tiff",
+               "image/gif", "image/bmp"}
+HEIC_BRANDS = (b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1")
 PDF_TYPES = {"application/pdf", "application/x-pdf"}
 
 
@@ -125,6 +129,10 @@ def _classify(filename: str, content_type: Optional[str], data: bytes) -> str:
     ct = (content_type or "").split(";")[0].strip().lower()
     if data[:5] == b"%PDF-":                      # magic bytes beat a wrong content-type
         return "pdf"
+    if _looks_like_image(data):
+        # Before the content type: an upload with none ("") counted as text,
+        # so a photo sent without a type was decoded as characters.
+        return "image"
     if ct in PDF_TYPES:
         return "pdf"
     if ct in IMAGE_TYPES or ct.startswith("image/"):
@@ -142,6 +150,16 @@ def _classify(filename: str, content_type: Optional[str], data: bytes) -> str:
                             "Upload a photo, a PDF or a text file.")
 
 
+def _looks_like_image(data: bytes) -> bool:
+    return (data[:3] == b"\xff\xd8\xff"                         # JPEG
+            or data[:8] == b"\x89PNG\r\n\x1a\n"
+            or data[:6] in (b"GIF87a", b"GIF89a")
+            or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+            or data[:4] in (b"II*\x00", b"MM\x00*")              # TIFF
+            or (data[:2] == b"BM" and data[6:10] == b"\x00\x00\x00\x00")   # BMP; not "BMW ..." text
+            or (data[4:8] == b"ftyp" and data[8:12] in HEIC_BRANDS))
+
+
 def _decode(data: bytes) -> str:
     for encoding in ("utf-8", "cp1252", "latin-1"):
         try:
@@ -153,17 +171,49 @@ def _decode(data: bytes) -> str:
 
 def _to_jpeg(data: bytes) -> bytes:
     """The LLM clients send images as image/jpeg, so anything else is converted
-    rather than mislabelled. Alpha is flattened; JPEG has no alpha channel."""
+    rather than mislabelled. Alpha is flattened; JPEG has no alpha channel.
+
+    PyMuPDF first (JPEG, PNG, TIFF, GIF, BMP); Pillow for what it cannot
+    decode, which in practice is WebP - the format many phones save
+    screenshots in."""
     import pymupdf
     try:
         pix = pymupdf.Pixmap(data)
     except Exception as exc:
+        converted = _pillow_to_jpeg(data)
+        if converted is not None:
+            return converted
+        if data[4:8] == b"ftyp" and data[8:12] in HEIC_BRANDS:
+            raise UnsupportedUpload(
+                "HEIC photos cannot be read yet. Please upload the photo as JPEG or PNG "
+                "(or take a screenshot of it).") from exc
         raise UnsupportedUpload(f"could not read image: {exc}") from exc
     if pix.alpha:
         pix = pymupdf.Pixmap(pix, 0)
     if pix.colorspace and pix.colorspace.n == 4:          # CMYK
         pix = pymupdf.Pixmap(pymupdf.csRGB, pix)
     return pix.tobytes("jpeg", jpg_quality=JPEG_QUALITY)
+
+
+def _pillow_to_jpeg(data: bytes) -> Optional[bytes]:
+    """JPEG bytes via Pillow, or None when Pillow cannot decode it either."""
+    try:
+        from PIL import Image, ImageOps
+        with Image.open(io.BytesIO(data)) as im:
+            im.seek(0)                                    # first frame of an animation
+            im = ImageOps.exif_transpose(im)
+            if im.mode in ("RGBA", "LA", "P"):
+                im = im.convert("RGBA")
+                flat = Image.new("RGB", im.size, (255, 255, 255))
+                flat.paste(im, mask=im.getchannel("A"))
+                im = flat
+            elif im.mode != "RGB":
+                im = im.convert("RGB")
+            out = io.BytesIO()
+            im.save(out, "JPEG", quality=JPEG_QUALITY)
+            return out.getvalue()
+    except Exception:
+        return None
 
 
 def _read_pdf(evidence_id: str, filename: str, data: bytes) -> Ingested:

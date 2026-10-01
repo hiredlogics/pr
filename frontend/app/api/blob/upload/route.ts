@@ -17,8 +17,8 @@ const ALLOWED_CONTENT_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/heic",
-  "image/heif",
+  // No HEIC/HEIF: the API cannot decode them, so storing one only defers the
+  // failure to after the upload.
   "application/pdf",
   "text/plain",
 ];

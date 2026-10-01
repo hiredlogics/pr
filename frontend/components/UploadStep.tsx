@@ -4,7 +4,10 @@ import { useRef, useState } from "react";
 import { MAX_UPLOAD_BYTES } from "@/lib/upload";
 
 /** PDF + JPEG + PNG only — matches the extraction API capabilities customers use. */
-const ACCEPT = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
+// WebP is accepted because lib/compress.ts re-encodes it to JPEG and the API
+// decodes it. HEIC is deliberately absent: listing only these types makes iOS
+// hand over a JPEG, and the API cannot decode HEIC.
+const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf";
 const MAX_LABEL = 1024 * 1024;
 
 const BOTH_SIDES_MESSAGE =

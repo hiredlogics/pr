@@ -23,6 +23,7 @@ python-multipart>=0.0.9  # multipart file upload
 openai>=1.40             # the only LLM provider
 pypdf>=5.0               # PDF text layer
 pymupdf>=1.24            # rasterise scanned pages, normalise images to JPEG
+Pillow>=10               # decode what PyMuPDF cannot (WebP screenshots)
 jinja2>=3.1              # letterhead template
 psycopg[binary]>=3.2     # only used when DATABASE_URL is set
 pgvector>=0.3
