@@ -173,6 +173,7 @@ def _save_fact_graph(cur, case: CaseFile) -> None:
               s.get("excerpt"), _json(_jsonable(s.get("value"))), s.get("confidence"),
               bool(s["accepted"]), s.get("run_id"), s["at"]))
         s["_persisted"] = True
+    _save_hypotheses(cur, case)
     for c in case.fact_conflicts:
         cur.execute("""
             INSERT INTO fact_conflicts (conflict_id, case_id, fact_id, fact_name, held_value,
@@ -191,6 +192,54 @@ def _save_fact_graph(cur, case: CaseFile) -> None:
               c.get("proposed_status"), c.get("proposed_source_type"), c.get("proposed_source"),
               c["rule"], c["status"], _json(_jsonable(c.get("resolution"))),
               c.get("resolved_by"), c.get("run_id"), c["at"], c.get("resolved_at")))
+
+
+def _save_hypotheses(cur, case: CaseFile) -> None:
+    """P2: one row per hypothesis, upserted by id (status moves on; nothing is
+    deleted)."""
+    for h in case.fact_hypotheses:
+        cur.execute("""
+            INSERT INTO fact_hypotheses (hypothesis_id, case_id, fact_name, possible_value,
+                                         source_text, confidence, signals, rule,
+                                         required_confirmation_question, reason, possible_impact,
+                                         status, asked_at, answer, resolved_fact_id, resolved_by,
+                                         run_id, created_at, updated_at, resolved_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (hypothesis_id) DO UPDATE SET
+              source_text = excluded.source_text, confidence = excluded.confidence,
+              signals = excluded.signals, status = excluded.status,
+              asked_at = excluded.asked_at, answer = excluded.answer,
+              resolved_fact_id = excluded.resolved_fact_id, resolved_by = excluded.resolved_by,
+              updated_at = excluded.updated_at, resolved_at = excluded.resolved_at
+        """, (h["hypothesis_id"], case.case_id, h["fact_name"], _json(_jsonable(h["possible_value"])),
+              h.get("source_text"), h.get("confidence"), _json(h.get("signals") or []),
+              h.get("rule"), _json(h["required_confirmation_question"]), h.get("reason"),
+              h.get("possible_impact"), h["status"], h.get("asked_at"),
+              _json(_jsonable(h.get("answer"))), h.get("resolved_fact_id"), h.get("resolved_by"),
+              h.get("run_id"), h["created_at"], h["updated_at"], h.get("resolved_at")))
+
+
+def _load_hypotheses(conn, case: CaseFile) -> None:
+    from ..hypotheses import _key
+    for (hid, fact, value, text, conf, signals, rule, question, reason, impact, status, asked,
+         answer, resolved_fact, resolved_by, run, created, updated, resolved_at) in conn.execute("""
+            SELECT hypothesis_id, fact_name, possible_value, source_text, confidence, signals,
+                   rule, required_confirmation_question, reason, possible_impact, status,
+                   asked_at, answer, resolved_fact_id, resolved_by, run_id, created_at,
+                   updated_at, resolved_at
+            FROM fact_hypotheses WHERE case_id = %s ORDER BY created_at, hypothesis_id
+    """, (case.case_id,)).fetchall():
+        h = {"hypothesis_id": str(hid), "case_id": case.case_id, "fact_name": fact,
+             "hypothesis": f"possible_{fact}", "possible_value": value, "source_text": text,
+             "confidence": None if conf is None else float(conf), "signals": signals or [],
+             "rule": rule, "required_confirmation_question": question, "reason": reason,
+             "possible_impact": impact, "status": status, "asked_at": _stamp(asked),
+             "answer": answer, "resolved_fact_id": None if resolved_fact is None
+             else str(resolved_fact), "run_id": run, "created_at": _stamp(created),
+             "updated_at": _stamp(updated), "_key": _key(fact, value)}
+        if resolved_by is not None or resolved_at is not None:
+            h.update(resolved_by=resolved_by, resolved_at=_stamp(resolved_at))
+        case.fact_hypotheses.append(h)
 
 
 def _stamp(at) -> Optional[str]:
@@ -345,6 +394,8 @@ def load(case_id: str) -> CaseFile:
                 "resolved_by": resolved_by, "run_id": run, "at": _stamp(created),
                 "resolved_at": _stamp(resolved_at),
                 "_held": _revived(held), "_proposed": _revived(proposed)})
+
+        _load_hypotheses(conn, case)
     return case
 
 

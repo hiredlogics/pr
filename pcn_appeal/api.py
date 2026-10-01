@@ -31,6 +31,7 @@ from .kg.graph import KnowledgeGraph
 from .llm import default_client
 from .models import CaseFile, CaseState, EvidenceItem
 from .notice_completeness import BOTH_SIDES_MESSAGE
+from .hypotheses import Hypotheses
 from .orchestrator import AppealPipeline
 from .store import db
 
@@ -899,7 +900,9 @@ def case_facts(case_id: str, authorization: Optional[str] = Header(None),
             "fact_sources": _public(case.fact_sources),
             "fact_conflicts": _public(case.fact_conflicts),
             "needs_confirmation": [c["fact"] for c in
-                                   fact_graph.FactManager.needs_confirmation(case)]}
+                                   fact_graph.FactManager.needs_confirmation(case)],
+            "fact_hypotheses": _public(case.fact_hypotheses),
+            "hypothesis_trace": Hypotheses.trace(case)}
 
 
 class FactWriteIn(BaseModel):
@@ -1143,7 +1146,9 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             "outcome": getattr(out, "outcome", None),
             "run_id": rec["case"].run_id,
             "manifest": getattr(out, "manifest", None),
-            "fact_conflicts": rec["case"].fact_conflicts}
+            "fact_conflicts": _public(rec["case"].fact_conflicts),
+            # P2: narrative -> hypothesis -> question -> answer -> final fact.
+            "hypotheses": Hypotheses.trace(rec["case"])}
 
 
 

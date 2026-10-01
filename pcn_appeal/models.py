@@ -286,6 +286,9 @@ class CaseFile:
     fact_conflicts: list[dict] = field(default_factory=list)
     # P1: every reading of every fact, accepted or not (fact_graph.py).
     fact_sources: list[dict] = field(default_factory=list)
+    # P2: possible values read from the customer's account. Not facts: never in
+    # `facts`, so never in fact_view / the reasoning gate / drafting (hypotheses.py).
+    fact_hypotheses: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:

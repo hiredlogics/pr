@@ -26,7 +26,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from ..hypotheses import CONFIRMED, KINDS
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+from . import narrative
 
 # --------------------------------------------------------------------------- extractors
 # Each rule is system-wide: pattern → structured fact + professional proposition.
@@ -133,21 +135,9 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "an attempt to pay was unsuccessful because the payment facility did not work as required",
         (),
     ),
-    # Multiple visits / ANPR pairing
-    CircumstanceRule(
-        "multiple_visits", True,
-        re.compile(
-            r"\b("
-            r"(left and (came back|returned)|returned later|"
-            r"two (separate )?visits|more than one visit|"
-            r"visited .{0,20}twice|went back (later|again)|"
-            r"separate visits)"
-            r")",
-            re.I,
-        ),
-        "the vehicle attended the site more than once on the material date",
-        (),
-    ),
+    # Multiple visits: not a rule. "Left and came back" does not say the
+    # VEHICLE left; engines/narrative.py reads it as a hypothesis, which is
+    # asked about, and only the customer's answer sets `multiple_visits`.
     # Disability / accessibility
     CircumstanceRule(
         "disability_extra_time", True,
@@ -297,6 +287,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     """
     _clear_material(case)
     texts = _collect_customer_texts(case)
+    narrative.understand(case, texts)
     if not texts:
         return {"extractions": [], "propositions": [], "contradicts": False}
 
@@ -350,6 +341,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             seen_facts.add(rule.fact_name)
 
     _record_described_event(case, texts)
+    extractions += _confirmed_hypotheses(case, breach)
 
     if not extractions:
         case.free_text_provenance = []
@@ -432,6 +424,24 @@ def _record_described_event(case: CaseFile, texts: list[str]) -> None:
                            excerpt=str(raw)[:240]),
             ), reason="account_describes_event")
             return
+
+
+def _confirmed_hypotheses(case: CaseFile, breach: str) -> list[FreeTextExtraction]:
+    """What the account says, once the customer has confirmed it. The answer is
+    the fact (source ANSWER); the account's words are kept as its provenance so
+    drafting sees the same proposition it saw when the phrase alone set it."""
+    out = []
+    for h in case.fact_hypotheses:
+        kind = KINDS.get(h["fact_name"])
+        if h["status"] != CONFIRMED or not kind or not kind.proposition:
+            continue
+        if case.get(h["fact_name"]) != h["possible_value"]:
+            continue
+        out.append(FreeTextExtraction(original=h["source_text"], fact_name=h["fact_name"],
+                                      normalized_value=h["possible_value"],
+                                      drafting_proposition=kind.proposition,
+                                      relevant_to_allegation=True))
+    return out
 
 
 def _relevant_to_allegation(rule: CircumstanceRule, breach: str) -> bool:

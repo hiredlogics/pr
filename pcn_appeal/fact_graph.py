@@ -43,6 +43,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from .fact_ownership import CUSTOMER, DOCUMENT, EVIDENCE, EVIDENCE_OWNED, owner_of
+from .hypotheses import Hypotheses
 from .models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 
 
@@ -244,6 +245,7 @@ class FactManager:
                     return cls._resolve(case, pending, old, fact, chosen, changed_by, reason)
             if same_value(old.value, fact.value):
                 cls._source(case, fact, accepted=True)
+                Hypotheses.settle(case, fact)
                 if is_explicit_customer(old) and not is_explicit_customer(fact):
                     return UpdateResult(IGNORED)          # never demote a confirmation
             elif fact.value in PLACEHOLDERS and old.value not in PLACEHOLDERS \
@@ -385,6 +387,7 @@ class FactManager:
         case.facts._touch(fact.name)
         cls._history(case, old, fact, APPLIED, reason, changed_by)
         cls._source(case, fact, accepted=True)
+        Hypotheses.settle(case, fact)
         case.audit.append({"event": "fact_set", "name": fact.name,
                            "status": fact.status.value, "source": fact.source.ref})
 
@@ -425,6 +428,7 @@ class FactManager:
         case.facts._touch(new.name)
         cls._history(case, old, new, APPLIED, reason or "conflict_resolved", changed_by)
         cls._source(case, new, accepted=True)
+        Hypotheses.settle(case, new)
         case.audit.append({"event": "fact_conflict_resolved", "fact": new.name,
                            "conflict_id": conflict["conflict_id"], "chosen": plain(chosen),
                            "by": changed_by})

@@ -34,6 +34,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .narrative import NARRATIVE_FACTS
 from .. import prompts
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile, KBModule
@@ -61,7 +62,7 @@ INTERNAL_FACTS = {
     "notice_route", "notice_sides_complete", "pcn_conflict", "pcn_candidates",
     "authority_challenge_proportionate", "independent_evidence_contradicts",
     "driver_status", "customer_described_event",
-}
+} | NARRATIVE_FACTS
 INTERNAL_PREFIXES = ("pofa_", "ntk_", "_")
 
 

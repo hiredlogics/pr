@@ -77,6 +77,16 @@ class FreeTextExtractionScenarios(unittest.TestCase):
             "Overstayed",
             "We left and came back later — two separate visits that day.",
         )
+        # P2: the account is a hypothesis about the vehicle, not the fact. It
+        # asks; only the customer's answer sets multiple_visits and lets the
+        # proposition reach drafting.
+        dig = assess_material_account(case)
+        self.assertIsNone(case.get("multiple_visits"))
+        self.assertEqual([h["hypothesis"] for h in case.fact_hypotheses],
+                         ["possible_multiple_visits"])
+        self.assertFalse(any("more than once" in p.lower() for p in dig["propositions"]))
+        case.put(Fact("F-multiple_visits", "multiple_visits", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "answer:multiple_visits")))
         dig = assess_material_account(case)
         self.assertTrue(case.get("multiple_visits"))
         self.assertTrue(any("more than once" in p.lower() for p in dig["propositions"]))

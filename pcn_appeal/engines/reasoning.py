@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .narrative import NARRATIVE_FACTS
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
@@ -313,6 +314,7 @@ class ReasoningEngine:
             "lease_clauses", "keeper_name", "keeper_address",
             "material_account_points", "material_account_summary",
             "customer_described_event",          # provenance only (P1), not letter content
+            *NARRATIVE_FACTS,                    # narrative atomic facts (P2), provenance only
         )
         verified = {}
         customer_reported: list[str] = []

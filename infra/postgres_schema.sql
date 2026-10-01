@@ -301,3 +301,32 @@ BEGIN
   END IF;
 END
 $$;
+
+-- 0003_fact_hypotheses.sql (P2)
+
+CREATE TABLE IF NOT EXISTS fact_hypotheses (
+  hypothesis_id                  uuid PRIMARY KEY,
+  case_id                        uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  fact_name                      varchar NOT NULL,
+  possible_value                 jsonb,
+  source_text                    text,
+  confidence                     numeric,
+  signals                        jsonb,
+  rule                           varchar,
+  required_confirmation_question jsonb NOT NULL,
+  reason                         text,
+  possible_impact                text,
+  status                         varchar NOT NULL CHECK (status IN ('UNCONFIRMED', 'CONFIRMED',
+                                   'REJECTED', 'SUPERSEDED', 'WITHDRAWN')),
+  asked_at                       timestamptz,
+  answer                         jsonb,
+  resolved_fact_id               uuid,
+  resolved_by                    text,
+  run_id                         int,
+  created_at                     timestamptz NOT NULL,
+  updated_at                     timestamptz NOT NULL,
+  resolved_at                    timestamptz,
+  UNIQUE (case_id, fact_name, possible_value)
+);
+CREATE INDEX IF NOT EXISTS fact_hypotheses_open ON fact_hypotheses (case_id)
+  WHERE status = 'UNCONFIRMED';

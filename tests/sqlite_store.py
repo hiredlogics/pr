@@ -54,6 +54,10 @@ CREATE TABLE drafts (draft_id PRIMARY KEY, case_id, attempt, drafter, model, pro
 CREATE TABLE validations (draft_id, passed, issues, validator_version, created_at);
 CREATE TABLE review_queue (case_id, reason, assigned_to, sla_due, resolution, resolved_at);
 CREATE TABLE audit_log (id INTEGER PRIMARY KEY, case_id, actor, event, detail, run_id, at);
+CREATE TABLE fact_hypotheses (hypothesis_id PRIMARY KEY, case_id, fact_name, possible_value,
+  source_text, confidence, signals, rule, required_confirmation_question, reason, possible_impact,
+  status, asked_at, answer, resolved_fact_id, resolved_by, run_id, created_at, updated_at,
+  resolved_at, UNIQUE (case_id, fact_name, possible_value));
 CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, fact_id, previous,
   new, previous_status, status, source_kind, source_ref, source_type, changed_by, reason,
   outcome, at, recorded_at);

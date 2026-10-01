@@ -23,6 +23,7 @@ from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine, postcode_unlocks
 from .engines.validation import ValidationEngine
 from .fact_graph import FactManager
+from .hypotheses import Hypotheses
 from .kg.graph import KnowledgeGraph
 from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationIssue, ValidationResult
 from .rules import scope
@@ -159,7 +160,13 @@ class AppealPipeline:
         # anything else; the case does not proceed silently past it.
         confirm = [q for q in FactManager.confirmation_questions(case)
                    if q["fact"] not in {x.get("fact") for x in analysis.questions}]
-        questions = self._pcn_conflict_question(case) + confirm + analysis.questions
+        # P2: what the account might mean, asked once when it could change a
+        # ground. The hypothesis' own wording replaces any analysis question
+        # for the same fact; unanswered, it stays a hypothesis and is unused.
+        hypothesis = Hypotheses.questions(case, self._could_change_a_ground)
+        asked_by_hypothesis = {q["fact"] for q in hypothesis}
+        questions = self._pcn_conflict_question(case) + confirm + hypothesis + [
+            q for q in analysis.questions if q.get("fact") not in asked_by_hypothesis]
         questions += self._site_postcode_question(case, analysis.module_ids, questions)
         analysis.questions = questions
         case.pending_questions = analysis.questions
@@ -172,6 +179,11 @@ class AppealPipeline:
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
                            "asking": [q["fact"] for q in analysis.questions]})
         return analysis.questions
+
+    def _could_change_a_ground(self, fact: str) -> bool:
+        """Material: some in-force KB module is gated on or requires the fact."""
+        return any(fact in self.kg.gating_facts(m.module_id) or fact in (m.required_facts or [])
+                   for m in self.kg.active_modules())
 
     def _site_postcode_question(self, case: CaseFile, module_ids, already: list[dict]) -> list[dict]:
         """The site postcode, asked only when nothing selected can lead the

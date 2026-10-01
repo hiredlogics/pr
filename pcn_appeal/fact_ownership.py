@@ -31,6 +31,9 @@ DOCUMENT_OWNED = frozenset({
 CUSTOMER_OWNED = frozenset({
     # circumstances
     "child_occupant_present", "children_present", "customer_described_event",
+    # narrative atomic facts (engines/narrative.py)
+    "visited_premises", "purpose_of_visit", "left_site", "returned_same_day",
+    "possible_vehicle_departure", "returned_to_vehicle",
     "vehicle_immobilised", "immobilisation_cause", "immobilisation_prevented_departure",
     "recovery_attended",
     # payment attempt (what the customer did, not what a record shows)

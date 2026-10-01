@@ -36,6 +36,7 @@ INTERNAL_KEYS = frozenset({
     "manifest", "execution_manifest", "facts", "pofa_findings", "pofa_route",
     "primary_route", "secondary_routes", "code_version", "missing_facts",
     "prohibited_claims", "policy", "differed", "run_id", "analysis_run_id",
+    "possible_impact", "hypothesis_id", "hypotheses", "fact_hypotheses", "hypothesis_trace",
 })
 
 # Internal identifiers. Shapes, not a list, so a new module is covered the day
