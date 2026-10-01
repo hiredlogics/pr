@@ -28,28 +28,72 @@ from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
 from .models import CaseFile, CaseState, EvidenceItem
-from .notice_completeness import BOTH_SIDES_MESSAGE, upload_pages_sufficient
+from .notice_completeness import BOTH_SIDES_MESSAGE
 from .orchestrator import AppealPipeline
-from .rules import scope
 from .store import db
 
 
-def _require_both_sides(case: CaseFile) -> None:
-    """Block progression when front+reverse (or multipage PDF) are not present.
+def _intake(rec: dict[str, Any], enforce_completeness: bool = True) -> Optional[dict]:
+    """Classify the upload and route it, before any service reads it.
 
-    Clears in-memory evidence on failure so the same case stays CREATED and the
-    customer can retry from the upload screen without a 409.
+    Returns the customer payload when the case stops here (a redirect, a stage
+    this service does not take, or a classifier failure), or None to continue
+    into the private parking engine - the only live service.
+
+    A failed completeness check for the route keeps the case CREATED and clears
+    the upload, so the customer can retry on the same case without a 409. That
+    check is the route's own: a debt letter is never asked for "both sides".
+    `enforce_completeness=False` is for the JSON text routes, which carry no
+    page images and never had the upload page check.
     """
-    ok, reason = upload_pages_sufficient(list(case.evidence.values()))
-    if ok:
-        return
+    from .intake import run_intake
+    case: CaseFile = rec["case"]
+    result = run_intake(case, rec["pipe"].extraction.llm)
+    if result.stop is not None:
+        _persist(case)
+        return _stopped_payload(case)
+    if enforce_completeness and not result.check.ok:
+        _reject_incomplete(case, result.check.reason, result.check.policy)
+    return None
+
+
+def _require_both_sides(case: CaseFile) -> None:
+    """The private parking route's upload rule: front and reverse as distinct
+    pages, or a multipage PDF. Raises the 422 below when they are missing."""
+    from .services.private_parking import FRONT_AND_BACK
+    ok, reason = FRONT_AND_BACK.check(case)
+    if not ok:
+        _reject_incomplete(case, reason, FRONT_AND_BACK.name)
+
+
+def _reject_incomplete(case: CaseFile, reason: str, policy: str) -> None:
+    """Clear the upload so the same case stays CREATED and the customer can
+    retry from the upload screen without a 409, and forget the intake decision
+    so the retry is classified afresh."""
+    from .intake import reset
     case.evidence.clear()
-    case.audit.append({"event": "upload_rejected_incomplete_sides", "reason": reason})
+    case.audit.append({"event": "upload_rejected_incomplete_sides", "reason": reason,
+                       "policy": policy, "route": case.route})
+    reset(case)
     raise HTTPException(422, {
         "message": BOTH_SIDES_MESSAGE,
         "code": "NOTICE_SIDES_REQUIRED",
         "reason": reason,
     })
+
+
+def _stopped_at_intake(case: CaseFile) -> bool:
+    """Whether intake already ended this case: a route with no engine, a stage
+    the private service does not take, or a classifier failure."""
+    from .services import intake_stop
+    if case.route is not None:
+        return intake_stop(case) is not None
+    return case.state == CaseState.CLASSIFICATION_FAILED
+
+
+def _stopped_payload(case: CaseFile) -> dict:
+    return {"case_id": case.case_id, "state": case.state.value, "route": case.route,
+            "questions": [], "flags": [], "skipped_questions": [], **_stop_payload(case)}
 
 
 @asynccontextmanager
@@ -358,6 +402,11 @@ def appeal(body: AppealIn):
     apply_disclosure(case, body.driver_already_named_to_operator, source="appeal_json")
     for d in body.documents:
         case.evidence[d.evidence_id] = EvidenceItem(d.evidence_id, d.kind, d.filename, text=d.text)
+    if not case.evidence:
+        raise HTTPException(422, {"message": "no documents were supplied", "rejected": []})
+    stopped = _intake(rec, enforce_completeness=False)
+    if stopped is not None:
+        return stopped
     return _run_auto(rec, body.narrative, body.answers or None)
 
 
@@ -400,13 +449,9 @@ async def appeal_files(files: list[UploadFile] = File(...), narrative: str = For
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
-    _require_both_sides(case)
-
-    payload = _run_auto(rec, narrative, None)
+    payload = _intake(rec) or _run_auto(rec, narrative, None)
     payload["rejected"] = rejected
-    payload["read_as"] = [{"evidence_id": e.evidence_id, "filename": e.filename,
-                           "chars": len(e.text), "images": len(e.images)}
-                          for e in case.evidence.values()]
+    payload["read_as"] = _read_as(case)
     return payload
 
 
@@ -414,6 +459,8 @@ async def appeal_files(files: list[UploadFile] = File(...), narrative: str = For
 def appeal_continue(case_id: str, body: AnswersIn):
     """Answer the questions the one-click run paused on; it then finishes itself."""
     rec = _case(case_id)
+    if _stopped_at_intake(rec["case"]):
+        return _stopped_payload(rec["case"])
     return _run_auto(rec, "", body.answers, skip=body.skip)
 
 
@@ -500,15 +547,27 @@ def _customer_flags(flags: list[str]) -> list[str]:
     return out
 
 
+def _cta(stop) -> Optional[dict]:
+    """The stop's call to action. `action` is a stable key the frontend maps to
+    its own page; `href` is added only where a deployment configures one
+    (CTA_URL_<ACTION>, a site path or an https URL), e.g. the Resources template."""
+    if not stop.cta_action:
+        return None
+    cta = {"label": stop.cta_label, "action": stop.cta_action}
+    href = (os.getenv(f"CTA_URL_{stop.cta_action}") or "").strip()
+    if href.startswith("/") or href.startswith("https://"):
+        cta["href"] = href
+    return cta
+
+
 def _stop_payload(case: CaseFile) -> dict:
-    """Engine 0's refusal, in the customer's words, with the service to use instead."""
-    stop = scope.STOPS.get(case.scope_stop or "")
+    """The refusal or redirect, in the customer's words, with where to go instead."""
+    from .services import stop_by_code
+    stop = stop_by_code(case.scope_stop or "")
     if stop is None:
         return {}
-    return {"stop_code": stop.code, "stop_reason": stop.message,
-            "recommendation": stop.recommendation,
-            "cta": {"label": stop.cta_label, "action": stop.cta_action}
-                   if stop.cta_action else None}
+    return {"stop_code": stop.code, "stop_title": stop.title, "stop_reason": stop.message,
+            "recommendation": stop.recommendation, "cta": _cta(stop)}
 
 
 def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
@@ -526,7 +585,7 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     # This is the customer surface. Routes, PoFA codes, Code versions, module IDs
     # and the retrieval trace are deliberately absent - they belong to
     # GET /cases/{id}/trace, which is the internal view of the same case.
-    payload = {"case_id": result.case_id, "state": result.state.value,
+    payload = {"case_id": result.case_id, "state": result.state.value, "route": case.route,
                "flags": _customer_flags(result.flags), "questions": result.questions,
                "skipped_questions": result.skipped_questions}
     if result.stop_reason:
@@ -574,9 +633,14 @@ def upload(case_id: str, body: DocumentsIn,
         raise HTTPException(409, f"documents already extracted (state {case.state.value})")
     for d in body.documents:
         case.evidence[d.evidence_id] = EvidenceItem(d.evidence_id, d.kind, d.filename, text=d.text)
-    rec["flags"] = rec["pipe"].ingest(case)
+    if not case.evidence:
+        raise HTTPException(422, "no documents were supplied")
+    stopped = _intake(rec, enforce_completeness=False)
+    if stopped is not None:
+        return {**stopped, "doc_types": {}}
+    rec["flags"] = _private_service(rec).extract_service_facts(case)
     _persist(case)
-    return {"state": case.state.value, "flags": rec["flags"],
+    return {"state": case.state.value, "route": case.route, "flags": rec["flags"],
             "doc_types": {e.evidence_id: e.kind for e in case.evidence.values()}}
 
 
@@ -614,15 +678,43 @@ async def upload_files(case_id: str, files: list[UploadFile] = File(...)):
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
-    _require_both_sides(case)
+    return _ingest_upload(rec, rejected)
 
-    rec["flags"] = rec["pipe"].ingest(case)
+
+def _read_as(case: CaseFile) -> list[dict]:
+    return [{"evidence_id": e.evidence_id, "filename": e.filename,
+             "chars": len(e.text), "images": len(e.images)} for e in case.evidence.values()]
+
+
+def _private_service(rec: dict[str, Any]):
+    from .services.private_parking import PrivateParkingService
+    return PrivateParkingService(rec["pipe"])
+
+
+def _ingest_upload(rec: dict[str, Any], rejected: list[dict]) -> dict:
+    """After the files are read: intake, then the private engine's extraction
+    only if intake routed the case there."""
+    case: CaseFile = rec["case"]
+    stopped = _intake(rec)
+    if stopped is not None:
+        return {**stopped, "rejected": rejected, "read_as": _read_as(case)}
+    rec["flags"] = _private_service(rec).extract_service_facts(case)
     _persist(case)
-    return {"case_id": case_id, "state": case.state.value, "flags": rec["flags"],
-            "rejected": rejected,
-            "read_as": [{"evidence_id": e.evidence_id, "filename": e.filename,
-                         "chars": len(e.text), "images": len(e.images)}
-                        for e in case.evidence.values()]}
+    return {"case_id": case.case_id, "state": case.state.value, "route": case.route,
+            "flags": rec["flags"], "rejected": rejected, "read_as": _read_as(case)}
+
+
+@app.get("/cases/{case_id}")
+def case_status(case_id: str):
+    """Where a case is: its state, the route intake chose, and - when it stopped
+    - the customer-safe explanation. No facts, module ids or reasoning."""
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    body = {"case_id": case.case_id, "state": case.state.value, "route": case.route,
+            "document_type": case.document_type, "stage": case.stage}
+    if case.scope_stop:
+        body.update(_stop_payload(case))
+    return body
 
 
 # The fields a customer is asked to check, in the order they appear on the
@@ -681,15 +773,7 @@ def upload_blobs(case_id: str, body: BlobsIn):
     if not case.evidence:
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
-    _require_both_sides(case)
-
-    rec["flags"] = rec["pipe"].ingest(case)
-    _persist(case)
-    return {"case_id": case_id, "state": case.state.value, "flags": rec["flags"],
-            "rejected": rejected,
-            "read_as": [{"evidence_id": e.evidence_id, "filename": e.filename,
-                         "chars": len(e.text), "images": len(e.images)}
-                        for e in case.evidence.values()]}
+    return _ingest_upload(rec, rejected)
 
 
 @app.get("/cases/{case_id}/confirmation")
@@ -725,6 +809,12 @@ def confirm(case_id: str, body: ConfirmIn):
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
         raise HTTPException(409, "upload documents first")
+    if _stopped_at_intake(case):
+        # No private-parking step runs on a case intake routed elsewhere.
+        if body.narrative:
+            case.raw_answers["narrative"] = body.narrative
+        _persist(case)
+        return _stopped_payload(case)
     from .disclosure import apply_disclosure
     apply_disclosure(case, body.driver_already_named_to_operator, source="cases_confirm")
 
@@ -743,11 +833,10 @@ def confirm(case_id: str, body: ConfirmIn):
     rec["questions"] = rec["pipe"].confirm(case, body.corrections, body.confirmed, body.narrative)
     _persist(case)
     if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
-        # Read the wording from the scope table rather than restating it here:
+        # Read the wording from the stop tables rather than restating it here:
         # the inline copy only ever described debt recovery, so a council PCN on
         # this route was told to use the Debt Recovery Letter service.
-        return {"case_id": case.case_id, "state": case.state.value, "questions": [],
-                "flags": [], "skipped_questions": [], **_stop_payload(case)}
+        return _stopped_payload(case)
     # Material questions remain — pause for answers (same shape as auto_appeal pause).
     if rec["questions"]:
         return {"case_id": case.case_id, "state": case.state.value,
@@ -806,6 +895,8 @@ def answer(case_id: str, body: AnswersIn,
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
         raise HTTPException(409, "upload documents first")
+    if _stopped_at_intake(case):
+        return _stopped_payload(case)
     try:
         rec["questions"] = rec["pipe"].answer(case, body.answers)
         _persist(case)
@@ -824,6 +915,8 @@ def generate(case_id: str,
     case: CaseFile = rec["case"]
     if case.state == CaseState.CREATED:
         raise HTTPException(409, "upload documents first")
+    if _stopped_at_intake(case):
+        return _stopped_payload(case)
     out = rec["pipe"].generate(case)
     rec["output"] = out
     _persist(case, out)

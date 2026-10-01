@@ -73,10 +73,14 @@ const CTA_ROUTES: Record<string, string> = {
   COUNCIL_PCN_SERVICE: "/council-pcn",
   COURT_CLAIM_GUIDANCE: "/resources/court-claims",
   OUT_OF_STAGE_GUIDANCE: "/resources/missed-the-deadline",
+  RESOURCES: "/resources",
   RETRY_UPLOAD: "/",
 };
 
-function ctaHref(action?: string | null): string {
+/** A deployment-configured link wins (the backend only sends a site path or an
+ *  https URL); otherwise the frontend's own page for the action key. */
+function ctaHref(action?: string | null, href?: string): string {
+  if (href && (href.startsWith("/") || href.startsWith("https://"))) return href;
   return (action && CTA_ROUTES[action]) || "/resources";
 }
 
@@ -171,7 +175,7 @@ export default function ResultStep({
       {noAppeal ? (
         <div className="card stack">
           <div>
-            <h1>We cannot generate an appeal for this</h1>
+            <h1>{data.stop_title || "We cannot generate an appeal for this"}</h1>
             <p className="lede">{data.stop_reason}</p>
           </div>
           {data.recommendation && (
@@ -180,7 +184,7 @@ export default function ResultStep({
               <p>{data.recommendation}</p>
               {data.cta?.label && data.cta.action && data.cta.action !== "CONTINUE_CASE" && (
                 <p style={{ marginTop: 12 }}>
-                  <a className="btn btn-primary btn-inline" href={ctaHref(data.cta.action)}>
+                  <a className="btn btn-primary btn-inline" href={ctaHref(data.cta.action, data.cta.href)}>
                     {data.cta.label} &rarr;
                   </a>
                 </p>

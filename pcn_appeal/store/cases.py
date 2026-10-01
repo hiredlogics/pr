@@ -56,8 +56,13 @@ def save(case: CaseFile) -> None:
     upserted. Small enough to do in one transaction per step."""
     with connect() as conn:
         with conn.cursor() as cur:
-            cur.execute("UPDATE cases SET state = %s, driver_status = %s WHERE case_id = %s",
-                        (case.state.value, case.driver_status.value, case.case_id))
+            cur.execute("""
+                UPDATE cases SET state = %s, driver_status = %s, route = %s,
+                                 document_type = %s, stage = %s, scope_stop = %s,
+                                 document_classes = %s, classifications = %s, timeline = %s
+                WHERE case_id = %s
+            """, (case.state.value, case.driver_status.value, *routing_columns(case),
+                  case.case_id))
 
             for ev in case.evidence.values():
                 cur.execute("""
@@ -110,11 +115,12 @@ def save(case: CaseFile) -> None:
 
 def load(case_id: str) -> CaseFile:
     with connect() as conn:
-        row = conn.execute("SELECT state, driver_status FROM cases WHERE case_id = %s",
-                           (case_id,)).fetchone()
+        row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)} "
+                           "FROM cases WHERE case_id = %s", (case_id,)).fetchone()
         if row is None:
             raise KeyError(case_id)
         case = CaseFile(case_id, state=CaseState(row[0]), driver_status=DriverStatus(row[1]))
+        apply_routing_columns(case, row[2:])
 
         for label, kind, s3_key, ocr, filename in conn.execute(
                 "SELECT label, kind, s3_key, ocr_text, filename FROM evidence WHERE case_id = %s",
@@ -133,6 +139,35 @@ def load(case_id: str) -> CaseFile:
             "SELECT question FROM raw_answers WHERE case_id = %s ORDER BY created_at",
             (case_id,)).fetchall() if r[0] != "narrative"]
     return case
+
+
+# Intake's decision and the classifier labels behind it. Persisted so a case
+# rehydrated by another worker routes exactly as it did when it was classified:
+# without `document_classes` a reloaded private case had no labels and the
+# scope gate read that as a classifier failure.
+ROUTING_COLUMNS = ("route", "document_type", "stage", "scope_stop", "document_classes",
+                   "classifications", "timeline")
+
+
+def routing_columns(case: CaseFile) -> tuple:
+    return (case.route, case.document_type, case.stage, case.scope_stop,
+            _json(dict(case.document_classes)), _json(_jsonable(case.classifications)),
+            _json(_jsonable(case.timeline)))
+
+
+def apply_routing_columns(case: CaseFile, values) -> None:
+    route, document_type, stage, scope_stop, classes, classifications, timeline = values
+    case.route, case.document_type, case.stage, case.scope_stop = (route, document_type,
+                                                                  stage, scope_stop)
+    case.document_classes = dict(_loaded(classes) or {})
+    case.classifications = dict(_loaded(classifications) or {})
+    case.timeline = list(_loaded(timeline) or [])
+
+
+def _loaded(value: Any) -> Any:
+    """psycopg returns jsonb already decoded; a text column or a test double
+    may hand back the JSON string."""
+    return json.loads(value) if isinstance(value, str) else value
 
 
 def save_output(case: CaseFile, out) -> None:

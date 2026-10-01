@@ -33,6 +33,10 @@ JSON_ONLY = "\nRespond with a single JSON object only. No prose, no markdown fen
 # lands on the next one instead of 404-ing mid-case. Override a task outright
 # with OPENAI_MODEL_<TASK>.
 OPENAI_PREFERENCES = {
+    # the routing gate: decides which service a document belongs to before any
+    # service reads it. Vision-capable and as strong as extraction - a wrong
+    # label sends a customer to the wrong service.
+    "classification": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # vision-capable: PCN photos and scanned notices
     "extraction":  ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # case analysis decides which grounds the evidence supports and what is
@@ -129,9 +133,32 @@ class FakeLLM:
     def complete_json(self, *, task, system, user, images=None):
         self.calls.append({"task": task, "user": user})
         q = self.responses.get(task)
+        if not q and task == "classification":
+            legacy = legacy_classification(self.responses)
+            if legacy is not None:
+                return legacy
         if not q:
             raise RuntimeError(f"FakeLLM has no response queued for task {task!r}")
         return q.pop(0)
+
+
+def legacy_classification(responses: dict[str, list[dict]]) -> dict[str, Any] | None:
+    """For test doubles: the classifier answer implied by the next queued
+    extraction response's `doc_types`, when a fixture scripts no classification.
+
+    Fixtures written before the neutral classifier existed script only an
+    extraction response; this routes them exactly as their extraction labels
+    already said. Peeks, never pops - the extraction call still gets it. None
+    when nothing is queued, so an unscripted case still fails loudly.
+    """
+    queued = responses.get("extraction") or []
+    if not queued or not isinstance(queued[0], dict):
+        return None
+    doc_types = queued[0].get("doc_types") or {}
+    if not doc_types:
+        return {"documents": []}                 # classifier answered nothing
+    from .intake.classifier import from_legacy_doc_types
+    return from_legacy_doc_types(doc_types)
 
 
 # --------------------------------------------------------------------------- demo only
@@ -179,6 +206,19 @@ _DEMO_DOC_HINTS = [
     ("APP_SCREENSHOT", r"screenshot"),
     ("RECEIPT", r"\breceipt\b"),
     ("PERMIT", r"\bpermit\b"),
+]
+
+
+# Demo classifier only: later-stage documents the private-parking hints above
+# have no label for. Checked before those hints, in this order.
+_DEMO_CLASS_HINTS = [
+    ("CCJ", "JUDGMENT", r"county court judgment|judgment (has been|was) entered|\bccj\b"),
+    ("ORDER_FOR_RECOVERY", "ORDER_FOR_RECOVERY", r"order for recovery"),
+    ("CHARGE_CERTIFICATE", "CHARGE_CERTIFICATE", r"charge certificate"),
+    ("BAILIFF_ENFORCEMENT", "ENFORCEMENT", r"notice of enforcement|enforcement agent|bailiff"),
+    ("LETTER_BEFORE_CLAIM", "PRE_ACTION", r"letter before (action|claim)|letter of claim"),
+    ("PRIVATE_PARKING_APPEAL_RESPONSE", "OPERATOR_RESPONSE",
+     r"appeal (has been |was )?(rejected|unsuccessful)|popla (verification )?code"),
 ]
 
 
@@ -244,6 +284,8 @@ class DemoLLM:
             return self._demo_draft(user)
         if task == "validation":
             return {"issues": []}
+        if task == "classification":
+            return self._demo_classify(user)
         if task != "extraction":
             raise RuntimeError(f"DemoLLM only supports extraction, not {task!r}")
         docs = re.findall(r"<document id='([^']+)' filename='([^']*)'>\n(.*?)\n</document>", user, re.S)
@@ -265,6 +307,34 @@ class DemoLLM:
                     fields[name] = {"value": m.group(1), "confidence": 0.95,
                                     "evidence_id": ev_id, "page": 1}
         return {"fields": fields, "doc_types": doc_types}
+
+    def _demo_classify(self, payload: str) -> dict:
+        """Keyword labels in the canonical vocabulary. The later-stage types are
+        checked first; anything else takes the extraction hint's label, mapped,
+        so demo routing for private parking documents is what it always was."""
+        from .intake.classifier import from_legacy_doc_types
+        docs = re.findall(r"<document id='([^']+)' filename='([^']*)'>\n(.*?)\n</document>", payload, re.S)
+        out: list[dict] = []
+        legacy: dict[str, str] = {}
+        for ev_id, filename, text in docs:
+            blob = f"{filename}\n{text}"
+            for doc_type, stage, pat in _DEMO_CLASS_HINTS:
+                if re.search(pat, blob, re.I):
+                    family = {"ORDER_FOR_RECOVERY": "COUNCIL_STATUTORY",
+                              "CHARGE_CERTIFICATE": "COUNCIL_STATUTORY",
+                              "PRIVATE_PARKING_APPEAL_RESPONSE": "PRIVATE_PARKING"}.get(doc_type,
+                                                                                       "UNKNOWN")
+                    out.append({"evidence_id": ev_id, "document_type": doc_type,
+                                "service_family": family, "stage": stage, "confidence": 0.9})
+                    break
+            else:
+                for kind, pat in _DEMO_DOC_HINTS:
+                    if re.search(pat, blob, re.I):
+                        legacy[ev_id] = kind
+                        break
+                else:
+                    legacy[ev_id] = "OTHER"
+        return {"documents": out + from_legacy_doc_types(legacy)["documents"]}
 
     def _demo_draft(self, payload: str) -> dict:
         """Pack-faithful draft when no provider is configured.

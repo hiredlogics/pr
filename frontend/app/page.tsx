@@ -137,7 +137,17 @@ export default function Page() {
     run("reading", async () => {
       const created = await createCase();
       setCaseId(created.case_id);
-      await sendFiles(created.case_id, files);
+      const uploaded = await sendFiles(created.case_id, files);
+      // Intake routed the case away from the appeal journey (a debt letter, an
+      // Order for Recovery ...) or could not classify it: there is nothing to
+      // confirm, so say so now rather than after the customer has written
+      // their account.
+      if (uploaded.state === "NO_APPEAL_RIGHT" || uploaded.state === "CLASSIFICATION_FAILED") {
+        setData({ ...uploaded, questions: uploaded.questions ?? [],
+                  skipped_questions: uploaded.skipped_questions ?? [] });
+        setScreen("result");
+        return;
+      }
       setConfirmation(await getConfirmation(created.case_id));
       setScreen("confirm");
     });

@@ -56,6 +56,13 @@ class ReferenceAnalysisLLM:
                 return queued.pop(0)
             return {"issues": []}
         queued = self.responses.get(task)
+        if not queued and task == "classification":
+            # Intake's neutral classifier. A fixture that scripts no
+            # classification is routed exactly as its extraction labels say.
+            from pcn_appeal.llm import legacy_classification
+            legacy = legacy_classification(self.responses)
+            if legacy is not None:
+                return legacy
         if not queued:
             raise RuntimeError(f"no response queued for task {task!r}")
         return queued.pop(0)

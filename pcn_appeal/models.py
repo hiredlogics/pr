@@ -125,6 +125,20 @@ class CaseFile:
     document_classes: dict[str, str] = field(default_factory=dict)
     # Engine 0's verdict when it routed this case out of the service.
     scope_stop: Optional[str] = None
+    # Intake (pcn_appeal/intake): the one service this case belongs to, and the
+    # document and stage that decided it. None until the neutral classifier has
+    # run - a case built directly against the private-parking pipeline (the
+    # scenario suite) never sets them, and rules/scope.py treats None as "the
+    # router did not see this case", not as a route.
+    route: Optional[str] = None
+    document_type: Optional[str] = None
+    stage: Optional[str] = None
+    # Per-document neutral classification (intake/classifier.py), keyed by
+    # evidence id. Service-neutral by construction: no service's facts live here.
+    classifications: dict[str, dict] = field(default_factory=dict)
+    # Dated events read off the documents (document issued, classified ...),
+    # oldest first. Shared by every route; a deadline engine reads it later.
+    timeline: list[dict] = field(default_factory=list)
     # Grounds chosen by AI case analysis and already vetoed against the KB. The
     # drafter works from these; nothing re-derives them from a route.
     analysis_module_ids: list[str] = field(default_factory=list)

@@ -25,6 +25,14 @@ CREATE TABLE cases (
 -- gets them. IF NOT EXISTS makes both paths idempotent.
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS commit_sha text;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS llm_provider text;
+-- Phase 2 intake: the route a case was sent to and the classification behind it.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS route text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS document_type text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS stage text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS scope_stop text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS document_classes jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS classifications jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS timeline jsonb NOT NULL DEFAULT '[]';
 
 CREATE TABLE evidence (
   evidence_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

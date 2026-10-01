@@ -475,8 +475,14 @@ class ExtractionEngine:
         # was invisible to it. The classification covers exactly that case.
         # The regex result is written back as a classification so the routing
         # gate has one input to read rather than two.
+        #
+        # Classification-supported: the wording only relabels a document the
+        # model could not place. A notice the model read as a notice is left
+        # alone - private notices routinely warn that unpaid charges "may be
+        # passed to debt recovery", and that warning is not a debt demand.
         for ev in case.evidence.values():
-            if case.document_classes.get(ev.evidence_id) in scope.STOP_ORDER:
+            label = case.document_classes.get(ev.evidence_id)
+            if label in scope.STOP_ORDER or label in scope.NOTICE_KINDS:
                 continue
             if scope.DEBT_SIGNALS.search(ev.text or ""):
                 ev.kind = "DEBT_RECOVERY"

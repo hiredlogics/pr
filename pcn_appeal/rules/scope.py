@@ -27,7 +27,9 @@ NOTICE_KINDS = frozenset({"PCN", "NTK", "NTD"})
 DEBT_SIGNALS = re.compile(
     r"\b(debt\s*recovery|passed\s+to\s+(?:a\s+)?debt|"
     r"letter\s+of\s+claim|claim\s+form|"
-    r"civil\s+enforcement|enforcement\s+agent|\bbailiffs?\b|"
+    # No `civil enforcement`: it is the name of a private parking operator, and
+    # a company name says nothing about what stage a charge is at.
+    r"enforcement\s+agent|\bbailiffs?\b|"
     r"right\s+to\s+appeal\s+(?:has\s+)?(?:now\s+)?(?:expired|ended|lapsed|closed)|"
     r"appeal\s+(?:window|period|right)\s+(?:has\s+)?(?:now\s+)?(?:closed|expired|ended))\b",
     re.I)
@@ -61,19 +63,19 @@ class ScopeStop:
     recommendation: str
     cta_label: Optional[str] = None
     cta_action: Optional[str] = None
+    # Heading for the stop screen. None lets the frontend use its generic one.
+    title: Optional[str] = None
 
 
 STOPS: dict[str, ScopeStop] = {
     "DEBT_RECOVERY": ScopeStop(
         code="DEBT_RECOVERY",
-        message=("It looks like your parking charge has now reached the debt "
-                 "recovery stage. Unfortunately, the original parking charge is "
-                 "no longer at the normal appeal stage, so we're unable to "
-                 "generate an appeal for this notice."),
-        recommendation=("However, we do have a free Debt Recovery Response "
-                        "Template available in our Resources section which you "
-                        "can use to respond to the debt recovery company."),
-        cta_label="Get the Free Debt Recovery Template",
+        title="Debt recovery document identified",
+        message=("You have uploaded a debt recovery letter. Our appeal service does "
+                 "not currently support cases at this stage."),
+        recommendation=("You may wish to use our free debt recovery response "
+                        "template."),
+        cta_label="Get the free debt recovery template",
         cta_action="DEBT_RECOVERY_TEMPLATE"),
     "COUNCIL_PCN": ScopeStop(
         code="COUNCIL_PCN",
@@ -137,6 +139,17 @@ def decide(case: CaseFile) -> Optional[ScopeStop]:
     only check that keeps a debt-recovery letter or a council PCN out of the
     appeal path, so "we could not read it" has to stop as loudly as a refusal.
     """
+    # The intake router has already decided this case (pcn_appeal/intake). A
+    # case it sent elsewhere, or a private-parking stage that service refuses,
+    # stops here too, so no private-parking engine can run on it even when
+    # called directly. A case the router never saw (route None) falls through
+    # to the private-parking checks below unchanged.
+    if case.route is not None:
+        from ..services import intake_stop
+        stop = intake_stop(case)
+        if stop is not None:
+            return stop
+
     if not case.document_classes:
         return STOPS["CLASSIFICATION_FAILED"]
 

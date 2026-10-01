@@ -34,13 +34,38 @@ export type ReadAs = {
 
 export type Rejected = { filename: string; reason: string };
 
-/** Result of uploading into an existing case: extraction has run, nothing more. */
+/** The service intake routed the case to. Only PRIVATE_PARKING has a journey
+ *  today; every other route ends at a stop screen. */
+export type Route =
+  | "PRIVATE_PARKING"
+  | "DEBT_RECOVERY"
+  | "ORDER_FOR_RECOVERY"
+  | "CHARGE_CERTIFICATE"
+  | "COUNCIL_PCN"
+  | "CLAIMS"
+  | "BAILIFF"
+  | "CCJ_REMOVAL"
+  | "UNSUPPORTED_REVIEW";
+
+export type Cta = { label: string | null; action: string | null; href?: string } | null;
+
+/** Result of uploading into an existing case. Either extraction has run (the
+ *  private parking journey continues), or intake stopped the case and the stop
+ *  fields say why - in which case there is nothing to confirm. */
 export type UploadResult = {
   case_id: string;
   state: CaseState;
+  route?: Route | null;
   flags: string[];
   rejected: Rejected[];
   read_as: ReadAs[];
+  questions?: Question[];
+  skipped_questions?: string[];
+  stop_code?: string;
+  stop_title?: string | null;
+  stop_reason?: string;
+  recommendation?: string;
+  cta?: Cta;
 };
 
 /** One row on the "Check your details" screen. */
@@ -80,11 +105,13 @@ export type AppealResponse = {
   grounds?: string[]; // plain-English route labels; only when state === "RELEASED"
   evidence_list?: string[];
   letter?: string; // only when state === "RELEASED"
+  route?: Route | null;
   /** Set when state === NO_APPEAL_RIGHT: the document was routed out of this service. */
   stop_code?: string;
+  stop_title?: string | null;
   stop_reason?: string;
   recommendation?: string;
-  cta?: { label: string | null; action: string | null } | null;
+  cta?: Cta;
   /** Why a held case stopped — never collapsed to a single merits message. */
   outcome?:
     | "NO_SUPPORTED_GROUNDS"
