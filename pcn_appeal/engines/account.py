@@ -213,15 +213,29 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "the vehicle's presence was connected with genuine loading or unloading activity",
         ("loading",),
     ),
-    # EV charging
+    # EV charging. "Charge" on its own is the parking charge itself - every
+    # customer writes it - so the word only counts next to a vehicle, a charger
+    # or an EV term. Matching it bare put an invented charging session into
+    # released letters.
     CircumstanceRule(
         "ev_charging_session", True,
         re.compile(
-            r"\b(charg(e|ing)|electric vehicle|ev bay|plug(ged)? in)\b",
+            r"\b("
+            r"electric (car|vehicle|van)s?|evs?|"
+            r"charg(er|ers)|charge ?points?|"
+            r"charging (point|station|bay|space|post|unit|cable|lead|session|socket)s?|"
+            r"plug(ged)? in|on charge|"
+            r"charg(e|ed|ing) (up )?(my|the|our|his|her|their|a) "
+            r"(own )?(car|vehicle|van|ev|electric)|"
+            r"(car|vehicle|van|ev) (was|is|were) (still )?charging"
+            r")\b",
             re.I,
         ),
         "the vehicle was present in connection with a genuine charging session",
-        ("electric", "ev", "charg"),
+        # Whole terms only: the bare tokens "ev" and "charg" occur inside
+        # "every", "event" and "parking charge", which made any allegation
+        # look like an EV one.
+        ("electric", "charging", "charger", "charge point", "ev bay", "ev charg"),
     ),
     # Disabled / reserved bay conditions met (generic)
     CircumstanceRule(
@@ -303,7 +317,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             # Negated wording must not invent affirmative occupancy/eligibility facts.
             if rule.fact_name in {
                 "child_occupant_present", "blue_badge_displayed", "permit_held",
-                "bay_conditions_met_accounted",
+                "bay_conditions_met_accounted", "ev_charging_session",
             } and rule.value is True and _match_negated(text, m):
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
