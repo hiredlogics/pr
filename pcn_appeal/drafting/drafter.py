@@ -19,6 +19,7 @@ from ..kg.graph import KnowledgeGraph
 from .. import prompts
 from ..llm import LLMClient
 from ..models import Draft, DraftSentence, RetrievalPack
+from ..routes import Route
 
 
 _SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
@@ -264,7 +265,7 @@ class TemplateDrafter:
                 # Prefer fact-built prose over the generic Appendix block.
                 para = self._rec_paragraph(pack)
                 used.add("PP-REC-001")
-            elif mod.route == "RESIDENTIAL" and mid == "KB-RES-01":
+            elif mod.route == Route.RESIDENTIAL and mid == "KB-RES-01":
                 for c in pack.lease_clauses[:1]:
                     para.append(DraftSentence(
                         f'Clause {c["clause_ref"]} of the uploaded agreement provides: "{c["text"]}"',

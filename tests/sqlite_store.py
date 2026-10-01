@@ -32,7 +32,8 @@ _ORDERED = ("facts", "raw_answers", "drafts", "validations", "evidence_pages")
 DDL = """
 CREATE TABLE cases (case_id PRIMARY KEY, customer_id, state, driver_status, kb_release_id,
   commit_sha, llm_provider, retention_until, route, document_type, stage, scope_stop,
-  document_classes, classifications, timeline, asked_questions, pending_questions, created_at);
+  document_classes, classifications, timeline, asked_questions, pending_questions,
+  current_run_id DEFAULT 0, run_status DEFAULT 'NONE', frontend_version, created_at);
 CREATE TABLE evidence (evidence_id PRIMARY KEY, case_id, label, kind, filename, s3_key, sha256,
   ocr_text);
 CREATE TABLE evidence_pages (case_id, label, page_no, sha256, image, created_at,
@@ -41,10 +42,13 @@ CREATE TABLE facts (fact_id, case_id, name, value, status, source_kind, source_r
   confidence, superseded DEFAULT 0, created_at);
 CREATE TABLE raw_answers (case_id, question, raw_text, created_at);
 CREATE TABLE drafts (draft_id PRIMARY KEY, case_id, attempt, drafter, model, prompt_version,
-  structured, retrieval_pack, state, letter, evidence_list, outcome, no_ground_reason, created_at);
+  structured, retrieval_pack, state, letter, evidence_list, outcome, no_ground_reason,
+  run_id, manifest, created_at);
 CREATE TABLE validations (draft_id, passed, issues, validator_version, created_at);
 CREATE TABLE review_queue (case_id, reason, assigned_to, sla_due, resolution, resolved_at);
-CREATE TABLE audit_log (id INTEGER PRIMARY KEY, case_id, actor, event, detail, at);
+CREATE TABLE audit_log (id INTEGER PRIMARY KEY, case_id, actor, event, detail, run_id, at);
+CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, previous, new,
+  previous_status, status, source_kind, source_ref, reason, outcome, at, recorded_at);
 """ + "".join(
     f"CREATE TRIGGER {t}_order AFTER INSERT ON {t} BEGIN UPDATE {t} SET created_at = "
     f"(SELECT COALESCE(MAX(created_at), 0) + 1 FROM {t}) WHERE rowid = NEW.rowid; END;\n"

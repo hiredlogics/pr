@@ -450,17 +450,17 @@ def _clear_material(case: CaseFile) -> None:
         fact = case.facts[name]
         ref = fact.source.ref or ""
         if name in drop_exact:
-            del case.facts[name]
+            case.retract(name, "account_reassessed")
             continue
         if fact.source.kind == SourceKind.CUSTOMER_FREE_TEXT and ref.startswith("free_text:"):
-            del case.facts[name]
+            case.retract(name, "account_reassessed")
             continue
         if name.startswith("bay_") and name.endswith(
                 ("_accounted", "_condition_accounted", "_occupant_accounted")) \
                 and fact.source.kind in (
                     SourceKind.CUSTOMER_FREE_TEXT, SourceKind.CALCULATION):
             if "material_account" in ref or ref.startswith("free_text:"):
-                del case.facts[name]
+                case.retract(name, "account_reassessed")
     case.raw_answers.pop("_material_source_texts", None)
     case.raw_answers.pop("_free_text_provenance", None)
     case.free_text_provenance = []

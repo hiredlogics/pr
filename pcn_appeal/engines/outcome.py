@@ -89,8 +89,13 @@ CUSTOMER_COPY = {
 
 
 def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
-    """Derive a customer outcome from audit + pack — not from the UI state alone."""
-    audit = list(getattr(case, "audit", None) or [])
+    """Derive a customer outcome from audit + pack — not from the UI state alone.
+
+    Only the current run counts (P0.3). A draft error, a ground-recovery wipe or
+    a no-grounds finding from an earlier run says nothing about this one, and
+    combining them was how a completed analysis kept reporting an old failure.
+    """
+    audit = current_run_audit(case)
     events = {a.get("event") for a in audit}
 
     state_val = getattr(getattr(case, "state", None), "value", None) or str(
@@ -177,6 +182,11 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
         return _pack(OUTCOME_PROCESSING_ERROR, case,
                      detail={"issues": issues, "module_ids": module_ids})
     return _pack(OUTCOME_PROCESSING_ERROR, case, detail="held_with_leading_grounds")
+
+
+def current_run_audit(case) -> list[dict]:
+    scoped = getattr(case, "current_run_audit", None)
+    return scoped() if callable(scoped) else list(getattr(case, "audit", None) or [])
 
 
 def analysis_failed(case) -> bool:

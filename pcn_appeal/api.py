@@ -13,17 +13,19 @@ tenant isolation and the product/case binding check in front of every route.
 from __future__ import annotations
 
 import hmac
+import json
 import os
+import re
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from . import config, prompts, runtime, version
+from . import config, customer_safe, manifest, prompts, runtime, version
 from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
@@ -48,6 +50,7 @@ def _intake(rec: dict[str, Any], enforce_completeness: bool = True) -> Optional[
     """
     from .intake import run_intake
     case: CaseFile = rec["case"]
+    case.ensure_run("intake")
     result = run_intake(case, rec["pipe"].extraction.llm)
     if result.stop is not None:
         _persist(case)
@@ -80,10 +83,11 @@ def _reject_incomplete(case: CaseFile, reason: str, policy: str) -> None:
                        **({"differed": differed} if differed else {})})
     reset(case)
     from .notice_completeness import rejection_message
+    # The customer gets the message and a stable code; which check refused the
+    # upload (`reason`, `differed`) is routing logic and stays in the audit.
     raise HTTPException(422, {
         "message": rejection_message(reason),
         "code": "NOTICE_SIDES_REQUIRED",
-        "reason": reason,
     })
 
 
@@ -135,6 +139,53 @@ def _verify_provider_at_startup() -> None:
 
 
 app = FastAPI(title="PCN Appeal AI", version="2.0", lifespan=lifespan)
+
+
+# The customer journey, as the public proxy allows it (frontend/app/api/[...path]/route.ts),
+# plus GET /cases/{id}. Every JSON body on these routes - results, holds,
+# questions, refusals and errors alike - passes customer_safe.scrub. Operator
+# routes are not listed: they are the internal view and need the admin token.
+CUSTOMER_ROUTES: tuple[tuple[str, re.Pattern], ...] = (
+    ("POST", re.compile(r"^/appeal(/files|/[^/]+)?$")),
+    ("POST", re.compile(r"^/cases$")),
+    ("POST", re.compile(r"^/cases/[^/]+/(files|blobs|confirm)$")),
+    ("GET", re.compile(r"^/cases/[^/]+(/confirmation|/letter\.pdf)?$")),
+)
+
+
+def is_customer_route(method: str, path: str) -> bool:
+    return any(m == method and rx.match(path) for m, rx in CUSTOMER_ROUTES)
+
+
+@app.middleware("http")
+async def frontend_version_header(request, call_next):
+    """Which frontend build sent this request, for the execution manifest.
+    Bounded and printable only: it is a client-supplied header."""
+    raw = (request.headers.get("x-frontend-version") or "").strip()
+    value = re.sub(r"[^A-Za-z0-9._:+-]", "", raw)[:64] or "unknown"
+    token = manifest.FRONTEND_VERSION.set(value)
+    try:
+        return await call_next(request)
+    finally:
+        manifest.FRONTEND_VERSION.reset(token)
+
+
+@app.middleware("http")
+async def customer_safe_responses(request, call_next):
+    response = await call_next(request)
+    if not is_customer_route(request.method, request.url.path):
+        return response
+    if "application/json" not in (response.headers.get("content-type") or ""):
+        return response
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    try:
+        payload = json.loads(body or b"null")
+    except ValueError:
+        return Response(body, status_code=response.status_code, headers=dict(response.headers))
+    clean = customer_safe.scrub(payload, where=f"{request.method} {request.url.path}")
+    headers = {k: v for k, v in response.headers.items()
+               if k.lower() not in ("content-length", "content-type")}
+    return JSONResponse(clean, status_code=response.status_code, headers=headers)
 
 
 # Start anyway when the KB source cannot be trusted: an unreachable release
@@ -341,6 +392,7 @@ def _new_case() -> tuple[str, dict[str, Any]]:
         case = case_store.new_case(kb_release_id=KG.release_id)
     else:
         case = CaseFile(f"C-{len(CASES) + 1:04d}")
+    case.frontend_version = manifest.FRONTEND_VERSION.get()
     rec = {"case": case, "pipe": pipe,
            "flags": [], "questions": [], "output": None}
     CASES[case.case_id] = rec
@@ -503,10 +555,11 @@ def letter_pdf(case_id: str):
         # A serverless function has no way to install them, so PDF rendering is
         # unavailable there. Say so plainly: the letter text is still complete,
         # and a 503 with a reason beats a 500 with a stack trace.
+        case.audit.append({"event": "pdf_render_failed",
+                           "error": f"{type(exc).__name__}: {exc}"[:200]})
         raise HTTPException(503, {
             "message": "PDF rendering is not available on this deployment. "
                        "The letter text is complete and can be copied.",
-            "detail": f"{type(exc).__name__}: {exc}"[:200],
         }) from exc
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="appeal-{case_id}.pdf"'})
@@ -597,8 +650,9 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     # and the retrieval trace are deliberately absent - they belong to
     # GET /cases/{id}/trace, which is the internal view of the same case.
     payload = {"case_id": result.case_id, "state": result.state.value, "route": case.route,
-               "flags": _customer_flags(result.flags), "questions": result.questions,
-               "skipped_questions": result.skipped_questions}
+               "flags": _customer_flags(result.flags),
+               "questions": customer_safe.customer_questions(result.questions),
+               "skipped_questions": customer_safe.customer_questions(result.skipped_questions)}
     if result.stop_reason:
         payload.update(_stop_payload(case))
         return payload
@@ -627,7 +681,7 @@ def _held_questions(case: CaseFile, out) -> dict:
     """A NEEDS_FACTS hold carries the question that would unblock it, so the
     customer can answer it on this case (it was already shown once and skipped)."""
     if out.outcome == "NEEDS_FACTS" and case.pending_questions:
-        return {"questions": list(case.pending_questions)}
+        return {"questions": customer_safe.customer_questions(case.pending_questions)}
     return {}
 
 
@@ -721,7 +775,7 @@ def _ingest_upload(rec: dict[str, Any], rejected: list[dict]) -> dict:
     rec["flags"] = _private_service(rec).extract_service_facts(case)
     _persist(case)
     return {"case_id": case.case_id, "state": case.state.value, "route": case.route,
-            "flags": rec["flags"], "rejected": rejected, "read_as": _read_as(case)}
+            "flags": _customer_flags(rec["flags"]), "rejected": rejected, "read_as": _read_as(case)}
 
 
 @app.get("/cases/{case_id}")
@@ -798,11 +852,9 @@ def upload_blobs(case_id: str, body: BlobsIn):
 
 @app.get("/cases/{case_id}/confirmation")
 def confirmation_screen(case_id: str):
-    """Extracted facts + flags for the customer to confirm or correct.
-
-    `details` is the curated, labelled, ordered subset a customer should check;
-    `facts` is everything, for the reviewer console.
-    """
+    """The extracted details for the customer to confirm or correct: the
+    curated, labelled, ordered subset in CUSTOMER_FIELDS, and the flags a
+    customer can act on. The full fact list is GET /cases/{id}/facts (admin)."""
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     details = []
@@ -816,11 +868,24 @@ def confirmation_screen(case_id: str):
             # is what the UI should draw attention to.
             "needs_attention": fact is None or not fact.usable,
         })
+    return {"case_id": case.case_id, "state": case.state.value,
+            "flags": _customer_flags(rec["flags"]), "details": details}
+
+
+@app.get("/cases/{case_id}/facts")
+def case_facts(case_id: str, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Every fact with its status, confidence and source, and the raw flags -
+    the reviewer console's view. Operator route: confidence and source refs
+    are not customer output (they were on /confirmation until P0.1)."""
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
     return {"case_id": case.case_id, "state": case.state.value, "flags": rec["flags"],
-            "details": details,
             "facts": [{"name": f.name, "value": str(f.value), "status": f.status.value,
                        "confidence": f.confidence, "source": f.source.ref}
-                      for f in case.facts.values()]}
+                      for f in case.facts.values()],
+            "fact_conflicts": list(getattr(case, "fact_conflicts", []))}
 
 
 @app.post("/cases/{case_id}/confirm")
@@ -861,7 +926,8 @@ def confirm(case_id: str, body: ConfirmIn):
     if rec["questions"]:
         return {"case_id": case.case_id, "state": case.state.value,
                 "flags": _customer_flags(rec.get("flags") or []),
-                "questions": rec["questions"], "skipped_questions": []}
+                "questions": customer_safe.customer_questions(rec["questions"]),
+                "skipped_questions": []}
     # Nothing material left to ask — finish the letter now. Previously the step-by-step
     # UI called /confirm only and never /generate, so question-free cases never drafted.
     out = rec["pipe"].generate(case)
@@ -963,7 +1029,8 @@ def get_appeal(case_id: str,
     return {"state": out.state.value, "letter": out.letter, "evidence_list": out.evidence_list,
             "primary_route": out.pack.primary_route, "secondary_routes": out.pack.secondary_routes,
             "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
-            "code_version": out.pack.code_version, "module_ids": out.pack.module_ids}
+            "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
+            "manifest": getattr(out, "manifest", None)}
 
 
 @app.get("/cases/{case_id}/trace")
@@ -984,7 +1051,10 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             "sentences": [{"text": s.text, "fact_refs": s.fact_refs, "module_refs": s.module_refs,
                            "evidence_refs": s.evidence_refs} for s in out.draft.sentences()],
             "audit": rec["case"].audit,
-            "outcome": getattr(out, "outcome", None)}
+            "outcome": getattr(out, "outcome", None),
+            "run_id": rec["case"].run_id,
+            "manifest": getattr(out, "manifest", None),
+            "fact_conflicts": rec["case"].fact_conflicts}
 
 
 

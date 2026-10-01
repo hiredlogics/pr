@@ -166,3 +166,34 @@ ALTER TABLE drafts ADD COLUMN IF NOT EXISTS letter text;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS evidence_list jsonb;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS outcome jsonb;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS no_ground_reason text;
+
+-- ---------------------------------------------------------------- P0 system integrity
+-- infra/migrations/0001_p0_system_integrity.sql (keep the two in step)
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_run_id int NOT NULL DEFAULT 0;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS run_status text NOT NULL DEFAULT 'NONE';
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS run_id int;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS run_id int;
+CREATE INDEX IF NOT EXISTS audit_log_case_run ON audit_log (case_id, run_id);
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS frontend_version text;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS manifest jsonb;
+
+CREATE TABLE IF NOT EXISTS fact_history (
+  id              bigserial PRIMARY KEY,
+  case_id         uuid REFERENCES cases ON DELETE CASCADE,
+  run_id          int,
+  fact            text NOT NULL,
+  previous        jsonb,
+  new             jsonb,
+  previous_status text,
+  status          text,
+  source_kind     text,
+  source_ref      text,
+  reason          text,
+  outcome         text NOT NULL CHECK (outcome IN ('APPLIED', 'CONFLICT', 'RETRACTED')),
+  at              timestamptz NOT NULL,
+  recorded_at     timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS fact_history_case ON fact_history (case_id, id);
+CREATE INDEX IF NOT EXISTS fact_history_conflicts ON fact_history (case_id) WHERE outcome = 'CONFLICT';

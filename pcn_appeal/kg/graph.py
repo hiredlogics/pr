@@ -29,6 +29,7 @@ import networkx as nx
 import yaml
 
 from ..models import BuildingBlock, KBModule
+from ..routes import validate_ground_routes
 from ..rules.dsl import referenced_facts
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -81,6 +82,10 @@ class KnowledgeGraph:
             yaml.safe_load((d / "questions.yaml").read_text()))
 
     def _build(self, kb: dict, rt: dict, bb: dict, qs: dict) -> None:
+        # Fail the load, not a later comparison: a route the code does not know
+        # is a ground no `Route.X` check can ever match (see routes.py).
+        validate_ground_routes(((m.get("module_id"), m.get("route")) for m in kb["modules"]),
+                               rt["routes"])
         self.routes = rt["routes"]
         for r, meta in self.routes.items():
             self.g.add_node(("Route", r), **meta)

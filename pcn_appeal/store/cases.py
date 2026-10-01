@@ -65,10 +65,12 @@ def save(case: CaseFile) -> None:
                 UPDATE cases SET state = %s, driver_status = %s, route = %s,
                                  document_type = %s, stage = %s, scope_stop = %s,
                                  document_classes = %s, classifications = %s, timeline = %s,
-                                 asked_questions = %s, pending_questions = %s
+                                 asked_questions = %s, pending_questions = %s,
+                                 current_run_id = %s, run_status = %s, frontend_version = %s
                 WHERE case_id = %s
             """, (case.state.value, case.driver_status.value, *routing_columns(case),
-                  *question_columns(case), case.case_id))
+                  *question_columns(case), case.run_id, case.run_status,
+                  case.frontend_version, case.case_id))
 
             for ev in case.evidence.values():
                 cur.execute("""
@@ -128,10 +130,27 @@ def save(case: CaseFile) -> None:
             for entry in case.audit:
                 if entry.get("_persisted"):
                     continue
-                cur.execute("INSERT INTO audit_log (case_id, actor, event, detail) VALUES (%s, %s, %s, %s)",
+                cur.execute("INSERT INTO audit_log (case_id, actor, event, detail, run_id) "
+                            "VALUES (%s, %s, %s, %s, %s)",
                             (case.case_id, entry.get("actor", "system"),
-                             entry.get("event", "unknown"), _json(entry)))
+                             entry.get("event", "unknown"), _json(_jsonable(entry)),
+                             entry.get("run_id")))
                 entry["_persisted"] = True
+
+            # P0.4: every fact write, applied, refused or removed. Append-only.
+            for h in case.fact_history:
+                if h.get("_persisted"):
+                    continue
+                cur.execute("""
+                    INSERT INTO fact_history (case_id, run_id, fact, previous, new,
+                                              previous_status, status, source_kind,
+                                              source_ref, reason, outcome, at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (case.case_id, h.get("run_id"), h["fact"], _json(_jsonable(h.get("previous"))),
+                      _json(_jsonable(h.get("new"))), h.get("previous_status"), h.get("status"),
+                      h.get("source_kind"), h.get("source_ref"), h.get("reason") or None,
+                      h["outcome"], h["at"]))
+                h["_persisted"] = True
         conn.commit()
 
 
@@ -179,7 +198,8 @@ def _latest_raw_answers(cur, case_id: str) -> dict[str, str]:
 def load(case_id: str) -> CaseFile:
     with connect() as conn:
         row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)}, "
-                           f"{', '.join(QUESTION_COLUMNS)} "
+                           f"{', '.join(QUESTION_COLUMNS)}, current_run_id, run_status, "
+                           "frontend_version "
                            "FROM cases WHERE case_id = %s", (case_id,)).fetchone()
         if row is None:
             raise KeyError(case_id)
@@ -211,10 +231,38 @@ def load(case_id: str) -> CaseFile:
         # reaches the drafter only as normalised Facts (rule Q-06), exactly as
         # in the process that first received it.
         case.raw_answers = _latest_raw_answers(conn, case_id)
-        apply_question_columns(case, row[2 + n:])
+        apply_question_columns(case, row[2 + n:2 + n + len(QUESTION_COLUMNS)])
+        run_id, run_status, frontend_version = row[2 + n + len(QUESTION_COLUMNS):]
 
         case.audit = [{**(_loaded(detail) or {}), "_persisted": True} for (detail,) in conn.execute(
             "SELECT detail FROM audit_log WHERE case_id = %s ORDER BY id", (case_id,)).fetchall()]
+        # The run this case is in. Set after the audit, which stamps nothing on
+        # load: each stored entry already carries its own run.
+        case.run_id = int(run_id or 0)
+        case.run_status = run_status or "NONE"
+        case.frontend_version = frontend_version
+
+        for (run, fact, previous, new, previous_status, status, source_kind, source_ref,
+             reason, outcome, at) in conn.execute("""
+                SELECT run_id, fact, previous, new, previous_status, status, source_kind,
+                       source_ref, reason, outcome, at
+                FROM fact_history WHERE case_id = %s ORDER BY id
+        """, (case_id,)).fetchall():
+            at = at.isoformat() if hasattr(at, "isoformat") else at
+            # jsonb comes back decoded (as the facts table's value does): a string
+            # value is already the value, so it must not be parsed again.
+            entry = {"fact": fact, "previous": previous, "new": new,
+                     "previous_status": previous_status, "status": status,
+                     "source_kind": source_kind, "source_ref": source_ref,
+                     "reason": reason or "", "outcome": outcome, "run_id": run, "at": at,
+                     "_persisted": True}
+            case.fact_history.append(entry)
+            if outcome == "CONFLICT":
+                case.fact_conflicts.append({
+                    "fact": fact, "old": entry["previous"], "new": entry["new"],
+                    "old_status": previous_status, "new_status": status,
+                    "new_source": source_ref, "rule": reason, "status": "CONFLICT",
+                    "run_id": run, "at": at})
     return case
 
 
@@ -284,8 +332,8 @@ def save_output(case: CaseFile, out) -> None:
             cur.execute("""
                 INSERT INTO drafts (draft_id, case_id, attempt, drafter, model, prompt_version,
                                     structured, retrieval_pack, state, letter, evidence_list,
-                                    outcome, no_ground_reason)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    outcome, no_ground_reason, run_id, manifest)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (draft_id, case.case_id, out.draft.attempt, type(out.draft).__name__,
                   out.draft.model, out.draft.prompt_version,
                   _json(_jsonable([[asdict(s) for s in p] for p in out.draft.paragraphs])),
@@ -295,7 +343,8 @@ def save_output(case: CaseFile, out) -> None:
                   # the letter PDF answered 404 for a released case.
                   out.state.value, getattr(out, "letter", None),
                   _json(list(getattr(out, "evidence_list", None) or [])),
-                  _json(_jsonable(outcome)), getattr(out.draft, "no_ground_reason", None)))
+                  _json(_jsonable(outcome)), getattr(out.draft, "no_ground_reason", None),
+                  case.run_id, _json(_jsonable(getattr(out, "manifest", None)))))
             cur.execute("""
                 INSERT INTO validations (draft_id, passed, issues, validator_version)
                 VALUES (%s, %s, %s, %s)
@@ -325,14 +374,14 @@ def load_output(case: CaseFile):
         row = conn.execute("""
             SELECT d.attempt, d.model, d.prompt_version, d.structured, d.retrieval_pack,
                    d.state, d.letter, d.evidence_list, d.outcome, d.no_ground_reason,
-                   v.passed, v.issues
+                   v.passed, v.issues, d.manifest
             FROM drafts d LEFT JOIN validations v ON v.draft_id = d.draft_id
             WHERE d.case_id = %s ORDER BY d.created_at DESC LIMIT 1
         """, (case.case_id,)).fetchone()
     if row is None:
         return None
     (attempt, model, prompt_version, structured, pack, state, letter, evidence_list,
-     outcome, no_ground_reason, passed, issues) = row
+     outcome, no_ground_reason, passed, issues, manifest) = row
     draft = Draft(case.case_id,
                   [[DraftSentence(**s) for s in p] for p in (_loaded(structured) or [])],
                   attempt=attempt or 1, no_ground_reason=no_ground_reason, model=model,
@@ -354,6 +403,7 @@ def load_output(case: CaseFile):
     for k, v in (_loaded(outcome) or {}).items():
         if k in OUTCOME_FIELDS and v is not None:
             setattr(out, k, v)
+    out.manifest = _loaded(manifest)
     return out
 
 

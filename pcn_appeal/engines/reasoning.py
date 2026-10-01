@@ -33,6 +33,7 @@ from ..legal import code_versions, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
+from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
 GLOBAL_PROHIBITED = [
@@ -142,7 +143,7 @@ class ReasoningEngine:
         for m in self.kg.active_modules():
             ok = evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts)
             if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \
-                    and m.route in ("GRACE", "CONSIDERATION", "KEYING"):
+                    and m.route in (Route.GRACE, Route.CONSIDERATION, Route.KEYING):
                 trace.append(f"withheld {m.module_id}: Code version unresolved (R-01)")
                 ok = False
             if ok:
@@ -236,7 +237,7 @@ class ReasoningEngine:
 
         def route_key(route: str) -> tuple:
             return (
-                1 if route == "LANDOWNER" else 0,
+                1 if route == Route.LANDOWNER else 0,
                 0 if best[route] >= SUPPORTING_THRESHOLD else 1,   # may this route lead?
                 self.kg.route_tier(route),
                 self.kg.route_rank(route),

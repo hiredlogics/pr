@@ -9,22 +9,26 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
+from ..routes import Route, validate_service_routes
 from . import document_types as T
 from .classifier import DocumentClassification
 
-# Routes. One per service engine in pcn_appeal/services/.
-PRIVATE_PARKING = "PRIVATE_PARKING"
-DEBT_RECOVERY = "DEBT_RECOVERY"
-ORDER_FOR_RECOVERY = "ORDER_FOR_RECOVERY"
-CHARGE_CERTIFICATE = "CHARGE_CERTIFICATE"
-COUNCIL_PCN = "COUNCIL_PCN"
-CLAIMS = "CLAIMS"
-BAILIFF = "BAILIFF"
-CCJ_REMOVAL = "CCJ_REMOVAL"
-UNSUPPORTED_REVIEW = "UNSUPPORTED_REVIEW"
+# Routes. One per service engine in pcn_appeal/services/. Plain strings (they
+# are stored on the case and returned to the frontend), defined from the
+# registry so a name cannot drift from `Route`.
+PRIVATE_PARKING = Route.PRIVATE_PARKING.value
+DEBT_RECOVERY = Route.DEBT_RECOVERY.value
+ORDER_FOR_RECOVERY = Route.ORDER_FOR_RECOVERY.value
+CHARGE_CERTIFICATE = Route.CHARGE_CERTIFICATE.value
+COUNCIL_PCN = Route.COUNCIL_PCN.value
+CLAIMS = Route.CLAIMS.value
+BAILIFF = Route.BAILIFF.value
+CCJ_REMOVAL = Route.CCJ_REMOVAL.value
+UNSUPPORTED_REVIEW = Route.UNSUPPORTED_REVIEW.value
 
 ROUTES = (PRIVATE_PARKING, DEBT_RECOVERY, ORDER_FOR_RECOVERY, CHARGE_CERTIFICATE,
           COUNCIL_PCN, CLAIMS, BAILIFF, CCJ_REMOVAL, UNSUPPORTED_REVIEW)
+validate_service_routes(ROUTES)
 
 # Below this the router does not trust the label it would route on. The case
 # goes to review rather than to the service the label names.

@@ -35,8 +35,10 @@ MAX_ANALYSIS_ROUNDS = 3
 
 
 def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
-    """Attach a customer outcome when the letter was not released."""
+    """Attach a customer outcome when the letter was not released, and close
+    the run: this outcome is the run's, and the next step starts a new one."""
     if out.state == CaseState.RELEASED:
+        case.complete_run(CaseState.RELEASED.value)
         return out
     info = classify_hold(case, out.pack, out.validation, out.draft)
     out.outcome = info.get("outcome")
@@ -48,6 +50,7 @@ def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
     case.audit.append({"event": "customer_outcome", **{k: v for k, v in info.items()
                                                        if k != "detail"},
                        "detail": info.get("detail")})
+    case.complete_run(info.get("outcome") or out.state.value)
     return out
 
 
@@ -67,6 +70,8 @@ class AppealOutput:
     outcome_next: Optional[str] = None
     cta_label: Optional[str] = None
     can_continue: bool = True
+    # P0.5: what produced this result (manifest.py). Admin only.
+    manifest: Optional[dict] = None
 
 
 
@@ -113,9 +118,11 @@ class AppealPipeline:
 
     # step 1-2
     def ingest(self, case: CaseFile) -> list[str]:
+        case.ensure_run("ingest")
         return self.extraction.run(case)
 
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
+        case.ensure_run("confirm")
         self.extraction.confirm(case, corrections, confirmed)
         # Store narrative before any scope stop so free-text provenance survives
         # out-of-scope routing. Does not change disclosure status.
@@ -127,6 +134,7 @@ class AppealPipeline:
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
     def answer(self, case: CaseFile, answers: dict) -> list[dict]:
+        case.ensure_run("answer")
         for fact, raw in answers.items():
             self.questions.record_answer(case, fact, raw)
         return self._reanalyse(case, case.raw_answers.get("narrative", ""))
@@ -175,8 +183,8 @@ class AppealPipeline:
         if not unlocks or not q:
             return []
         case.audit.append({"event": "site_postcode_material", "unlocks": unlocks})
-        return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
-                 "material_because": f"needed to apply {', '.join(unlocks)}"}]
+        # Why it is asked (`unlocks`) is in the audit entry above, never on the question.
+        return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"]}]
 
     @staticmethod
     def _pcn_conflict_question(case: CaseFile) -> list[dict]:
@@ -233,6 +241,7 @@ class AppealPipeline:
         customer did not substantiate.
         """
         flags: list[str] = []
+        case.ensure_run("auto_appeal")
         if case.state == CaseState.CREATED:
             flags = self.ingest(case)
             stopped = self._stop_if_no_appeal_right(case, flags)
@@ -339,6 +348,15 @@ class AppealPipeline:
 
     # step 4-6
     def generate(self, case: CaseFile) -> AppealOutput:
+        """Steps 4-6 for the case's current run, ending in a released letter or a
+        hold, with the run's execution manifest attached either way."""
+        case.ensure_run("generate")
+        out = self._generate(case)
+        from . import manifest
+        manifest.attach(case, out, self)
+        return out
+
+    def _generate(self, case: CaseFile) -> AppealOutput:
         stop = self._apply_scope_stop(case)
         if stop:
             empty = RetrievalPack(

@@ -38,6 +38,7 @@ from .. import prompts
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile, KBModule
 from ..rules.dsl import evaluate
+from ..routes import GENERAL_GROUND_ROUTES, Route
 from .claim_plan import build_claim_plan
 
 # A question is a cost to the customer, so the ceiling is low and silence is the
@@ -360,7 +361,7 @@ class AnalysisEngine:
         for m in list(filtered) + list(ranked):
             if m.module_id in seen:
                 continue
-            if self._is_always_on(m) or m.route == "LANDOWNER":
+            if self._is_always_on(m) or m.route == Route.LANDOWNER:
                 continue
             if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
                 leaders.append(m)
@@ -757,7 +758,7 @@ class AnalysisEngine:
         return True
 
     def _fact_specific_path_open(self, case: CaseFile, result: CaseAnalysis) -> bool:
-        """True when BAY/REC/other non-PoFA non-LAND ground is selected or gated-in.
+        """True when BAY/REC/other non-PoFA non-LANDOWNER ground is selected or gated-in.
 
         Also true when the allegation itself is already bay- or validation-shaped:
         those letters do not need ATA/postcode even before every gating fact lands.
@@ -769,11 +770,11 @@ class AnalysisEngine:
             return True
         for mid in result.module_ids:
             mod = self.kg.modules.get(mid)
-            if mod and mod.route not in ("POFA", "LAND"):
+            if mod and mod.route not in GENERAL_GROUND_ROUTES:
                 return True
         facts = case.fact_view()
         for m in self.kg.active_modules():
-            if m.route in ("POFA", "LAND"):
+            if m.route in GENERAL_GROUND_ROUTES:
                 continue
             if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
                 return True
@@ -782,7 +783,7 @@ class AnalysisEngine:
     def _ata_would_unlock(self, case: CaseFile) -> bool:
         facts = case.fact_view()
         for m in self.kg.active_modules():
-            if m.route == "LAND" or str(m.module_id).startswith("KB-LAND"):
+            if m.route == Route.LANDOWNER:
                 continue
             if not self._needs_code_version(m):
                 continue

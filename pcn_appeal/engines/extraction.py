@@ -564,7 +564,7 @@ class ExtractionEngine:
                           FactSource(SourceKind.ANSWER, f"confirm:{name}")))
         for name in confirmed:
             if name in case.facts and case.facts[name].status in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
-                case.facts[name].status = FactStatus.CONFIRMED
+                case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
         # Explicit confirm/correct of the PCN clears a cross-document conflict gate.
         if "pcn_number" in corrections or "pcn_number" in confirmed:
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,

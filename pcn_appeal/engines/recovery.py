@@ -19,6 +19,7 @@ from typing import Any, Optional
 from ..legal import code_versions, pofa
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from ..disclosure import keeper_route_blocked
+from ..routes import GENERAL_GROUND_ROUTES, Route
 from .extraction import (
     DATE_FIELDS, TIME_FIELDS, VRM_FIELDS, _hhmm, _pcn_candidates_from_text,
     derive_jurisdiction, known_operator_ata, normalise_operator_ata, parse_uk_date,
@@ -640,12 +641,12 @@ class FactRecoveryEngine:
         return None
 
     def _ata_unlocks_arguable_ground(self, case: CaseFile) -> bool:
-        """True when some SCOP-based ground (other than always-on LAND) already
+        """True when some SCOP-based ground (other than always-on LANDOWNER) already
         satisfies use_when and would gain a resolved Code version from ATA."""
         from ..rules.dsl import evaluate
         facts = case.fact_view()
         for m in self.kg.active_modules():
-            if m.route == "LAND" or str(m.module_id).startswith("KB-LAND"):
+            if m.route == Route.LANDOWNER:
                 continue
             if not any(str(s).startswith("SCOP-") for s in (m.legal_basis or [])):
                 continue
@@ -656,14 +657,14 @@ class FactRecoveryEngine:
         return False
 
     def _fact_specific_ground_open(self, case: CaseFile) -> bool:
-        """True when a non-PoFA / non-LAND module already clears its gates.
+        """True when a non-PoFA / non-LANDOWNER module already clears its gates.
 
         Those letters do not need a site postcode to proceed.
         """
         from ..rules.dsl import evaluate
         facts = case.fact_view()
         for m in self.kg.active_modules():
-            if m.route in ("POFA", "LAND"):
+            if m.route in GENERAL_GROUND_ROUTES:
                 continue
             if evaluate(m.do_not_use_when, facts):
                 continue
@@ -703,7 +704,7 @@ def postcode_unlocks(case: CaseFile, kg) -> list[str]:
                  pofa_finding=res.findings[0] if res.findings else None)
     out = []
     for m in kg.active_modules():
-        if m.route != "POFA" or m.strength < SUPPORTING_THRESHOLD:
+        if m.route != Route.POFA or m.strength < SUPPORTING_THRESHOLD:
             continue
         if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
             out.append(m.module_id)

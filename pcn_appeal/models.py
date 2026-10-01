@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
@@ -61,6 +61,15 @@ class CaseState(str, Enum):
     CLASSIFICATION_FAILED = "CLASSIFICATION_FAILED"
 
 
+# Statuses only a customer action produces: confirming a reading, correcting
+# it, or answering a question. A machine status is a reading or a calculation.
+CUSTOMER_STATUSES = frozenset({"CONFIRMED", "CORRECTED", "ANSWERED"})
+MACHINE_STATUSES = frozenset({"EXTRACTED", "DERIVED", "UNCERTAIN"})
+# Values that hold no information. Replacing one is never a conflict: an
+# UNKNOWN jurisdiction becomes a known one as soon as the postcode is read.
+_PLACEHOLDERS = (None, "", "UNKNOWN", [])
+
+
 # --------------------------------------------------------------------------- facts
 @dataclass
 class FactSource:
@@ -102,6 +111,86 @@ class EvidenceItem:
     # gone the moment the process ends - the notice a customer's appeal rests on
     # would not be retrievable if they later disputed what we read.
     storage_url: Optional[str] = None
+
+
+class RunAudit(list):
+    """The case audit: a list that stamps each entry with the case's run."""
+
+    def __init__(self, case: Optional["CaseFile"] = None, items=()):
+        super().__init__(items)
+        self._case = case
+
+    def _stamp(self, entry):
+        if isinstance(entry, dict) and "run_id" not in entry:
+            entry["run_id"] = getattr(self._case, "run_id", 0)
+        return entry
+
+    def append(self, entry) -> None:
+        super().append(self._stamp(entry))
+
+    def insert(self, index, entry) -> None:
+        super().insert(index, self._stamp(entry))
+
+    def extend(self, entries) -> None:
+        super().extend(self._stamp(e) for e in entries)
+
+    def __iadd__(self, entries):
+        self.extend(entries)
+        return self
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    return value
+
+
+def _same_value(a: Any, b: Any) -> bool:
+    if a == b:
+        return True
+    norm = lambda v: re.sub(r"\s+", "", str(v)).upper()  # noqa: E731
+    return isinstance(a, str) and isinstance(b, str) and norm(a) == norm(b)
+
+
+def _is_explicit_customer(f: "Fact") -> bool:
+    """A value the customer settled: confirmed, corrected, or answered to a
+    question. An ANSWERED value inferred from free text is a reading of the
+    account, not an answer."""
+    status = f.status.value
+    if status in ("CONFIRMED", "CORRECTED"):
+        return True
+    return status == "ANSWERED" and f.source.kind != SourceKind.CUSTOMER_FREE_TEXT
+
+
+def _is_machine(f: "Fact") -> bool:
+    return f.status.value in MACHINE_STATUSES or f.source.kind == SourceKind.CUSTOMER_FREE_TEXT
+
+
+def _refusal(old: "Fact", new: "Fact") -> Optional[str]:
+    """Why `new` may not replace `old` (a rule name), or None."""
+    from .fact_ownership import CUSTOMER, DOCUMENT, EVIDENCE, owner_of
+    if _is_explicit_customer(new):
+        return None
+    if _is_explicit_customer(old) and _is_machine(new):
+        return "customer_settled"
+    owner = owner_of(new.name)
+    if owner in (DOCUMENT, EVIDENCE) and new.source.kind == SourceKind.CUSTOMER_FREE_TEXT \
+            and old.source.kind in (SourceKind.DOCUMENT, SourceKind.CALCULATION):
+        return f"{owner.lower()}_owned"
+    if owner == CUSTOMER and new.source.kind == SourceKind.DOCUMENT \
+            and old.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT):
+        return "customer_owned"
+    return None
 
 
 @dataclass
@@ -149,6 +238,14 @@ class CaseFile:
     # proposition (source=CUSTOMER_FREE_TEXT). Drafting uses propositions only.
     free_text_provenance: list = field(default_factory=list)
     audit: list[dict] = field(default_factory=list)
+    # P0.3: the current analysis run and whether it has finished. 0 = no run yet.
+    run_id: int = 0
+    run_status: str = "NONE"                 # NONE / OPEN / COMPLETED
+    # P0.5: the frontend build the case was opened from (X-Frontend-Version).
+    frontend_version: Optional[str] = None
+    # P0.4: every fact write and removal, and the writes that were refused.
+    fact_history: list[dict] = field(default_factory=list)
+    fact_conflicts: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -159,10 +256,115 @@ class CaseFile:
         f = self.facts.get(name)
         return bool(f and f.usable and f.value not in (None, "", []))
 
-    def put(self, fact: Fact) -> None:
+    def put(self, fact: Fact, reason: str = "") -> bool:
+        """Set a fact, recording the change; returns False when it was refused.
+
+        Every write is recorded in `fact_history` (previous and new value,
+        source, run, time, reason). A write is refused - the held value stays and
+        a CONFLICT is recorded in `fact_conflicts` - when it would silently
+        overwrite something the customer settled or a source does not own:
+
+          A. a machine reading (EXTRACTED, DERIVED, UNCERTAIN, or an inference
+             from the customer's free text) never replaces a different value the
+             customer confirmed, corrected or answered;
+          B. ownership (fact_ownership.py): the customer's account never
+             rewrites a DOCUMENT- or EVIDENCE-owned value read from a document,
+             and a document reading never rewrites a CUSTOMER-owned value the
+             customer gave.
+
+        An explicit customer act (CONFIRMED, CORRECTED, or ANSWERED from a
+        question) is always applied: that is how a customer fixes a misreading.
+        The same value at a lower status is not applied, so a re-read never
+        demotes a confirmation.
+        """
+        old = self.facts.get(fact.name)
+        if old is not None and _same_value(old.value, fact.value):
+            if _is_explicit_customer(old) and not _is_explicit_customer(fact):
+                return True                     # unchanged; keep the customer's status
+        elif old is not None and old.value not in _PLACEHOLDERS \
+                and fact.value not in _PLACEHOLDERS:
+            refused = _refusal(old, fact)
+            if refused:
+                self._record_fact_change(old, fact, "CONFLICT", reason or refused)
+                conflict = {"fact": fact.name, "old": old.value, "new": fact.value,
+                            "old_status": old.status.value, "new_status": fact.status.value,
+                            "old_source": old.source.ref, "new_source": fact.source.ref,
+                            "rule": refused, "status": "CONFLICT",
+                            "run_id": self.run_id, "at": _now()}
+                self.fact_conflicts.append(conflict)
+                self.audit.append({"event": "fact_conflict", **conflict})
+                return False
         self.facts[fact.name] = fact
+        self._record_fact_change(old, fact, "APPLIED", reason)
         self.audit.append({"event": "fact_set", "name": fact.name,
                            "status": fact.status.value, "source": fact.source.ref})
+        return True
+
+    def set_status(self, name: str, status: "FactStatus", reason: str = "") -> None:
+        """Change a held fact's status without changing its value (the
+        confirmation screen promoting a reading to CONFIRMED)."""
+        f = self.facts.get(name)
+        if f is None or f.status == status:
+            return
+        new = Fact(f.fact_id, f.name, f.value, status, f.source, f.confidence)
+        self._record_fact_change(f, new, "APPLIED", reason or "status")
+        f.status = status
+
+    def retract(self, name: str, reason: str) -> None:
+        """Remove a fact, recording that it was removed and why."""
+        old = self.facts.pop(name, None)
+        if old is not None:
+            self.fact_history.append({
+                "fact": name, "previous": _plain(old.value), "new": None,
+                "previous_status": old.status.value, "status": None,
+                "source_kind": None, "source_ref": None, "reason": reason,
+                "outcome": "RETRACTED", "run_id": self.run_id, "at": _now()})
+
+    def _record_fact_change(self, old: Optional["Fact"], new: "Fact", outcome: str,
+                            reason: str) -> None:
+        self.fact_history.append({
+            "fact": new.name,
+            "previous": None if old is None else _plain(old.value),
+            "new": _plain(new.value),
+            "previous_status": None if old is None else old.status.value,
+            "status": new.status.value,
+            "source_kind": new.source.kind.value, "source_ref": new.source.ref,
+            "reason": reason, "outcome": outcome, "run_id": self.run_id, "at": _now()})
+
+    # runs ------------------------------------------------------------------
+    def begin_run(self, trigger: str) -> int:
+        """Start an analysis run. Everything recorded from here - extraction,
+        reasoning, questions, the claim plan, validation and the outcome - is
+        stamped with this run, and only this run decides the customer outcome."""
+        self.run_id += 1
+        self.run_status = "OPEN"
+        self.audit.append({"event": "run_started", "trigger": trigger})
+        return self.run_id
+
+    def ensure_run(self, trigger: str) -> int:
+        """The open run, or a new one when none is open (the last completed)."""
+        if self.run_status != "OPEN":
+            return self.begin_run(trigger)
+        return self.run_id
+
+    def complete_run(self, outcome: str) -> None:
+        if self.run_status == "OPEN":
+            self.audit.append({"event": "run_completed", "outcome": outcome})
+            self.run_status = "COMPLETED"
+
+    def current_run_audit(self) -> list[dict]:
+        """The audit entries of the current run. A case that never started a
+        run (built before runs existed) is one run: everything."""
+        if not self.run_id:
+            return list(self.audit)
+        return [a for a in self.audit if a.get("run_id", 0) == self.run_id]
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Every audit entry carries the run it belongs to, however the list was
+        # assigned (the constructor, a store load, a test).
+        if name == "audit" and not isinstance(value, RunAudit):
+            value = RunAudit(self, value or [])
+        object.__setattr__(self, name, value)
 
     def fact_view(self) -> dict[str, Any]:
         """Flat dict of usable facts for the rule DSL."""

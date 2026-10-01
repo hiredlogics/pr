@@ -37,8 +37,10 @@ import re
 from typing import Optional
 
 from .. import prompts
+from ..customer_safe import internal_ids
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
+from ..routes import Route
 
 R = lambda p: re.compile(p, re.I)  # noqa: E731
 
@@ -49,7 +51,7 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-1"
+VERSION = "VAL-2"  # VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
 DRIVER_PATTERNS = [
     R(r"\bI (drove|was driving|parked|left the (car|vehicle)|returned to the (car|vehicle)|arrived|came back|"
@@ -311,7 +313,7 @@ class ValidationEngine:
                 block("VAL-STAGE", "Wrong-stage language in an initial operator appeal", t)
             if OBSOLETE.search(t):
                 block("VAL-OBSOLETE", "Obsolete penalty / pre-estimate argument", t)
-            if LEAK.search(t):
+            if LEAK.search(t) or internal_ids(t):
                 block("VAL-LEAK", "Internal IDs, placeholders or AI self-reference in output", t)
             if DRAFTER_NOTE.search(t):
                 block("VAL-LEAK", "Drafting guidance from a building block left in the letter", t)
@@ -456,7 +458,7 @@ class ValidationEngine:
                 block("VAL-EVIDENCE-CONTRADICTION",
                       "EVIDENCE / contradiction ground selected without "
                       "independent_evidence_contradicts being established")
-        if "KB-REC-01" in pack.module_ids and pack.primary_route == "EVIDENCE":
+        if "KB-REC-01" in pack.module_ids and pack.primary_route == Route.EVIDENCE:
             # Safety net if KB-REC-01 is ever re-homed onto EVIDENCE by mistake.
             block("VAL-EVIDENCE-CONTRADICTION",
                   "Records-request ground (KB-REC-01) must not lead as EVIDENCE "

@@ -327,7 +327,7 @@ async function doUpload(btn) {
     S.caseId = created.case_id;
     await api("POST", `/cases/${S.caseId}/documents`,
               {documents: [{evidence_id: "E1", filename, text, kind: "OTHER"}]});
-    const conf = await api("GET", `/cases/${S.caseId}/confirmation`);
+    const conf = await api("GET", `/cases/${S.caseId}/facts`);
     S.facts = conf.facts; S.flags = conf.flags; S.stage = 2;
     render();
   });
@@ -391,7 +391,7 @@ async function doGenerate(btn) {
 }
 
 async function refreshFacts() {
-  const conf = await api("GET", `/cases/${S.caseId}/confirmation`);
+  const conf = await api("GET", `/cases/${S.caseId}/facts`);
   S.facts = conf.facts; S.flags = conf.flags;
 }
 
