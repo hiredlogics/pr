@@ -62,7 +62,7 @@ LEADING_STRENGTH = 50
 # and asked nothing. Not a V1 circumstance→ground map: these only unlock
 # customer-answerable facts; grounds still require CI + use_when.
 SITUATION_FALLBACK: list[dict[str, Any]] = [
-    {"fact": "payment_made", "text": "Was a parking payment made or attempted for this visit?",
+    {"fact": "payment_made", "text": "Was a parking payment completed for this visit?",
      "type": "bool", "material_because": "unlocks payment / keying grounds"},
     {"fact": "genuine_customer",
      "text": "Was the visit connected with genuine use of the premises at this location?",
@@ -152,6 +152,9 @@ class CaseAnalysis:
     # Finalized claim plan + material-fact accounting (engines.claim_plan).
     claim_plan: dict = field(default_factory=dict)
     candidate_ids: list[str] = field(default_factory=list)
+    # The case_analysis call failed (after its retry): nothing above is a
+    # judgment on the case.
+    analysis_failed: bool = False
 
     @property
     def needs_answers(self) -> bool:
@@ -169,6 +172,28 @@ class AnalysisEngine:
         self.max_questions = int(cfg.get("max_questions_v2", max_questions))
         self.max_rounds = int(cfg.get("max_question_rounds", DEFAULT_MAX_ROUNDS))
 
+    def _call(self, case, circumstances, facts, candidates, pofa, code_version,
+              result: CaseAnalysis) -> Optional[dict]:
+        """The case_analysis call, retried once. Records `case_analysis_completed`
+        or `case_analysis_error` so the outcome can tell "analysis found nothing"
+        from "analysis never ran"."""
+        payload = self._payload(case, circumstances, facts, candidates, pofa, code_version)
+        last: Optional[Exception] = None
+        for attempt in (1, 2):
+            try:
+                raw = self.llm.complete_json(
+                    task="case_analysis", system=prompts.system("case_analysis"), user=payload)
+                if not isinstance(raw, dict):
+                    raise ValueError(f"case analysis returned {type(raw).__name__}, not an object")
+                case.audit.append({"event": "case_analysis_completed", "attempt": attempt})
+                return raw
+            except Exception as exc:
+                last = exc
+        case.audit.append({"event": "case_analysis_error", "error": str(last)})
+        result.analysis_failed = True
+        result.trace.append(f"case analysis unavailable ({type(last).__name__}); nothing proposed")
+        return None
+
     # ------------------------------------------------------------------ main
     def analyse(self, case: CaseFile, circumstances: str = "",
                 pofa: Any = None, code_version: Optional[str] = None) -> CaseAnalysis:
@@ -183,26 +208,17 @@ class AnalysisEngine:
             result.trace.append(
                 f"question round limit reached ({rounds}>={self.max_rounds}); asking nothing")
             # Still propose grounds so drafting can proceed with what is known.
-            try:
-                raw = self.llm.complete_json(
-                    task="case_analysis", system=prompts.system("case_analysis"),
-                    user=self._payload(case, circumstances, facts, candidates, pofa, code_version))
+            raw = self._call(case, circumstances, facts, candidates, pofa, code_version, result)
+            if raw is not None:
                 result.module_ids = self._finalize_claims(
                     case, raw.get("grounds") or [], facts, pofa, code_version, result)
-            except Exception as exc:
-                case.audit.append({"event": "case_analysis_error", "error": str(exc)})
-                result.trace.append(f"case analysis unavailable ({type(exc).__name__}); nothing proposed")
             return result
 
-        try:
-            raw = self.llm.complete_json(
-                task="case_analysis", system=prompts.system("case_analysis"),
-                user=self._payload(case, circumstances, facts, candidates, pofa, code_version))
-        except Exception as exc:
-            # No proposal is a safe outcome: the pipeline drafts from what is
-            # already proven rather than guessing, and asks nothing.
-            case.audit.append({"event": "case_analysis_error", "error": str(exc)})
-            result.trace.append(f"case analysis unavailable ({type(exc).__name__}); nothing proposed")
+        raw = self._call(case, circumstances, facts, candidates, pofa, code_version, result)
+        if raw is None:
+            # Nothing is proposed, and the case records that analysis did not
+            # run: an empty selection here is a processing failure, never a
+            # finding that the case has no supported ground (engines/outcome.py).
             return result
 
         proposed = raw.get("grounds") or []

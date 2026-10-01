@@ -16,7 +16,7 @@ from .drafting.drafter import LLMDrafter, TemplateDrafter
 from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.extraction import ExtractionEngine
-from .engines.outcome import classify_hold
+from .engines.outcome import analysis_failed, classify_hold
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine
@@ -387,6 +387,15 @@ class AppealPipeline:
         # Completed analysis with nothing to argue: stop here with a truthful
         # no-supported-grounds outcome. Do not draft an empty pack and then
         # dress VAL-SUBSTANCE / no_ground as a merits judgment.
+        if not (pack.module_ids or []) and analysis_failed(case):
+            # The model call failed: hold as a processing error, retryable on
+            # this same case, and never recorded as "no supported grounds".
+            case.state = CaseState.MANUAL_REVIEW
+            case.audit.append({"event": "analysis_failed_nothing_selected", "module_ids": []})
+            return _with_outcome(
+                AppealOutput(case.state, None, pack, Draft(case.case_id, []),
+                             ValidationResult(False, []), self._evidence_list(case)),
+                case)
         if not (pack.module_ids or []):
             case.state = CaseState.MANUAL_REVIEW
             case.audit.append({

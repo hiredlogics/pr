@@ -58,6 +58,28 @@ def _is_prose_answer(text: str) -> bool:
     return len(str(text or "").strip()) > 40 and " " in str(text)
 
 
+_UNCERTAIN = re.compile(
+    r"^\W*(i'?m |i am )?(not sure|unsure|not certain|uncertain|no idea|"
+    r"(i )?(don'?t|do not|can'?t|cannot|can not) (know|remember|recall|say)|"
+    r"maybe|possibly|perhaps|unknown|n/?a)\b", re.I)
+_LEADING_YES = re.compile(r"^\W*(yes|yeah|yep|yup|correct|true|that'?s right|it was|they were)\b", re.I)
+_LEADING_NO = re.compile(r"^\W*(no|nope|nah|not|never|none|negative|false)\b", re.I)
+
+
+def answer_polarity(text: str) -> Any:
+    """How a written answer opens: True ("Yes, ..."), False ("No, ..."), or
+    None (uncertain, or no stated polarity). Uncertainty is checked first so
+    "Not sure" is never read as "No"."""
+    t = str(text or "").strip()
+    if _UNCERTAIN.search(t):
+        return None
+    if _LEADING_YES.search(t):
+        return True
+    if _LEADING_NO.search(t):
+        return False
+    return None
+
+
 def keeper_safe_text(s: str) -> str:
     """Deterministic first-pass neutraliser for free-text answers (Q-06).
     Production: LLM rewrite + this regex as a floor + validator as backstop."""
@@ -86,7 +108,17 @@ class QuestionEngine:
             case.asked_questions.append(fact)
         t = q.get("type")
         if t == "bool":
-            value = raw if isinstance(raw, bool) else str(raw).strip().lower() in ("y", "yes", "true", "1")
+            if isinstance(raw, bool):
+                value = raw
+            elif str(raw).strip().lower() in ("y", "yes", "true", "1"):
+                value = True
+            elif _UNCERTAIN.search(str(raw)):
+                # "Not sure" is not "No": the fact stays unknown rather than
+                # asserting a negative the customer never gave.
+                case.state = CaseState.QUESTIONING
+                return
+            else:
+                value = answer_polarity(raw) is True
         elif t == "int":
             value = int(raw)
         elif t == "choice":
@@ -100,9 +132,19 @@ class QuestionEngine:
             # professional propositions. Short closed-form text (ATA codes, labels)
             # may remain as the fact value.
             text = str(raw).strip()
+            if _UNCERTAIN.search(text):
+                # "Not sure" is kept as the raw answer only; stored as a value
+                # it would read as a known fact.
+                case.state = CaseState.QUESTIONING
+                return
             if _is_prose_answer(text):
+                # The answer's own opening decides the value: "No, the children
+                # were not in the car" is False. Without a stated yes/no it
+                # records that an account was given; engines.account reads the
+                # specifics with its own guards.
+                polarity = answer_polarity(text)
                 case.put(Fact(
-                    f"F-{fact}", fact, True, FactStatus.ANSWERED,
+                    f"F-{fact}", fact, polarity is not False, FactStatus.ANSWERED,
                     FactSource(
                         SourceKind.CUSTOMER_FREE_TEXT,
                         f"answer:{fact}",

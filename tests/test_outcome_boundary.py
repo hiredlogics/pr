@@ -175,7 +175,11 @@ class GenerateShortCircuit(unittest.TestCase):
         case.state = CaseState.ANALYSED
         case.analysis_module_ids = []
         case.document_classes = {"E1": "NTK"}
-        pipe = AppealPipeline(kg, FakeLLM(), FakeLLM())
+        # A completed analysis that proposes nothing. This test used to pass
+        # the KnowledgeGraph as the LLM, so analysis *raised* and the failure
+        # was reported as "no supported grounds" (client issue 41).
+        llm = FakeLLM({"case_analysis": [{"grounds": [], "questions": []}] * 8})
+        pipe = AppealPipeline(llm, FakeLLM(), kg=kg)
         empty = _empty_pack()
         pipe.reasoning.analyse = lambda *a, **k: empty  # type: ignore[method-assign]
         pipe.reasoning.leading_grounds = lambda ids: False  # type: ignore[method-assign]
@@ -186,6 +190,23 @@ class GenerateShortCircuit(unittest.TestCase):
         events = [a.get("event") for a in case.audit]
         self.assertIn("analysis_complete_no_supported_grounds", events)
         self.assertNotIn("no_ground", events)
+
+    def test_failed_analysis_short_circuits_to_processing_error(self):
+        kg = KnowledgeGraph()
+        case = CaseFile(case_id="t-short-fail")
+        case.state = CaseState.ANALYSED
+        case.analysis_module_ids = []
+        case.document_classes = {"E1": "NTK"}
+        pipe = AppealPipeline(FakeLLM(), FakeLLM(), kg=kg)    # case_analysis raises
+        empty = _empty_pack()
+        pipe.reasoning.analyse = lambda *a, **k: empty  # type: ignore[method-assign]
+        pipe.reasoning.leading_grounds = lambda ids: False  # type: ignore[method-assign]
+
+        out = pipe.generate(case)
+        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        self.assertEqual(out.outcome, OUTCOME_PROCESSING_ERROR)
+        events = [a.get("event") for a in case.audit]
+        self.assertNotIn("analysis_complete_no_supported_grounds", events)
 
 
 if __name__ == "__main__":

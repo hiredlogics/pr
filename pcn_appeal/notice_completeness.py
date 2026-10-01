@@ -14,11 +14,17 @@ from .rules import scope
 
 REVERSE_NAME = re.compile(r"(?:back|reverse|rear|verso|page\s*[2-9])\b", re.I)
 # Wording that typically appears on the reverse / continuation of a postal NTK.
-REVERSE_TEXT = re.compile(
-    r"(?:how\s+to\s+appeal|protection\s+of\s+freedoms|schedule\s+4|"
-    r"pass\s+(?:this|the)\s+notice|independent\s+appeals|ias\s+or\s+popla)",
-    re.I,
+# Grouped: a front page commonly cites "Protection of Freedoms Act 2012,
+# Schedule 4" on its own, so one group is never enough to stand in for a reverse.
+REVERSE_TEXT_GROUPS = (
+    re.compile(r"protection\s+of\s+freedoms|schedule\s+4", re.I),
+    re.compile(r"how\s+to\s+appeal", re.I),
+    re.compile(r"pass\s+(?:this|the)\s+notice", re.I),
+    re.compile(r"independent\s+appeals|ias\s+or\s+popla", re.I),
 )
+REVERSE_TEXT = re.compile("|".join(g.pattern for g in REVERSE_TEXT_GROUPS), re.I)
+# Page sides (from the classifier) that show something other than the face.
+NON_FRONT_SIDES = {"REVERSE", "CONTINUATION", "BLANK"}
 
 BOTH_SIDES_MESSAGE = (
     "Please upload the front and back of your notice. Both sides are mandatory, "
@@ -51,6 +57,34 @@ def upload_pages_sufficient(evidence_items: list) -> tuple[bool, str]:
     if total >= 2 and unique < 2:
         return False, "duplicate_front_images"
     return False, "front_only_or_single_page"
+
+
+def _page_sides(case: CaseFile, notice_ev: list) -> list[str]:
+    """The classifier's side label for every notice image page, or [] when the
+    classifier gave no usable labels (an older answer, or a text-only upload)."""
+    sides: list[str] = []
+    for e in notice_ev:
+        labels = {p.get("page"): p.get("side")
+                  for p in ((case.classifications or {}).get(e.evidence_id) or {}).get("pages") or []
+                  if isinstance(p, dict)}
+        for n in range(1, len(e.images or []) + 1):
+            sides.append(str(labels.get(n) or "UNKNOWN"))
+    return sides if any(s != "UNKNOWN" for s in sides) else []
+
+
+def notice_pages_sufficient(case: CaseFile) -> tuple[bool, str]:
+    """upload_pages_sufficient, with the classifier's page sides deciding when
+    it gave them: two distinct photos that are both the face are not front and
+    back. Falls back to the page-count rule when no page is labelled."""
+    evidence = list(case.evidence.values())
+    sides = _page_sides(case, evidence)
+    if sides:
+        unique = len({_image_sha(img) for e in evidence for img in (e.images or [])})
+        if any(s in NON_FRONT_SIDES for s in sides) and unique >= 2:
+            return True, "classifier_labelled_reverse_page"
+        if all(s == "FRONT" for s in sides):
+            return False, "only_front_pages"
+    return upload_pages_sufficient(evidence)
 
 
 def _image_sha(data: bytes) -> str:
@@ -121,7 +155,7 @@ def assess_notice_sides(case: CaseFile) -> dict[str, Any]:
 
     named_reverse = any(REVERSE_NAME.search(e.filename or "") for e in notice_ev)
     text_blob = "\n".join((e.text or "") for e in notice_ev)
-    text_has_reverse = bool(text_blob and REVERSE_TEXT.search(text_blob))
+    text_has_reverse = sum(1 for g in REVERSE_TEXT_GROUPS if g.search(text_blob or "")) >= 2
     # Vision may have transcribed invitation / reverse content into bools even
     # when OCR char count is 0 — that is page-backed evidence, not unreadability.
     vision_reverse_signal = (
@@ -141,6 +175,21 @@ def assess_notice_sides(case: CaseFile) -> dict[str, Any]:
         result["complete"] = False
         result["reason"] = "duplicate_front_images"
         return result
+
+    # Page-side labels decide when they exist: distinct images are not two
+    # sides if every labelled page is the face. UNKNOWN pages are not counted
+    # either way; when nothing is labelled the rules below apply unchanged.
+    sides = _page_sides(case, notice_ev)
+    result["page_sides"] = sides
+    if sides:
+        if any(s in NON_FRONT_SIDES for s in sides) and unique >= 2:
+            result["complete"] = True
+            result["reason"] = "classifier_labelled_reverse_page"
+            return result
+        if all(s in ("FRONT", "UNKNOWN") for s in sides) and "UNKNOWN" not in sides:
+            result["complete"] = False
+            result["reason"] = "only_front_pages"
+            return result
 
     if unique >= 2 or (single_ev_multi and unique >= 2) or multi_page_text:
         result["complete"] = True

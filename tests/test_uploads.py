@@ -130,10 +130,22 @@ class BoolAnswers(unittest.TestCase):
 
         case = CaseFile(case_id="C-bool")
         engine = QuestionEngine(KG)
-        engine.record_answer(case, "payment_made", "maybe")
+        engine.record_answer(case, "payment_made", "the blue one")
         self.assertIs(case.facts["payment_made"].value, False)
-        self.assertEqual(case.raw_answers["payment_made"], "maybe",
+        self.assertEqual(case.raw_answers["payment_made"], "the blue one",
                          "the customer's own wording is kept for audit only")
+
+    def test_uncertain_text_sets_no_fact(self):
+        """"Maybe" is not "No" (client issue 8): the fact stays unknown rather
+        than recording a negative the customer never gave."""
+        from pcn_appeal.api import KG
+        from pcn_appeal.engines.questioning import QuestionEngine
+        from pcn_appeal.models import CaseFile
+
+        case = CaseFile(case_id="C-bool-unsure")
+        QuestionEngine(KG).record_answer(case, "payment_made", "maybe")
+        self.assertNotIn("payment_made", case.facts)
+        self.assertEqual(case.raw_answers["payment_made"], "maybe")
 
     def test_yes_spellings_all_read_as_yes(self):
         from pcn_appeal.api import KG

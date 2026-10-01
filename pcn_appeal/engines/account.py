@@ -111,12 +111,12 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "payment_made", True,
         re.compile(
             r"\b("
-            r"I (paid|was paying)|we paid|payment (was )?made|"
+            r"I paid|we paid|payment (was )?(made|completed|taken)|"
             r"paid (for|via|using|with)|paid (the|my) parking"
             r")",
             re.I,
         ),
-        "a parking payment was made or attempted for the visit",
+        "a parking payment was made for the visit",
         (),
     ),
     CircumstanceRule(
@@ -317,7 +317,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             # Negated wording must not invent affirmative occupancy/eligibility facts.
             if rule.fact_name in {
                 "child_occupant_present", "blue_badge_displayed", "permit_held",
-                "bay_conditions_met_accounted", "ev_charging_session",
+                "bay_conditions_met_accounted", "ev_charging_session", "payment_made",
             } and rule.value is True and _match_negated(text, m):
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.

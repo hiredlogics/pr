@@ -14,7 +14,7 @@
 # Each entry resolves ONE fact, and never asks or implies who was driving.
 # `normalise` maps answer -> keeper-safe fact value (raw text kept for audit only).
 questions:
-  payment_made:      {text: "Was a parking payment made or attempted for this visit?", type: bool}
+  payment_made:      {text: "Was a parking payment completed for this visit?", type: bool}
   payment_method:    {text: "How was the payment made?", type: choice, options: [APP, MACHINE, PHONE, WEBSITE, OTHER]}
   keying_error_type: {text: "Does the registration entered on the payment differ from the vehicle's registration?", type: choice, options: [NONE, MINOR, DIFFERENT_VEHICLE]}
   vrm_entered:       {text: "What registration was entered when paying (if known)?", type: text}

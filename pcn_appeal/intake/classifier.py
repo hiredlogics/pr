@@ -25,6 +25,9 @@ from ..models import CaseFile
 from . import document_types as T
 
 
+PAGE_SIDES = ("FRONT", "REVERSE", "CONTINUATION", "BLANK", "UNKNOWN")
+
+
 class ClassificationFailed(RuntimeError):
     """The classifier gave no usable answer. Retryable; not the customer's fault."""
 
@@ -41,6 +44,9 @@ class DocumentClassification:
     confidence: float = 0.0
     evidence_spans: list = field(default_factory=list)
     ambiguity_reason: Optional[str] = None
+    # One {"page": n, "side": FRONT|REVERSE|CONTINUATION|BLANK|UNKNOWN} per
+    # attached image (prompt v2). Read by notice_completeness; [] when absent.
+    pages: list = field(default_factory=list)
     # Contract corrections this module made to the model's answer, for the audit.
     notes: list = field(default_factory=list)
 
@@ -97,6 +103,23 @@ def _normalise(raw: dict[str, Any], case: CaseFile) -> DocumentClassification:
             spans.append({"page": s.get("page"), "text": str(s["text"])[:300],
                           "found_in_text": _span_found(str(s["text"]), doc_text or "")})
 
+    pages = []
+    n_images = len(case.evidence[ev_id].images or []) if ev_id in case.evidence else 0
+    for p in raw.get("pages") or []:
+        if not isinstance(p, dict):
+            continue
+        try:
+            page_no = int(p.get("page"))
+        except (TypeError, ValueError):
+            continue
+        if not 1 <= page_no <= n_images or any(x["page"] == page_no for x in pages):
+            continue
+        side = str(p.get("side") or "").strip().upper()
+        if side not in PAGE_SIDES:
+            notes.append(f"unrecognised page side {side!r} on page {page_no}")
+            side = "UNKNOWN"
+        pages.append({"page": page_no, "side": side})
+
     issuer = raw.get("issuer") if isinstance(raw.get("issuer"), dict) else {}
     refs = raw.get("references") if isinstance(raw.get("references"), dict) else {}
     return DocumentClassification(
@@ -106,7 +129,7 @@ def _normalise(raw: dict[str, Any], case: CaseFile) -> DocumentClassification:
                     if refs.get(k) not in (None, "", [])},
         document_date=raw.get("document_date") or None,
         confidence=_confidence(raw.get("confidence")),
-        evidence_spans=spans, ambiguity_reason=ambiguity, notes=notes)
+        evidence_spans=spans, ambiguity_reason=ambiguity, pages=pages, notes=notes)
 
 
 def _payload(case: CaseFile) -> tuple[str, list[bytes]]:

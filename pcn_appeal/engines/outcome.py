@@ -135,6 +135,11 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
                 for a in audit):
             return _pack(OUTCOME_NEEDS_DOCUMENTS, case)
 
+    # Analysis never ran (model/provider failure): an empty selection says
+    # nothing about the case. Checked before any no-supported-grounds path.
+    if analysis_failed(case):
+        return _pack(OUTCOME_PROCESSING_ERROR, case, detail="case_analysis_error")
+
     # Truthful completed analysis with nothing to argue — set before drafting.
     if "analysis_complete_no_supported_grounds" in events:
         return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case)
@@ -168,6 +173,19 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
         return _pack(OUTCOME_PROCESSING_ERROR, case,
                      detail={"issues": issues, "module_ids": module_ids})
     return _pack(OUTCOME_PROCESSING_ERROR, case, detail="held_with_leading_grounds")
+
+
+def analysis_failed(case) -> bool:
+    """True when the most recent case analysis attempt failed rather than
+    completed. Earlier rounds do not count: a later successful round supersedes
+    an earlier failure, and a later failure supersedes an earlier success."""
+    for a in reversed(list(getattr(case, "audit", None) or [])):
+        event = a.get("event")
+        if event == "case_analysis_completed":
+            return False
+        if event == "case_analysis_error":
+            return True
+    return False
 
 
 def _leading(case, module_ids: list[str]) -> list[str]:

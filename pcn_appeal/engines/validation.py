@@ -104,6 +104,57 @@ ONE_ASSERTION = {
 }
 
 
+def _ident(value) -> str:
+    """An identifier as compared: upper case, no spaces."""
+    return re.sub(r"\s+", "", str(value or "")).upper()
+
+
+def _contains_token(text: str, ident: str) -> bool:
+    """`ident` appears as a whole token (spaces inside it ignored), not as part
+    of a longer reference: "1234567" is not in "12345678"."""
+    for tok in re.findall(r"[A-Za-z0-9]+(?: [A-Za-z0-9]+)?", text):
+        for cand in (tok, *tok.split(" ")):
+            if cand.replace(" ", "").upper() == ident:
+                return True
+    return False
+
+
+def _edit_distance(a: str, b: str, cap: int = 3) -> int:
+    if abs(len(a) - len(b)) >= cap:
+        return cap
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return min(prev[-1], cap)
+
+
+def _near_variants(text: str, ident: str, *, min_len: int, max_len: int = 20,
+                   spaced: bool = False) -> list[str]:
+    """Tokens that are one or two edits from `ident` without being it: the
+    shape of a misread or mistyped PCN or registration. A token must contain a
+    digit (and a letter, if `ident` has one), so ordinary words never match."""
+    words = re.findall(r"\b[A-Za-z0-9]+\b", text)
+    tokens = list(words)
+    if spaced:                             # "RX7 V5FP" is printed as two words
+        tokens += [f"{a} {b}" for a, b in zip(words, words[1:])]
+    needs_alpha = any(c.isalpha() for c in ident)
+    found: list[str] = []
+    for tok in tokens:
+        norm = tok.replace(" ", "").upper()
+        if norm == ident or not (min_len <= len(norm) <= max_len):
+            continue
+        if not any(c.isdigit() for c in norm) or (needs_alpha and not any(c.isalpha() for c in norm)):
+            continue
+        if spaced and tok != tok.upper():
+            continue                       # registrations are printed in capitals
+        if _edit_distance(norm, ident) <= 2 and tok not in found:
+            found.append(tok)
+    return found
+
+
 def _jaccard(a: str, b: str) -> float:
     x, y = set(a.lower().split()), set(b.lower().split())
     return len(x & y) / max(len(x | y), 1)
@@ -398,11 +449,20 @@ class ValidationEngine:
                   "(contradiction label); use RECORDS")
 
         # document-level checks
-        pcn = str(facts.get("pcn_number", ""))
-        if pcn and pcn not in full:
-            block("VAL-CONFLICT", "PCN number missing or altered")
+        pcn = _ident(facts.get("pcn_number"))
+        if pcn:
+            if not _contains_token(full, pcn):
+                block("VAL-CONFLICT", "PCN number missing or altered")
+            for tok in _near_variants(full, pcn, min_len=6):
+                block("VAL-CONFLICT", f"Reference {tok} looks like an altered PCN number")
+        vrm = _ident(facts.get("vrm"))
         for tok in re.findall(r"\b[A-Z]{2}\d{2}\s?[A-Z]{3}\b", full):
-            if tok.replace(" ", "") != facts.get("vrm"):
+            if tok.replace(" ", "") != vrm:
+                block("VAL-CONFLICT", f"VRM {tok} does not match source VRM")
+        if vrm:
+            # Any plate shape, not only the current AB12CDE format: a misread
+            # such as RX7V5FP for RX7V5PP is the error that reaches operators.
+            for tok in _near_variants(full, vrm, min_len=5, max_len=8, spaced=True):
                 block("VAL-CONFLICT", f"VRM {tok} does not match source VRM")
         if facts.get("lease_has_regulations_clause") and "KB-RES-06" in pack.module_ids and \
                 not any("KB-RES-06" in s.module_refs for s in draft.sentences()):

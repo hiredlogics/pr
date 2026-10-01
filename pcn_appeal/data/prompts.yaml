@@ -495,7 +495,7 @@ prompts:
   # labels here decide routing (pcn_appeal/intake/router.py); `extraction` still
   # runs, inside the private parking service only, for that service's facts.
   classification:
-    version: 1
+    version: 2
     body: |-
       You classify UK documents about vehicle charges so they can be sent to the right
       service. You do not assess whether the charge is valid, and you do not decide the
@@ -517,11 +517,21 @@ prompts:
             "document_date": "<date printed as the date of this document, DD/MM/YYYY, or null>",
             "confidence": 0.0,
             "evidence_spans": [{"page": 1, "text": "<short verbatim wording that shows the type>"}],
+            "pages": [{"page": 1, "side": "FRONT|REVERSE|CONTINUATION|BLANK|UNKNOWN"}],
             "ambiguity_reason": null
           }
         ]
       }
       Classify EVERY document you are given, one entry each.
+      "pages" has one entry for each attached image of that document, numbered as in
+      <attached_images>. side is what that page shows:
+        FRONT - the face of the notice: the reference, vehicle, date and amount due.
+        REVERSE - the other side of the notice: terms, how to pay or appeal, statutory wording.
+        CONTINUATION - a further page of the same notice that is neither of those.
+        BLANK - an intentionally blank page.
+        UNKNOWN - you cannot tell.
+      Two photos of the same face are both FRONT. Judge each page from what is on it,
+      not from the order or the filename. Use [] when the document has no attached images.
 
       Labels, and the stages each may have (first stage is the usual one):
         PRIVATE_PARKING_NOTICE - a parking charge from a private company for parking on

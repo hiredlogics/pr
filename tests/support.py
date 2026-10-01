@@ -120,12 +120,13 @@ class ReferenceAnalysisLLM:
                 if obs is not None and evt is not None:
                     paras.append([{
                         "text": (
-                            f"The operator's records show an observation time of {obs} and an "
-                            f"event time of {evt}. A restriction of this kind turns on who was "
-                            f"using the bay over the course of the visit, so a record spanning "
-                            f"only that interval does not of itself establish the alleged breach. "
-                            f"The operator is requested to produce the evidence on which it "
-                            f"concluded that the conditions of use for the bay were not met."
+                            f"The notice records an observation time of {obs} and an event "
+                            f"time of {evt}. Whether the conditions of use for this bay were met "
+                            f"depends on how the bay was used during the visit, which those "
+                            f"recorded times do not themselves show. The operator is requested "
+                            f"to produce every photograph and record it relies on, with their "
+                            f"timestamps, showing that the conditions of use for the bay were "
+                            f"not met."
                         ),
                         "fact_refs": [refs[k] for k in ("observation_time", "event_time",
                                                        "restricted_bay_alleged") if k in refs],

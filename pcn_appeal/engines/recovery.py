@@ -446,7 +446,10 @@ class FactRecoveryEngine:
                 FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.scan_ntk_invitations"),
             ))
 
-        if has_pass is None and name_flag is None and pass_flag is None:
+        # Nothing seen is never compliance: SATISFIED needs the pass-to-driver
+        # invitation positively found (by text or an explicit extraction flag).
+        # A name-driver flag alone says nothing about the pass-on limb.
+        if has_pass is None:
             status = "UNRESOLVED"
             case.put(Fact(
                 "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
@@ -465,7 +468,7 @@ class FactRecoveryEngine:
             report.trace.append("ntk content: UNRESOLVED — insufficient text")
             return
 
-        if not defect:
+        if has_pass is True and not defect:
             status = "SATISFIED"
             case.put(Fact(
                 "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,

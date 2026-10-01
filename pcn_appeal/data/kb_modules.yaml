@@ -730,7 +730,7 @@ modules:
     topic: Observation window too narrow to establish a bay-eligibility breach
     use_when: {all: [{is: restricted_bay_alleged}, {exists: observation_window_min}, {lte: [observation_window_min, 5]}]}
     do_not_use_when: {always: false}
-    core_proposition: A record spanning only the operator's own observation window does not establish that the conditions of use for a reserved bay were unmet over the visit.
+    core_proposition: The operator's recorded observation and event times do not themselves show how the bay was used during the visit, so the operator is put to proof of the alleged breach with its photographs and their timestamps.
     required_facts: [restricted_bay_alleged, observation_window_min]
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
@@ -740,12 +740,12 @@ modules:
     building_blocks: [PP-BAY-001]
     strength: 65
     status: ACTIVE
-    version: "1.3"
+    version: "1.4"
     effective_from: null
     effective_to: null
     last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Timing-only. Account rebuttal moved to KB-BAY-02 so material facts are independent of the five-minute gate.
+    change_notes: Timing-only. Account rebuttal moved to KB-BAY-02 so material facts are independent of the five-minute gate. 1.4 (2026-10-01) - wording is a put-to-proof request; it no longer infers that the operator's record spans only an interval or instant (client issues 23/26). PENDING CLIENT APPROVAL.
 
   # Factual account rebuttal for restricted-bay allegations. Uses the existing
   # PP-BAY-002 wording. Gate does NOT depend on observation_window_min.
