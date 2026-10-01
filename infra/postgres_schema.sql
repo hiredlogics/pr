@@ -33,6 +33,11 @@ ALTER TABLE cases ADD COLUMN IF NOT EXISTS scope_stop text;
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS document_classes jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS classifications jsonb NOT NULL DEFAULT '{}';
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS timeline jsonb NOT NULL DEFAULT '[]';
+-- The question state a rehydrated case needs to carry on where it stopped.
+-- asked_questions was rebuilt from raw_answers, which also holds internal keys
+-- (_material_source_texts), so those came back as "already asked" questions.
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS asked_questions jsonb;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS pending_questions jsonb;
 
 CREATE TABLE evidence (
   evidence_id  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -139,3 +144,25 @@ CREATE TABLE audit_log (                             -- append-only; revoke UPDA
   id bigserial PRIMARY KEY, case_id uuid, actor text, event text, detail jsonb,
   at timestamptz DEFAULT now()
 );
+
+-- Page images the vision model read (JPEG, as ingest.py normalised them).
+-- Without them a case reloaded by another process has documents with no pages:
+-- the both-sides gate then counts 0 pages and asks for a notice the customer
+-- already uploaded. Same retention as the case (cascade).
+CREATE TABLE IF NOT EXISTS evidence_pages (
+  case_id   uuid REFERENCES cases ON DELETE CASCADE,
+  label     text NOT NULL,                           -- EvidenceItem id ("E1")
+  page_no   int NOT NULL,
+  sha256    text NOT NULL,
+  image     bytea NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  PRIMARY KEY (case_id, label, page_no)
+);
+
+-- What the customer was given, so the letter and its PDF survive a restart:
+-- the structured draft alone did not record the released state or the text.
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS state text;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS letter text;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS evidence_list jsonb;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS outcome jsonb;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS no_ground_reason text;

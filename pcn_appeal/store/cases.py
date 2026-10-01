@@ -8,14 +8,15 @@ Two schema properties are load-bearing and this module preserves them:
   * `facts` is APPEND-ONLY. A corrected value inserts a new row and marks the
     previous one `superseded`, so the confirmation screen's history survives and
     an appeal can be audited against what was known when it was drafted.
-  * `raw_answers` holds the customer's own wording and is never read back into a
-    CaseFile here - only the keeper-safe normalised Fact is. Nothing on the
-    drafting path can reach it (rule Q-06).
+  * `raw_answers` holds the customer's own wording. load() restores it to the
+    CaseFile, as the process that received it held it, so the account engine can
+    re-read it; the drafting path still sees only normalised Facts (rule Q-06).
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
@@ -53,16 +54,21 @@ def new_case(customer_id: Optional[str] = None, kb_release_id: Optional[str] = N
 
 def save(case: CaseFile) -> None:
     """Write the whole case through. Facts are appended; evidence and state are
-    upserted. Small enough to do in one transaction per step."""
+    upserted. Small enough to do in one transaction per step.
+
+    The test of this function is that load() gives back the case the pipeline
+    was holding: a second worker, or this one after a restart, must carry on
+    exactly where the first stopped."""
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE cases SET state = %s, driver_status = %s, route = %s,
                                  document_type = %s, stage = %s, scope_stop = %s,
-                                 document_classes = %s, classifications = %s, timeline = %s
+                                 document_classes = %s, classifications = %s, timeline = %s,
+                                 asked_questions = %s, pending_questions = %s
                 WHERE case_id = %s
             """, (case.state.value, case.driver_status.value, *routing_columns(case),
-                  case.case_id))
+                  *question_columns(case), case.case_id))
 
             for ev in case.evidence.values():
                 cur.execute("""
@@ -77,31 +83,47 @@ def save(case: CaseFile) -> None:
                       # called it. Putting the filename in s3_key - as this did -
                       # loses the only pointer back to the document.
                       ev.kind, ev.storage_url, _sha(ev.text), ev.text, ev.filename))
+            # A document the case no longer holds (an incomplete upload that was
+            # rejected and cleared) must not come back on the next load.
+            for (label,) in cur.execute("SELECT label FROM evidence WHERE case_id = %s",
+                                        (case.case_id,)).fetchall():
+                if label not in case.evidence:
+                    cur.execute("DELETE FROM evidence WHERE case_id = %s AND label = %s",
+                                (case.case_id, label))
+            _save_pages(cur, case)
 
-            known = {r[0]: (r[1], r[2]) for r in cur.execute(
-                "SELECT name, value, fact_id FROM facts WHERE case_id = %s AND NOT superseded",
-                (case.case_id,)).fetchall()}
+            known = {r[0]: tuple(r[1:]) for r in cur.execute(
+                "SELECT name, value, status, source_kind, source_ref FROM facts "
+                "WHERE case_id = %s AND NOT superseded", (case.case_id,)).fetchall()}
             for name, f in case.facts.items():
                 serialised = _jsonable(f.value)
-                if name in known and known[name][0] == serialised:
+                # Status and source are part of the fact: confirming a value the
+                # extractor read changes EXTRACTED to CONFIRMED without changing
+                # the value, and comparing values alone dropped that confirmation.
+                if known.get(name) == (serialised, f.status.value, f.source.kind.value,
+                                       f.source.ref):
                     continue                                   # unchanged, no new version
                 if name in known:
-                    cur.execute("UPDATE facts SET superseded = true "
-                                "WHERE case_id = %s AND name = %s AND NOT superseded",
-                                (case.case_id, name))
+                    _supersede(cur, case.case_id, name)
                 cur.execute("""
                     INSERT INTO facts (fact_id, case_id, name, value, status, source_kind,
                                        source_ref, excerpt, confidence)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (f.fact_id, case.case_id, name, _json(serialised), f.status.value,
                       f.source.kind.value, f.source.ref, f.source.excerpt, f.confidence))
+            # Removed from the case (e.g. a re-read account no longer supports it):
+            # superseded, never deleted, so the history stays auditable.
+            for name in known.keys() - case.facts.keys():
+                _supersede(cur, case.case_id, name)
 
+            latest = _latest_raw_answers(cur, case.case_id)
             for question, raw in case.raw_answers.items():
-                cur.execute("SELECT 1 FROM raw_answers WHERE case_id = %s AND question = %s",
-                            (case.case_id, question))
-                if cur.fetchone() is None:
-                    cur.execute("INSERT INTO raw_answers (case_id, question, raw_text) VALUES (%s, %s, %s)",
-                                (case.case_id, question, raw))
+                # "_" keys are working values derived from the answers on every
+                # analysis round; storing them made them look like questions.
+                if question.startswith("_") or latest.get(question) == raw:
+                    continue
+                cur.execute("INSERT INTO raw_answers (case_id, question, raw_text) VALUES (%s, %s, %s)",
+                            (case.case_id, question, raw))
 
             for entry in case.audit:
                 if entry.get("_persisted"):
@@ -113,32 +135,104 @@ def save(case: CaseFile) -> None:
         conn.commit()
 
 
+def _supersede(cur, case_id: str, name: str) -> None:
+    cur.execute("UPDATE facts SET superseded = true "
+                "WHERE case_id = %s AND name = %s AND NOT superseded", (case_id, name))
+
+
+def _save_pages(cur, case: CaseFile) -> None:
+    """Sync evidence_pages with the case's page images, writing only what changed:
+    a page is ~100-300KB and save() runs at every step."""
+    stored = {(r[0], r[1]): r[2] for r in cur.execute(
+        "SELECT label, page_no, sha256 FROM evidence_pages WHERE case_id = %s",
+        (case.case_id,)).fetchall()}
+    wanted = {(ev.evidence_id, n): img for ev in case.evidence.values()
+              for n, img in enumerate(ev.images, start=1)}
+    for (label, page_no), image in wanted.items():
+        digest = _sha_bytes(image)
+        if stored.get((label, page_no)) == digest:
+            continue
+        if (label, page_no) in stored:
+            cur.execute("UPDATE evidence_pages SET sha256 = %s, image = %s "
+                        "WHERE case_id = %s AND label = %s AND page_no = %s",
+                        (digest, image, case.case_id, label, page_no))
+        else:
+            cur.execute("INSERT INTO evidence_pages (case_id, label, page_no, sha256, image) "
+                        "VALUES (%s, %s, %s, %s, %s)",
+                        (case.case_id, label, page_no, digest, image))
+    for label, page_no in stored.keys() - wanted.keys():
+        cur.execute("DELETE FROM evidence_pages WHERE case_id = %s AND label = %s AND page_no = %s",
+                    (case.case_id, label, page_no))
+
+
+def _latest_raw_answers(cur, case_id: str) -> dict[str, str]:
+    """Each question's most recent wording. raw_answers is append-only, so an
+    edited narrative is a new row rather than an overwrite."""
+    latest: dict[str, str] = {}
+    for question, raw in cur.execute(
+            "SELECT question, raw_text FROM raw_answers WHERE case_id = %s ORDER BY created_at",
+            (case_id,)).fetchall():
+        latest[question] = raw
+    return latest
+
+
 def load(case_id: str) -> CaseFile:
     with connect() as conn:
-        row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)} "
+        row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)}, "
+                           f"{', '.join(QUESTION_COLUMNS)} "
                            "FROM cases WHERE case_id = %s", (case_id,)).fetchone()
         if row is None:
             raise KeyError(case_id)
         case = CaseFile(case_id, state=CaseState(row[0]), driver_status=DriverStatus(row[1]))
-        apply_routing_columns(case, row[2:])
+        n = len(ROUTING_COLUMNS)
+        apply_routing_columns(case, row[2:2 + n])
 
         for label, kind, s3_key, ocr, filename in conn.execute(
                 "SELECT label, kind, s3_key, ocr_text, filename FROM evidence WHERE case_id = %s",
                 (case_id,)).fetchall():
             case.evidence[label] = EvidenceItem(label, kind, filename or label,
                                                 text=ocr or "", storage_url=s3_key)
+        for label, _page_no, image in conn.execute(
+                "SELECT label, page_no, image FROM evidence_pages WHERE case_id = %s "
+                "ORDER BY label, page_no", (case_id,)).fetchall():
+            if label in case.evidence:
+                case.evidence[label].images.append(bytes(image))
 
         for fact_id, name, value, status, kind, ref, excerpt, conf in conn.execute("""
                 SELECT fact_id, name, value, status, source_kind, source_ref, excerpt, confidence
                 FROM facts WHERE case_id = %s AND NOT superseded ORDER BY created_at
         """, (case_id,)).fetchall():
-            case.facts[name] = Fact(fact_id, name, value, FactStatus(status),
+            case.facts[name] = Fact(fact_id, name, _revived(value), FactStatus(status),
                                     FactSource(SourceKind(kind), ref, excerpt), conf or 1.0)
 
-        case.asked_questions = [r[0] for r in conn.execute(
-            "SELECT question FROM raw_answers WHERE case_id = %s ORDER BY created_at",
-            (case_id,)).fetchall() if r[0] != "narrative"]
+        # The customer's own wording comes back so the account is re-read from
+        # it on the next analysis round; without it that round found no text and
+        # cleared every fact the customer's account had established. It still
+        # reaches the drafter only as normalised Facts (rule Q-06), exactly as
+        # in the process that first received it.
+        case.raw_answers = _latest_raw_answers(conn, case_id)
+        apply_question_columns(case, row[2 + n:])
+
+        case.audit = [{**(_loaded(detail) or {}), "_persisted": True} for (detail,) in conn.execute(
+            "SELECT detail FROM audit_log WHERE case_id = %s ORDER BY id", (case_id,)).fetchall()]
     return case
+
+
+QUESTION_COLUMNS = ("asked_questions", "pending_questions")
+
+
+def question_columns(case: CaseFile) -> tuple:
+    return (_json(list(case.asked_questions)), _json(_jsonable(case.pending_questions)))
+
+
+def apply_question_columns(case: CaseFile, values) -> None:
+    asked, pending = (_loaded(v) for v in values)
+    if asked is None:
+        # A row written before these columns existed: fall back to the answered
+        # questions, minus the narrative and internal "_" working keys.
+        asked = [q for q in case.raw_answers if q != "narrative" and not q.startswith("_")]
+    case.asked_questions = list(asked)
+    case.pending_questions = list(pending or [])
 
 
 # Intake's decision and the classifier labels behind it. Persisted so a case
@@ -186,14 +280,22 @@ def save_output(case: CaseFile, out) -> None:
     draft_id = str(uuid.uuid4())
     with connect() as conn:
         with conn.cursor() as cur:
+            outcome = {k: getattr(out, k, None) for k in OUTCOME_FIELDS}
             cur.execute("""
                 INSERT INTO drafts (draft_id, case_id, attempt, drafter, model, prompt_version,
-                                    structured, retrieval_pack)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                    structured, retrieval_pack, state, letter, evidence_list,
+                                    outcome, no_ground_reason)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (draft_id, case.case_id, out.draft.attempt, type(out.draft).__name__,
                   out.draft.model, out.draft.prompt_version,
                   _json(_jsonable([[asdict(s) for s in p] for p in out.draft.paragraphs])),
-                  _json(_jsonable(asdict(out.pack)))))
+                  _json(_jsonable(asdict(out.pack))),
+                  # What the customer was given. Without these a restarted
+                  # process had the draft but not whether it was released, so
+                  # the letter PDF answered 404 for a released case.
+                  out.state.value, getattr(out, "letter", None),
+                  _json(list(getattr(out, "evidence_list", None) or [])),
+                  _json(_jsonable(outcome)), getattr(out.draft, "no_ground_reason", None)))
             cur.execute("""
                 INSERT INTO validations (draft_id, passed, issues, validator_version)
                 VALUES (%s, %s, %s, %s)
@@ -204,6 +306,55 @@ def save_output(case: CaseFile, out) -> None:
                 cur.execute("INSERT INTO review_queue (case_id, reason, sla_due) VALUES (%s, %s, now())",
                             (case.case_id, "validation failed after max attempts"))
         conn.commit()
+
+
+OUTCOME_FIELDS = ("outcome", "outcome_title", "outcome_message", "outcome_next",
+                  "cta_label", "can_continue")
+
+
+def load_output(case: CaseFile):
+    """The case's latest AppealOutput, rebuilt from drafts + validations, or None
+    when nothing was generated. Lets a restarted process serve the letter and
+    PDF it already released instead of generating a different one."""
+    from dataclasses import fields
+
+    from ..models import (Draft, DraftSentence, RetrievalPack, ValidationIssue,
+                          ValidationResult)
+    from ..orchestrator import AppealOutput, render
+    with connect() as conn:
+        row = conn.execute("""
+            SELECT d.attempt, d.model, d.prompt_version, d.structured, d.retrieval_pack,
+                   d.state, d.letter, d.evidence_list, d.outcome, d.no_ground_reason,
+                   v.passed, v.issues
+            FROM drafts d LEFT JOIN validations v ON v.draft_id = d.draft_id
+            WHERE d.case_id = %s ORDER BY d.created_at DESC LIMIT 1
+        """, (case.case_id,)).fetchone()
+    if row is None:
+        return None
+    (attempt, model, prompt_version, structured, pack, state, letter, evidence_list,
+     outcome, no_ground_reason, passed, issues) = row
+    draft = Draft(case.case_id,
+                  [[DraftSentence(**s) for s in p] for p in (_loaded(structured) or [])],
+                  attempt=attempt or 1, no_ground_reason=no_ground_reason, model=model,
+                  prompt_version=prompt_version)
+    pack_fields = {f.name for f in fields(RetrievalPack)}
+    pack = RetrievalPack(**{k: v for k, v in (_loaded(pack) or {}).items() if k in pack_fields})
+    validation = ValidationResult(bool(passed),
+                                  [ValidationIssue(**i) for i in (_loaded(issues) or [])])
+    if state is None:
+        # A draft stored before `state` was recorded: released only if the case
+        # itself says so and the stored validation passed.
+        state = (CaseState.RELEASED.value
+                 if case.state == CaseState.RELEASED and validation.passed
+                 else case.state.value)
+    state = CaseState(state)
+    if letter is None and state == CaseState.RELEASED:
+        letter = render(draft)
+    out = AppealOutput(state, letter, pack, draft, validation, list(_loaded(evidence_list) or []))
+    for k, v in (_loaded(outcome) or {}).items():
+        if k in OUTCOME_FIELDS and v is not None:
+            setattr(out, k, v)
+    return out
 
 
 # ------------------------------------------------------------------ helpers
@@ -224,9 +375,28 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _revived(value: Any) -> Any:
+    """jsonb has no date type, so _jsonable stored dates as ISO strings and they
+    came back as str: a reloaded case then crashed comparing a date with a str
+    (code_versions.resolve). An exact YYYY-MM-DD string is a stored date."""
+    if isinstance(value, str) and _ISO_DATE.fullmatch(value):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return value
+    return value
+
+
 def _sha(text: str) -> str:
+    return _sha_bytes((text or "").encode())
+
+
+def _sha_bytes(data: bytes) -> str:
     import hashlib
-    return hashlib.sha256((text or "").encode()).hexdigest()
+    return hashlib.sha256(data).hexdigest()
 
 
 def _as_uuid(evidence_id: str, case_id: str) -> str:

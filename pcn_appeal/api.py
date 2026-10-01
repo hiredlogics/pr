@@ -308,8 +308,14 @@ def _rehydrate(case_id: str) -> Optional[dict[str, Any]]:
         case = case_store.load(case_id)
     except Exception:
         return None
+    try:
+        # The letter already released, so the PDF is the one the customer saw.
+        output = case_store.load_output(case)
+    except Exception as exc:
+        output = None
+        case.audit.append({"event": "output_rehydrate_failed", "reason": str(exc)[:200]})
     rec = {"case": case, "pipe": _pipeline(),
-           "flags": [], "questions": [], "output": None}
+           "flags": [], "questions": list(case.pending_questions), "output": output}
     CASES[case_id] = rec
     return rec
 
