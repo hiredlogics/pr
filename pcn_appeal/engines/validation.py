@@ -26,6 +26,9 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-OBSOLETE penalty / genuine pre-estimate argument
   VAL-LEAK     module IDs, template placeholders or AI self-reference in output
   VAL-MODULE   module_refs outside the retrieved (approved) set
+  VAL-PLAN     an argument the LOCKED Claim Plan did not approve (P5): a module_ref
+               outside the plan, approved wording of a module outside the plan, or
+               a pack that is not the plan's
   VAL-SUBSTANCE draft is only structural intro/conclusion with no substantive ground
   VAL-EVIDENCE-CONTRADICTION contradiction claims / EVIDENCE route without the required fact
   VAL-CUSTOMER-COPY customer free-text pasted into the letter instead of rewritten
@@ -37,8 +40,10 @@ import re
 from typing import Optional
 
 from .. import prompts
+from ..customer_safe import internal_ids
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
+from ..routes import Route
 
 R = lambda p: re.compile(p, re.I)  # noqa: E731
 
@@ -49,7 +54,8 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-1"
+VERSION = "VAL-3"  # VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
+# VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
 DRIVER_PATTERNS = [
     R(r"\bI (drove|was driving|parked|left the (car|vehicle)|returned to the (car|vehicle)|arrived|came back|"
@@ -155,6 +161,11 @@ def _near_variants(text: str, ident: str, *, min_len: int, max_len: int = 20,
     return found
 
 
+def _family(module_id: str) -> str:
+    m = re.match(r"^KB-([A-Z]+)-", module_id or "")
+    return m.group(1) if m else "This argument"
+
+
 def _jaccard(a: str, b: str) -> float:
     x, y = set(a.lower().split()), set(b.lower().split())
     return len(x & y) / max(len(x | y), 1)
@@ -244,9 +255,14 @@ def _customer_prose_pasted(source: str, letter: str, facts: dict,
 
 
 class ValidationEngine:
-    def __init__(self, judge: Optional[LLMClient] = None, allowed_next_step: str = ""):
+    def __init__(self, judge: Optional[LLMClient] = None, allowed_next_step: str = "",
+                 kg=None):
         self.judge = judge
         self.allowed_next_step = allowed_next_step
+        # The knowledge base, only to recognise approved wording of a module the
+        # claim plan did not approve (VAL-PLAN). None: that one check is skipped.
+        self.kg = kg
+        self._wording: dict[tuple, tuple] = {}
 
     def validate(self, draft: Draft, pack: RetrievalPack) -> ValidationResult:
         issues: list[ValidationIssue] = []
@@ -311,7 +327,7 @@ class ValidationEngine:
                 block("VAL-STAGE", "Wrong-stage language in an initial operator appeal", t)
             if OBSOLETE.search(t):
                 block("VAL-OBSOLETE", "Obsolete penalty / pre-estimate argument", t)
-            if LEAK.search(t):
+            if LEAK.search(t) or internal_ids(t):
                 block("VAL-LEAK", "Internal IDs, placeholders or AI self-reference in output", t)
             if DRAFTER_NOTE.search(t):
                 block("VAL-LEAK", "Drafting guidance from a building block left in the letter", t)
@@ -456,7 +472,7 @@ class ValidationEngine:
                 block("VAL-EVIDENCE-CONTRADICTION",
                       "EVIDENCE / contradiction ground selected without "
                       "independent_evidence_contradicts being established")
-        if "KB-REC-01" in pack.module_ids and pack.primary_route == "EVIDENCE":
+        if "KB-REC-01" in pack.module_ids and pack.primary_route == Route.EVIDENCE:
             # Safety net if KB-REC-01 is ever re-homed onto EVIDENCE by mistake.
             block("VAL-EVIDENCE-CONTRADICTION",
                   "Records-request ground (KB-REC-01) must not lead as EVIDENCE "
@@ -497,10 +513,86 @@ class ValidationEngine:
                       f"The {point} point is asserted {len(hits)} times; state it once",
                       hits[1])
 
+        issues += self._plan_conformance(draft, pack)
+
         if self.judge and not any(i.severity == "BLOCK" for i in issues):
             issues += self._llm_judge(draft, pack)
 
         return ValidationResult(not any(i.severity == "BLOCK" for i in issues), issues)
+
+    # ---------------------------------------------------------- VAL-PLAN
+    def _plan_conformance(self, draft: Draft, pack: RetrievalPack) -> list[ValidationIssue]:
+        """P5: every argument in the draft must exist in the LOCKED Claim Plan.
+
+        Messages name the claim family only ("ANPR not approved in Claim Plan"):
+        they go back to the drafter as feedback, and the drafter never learns
+        which modules were rejected.
+        """
+        plan = getattr(pack, "claim_plan", None)
+        if not plan:
+            return []
+        out: list[ValidationIssue] = []
+        approved = list(plan.get("approved") or [])
+        labels = dict(plan.get("labels") or {})
+        if plan.get("status") != "LOCKED":
+            out.append(ValidationIssue("VAL-PLAN", "BLOCK",
+                                       f"Draft built from a {plan.get('status')} claim plan; "
+                                       f"only a LOCKED plan may be drafted"))
+        if list(pack.module_ids or []) != approved:
+            out.append(ValidationIssue("VAL-PLAN", "BLOCK",
+                                       "Drafting pack does not match the locked Claim Plan"))
+        allowed = set(approved) | {"STRUCTURAL"}
+        foreign, own = self._plan_wording(tuple(approved))
+        for s in draft.sentences():
+            bad = [m for m in s.module_refs if m not in allowed]
+            for m in bad:
+                out.append(ValidationIssue(
+                    "VAL-PLAN", "BLOCK",
+                    f"{labels.get(m) or _family(m)} not approved in Claim Plan", s.text))
+            if bad or not foreign:
+                continue
+            windows = _phrase_windows(_copy_fingerprint(s.text), 8)
+            if len(windows) < 2:
+                continue
+            hits: dict[str, int] = {}
+            for w in windows:
+                if w in own:
+                    continue
+                for mid in foreign.get(w, ()):
+                    hits[mid] = hits.get(mid, 0) + 1
+            if not hits:
+                continue
+            mid, n = max(sorted(hits.items()), key=lambda kv: kv[1])
+            if n >= max(2, len(windows) // 2):
+                out.append(ValidationIssue(
+                    "VAL-PLAN", "BLOCK",
+                    f"{labels.get(mid) or _family(mid)} not approved in Claim Plan", s.text))
+        return out
+
+    def _plan_wording(self, approved: tuple) -> tuple[dict, set]:
+        """8-word windows of approved block wording: {window: modules outside the
+        plan whose wording it is}, and the windows of the plan's own modules
+        (shared wording is never held against a sentence)."""
+        if self.kg is None:
+            return {}, set()
+        if approved in self._wording:
+            return self._wording[approved]
+        foreign: dict[str, set] = {}
+        own: set[str] = set()
+        for m in self.kg.modules.values():
+            for b in m.building_blocks or []:
+                blk = self.kg.blocks.get(b)
+                if blk is None or blk.status != "ACTIVE":
+                    continue
+                windows = _phrase_windows(_copy_fingerprint(blk.letter_text), 8)
+                if m.module_id in approved:
+                    own.update(windows)
+                else:
+                    for w in windows:
+                        foreign.setdefault(w, set()).add(m.module_id)
+        result = ({w: tuple(sorted(ms)) for w, ms in foreign.items()}, own)
+        self._wording[approved] = result
+        return result
 
     def _llm_judge(self, draft: Draft, pack: RetrievalPack) -> list[ValidationIssue]:
         """The judge can only apply a rule it has the input for.

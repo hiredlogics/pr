@@ -4,6 +4,9 @@
     python -m pcn_appeal.store init     # apply infra/postgres_schema.sql
     python -m pcn_appeal.store sync     # push data/*.yaml -> tables + pgvector, publish a release
     python -m pcn_appeal.store status    # what is actually in there
+
+Knowledge base ingestion (controlled DOCX -> knowledge_* / graph_*) has its own
+CLI: python -m pcn_appeal.knowledge_ingestion --help
 """
 from __future__ import annotations
 

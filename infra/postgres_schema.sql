@@ -56,20 +56,9 @@ CREATE TABLE evidence (
   uploaded_at  timestamptz DEFAULT now()
 );
 
-CREATE TABLE facts (
-  fact_id     text,
-  case_id     uuid REFERENCES cases ON DELETE CASCADE,
-  name        text NOT NULL,
-  value       jsonb,
-  status      text NOT NULL,                         -- EXTRACTED/CONFIRMED/.../UNCERTAIN
-  source_kind text NOT NULL,
-  source_ref  text NOT NULL,
-  excerpt     text,
-  confidence  real,
-  superseded  boolean DEFAULT false,                 -- facts are append-only; never updated in place
-  created_at  timestamptz DEFAULT now(),
-  PRIMARY KEY (case_id, fact_id, created_at)
-);
+-- facts: see the P1 Fact Graph section at the end (one node per case and fact,
+-- with fact_history, fact_sources and fact_conflicts). The append-only v1 table
+-- that stood here is renamed facts_v1 by that section on an existing database.
 
 -- raw customer wording: audit only, never readable by the drafting service role
 CREATE TABLE raw_answers (
@@ -166,3 +155,511 @@ ALTER TABLE drafts ADD COLUMN IF NOT EXISTS letter text;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS evidence_list jsonb;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS outcome jsonb;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS no_ground_reason text;
+
+-- ---------------------------------------------------------------- P0 system integrity
+-- infra/migrations/0001_p0_system_integrity.sql (keep the two in step)
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS current_run_id int NOT NULL DEFAULT 0;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS run_status text NOT NULL DEFAULT 'NONE';
+ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS run_id int;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS run_id int;
+CREATE INDEX IF NOT EXISTS audit_log_case_run ON audit_log (case_id, run_id);
+
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS frontend_version text;
+ALTER TABLE drafts ADD COLUMN IF NOT EXISTS manifest jsonb;
+
+CREATE TABLE IF NOT EXISTS fact_history (
+  id              bigserial PRIMARY KEY,
+  case_id         uuid REFERENCES cases ON DELETE CASCADE,
+  run_id          int,
+  fact            text NOT NULL,
+  previous        jsonb,
+  new             jsonb,
+  previous_status text,
+  status          text,
+  source_kind     text,
+  source_ref      text,
+  reason          text,
+  outcome         text NOT NULL CHECK (outcome IN ('APPLIED', 'CONFLICT', 'RETRACTED')),
+  at              timestamptz NOT NULL,
+  recorded_at     timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS fact_history_case ON fact_history (case_id, id);
+CREATE INDEX IF NOT EXISTS fact_history_conflicts ON fact_history (case_id) WHERE outcome = 'CONFLICT';
+
+-- ---------------------------------------------------------------- P1 fact graph
+-- infra/migrations/0002_fact_graph.sql (keep the two in step)
+ALTER TABLE fact_history ADD COLUMN IF NOT EXISTS fact_id uuid;
+ALTER TABLE fact_history ADD COLUMN IF NOT EXISTS changed_by text;
+ALTER TABLE fact_history ADD COLUMN IF NOT EXISTS source_type text;
+ALTER TABLE fact_history DROP CONSTRAINT IF EXISTS fact_history_outcome_check;
+ALTER TABLE fact_history ADD CONSTRAINT fact_history_outcome_check
+  CHECK (outcome IN ('APPLIED', 'CONFLICT', 'IGNORED', 'RETRACTED'));
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = current_schema() AND table_name = 'facts'
+               AND column_name = 'superseded') THEN
+    ALTER TABLE facts RENAME TO facts_v1;
+  END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS facts (
+  fact_id       uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  case_id       uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  fact_name     varchar NOT NULL,
+  fact_value    jsonb,
+  source_type   varchar NOT NULL CHECK (source_type IN ('DOCUMENT', 'CUSTOMER_ANSWER',
+                  'CUSTOMER_FREE_TEXT', 'EVIDENCE', 'CALCULATION', 'SYSTEM_DERIVED')),
+  status        varchar NOT NULL CHECK (status IN ('CONFIRMED', 'EXTRACTED', 'DERIVED',
+                  'UNKNOWN', 'DISPUTED', 'CONFLICT')),
+  confidence    numeric,
+  -- What the engines need to rebuild the Fact exactly (models.Fact).
+  engine_status varchar NOT NULL,                   -- FactStatus: EXTRACTED/CONFIRMED/CORRECTED/ANSWERED/DERIVED/UNCERTAIN
+  source_kind   varchar NOT NULL,                   -- SourceKind
+  source_ref    text,
+  excerpt       text,
+  fact_ref      text NOT NULL,                      -- "F-<name>": what letter sentences cite
+  disputed      boolean NOT NULL DEFAULT false,     -- a NEEDS_CONFIRMATION conflict is open
+  active        boolean NOT NULL DEFAULT true,      -- false once retracted; never deleted
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (case_id, fact_name)
+);
+
+CREATE TABLE IF NOT EXISTS fact_sources (
+  id          bigserial PRIMARY KEY,
+  case_id     uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  fact_id     uuid,
+  fact_name   varchar NOT NULL,
+  source_type varchar NOT NULL,
+  source_ref  text,
+  excerpt     text,
+  value       jsonb,
+  confidence  numeric,
+  accepted    boolean NOT NULL,
+  run_id      int,
+  observed_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS fact_sources_case ON fact_sources (case_id, fact_name);
+
+CREATE TABLE IF NOT EXISTS fact_conflicts (
+  conflict_id          uuid PRIMARY KEY,
+  case_id              uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  fact_id              uuid,
+  fact_name            varchar NOT NULL,
+  held_value           jsonb,
+  held_status          varchar,
+  held_source_type     varchar,
+  held_source          text,
+  proposed_value       jsonb,
+  proposed_status      varchar,
+  proposed_source_type varchar,
+  proposed_source      text,
+  rule                 varchar NOT NULL,
+  status               varchar NOT NULL CHECK (status IN ('NEEDS_CONFIRMATION',
+                         'KEPT_EXISTING', 'RESOLVED')),
+  resolution           jsonb,
+  resolved_by          text,
+  run_id               int,
+  created_at           timestamptz NOT NULL,
+  resolved_at          timestamptz
+);
+CREATE INDEX IF NOT EXISTS fact_conflicts_open ON fact_conflicts (case_id)
+  WHERE status <> 'RESOLVED';
+
+DO $$
+BEGIN
+  IF to_regclass('facts_v1') IS NOT NULL THEN
+    INSERT INTO facts (case_id, fact_name, fact_value, source_type, status, confidence,
+                       engine_status, source_kind, source_ref, excerpt, fact_ref,
+                       created_at, updated_at)
+    SELECT DISTINCT ON (case_id, name)
+           case_id, name, value,
+           CASE source_kind WHEN 'ANSWER' THEN 'CUSTOMER_ANSWER'
+                            WHEN 'CUSTOMER_FREE_TEXT' THEN 'CUSTOMER_FREE_TEXT'
+                            WHEN 'CALCULATION' THEN 'CALCULATION'
+                            ELSE 'DOCUMENT' END,
+           CASE status WHEN 'CONFIRMED' THEN 'CONFIRMED' WHEN 'CORRECTED' THEN 'CONFIRMED'
+                       WHEN 'ANSWERED' THEN 'CONFIRMED' WHEN 'EXTRACTED' THEN 'EXTRACTED'
+                       WHEN 'UNCERTAIN' THEN 'UNKNOWN' ELSE 'DERIVED' END,
+           confidence, status, source_kind, source_ref, excerpt,
+           COALESCE(fact_id, 'F-' || name), created_at, created_at
+    FROM facts_v1 WHERE NOT superseded
+    ORDER BY case_id, name, created_at DESC
+    ON CONFLICT (case_id, fact_name) DO NOTHING;
+
+    INSERT INTO fact_history (case_id, fact_id, fact, new, status, source_kind,
+                              source_ref, changed_by, reason, outcome, at)
+    SELECT v.case_id, f.fact_id, v.name, v.value, v.status, v.source_kind, v.source_ref,
+           'migration', 'backfill_facts_v1', 'APPLIED', v.created_at
+    FROM facts_v1 v LEFT JOIN facts f ON f.case_id = v.case_id AND f.fact_name = v.name
+    WHERE NOT EXISTS (SELECT 1 FROM fact_history h WHERE h.reason = 'backfill_facts_v1'
+                      AND h.case_id = v.case_id);
+  END IF;
+END
+$$;
+
+-- 0003_fact_hypotheses.sql (P2)
+
+CREATE TABLE IF NOT EXISTS fact_hypotheses (
+  hypothesis_id                  uuid PRIMARY KEY,
+  case_id                        uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  fact_name                      varchar NOT NULL,
+  possible_value                 jsonb,
+  source_text                    text,
+  confidence                     numeric,
+  signals                        jsonb,
+  rule                           varchar,
+  required_confirmation_question jsonb NOT NULL,
+  reason                         text,
+  possible_impact                text,
+  status                         varchar NOT NULL CHECK (status IN ('UNCONFIRMED', 'CONFIRMED',
+                                   'REJECTED', 'SUPERSEDED', 'WITHDRAWN')),
+  asked_at                       timestamptz,
+  answer                         jsonb,
+  resolved_fact_id               uuid,
+  resolved_by                    text,
+  run_id                         int,
+  created_at                     timestamptz NOT NULL,
+  updated_at                     timestamptz NOT NULL,
+  resolved_at                    timestamptz,
+  UNIQUE (case_id, fact_name, possible_value)
+);
+CREATE INDEX IF NOT EXISTS fact_hypotheses_open ON fact_hypotheses (case_id)
+  WHERE status = 'UNCONFIRMED';
+
+-- 0004_knowledge_graph.sql (P4): governance log. Its knowledge_nodes /
+-- knowledge_edges are superseded by 0005 and not created here.
+
+CREATE TABLE IF NOT EXISTS knowledge_changes (
+  change_id    uuid PRIMARY KEY,
+  entity_type  varchar NOT NULL CHECK (entity_type IN ('NODE', 'EDGE')),
+  entity_id    varchar NOT NULL,
+  action       varchar NOT NULL CHECK (action IN ('SEED', 'CREATE', 'UPDATE', 'DISABLE', 'REMOVE')),
+  version      varchar NOT NULL,
+  changed_by   text NOT NULL,
+  changed_at   timestamptz NOT NULL,
+  reason       text NOT NULL,
+  before       jsonb,
+  after        jsonb
+);
+CREATE INDEX IF NOT EXISTS knowledge_changes_entity ON knowledge_changes (entity_type, entity_id);
+
+-- 0005_knowledge_graph.sql (P4b)
+
+CREATE TABLE IF NOT EXISTS knowledge_release (
+  release_id            uuid PRIMARY KEY,
+  source_document       text NOT NULL,
+  source_document_hash  varchar(64) NOT NULL,
+  compiled_digest       varchar(64) NOT NULL,
+  relations_version     varchar NOT NULL,
+  parser_version        varchar NOT NULL,
+  document_version      varchar,
+  parent_release_id     uuid REFERENCES knowledge_release,
+  created_at            timestamptz NOT NULL,
+  created_by            text NOT NULL,
+  reason                text NOT NULL,
+  module_count          int NOT NULL,
+  relationship_count    int NOT NULL,
+  manifest              jsonb NOT NULL,
+  drift                 jsonb NOT NULL,
+  UNIQUE (source_document_hash, compiled_digest, relations_version, parser_version)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_modules (
+  knowledge_id     uuid PRIMARY KEY,
+  module_id        varchar(100) UNIQUE NOT NULL,
+  name             text NOT NULL,
+  category         varchar(100) NOT NULL,
+  version          varchar(50) NOT NULL,
+  status           varchar(50) NOT NULL CHECK (status IN ('DRAFT', 'REVIEW', 'ACTIVE',
+                     'DISABLED', 'RETIRED')),
+  effective_from   date,
+  effective_to     date,
+  source_document  text NOT NULL,
+  source_reference text,
+  source_hash      varchar(64) NOT NULL,
+  release_id       uuid REFERENCES knowledge_release,
+  metadata         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  updated_by       text
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_rules (
+  rule_id          uuid PRIMARY KEY,
+  knowledge_id     uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  rule_type        varchar(50) NOT NULL CHECK (rule_type IN ('USE_WHEN', 'DO_NOT_USE_WHEN',
+                     'CORE_PROPOSITION', 'AI_MUST_CHECK', 'LEGAL_BASIS', 'DRAFTING_GUIDANCE',
+                     'DOCUMENT_FIELD')),
+  rule_definition  jsonb NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS knowledge_rules_module ON knowledge_rules (knowledge_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_required_facts (
+  id                uuid PRIMARY KEY,
+  knowledge_id      uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  fact_name         varchar(200) NOT NULL,
+  requirement_type  varchar(50) NOT NULL CHECK (requirement_type IN ('GATE', 'REQUIRED', 'CHECK')),
+  metadata          jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS knowledge_required_facts_fact ON knowledge_required_facts (fact_name);
+
+CREATE TABLE IF NOT EXISTS knowledge_evidence_requirements (
+  id             uuid PRIMARY KEY,
+  knowledge_id   uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  evidence_type  varchar(100) NOT NULL,
+  requirement    jsonb NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_restrictions (
+  id                uuid PRIMARY KEY,
+  knowledge_id      uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  restriction_type  varchar(100) NOT NULL CHECK (restriction_type IN ('PROHIBITED_CLAIM',
+                      'DRAFTING_RULE')),
+  content           text NOT NULL,
+  metadata          jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS graph_nodes (
+  node_id    uuid PRIMARY KEY,
+  node_type  varchar(50) NOT NULL CHECK (node_type IN ('FACT', 'KNOWLEDGE', 'EVIDENCE',
+               'CLAIM', 'QUESTION', 'RULE')),
+  entity_id  varchar(200) NOT NULL,
+  metadata   jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (node_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS graph_edges (
+  edge_id            uuid PRIMARY KEY,
+  source_node        uuid NOT NULL REFERENCES graph_nodes,
+  relationship_type  varchar(100) NOT NULL CHECK (relationship_type IN ('SUPPORTS', 'BLOCKS',
+                       'REQUIRES', 'CONFLICTS_WITH', 'DEPENDS_ON', 'EVIDENCE_SUPPORTS')),
+  target_node        uuid NOT NULL REFERENCES graph_nodes,
+  confidence         numeric NOT NULL DEFAULT 1.0,
+  origin             varchar(20) NOT NULL CHECK (origin IN ('YAML_COMPILED', 'CURATED', 'DOCX', 'ADMIN')),
+  status             varchar(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVIEW', 'REMOVED')),
+  metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_by         text,
+  updated_at         timestamptz
+);
+CREATE INDEX IF NOT EXISTS graph_edges_source ON graph_edges (source_node, relationship_type);
+CREATE INDEX IF NOT EXISTS graph_edges_target ON graph_edges (target_node, relationship_type);
+
+CREATE TABLE IF NOT EXISTS knowledge_release_items (
+  release_id    uuid NOT NULL REFERENCES knowledge_release ON DELETE CASCADE,
+  item_type     varchar(20) NOT NULL CHECK (item_type IN ('MODULE', 'EDGE')),
+  item_id       varchar(200) NOT NULL,
+  content_hash  varchar(64) NOT NULL,
+  content       jsonb NOT NULL,
+  PRIMARY KEY (release_id, item_type, item_id)
+);
+
+-- The governance log (0004) now also records module status changes, imports
+-- and graph edge changes.
+ALTER TABLE knowledge_changes DROP CONSTRAINT IF EXISTS knowledge_changes_entity_type_check;
+ALTER TABLE knowledge_changes ADD CONSTRAINT knowledge_changes_entity_type_check
+  CHECK (entity_type IN ('NODE', 'EDGE', 'MODULE', 'RELEASE'));
+ALTER TABLE knowledge_changes DROP CONSTRAINT IF EXISTS knowledge_changes_action_check;
+ALTER TABLE knowledge_changes ADD CONSTRAINT knowledge_changes_action_check
+  CHECK (action IN ('SEED', 'CREATE', 'UPDATE', 'DISABLE', 'REMOVE', 'ACTIVATE', 'RETIRE',
+                    'IMPORT'));
+
+-- ---------------------------------------------------------------- P5 claim plan authority
+-- 0006_claim_plan_authority.sql: one LOCKED claim plan decides what a letter argues.
+CREATE TABLE IF NOT EXISTS claim_plans (
+  claim_plan_id      uuid PRIMARY KEY,
+  case_id            uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  analysis_run_id    uuid NOT NULL,
+  run_number         integer NOT NULL DEFAULT 0,
+  version            integer NOT NULL CHECK (version >= 1),
+  status             varchar(20) NOT NULL CHECK (status IN ('DRAFT', 'CONFIRMED', 'LOCKED',
+                                                            'SUPERSEDED')),
+  created_at         timestamptz NOT NULL,
+  confirmed_at       timestamptz,
+  locked_at          timestamptz,
+  superseded_at      timestamptz,
+  superseded_by      uuid REFERENCES claim_plans,
+  inputs_digest      varchar(64) NOT NULL,
+  plan_digest        varchar(64),
+  -- Client trust: what produced the plan, and what it was decided from.
+  code_version       text,
+  kb_version         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  prompt_version     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  model_version      jsonb NOT NULL DEFAULT '{}'::jsonb,
+  facts_used         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  relationships_used jsonb NOT NULL DEFAULT '[]'::jsonb,
+  trust              jsonb NOT NULL DEFAULT '{}'::jsonb,
+  material_fact_accounting jsonb NOT NULL DEFAULT '[]'::jsonb,
+  UNIQUE (case_id, version)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS claim_plans_one_locked ON claim_plans (case_id)
+  WHERE status = 'LOCKED';
+
+CREATE TABLE IF NOT EXISTS claim_plan_items (
+  item_id            uuid PRIMARY KEY,
+  claim_plan_id      uuid NOT NULL REFERENCES claim_plans ON DELETE CASCADE,
+  ordinal            integer NOT NULL,
+  knowledge_id       uuid NOT NULL,
+  module_id          varchar(50) NOT NULL,
+  claim_type         varchar(50),
+  status             varchar(20) NOT NULL CHECK (status IN ('SUPPORTED', 'REJECTED', 'UNRESOLVED')),
+  decision           varchar(40) NOT NULL,
+  reason             text NOT NULL,
+  supporting_facts   jsonb NOT NULL DEFAULT '[]'::jsonb,
+  evidence_refs      jsonb NOT NULL DEFAULT '[]'::jsonb,
+  relationships      jsonb NOT NULL DEFAULT '[]'::jsonb,
+  priority           integer,
+  topic              text,
+  UNIQUE (claim_plan_id, module_id),
+  UNIQUE (claim_plan_id, ordinal)
+);
+CREATE INDEX IF NOT EXISTS claim_plan_items_module ON claim_plan_items (module_id, status);
+
+CREATE OR REPLACE FUNCTION claim_plan_items_guard() RETURNS trigger AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    RAISE EXCEPTION 'claim plan items are immutable (item %)', OLD.item_id;
+  END IF;
+  IF EXISTS (SELECT 1 FROM claim_plans p WHERE p.claim_plan_id = NEW.claim_plan_id
+             AND p.status IN ('LOCKED', 'SUPERSEDED')) THEN
+    RAISE EXCEPTION 'claim plan % is locked: create a new version', NEW.claim_plan_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS claim_plan_items_guard ON claim_plan_items;
+CREATE TRIGGER claim_plan_items_guard BEFORE INSERT OR UPDATE ON claim_plan_items
+  FOR EACH ROW EXECUTE FUNCTION claim_plan_items_guard();
+
+CREATE OR REPLACE FUNCTION claim_plans_guard() RETURNS trigger AS $$
+BEGIN
+  IF OLD.status IN ('LOCKED', 'SUPERSEDED') THEN
+    IF NOT (NEW.status = OLD.status OR (OLD.status = 'LOCKED' AND NEW.status = 'SUPERSEDED'))
+       OR NEW.version IS DISTINCT FROM OLD.version
+       OR NEW.case_id IS DISTINCT FROM OLD.case_id
+       OR NEW.inputs_digest IS DISTINCT FROM OLD.inputs_digest
+       OR NEW.plan_digest IS DISTINCT FROM OLD.plan_digest
+       OR NEW.locked_at IS DISTINCT FROM OLD.locked_at
+       OR NEW.facts_used IS DISTINCT FROM OLD.facts_used
+       OR NEW.relationships_used IS DISTINCT FROM OLD.relationships_used
+       OR NEW.trust IS DISTINCT FROM OLD.trust THEN
+      RAISE EXCEPTION 'claim plan % is %: only LOCKED -> SUPERSEDED is allowed',
+        OLD.claim_plan_id, OLD.status;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS claim_plans_guard ON claim_plans;
+CREATE TRIGGER claim_plans_guard BEFORE UPDATE ON claim_plans
+  FOR EACH ROW EXECUTE FUNCTION claim_plans_guard();
+
+-- ---------------------------------------------------------------- P5.5 system integrity audit
+-- 0007_system_integrity_audit.sql: state history, AI call log, per-run execution trace.
+CREATE TABLE IF NOT EXISTS case_state_history (
+  id          bigserial PRIMARY KEY,
+  case_id     uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  run_id      int,
+  from_state  text NOT NULL,
+  to_state    text NOT NULL,
+  reason      text,
+  at          timestamptz NOT NULL,
+  recorded_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS case_state_history_case ON case_state_history (case_id, id);
+
+CREATE TABLE IF NOT EXISTS ai_execution_logs (
+  id             bigserial PRIMARY KEY,
+  case_id        uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  run_id         int,
+  task           text NOT NULL,
+  provider       text,
+  model          text,
+  prompt_version int,
+  prompt_sha256  varchar(64),
+  input_sha256   varchar(64) NOT NULL,
+  input_chars    int,
+  input_sources  jsonb NOT NULL DEFAULT '[]'::jsonb,
+  images         int NOT NULL DEFAULT 0,
+  output_sha256  varchar(64),
+  output_chars   int,
+  output_keys    jsonb NOT NULL DEFAULT '[]'::jsonb,
+  duration_ms    int,
+  status         text NOT NULL CHECK (status IN ('SUCCESS', 'ERROR')),
+  error          text,
+  at             timestamptz NOT NULL,
+  recorded_at    timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_execution_logs_case ON ai_execution_logs (case_id, run_id, id);
+CREATE INDEX IF NOT EXISTS ai_execution_logs_task ON ai_execution_logs (task, model, at);
+
+CREATE TABLE IF NOT EXISTS case_execution_trace (
+  case_id       uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  run_id        int NOT NULL,
+  execution_id  uuid NOT NULL,
+  passed        boolean NOT NULL,
+  failed_checks jsonb NOT NULL DEFAULT '[]'::jsonb,
+  checks        jsonb NOT NULL,
+  trace         jsonb NOT NULL,
+  report        text,
+  created_at    timestamptz DEFAULT now(),
+  PRIMARY KEY (case_id, run_id)
+);
+CREATE INDEX IF NOT EXISTS case_execution_trace_failed ON case_execution_trace (created_at)
+  WHERE NOT passed;
+
+-- ---------------------------------------------------------------- P6 draft versions
+-- 0008_draft_versions.sql: immutable drafts tied to the claim plan.
+CREATE TABLE IF NOT EXISTS draft_versions (
+  draft_id          uuid PRIMARY KEY,
+  case_id           uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  claim_plan_id     uuid REFERENCES claim_plans,
+  run_id            int,
+  version           int NOT NULL,
+  attempt           int,
+  parent_draft_id   uuid,
+  model             text,
+  prompt_version    int,
+  content_hash      varchar(64) NOT NULL,
+  content           jsonb NOT NULL,
+  validation_status text NOT NULL CHECK (validation_status IN ('PASSED', 'FAILED', 'NOT_RUN')),
+  issues            jsonb NOT NULL DEFAULT '[]'::jsonb,
+  grounding         jsonb NOT NULL DEFAULT '[]'::jsonb,
+  judge             jsonb,
+  released          boolean NOT NULL DEFAULT false,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (case_id, version),
+  UNIQUE (case_id, claim_plan_id, content_hash)
+);
+CREATE INDEX IF NOT EXISTS draft_versions_case ON draft_versions (case_id, version);
+CREATE INDEX IF NOT EXISTS draft_versions_plan ON draft_versions (claim_plan_id);
+
+CREATE OR REPLACE FUNCTION draft_versions_immutable() RETURNS trigger AS $$
+BEGIN
+  IF NEW.draft_id IS DISTINCT FROM OLD.draft_id OR NEW.case_id IS DISTINCT FROM OLD.case_id
+     OR NEW.claim_plan_id IS DISTINCT FROM OLD.claim_plan_id
+     OR NEW.version IS DISTINCT FROM OLD.version
+     OR NEW.model IS DISTINCT FROM OLD.model
+     OR NEW.prompt_version IS DISTINCT FROM OLD.prompt_version
+     OR NEW.content_hash IS DISTINCT FROM OLD.content_hash
+     OR NEW.content IS DISTINCT FROM OLD.content
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'a draft version is immutable: write a new version';
+  END IF;
+  -- a released draft stays released
+  IF OLD.released AND NOT NEW.released THEN
+    RAISE EXCEPTION 'a released draft stays released';
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS draft_versions_immutable ON draft_versions;
+CREATE TRIGGER draft_versions_immutable BEFORE UPDATE ON draft_versions
+  FOR EACH ROW EXECUTE FUNCTION draft_versions_immutable();

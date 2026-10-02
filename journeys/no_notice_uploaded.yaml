@@ -1,0 +1,16 @@
+# A customer who uploads something that is not a parking charge notice. The
+# system must stop cleanly (no letter) and still produce a consistent trace.
+case_id: REG_no_notice
+documents:
+  - evidence_id: E1
+    filename: receipt.txt
+    text: |
+      Riverside Retail Park - Pay and Display
+      Ticket 00412  12/06/2026 14:10
+      Paid: 2.00  Expires: 16:10
+      Thank you for your visit
+customer:
+  narrative: "I paid for parking, here is my ticket."
+answer_policy: skip
+expect:
+  letter_excludes: ["KB-", "VAL-"]

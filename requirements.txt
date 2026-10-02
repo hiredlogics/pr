@@ -25,5 +25,6 @@ pypdf>=5.0               # PDF text layer
 pymupdf>=1.24            # rasterise scanned pages, normalise images to JPEG
 Pillow>=10               # decode what PyMuPDF cannot (WebP screenshots)
 jinja2>=3.1              # letterhead template
+python-docx>=1.1        # knowledge base ingestion (admin import of the controlled DOCX)
 psycopg[binary]>=3.2     # only used when DATABASE_URL is set
 pgvector>=0.3

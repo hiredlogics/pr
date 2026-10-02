@@ -26,7 +26,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from ..hypotheses import CONFIRMED, KINDS
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+from . import narrative
 
 # --------------------------------------------------------------------------- extractors
 # Each rule is system-wide: pattern → structured fact + professional proposition.
@@ -133,21 +135,9 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "an attempt to pay was unsuccessful because the payment facility did not work as required",
         (),
     ),
-    # Multiple visits / ANPR pairing
-    CircumstanceRule(
-        "multiple_visits", True,
-        re.compile(
-            r"\b("
-            r"(left and (came back|returned)|returned later|"
-            r"two (separate )?visits|more than one visit|"
-            r"visited .{0,20}twice|went back (later|again)|"
-            r"separate visits)"
-            r")",
-            re.I,
-        ),
-        "the vehicle attended the site more than once on the material date",
-        (),
-    ),
+    # Multiple visits: not a rule. "Left and came back" does not say the
+    # VEHICLE left; engines/narrative.py reads it as a hypothesis, which is
+    # asked about, and only the customer's answer sets `multiple_visits`.
     # Disability / accessibility
     CircumstanceRule(
         "disability_extra_time", True,
@@ -297,6 +287,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     """
     _clear_material(case)
     texts = _collect_customer_texts(case)
+    narrative.understand(case, texts)
     if not texts:
         return {"extractions": [], "propositions": [], "contradicts": False}
 
@@ -348,6 +339,10 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
                 relevant_to_allegation=relevant,
             ))
             seen_facts.add(rule.fact_name)
+
+    _record_described_event(case, texts)
+    extractions += _confirmed_hypotheses(case, breach)
+    extractions += _answered_circumstances(case, {e.fact_name for e in extractions})
 
     if not extractions:
         case.free_text_provenance = []
@@ -409,6 +404,71 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     }
 
 
+# The customer telling what happened ("I parked", "we stopped"): a first-person
+# account of the event. It records only that an account was given. It is not
+# a disclosure and never identifies the driver: who drove is the tri-state
+# driver_disclosure_to_operator fact, which free text never sets.
+_DESCRIBED_EVENT = re.compile(
+    r"\b(?:i|we)\s+(?:had\s+|have\s+|was\s+|were\s+)?"
+    r"(?:parked|park|drove|stopped|pulled\s+(?:in|up|into)|left\s+(?:the|my|our)\s+car|arrived)\b",
+    re.I)
+
+
+def _record_described_event(case: CaseFile, texts: list[str]) -> None:
+    for raw in texts:
+        m = _DESCRIBED_EVENT.search(str(raw))
+        if m and not _match_negated(str(raw), m):
+            case.put(Fact(
+                "F-customer_described_event", "customer_described_event", True,
+                FactStatus.DERIVED,
+                FactSource(SourceKind.CUSTOMER_FREE_TEXT, "free_text:customer_described_event",
+                           excerpt=str(raw)[:240]),
+            ), reason="account_describes_event")
+            return
+
+
+def _confirmed_hypotheses(case: CaseFile, breach: str) -> list[FreeTextExtraction]:
+    """What the account says, once the customer has confirmed it. The answer is
+    the fact (source ANSWER); the account's words are kept as its provenance so
+    drafting sees the same proposition it saw when the phrase alone set it."""
+    out = []
+    for h in case.fact_hypotheses:
+        kind = KINDS.get(h["fact_name"])
+        if h["status"] != CONFIRMED or not kind or not kind.proposition:
+            continue
+        if case.get(h["fact_name"]) != h["possible_value"]:
+            continue
+        out.append(FreeTextExtraction(original=h["source_text"], fact_name=h["fact_name"],
+                                      normalized_value=h["possible_value"],
+                                      drafting_proposition=kind.proposition,
+                                      relevant_to_allegation=True))
+    return out
+
+
+def _answered_circumstances(case: CaseFile, seen: set[str]) -> list[FreeTextExtraction]:
+    """A circumstance the customer stated by ANSWERING a question (P4).
+
+    Same effect as the account saying it and the customer confirming it: an
+    answered "were children in the vehicle? yes" is a customer statement of the
+    bay's condition, and counts towards account_contradicts_allegation exactly
+    as a confirmed hypothesis does. Only a true closed-form answer to a fact a
+    circumstance rule knows counts; the answer fact itself is unchanged
+    (source ANSWER, owner customer).
+    """
+    out, breach = [], str(case.get("alleged_breach") or "").lower()
+    for rule in _RULES:
+        if rule.fact_name in seen or rule.value is not True:
+            continue
+        f = case.facts.get(rule.fact_name)
+        if f is None or not f.usable or f.source.kind != SourceKind.ANSWER or f.value is not True:
+            continue
+        seen = seen | {rule.fact_name}
+        out.append(FreeTextExtraction(original=f"answer: {rule.fact_name}", fact_name=rule.fact_name,
+                                      normalized_value=True, drafting_proposition=rule.proposition,
+                                      relevant_to_allegation=_relevant_to_allegation(rule, breach)))
+    return out
+
+
 def _relevant_to_allegation(rule: CircumstanceRule, breach: str) -> bool:
     if not breach:
         return True
@@ -450,17 +510,17 @@ def _clear_material(case: CaseFile) -> None:
         fact = case.facts[name]
         ref = fact.source.ref or ""
         if name in drop_exact:
-            del case.facts[name]
+            case.retract(name, "account_reassessed")
             continue
         if fact.source.kind == SourceKind.CUSTOMER_FREE_TEXT and ref.startswith("free_text:"):
-            del case.facts[name]
+            case.retract(name, "account_reassessed")
             continue
         if name.startswith("bay_") and name.endswith(
                 ("_accounted", "_condition_accounted", "_occupant_accounted")) \
                 and fact.source.kind in (
                     SourceKind.CUSTOMER_FREE_TEXT, SourceKind.CALCULATION):
             if "material_account" in ref or ref.startswith("free_text:"):
-                del case.facts[name]
+                case.retract(name, "account_reassessed")
     case.raw_answers.pop("_material_source_texts", None)
     case.raw_answers.pop("_free_text_provenance", None)
     case.free_text_provenance = []

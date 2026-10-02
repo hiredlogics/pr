@@ -78,7 +78,9 @@ class ExtractionPreservesMeaning(unittest.TestCase):
     def test_multiple_visits(self):
         case, dig = self._digest(
             "Overstay", "We left and came back later — two seperate visits.")
-        self.assertTrue(case.get("multiple_visits"))
+        # P2: a hypothesis to confirm, not a fact (test_p2_narrative_hypotheses).
+        self.assertIsNone(case.get("multiple_visits"))
+        self.assertEqual(case.fact_hypotheses[0]["possible_value"], True)
 
     def test_children_present(self):
         case, dig = self._digest(

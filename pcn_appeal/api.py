@@ -13,22 +13,26 @@ tenant isolation and the product/case binding check in front of every route.
 from __future__ import annotations
 
 import hmac
+import json
 import os
+import re
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
-from . import config, prompts, runtime, version
+from . import config, customer_safe, manifest, prompts, runtime, version
 from .ingest import MAX_BYTES, UnsupportedUpload, fetch_upload, read_upload
 from .kg.graph import KnowledgeGraph
 from .llm import default_client
 from .models import CaseFile, CaseState, EvidenceItem
 from .notice_completeness import BOTH_SIDES_MESSAGE
+from .engines import question_authority
+from .hypotheses import Hypotheses
 from .orchestrator import AppealPipeline
 from .store import db
 
@@ -48,6 +52,7 @@ def _intake(rec: dict[str, Any], enforce_completeness: bool = True) -> Optional[
     """
     from .intake import run_intake
     case: CaseFile = rec["case"]
+    case.ensure_run("intake")
     result = run_intake(case, rec["pipe"].extraction.llm)
     if result.stop is not None:
         _persist(case)
@@ -80,10 +85,11 @@ def _reject_incomplete(case: CaseFile, reason: str, policy: str) -> None:
                        **({"differed": differed} if differed else {})})
     reset(case)
     from .notice_completeness import rejection_message
+    # The customer gets the message and a stable code; which check refused the
+    # upload (`reason`, `differed`) is routing logic and stays in the audit.
     raise HTTPException(422, {
         "message": rejection_message(reason),
         "code": "NOTICE_SIDES_REQUIRED",
-        "reason": reason,
     })
 
 
@@ -135,6 +141,53 @@ def _verify_provider_at_startup() -> None:
 
 
 app = FastAPI(title="PCN Appeal AI", version="2.0", lifespan=lifespan)
+
+
+# The customer journey, as the public proxy allows it (frontend/app/api/[...path]/route.ts),
+# plus GET /cases/{id}. Every JSON body on these routes - results, holds,
+# questions, refusals and errors alike - passes customer_safe.scrub. Operator
+# routes are not listed: they are the internal view and need the admin token.
+CUSTOMER_ROUTES: tuple[tuple[str, re.Pattern], ...] = (
+    ("POST", re.compile(r"^/appeal(/files|/[^/]+)?$")),
+    ("POST", re.compile(r"^/cases$")),
+    ("POST", re.compile(r"^/cases/[^/]+/(files|blobs|confirm)$")),
+    ("GET", re.compile(r"^/cases/[^/]+(/confirmation|/letter\.pdf)?$")),
+)
+
+
+def is_customer_route(method: str, path: str) -> bool:
+    return any(m == method and rx.match(path) for m, rx in CUSTOMER_ROUTES)
+
+
+@app.middleware("http")
+async def frontend_version_header(request, call_next):
+    """Which frontend build sent this request, for the execution manifest.
+    Bounded and printable only: it is a client-supplied header."""
+    raw = (request.headers.get("x-frontend-version") or "").strip()
+    value = re.sub(r"[^A-Za-z0-9._:+-]", "", raw)[:64] or "unknown"
+    token = manifest.FRONTEND_VERSION.set(value)
+    try:
+        return await call_next(request)
+    finally:
+        manifest.FRONTEND_VERSION.reset(token)
+
+
+@app.middleware("http")
+async def customer_safe_responses(request, call_next):
+    response = await call_next(request)
+    if not is_customer_route(request.method, request.url.path):
+        return response
+    if "application/json" not in (response.headers.get("content-type") or ""):
+        return response
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    try:
+        payload = json.loads(body or b"null")
+    except ValueError:
+        return Response(body, status_code=response.status_code, headers=dict(response.headers))
+    clean = customer_safe.scrub(payload, where=f"{request.method} {request.url.path}")
+    headers = {k: v for k, v in response.headers.items()
+               if k.lower() not in ("content-length", "content-type")}
+    return JSONResponse(clean, status_code=response.status_code, headers=headers)
 
 
 # Start anyway when the KB source cannot be trusted: an unreachable release
@@ -332,6 +385,7 @@ def _persist(case: CaseFile, out=None) -> None:
     case_store.save(case)
     if out is not None:
         case_store.save_output(case, out)
+        case_store.save_execution_trace(case, out)
 
 
 def _new_case() -> tuple[str, dict[str, Any]]:
@@ -341,6 +395,7 @@ def _new_case() -> tuple[str, dict[str, Any]]:
         case = case_store.new_case(kb_release_id=KG.release_id)
     else:
         case = CaseFile(f"C-{len(CASES) + 1:04d}")
+    case.frontend_version = manifest.FRONTEND_VERSION.get()
     rec = {"case": case, "pipe": pipe,
            "flags": [], "questions": [], "output": None}
     CASES[case.case_id] = rec
@@ -504,10 +559,11 @@ def letter_pdf(case_id: str):
         # A serverless function has no way to install them, so PDF rendering is
         # unavailable there. Say so plainly: the letter text is still complete,
         # and a 503 with a reason beats a 500 with a stack trace.
+        case.audit.append({"event": "pdf_render_failed",
+                           "error": f"{type(exc).__name__}: {exc}"[:200]})
         raise HTTPException(503, {
             "message": "PDF rendering is not available on this deployment. "
                        "The letter text is complete and can be copied.",
-            "detail": f"{type(exc).__name__}: {exc}"[:200],
         }) from exc
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="appeal-{case_id}.pdf"'})
@@ -598,8 +654,9 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     # and the retrieval trace are deliberately absent - they belong to
     # GET /cases/{id}/trace, which is the internal view of the same case.
     payload = {"case_id": result.case_id, "state": result.state.value, "route": case.route,
-               "flags": _customer_flags(result.flags), "questions": result.questions,
-               "skipped_questions": result.skipped_questions}
+               "flags": _customer_flags(result.flags),
+               "questions": customer_safe.customer_questions(result.questions),
+               "skipped_questions": customer_safe.customer_questions(result.skipped_questions)}
     if result.stop_reason:
         payload.update(_stop_payload(case))
         return payload
@@ -628,7 +685,7 @@ def _held_questions(case: CaseFile, out) -> dict:
     """A NEEDS_FACTS hold carries the question that would unblock it, so the
     customer can answer it on this case (it was already shown once and skipped)."""
     if out.outcome == "NEEDS_FACTS" and case.pending_questions:
-        return {"questions": list(case.pending_questions)}
+        return {"questions": customer_safe.customer_questions(case.pending_questions)}
     return {}
 
 
@@ -722,7 +779,7 @@ def _ingest_upload(rec: dict[str, Any], rejected: list[dict]) -> dict:
     rec["flags"] = _private_service(rec).extract_service_facts(case)
     _persist(case)
     return {"case_id": case.case_id, "state": case.state.value, "route": case.route,
-            "flags": rec["flags"], "rejected": rejected, "read_as": _read_as(case)}
+            "flags": _customer_flags(rec["flags"]), "rejected": rejected, "read_as": _read_as(case)}
 
 
 @app.get("/cases/{case_id}")
@@ -799,11 +856,9 @@ def upload_blobs(case_id: str, body: BlobsIn):
 
 @app.get("/cases/{case_id}/confirmation")
 def confirmation_screen(case_id: str):
-    """Extracted facts + flags for the customer to confirm or correct.
-
-    `details` is the curated, labelled, ordered subset a customer should check;
-    `facts` is everything, for the reviewer console.
-    """
+    """The extracted details for the customer to confirm or correct: the
+    curated, labelled, ordered subset in CUSTOMER_FIELDS, and the flags a
+    customer can act on. The full fact list is GET /cases/{id}/facts (admin)."""
     rec = _case(case_id)
     case: CaseFile = rec["case"]
     details = []
@@ -817,11 +872,130 @@ def confirmation_screen(case_id: str):
             # is what the UI should draw attention to.
             "needs_attention": fact is None or not fact.usable,
         })
+    return {"case_id": case.case_id, "state": case.state.value,
+            "flags": _customer_flags(rec["flags"]), "details": details}
+
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+def _public(rows: list[dict]) -> list[dict]:
+    """Graph records without their working keys ("_held", "_persisted")."""
+    return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
+
+
+def _knowledge_trace(rec: dict) -> dict:
+    """The knowledge match on the case's current facts (read-only; the
+    match recorded at each analysis is in the audit as `knowledge_match`)."""
+    from .engines.knowledge_matcher import KnowledgeMatcher
+    pipe = rec.get("pipe")
+    kg = getattr(pipe, "kg", None) or KG
+    return KnowledgeMatcher(kg).match(rec["case"]).trace()
+
+
+@app.get("/cases/{case_id}/facts")
+def case_facts(case_id: str, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """The case's Fact Graph: every fact node with its source type, status,
+    owner and confidence; every reading of each fact (sources); conflicts; and
+    the raw flags - the reviewer console's view. Operator route: none of this
+    is customer output (it was on /confirmation until P0.1)."""
+    from . import fact_graph
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
     return {"case_id": case.case_id, "state": case.state.value, "flags": rec["flags"],
-            "details": details,
             "facts": [{"name": f.name, "value": str(f.value), "status": f.status.value,
                        "confidence": f.confidence, "source": f.source.ref}
-                      for f in case.facts.values()]}
+                      for f in case.facts.values()],
+            "nodes": fact_graph.nodes(case),
+            "fact_sources": _public(case.fact_sources),
+            "fact_conflicts": _public(case.fact_conflicts),
+            "needs_confirmation": [c["fact"] for c in
+                                   fact_graph.FactManager.needs_confirmation(case)],
+            "fact_hypotheses": _public(case.fact_hypotheses),
+            "hypothesis_trace": Hypotheses.trace(case),
+            # P3: every question decision, approved or rejected, and why.
+            "question_trace": question_authority.trace(case),
+            # P4: facts -> relationships -> knowledge, and every rejection.
+            "knowledge": _knowledge_trace(rec),
+            # P5: the locked claim plan - what is argued, what is not, and why.
+            "claim_plan": _claim_plan_trace(rec["case"])}
+
+
+class FactWriteIn(BaseModel):
+    """An operator write. Either a fact (`fact_name` + `value`) or the
+    settlement of a conflict (`conflict_id` + `value`). `reason` is required:
+    every write is in the fact's history."""
+    reason: str
+    value: Any = None
+    fact_name: Optional[str] = None
+    conflict_id: Optional[str] = None
+
+
+@app.post("/cases/{case_id}/facts")
+def write_fact(case_id: str, body: FactWriteIn, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Internal Fact API write. Goes through FactManager like every other
+    write, so an operator cannot silently overwrite a document reading either:
+    the same ownership rules apply, and a conflict is settled by naming it."""
+    from . import fact_graph
+    from .models import Fact, FactSource, FactStatus, SourceKind
+    from .store.cases import _revived
+    _require_admin(authorization, x_admin_token)
+    if not body.reason.strip():
+        raise HTTPException(422, "reason is required")
+    if bool(body.fact_name) == bool(body.conflict_id):
+        raise HTTPException(422, "give fact_name or conflict_id")
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    value = _revived(body.value)
+    if body.conflict_id:
+        try:
+            result = fact_graph.FactManager.resolve_conflict(
+                case, body.conflict_id, value, changed_by="admin", reason=body.reason.strip())
+        except KeyError:
+            raise HTTPException(404, "no open conflict with that id")
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+    else:
+        name = fact_graph.canonical(body.fact_name.strip())
+        result = fact_graph.FactManager.update_fact(
+            case, Fact(f"F-{name}", name, value, FactStatus.CONFIRMED,
+                       FactSource(SourceKind.ANSWER, f"admin:{name}")),
+            reason=body.reason.strip(), changed_by="admin")
+    case.audit.append({"event": "fact_api_write", "outcome": result.outcome,
+                       "fact": body.fact_name or (result.conflict or {}).get("fact")})
+    _persist(case)
+    conflict = result.conflict and {k: v for k, v in result.conflict.items()
+                                    if not k.startswith("_")}
+    fact = (result.conflict or {}).get("fact") or fact_graph.canonical(body.fact_name or "")
+    return {"outcome": result.outcome, "conflict": conflict,
+            "fact": fact_graph.node(case, fact)}
+
+
+@app.get("/facts/{fact_id}/history")
+def fact_history(fact_id: str, authorization: Optional[str] = Header(None),
+                 x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Every write to one fact node, oldest first: previous and new value,
+    source, who, why, when and whether it was applied."""
+    from . import fact_graph
+    _require_admin(authorization, x_admin_token)
+    case = next((r["case"] for r in CASES.values() if r["case"].facts.name_of(fact_id)), None)
+    if case is None and db.enabled() and _UUID.fullmatch(fact_id):
+        with db.connect() as conn:
+            row = conn.execute("SELECT case_id FROM facts WHERE fact_id = %s",
+                               (fact_id,)).fetchone()
+        if row is not None:
+            case = _case(str(row[0]))["case"]
+    if case is None:
+        raise HTTPException(404, "unknown fact")
+    name = case.facts.name_of(fact_id)
+    if name is None:
+        raise HTTPException(404, "unknown fact")
+    return {"fact_id": fact_id, "case_id": case.case_id, "fact_name": name,
+            "current": fact_graph.node(case, name),
+            "history": _public(fact_graph.history_of(case, fact_id))}
 
 
 @app.post("/cases/{case_id}/confirm")
@@ -862,7 +1036,8 @@ def confirm(case_id: str, body: ConfirmIn):
     if rec["questions"]:
         return {"case_id": case.case_id, "state": case.state.value,
                 "flags": _customer_flags(rec.get("flags") or []),
-                "questions": rec["questions"], "skipped_questions": []}
+                "questions": customer_safe.customer_questions(rec["questions"]),
+                "skipped_questions": []}
     # Nothing material left to ask — finish the letter now. Previously the step-by-step
     # UI called /confirm only and never /generate, so question-free cases never drafted.
     out = rec["pipe"].generate(case)
@@ -924,7 +1099,8 @@ def answer(case_id: str, body: AnswersIn,
         _persist(case)
     except (ValueError, TypeError) as exc:                 # bad choice / non-int answer
         raise HTTPException(422, str(exc)) from exc
-    return {"state": case.state.value, "questions": rec["questions"]}
+    return {"state": case.state.value,
+            "questions": customer_safe.customer_questions(rec["questions"])}
 
 
 @app.post("/cases/{case_id}/generate")
@@ -964,7 +1140,8 @@ def get_appeal(case_id: str,
     return {"state": out.state.value, "letter": out.letter, "evidence_list": out.evidence_list,
             "primary_route": out.pack.primary_route, "secondary_routes": out.pack.secondary_routes,
             "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
-            "code_version": out.pack.code_version, "module_ids": out.pack.module_ids}
+            "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
+            "manifest": getattr(out, "manifest", None)}
 
 
 @app.get("/cases/{case_id}/trace")
@@ -985,8 +1162,240 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             "sentences": [{"text": s.text, "fact_refs": s.fact_refs, "module_refs": s.module_refs,
                            "evidence_refs": s.evidence_refs} for s in out.draft.sentences()],
             "audit": rec["case"].audit,
-            "outcome": getattr(out, "outcome", None)}
+            "outcome": getattr(out, "outcome", None),
+            "run_id": rec["case"].run_id,
+            "manifest": getattr(out, "manifest", None),
+            "fact_conflicts": _public(rec["case"].fact_conflicts),
+            # P2: narrative -> hypothesis -> question -> answer -> final fact.
+            "hypotheses": Hypotheses.trace(rec["case"]),
+            # P3: candidate -> module -> target fact -> approved/rejected -> reason.
+            "question_trace": question_authority.trace(rec["case"]),
+            # P4: facts -> relationships -> knowledge, and every rejection.
+            "knowledge": _knowledge_trace(rec),
+            # P5: the locked claim plan - what is argued, what is not, and why.
+            "claim_plan": _claim_plan_trace(rec["case"]),
+            # P5.5: the run's execution trace (stages, versions, state history,
+            # AI calls) and the integrity check results.
+            "execution_trace": _integrity_of(rec).get("trace"),
+            "integrity": [(c["check"], c["status"]) for c in _integrity_of(rec).get("checks") or []]}
 
+
+
+# ---------------------------------------------------------------- knowledge (P4 / P4b)
+# Governance over the ingested knowledge store (knowledge_ingestion/store.py).
+# Module CONTENT comes from the controlled document through an import; admins
+# change status and ADMIN relationships. Every change needs a user and a
+# reason and is logged with its timestamp and version. Nothing here reaches
+# live reasoning until a KB release is published, which stays gated below.
+class KnowledgeChangeIn(BaseModel):
+    changed_by: str
+    reason: str
+
+
+class KnowledgeImportIn(KnowledgeChangeIn):
+    document: Optional[str] = None          # defaults to the controlled document in data/
+
+
+class EdgeCreateIn(KnowledgeChangeIn):
+    source_type: str
+    source_key: str
+    relationship_type: str
+    target_type: str
+    target_key: str
+    confidence: float = 1.0
+    edge_reason: str = ""
+
+
+def _knowledge_store():
+    if not db.enabled():
+        raise HTTPException(503, "knowledge management needs the database (DATABASE_URL)")
+    from .knowledge_ingestion import store
+    return store
+
+
+def _knowledge_call(fn, *args, **kwargs):
+    from .knowledge_ingestion.store import KnowledgeChangeError
+    try:
+        return fn(*args, **kwargs)
+    except KnowledgeChangeError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+def _admin(authorization, x_admin_token):
+    _require_admin(authorization, x_admin_token)
+    return _knowledge_store()
+
+
+@app.get("/admin/knowledge/modules")
+def knowledge_modules(q: Optional[str] = None, category: Optional[str] = None,
+                      status: Optional[str] = None, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """View / search modules (id, name, metadata and rule text)."""
+    k = _admin(authorization, x_admin_token)
+    return {"modules": k.list_modules(q, category, status)}
+
+
+@app.get("/admin/knowledge/modules/{module_id}")
+def knowledge_module(module_id: str, authorization: Optional[str] = Header(None),
+                     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.get_module, module_id)
+
+
+@app.post("/admin/knowledge/modules/{module_id}/activate")
+def knowledge_activate_module(module_id: str, body: KnowledgeChangeIn,
+                              authorization: Optional[str] = Header(None),
+                              x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.activate_module, module_id, changed_by=body.changed_by,
+                           reason=body.reason)
+
+
+@app.post("/admin/knowledge/modules/{module_id}/disable")
+def knowledge_disable_module(module_id: str, body: KnowledgeChangeIn,
+                             authorization: Optional[str] = Header(None),
+                             x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.disable_module, module_id, changed_by=body.changed_by,
+                           reason=body.reason)
+
+
+@app.get("/admin/knowledge/edges")
+def knowledge_edges(module_id: Optional[str] = None, include_removed: bool = False,
+                    authorization: Optional[str] = Header(None),
+                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"edges": _knowledge_call(k.list_edges, module_id, include_removed=include_removed)}
+
+
+@app.post("/admin/knowledge/edges")
+def knowledge_create_edge(body: EdgeCreateIn, authorization: Optional[str] = Header(None),
+                          x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.create_edge, body.source_type, body.source_key,
+                           body.relationship_type, body.target_type, body.target_key,
+                           changed_by=body.changed_by, reason=body.reason,
+                           confidence=body.confidence, edge_reason=body.edge_reason)
+
+
+@app.post("/admin/knowledge/edges/{edge_id}/remove")
+def knowledge_remove_edge(edge_id: str, body: KnowledgeChangeIn,
+                          authorization: Optional[str] = Header(None),
+                          x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.remove_edge, edge_id, changed_by=body.changed_by, reason=body.reason)
+
+
+@app.get("/admin/knowledge/changes")
+def knowledge_changes(entity_id: Optional[str] = None, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"changes": k.list_changes(entity_id)}
+
+
+@app.post("/admin/knowledge/import")
+def knowledge_import(body: KnowledgeImportIn, authorization: Optional[str] = Header(None),
+                     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Import the controlled document. Only files under data/ are accepted: a
+    path is never taken from the request as-is."""
+    k = _admin(authorization, x_admin_token)
+    path = k.DEFAULT_DOCUMENT
+    if body.document:
+        cand = (k.DEFAULT_DOCUMENT.parent / Path(body.document).name)
+        if cand.suffix.lower() != ".docx" or not cand.is_file():
+            raise HTTPException(422, "document must be a .docx in the knowledge data directory")
+        path = cand
+    return _knowledge_call(k.ingest, path, created_by=body.changed_by, reason=body.reason, kg=KG)
+
+
+@app.get("/admin/knowledge/releases")
+def knowledge_releases(authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"releases": k.list_releases()}
+
+
+@app.get("/admin/knowledge/releases/compare")
+def knowledge_compare(a: str, b: str, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.compare_releases, a, b)
+
+
+@app.get("/admin/knowledge/relationship-changes")
+def knowledge_relationship_changes(release_id: Optional[str] = None,
+                                   authorization: Optional[str] = Header(None),
+                                   x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.relationship_changes, release_id)
+
+
+@app.get("/admin/knowledge/graph/facts")
+def knowledge_for_facts(facts: str, authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Knowledge connected to facts (comma-separated names, each taken as present)."""
+    _admin(authorization, x_admin_token)
+    from .knowledge_ingestion.queries import knowledge_for_facts as q
+    return {"knowledge": q({f.strip(): True for f in facts.split(",") if f.strip()})}
+
+
+# ---------------------------------------------------------------- P5 claim plans
+def _claim_plan_trace(case: CaseFile) -> Optional[dict]:
+    """Admin only: the case's current locked plan - selected / rejected /
+    blocked / unresolved, each with its reason - and its version history."""
+    from .engines.claim_plan_authority import latest_locked
+    plan = latest_locked(case)
+    if plan is None:
+        return None
+    return {"claim_plan_id": plan.claim_plan_id, "version": plan.version,
+            "status": plan.status, "approved": plan.supported_ids, "trace": plan.trace(),
+            "required_evidence": plan.required_evidence(),
+            "versions": [{"version": p.version, "status": p.status,
+                          "claim_plan_id": p.claim_plan_id, "approved": p.supported_ids}
+                         for p in case.claim_plans]}
+
+
+def _plan_version(case: CaseFile, version: int):
+    plan = next((p for p in case.claim_plans if p.version == version), None)
+    if plan is None:
+        raise HTTPException(404, f"no claim plan version {version}")
+    return plan
+
+
+@app.get("/admin/cases/{case_id}/claim-plans")
+def claim_plans(case_id: str, authorization: Optional[str] = Header(None),
+                x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Every claim plan version for the case, with its admin trace."""
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return {"case_id": case.case_id,
+            "plans": [dict(p.as_dict(), trace=p.trace()) for p in case.claim_plans]}
+
+
+@app.get("/admin/cases/{case_id}/claim-plans/compare")
+def claim_plans_compare(case_id: str, a: int, b: int, authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """What changed between two runs' plans: claims, priorities, facts, versions."""
+    from .engines.claim_plan_authority import diff
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return diff(_plan_version(case, a), _plan_version(case, b))
+
+
+@app.get("/admin/cases/{case_id}/claim-plans/explain")
+def claim_plan_explain(case_id: str, module_id: str, version: Optional[int] = None,
+                       authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Why was this argument included, or excluded?"""
+    from .engines.claim_plan_authority import latest_locked
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    plan = _plan_version(case, version) if version is not None else latest_locked(case)
+    if plan is None:
+        raise HTTPException(409, "no claim plan yet - POST /generate")
+    item = plan.item(module_id)
+    return {"module_id": module_id, "version": plan.version, "explanation": plan.explain(module_id),
+            "item": item.as_dict() if item else None}
 
 
 # Admin (role: legal_admin) - edit without redeploys (Dev Pack Phase 10).
@@ -1000,3 +1409,96 @@ def upsert_module(module_id: str, body: dict):
 @app.post("/admin/kb/releases")
 def publish_release():
     raise HTTPException(501, "not implemented: must run the scenario suite and publish only if green")
+
+
+# ---------------------------------------------------------------- P5.5 integrity
+def _integrity_of(rec: dict) -> dict:
+    """The current run's integrity result: from the output when this process
+    generated it, else recomputed from the case (a reloaded case has its audit,
+    facts, plans, state history and AI calls back)."""
+    from . import integrity
+    out = rec.get("output")
+    if out is not None and getattr(out, "integrity", None):
+        return out.integrity
+    case: CaseFile = rec["case"]
+    kg = getattr(rec.get("pipe"), "kg", None) or KG
+    checks = integrity.check_case(case, out, kg)
+    return {"passed": integrity.passed(checks), "checks": checks,
+            "trace": integrity.execution_trace(case),
+            "report": integrity.case_report(case, out, kg, checks)}
+
+
+@app.get("/admin/cases/{case_id}/audit")
+def case_audit(case_id: str, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """The AI audit of the case's current run: integrity checks, execution
+    trace, claim plan and the CASE_REPORT.md text. What the journey harness
+    reads."""
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    integ = _integrity_of(rec)
+    from .engines.claim_plan_authority import latest_locked
+    plan = latest_locked(case)
+    return {"case_id": case.case_id, "state": case.state.value, "run_id": case.run_id,
+            "integrity": {"passed": integ.get("passed"), "checks": integ.get("checks")},
+            "trace": integ.get("trace"),
+            "claim_plan": None if plan is None else {
+                "version": plan.version, "status": plan.status, "approved": plan.supported_ids,
+                "plan_digest": plan.plan_digest, "trace": plan.trace()},
+            "report": integ.get("report"),
+            # P6: what the regression harness snapshots and compares.
+            "regression": _regression_view(case)}
+
+
+def _regression_view(case: CaseFile) -> dict:
+    """The run in comparable form: facts as digests (names visible, values not),
+    the question decisions, the draft versions with their grounding, validation."""
+    import hashlib
+    audit = [a for a in case.audit if a.get("run_id", 0) == case.run_id]
+    return {
+        "facts": {n: hashlib.sha256(str(f.value).encode()).hexdigest()[:12]
+                  for n, f in sorted(case.facts.items()) if f.usable},
+        "questions": [{"fact": a.get("fact"), "decision": a.get("decision")}
+                      for a in audit if a.get("event") == "question_review"],
+        "drafts": [{"version": v["version"], "draft_id": v["draft_id"],
+                    "content_hash": v["content_hash"], "claim_plan_id": v["claim_plan_id"],
+                    "validation_status": v["validation_status"],
+                    "issues": sorted({i["rule"] for i in v.get("issues") or []}),
+                    "released": v.get("released"),
+                    "structure": [(tuple(g["claim_plan_items"]), g["status"])
+                                  for g in v.get("grounding") or []],
+                    "judge": (v.get("judge") or {}).get("status")}
+                   for v in case.draft_versions if v.get("run_id") == case.run_id],
+    }
+
+
+@app.get("/admin/cases/{case_id}/audit/report.md")
+def case_audit_report(case_id: str, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    return Response(_integrity_of(_case(case_id)).get("report") or "", media_type="text/markdown")
+
+
+@app.get("/admin/cases/{case_id}/execution-trace")
+def case_execution_trace(case_id: str, run_id: Optional[int] = None,
+                         authorization: Optional[str] = Header(None),
+                         x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """One run's execution trace (the current run unless `run_id` is given)."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return integrity.execution_trace(case, run_id)
+
+
+@app.get("/admin/integrity/db-checks")
+def db_integrity_checks(case_id: Optional[str] = None,
+                        authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """The database invariants (integrity.checks.DB_CHECKS) over every case, or one."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    if not db.enabled():
+        raise HTTPException(503, "no database configured")
+    from .store.cases import connect
+    return {"checks": integrity.check_store(connect, case_id)}

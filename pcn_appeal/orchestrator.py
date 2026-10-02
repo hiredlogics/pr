@@ -16,12 +16,22 @@ from typing import Optional
 from .drafting.drafter import LLMDrafter, TemplateDrafter
 from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
+from .engines.claim_plan_authority import ClaimPlanBuilder
+from .integrity import ai_log
+from .drafting import shadow_judge, versions as draft_versions
+from .drafting.context import DraftContext
+from .engines.draft_validation_engine import DraftValidationEngine, merge as merge_validation
 from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
+from .engines.question_authority import (CONFIRMATION, CONFLICT, HYPOTHESIS, POSTCODE,
+                                         QuestionAuthority)
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine, postcode_unlocks
 from .engines.validation import ValidationEngine
+from . import customer_safe
+from .fact_graph import FactManager
+from .hypotheses import Hypotheses
 from .kg.graph import KnowledgeGraph
 from .models import CaseFile, CaseState, Draft, FactStatus, RetrievalPack, ValidationIssue, ValidationResult
 from .rules import scope
@@ -35,8 +45,10 @@ MAX_ANALYSIS_ROUNDS = 3
 
 
 def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
-    """Attach a customer outcome when the letter was not released."""
+    """Attach a customer outcome when the letter was not released, and close
+    the run: this outcome is the run's, and the next step starts a new one."""
     if out.state == CaseState.RELEASED:
+        case.complete_run(CaseState.RELEASED.value)
         return out
     info = classify_hold(case, out.pack, out.validation, out.draft)
     out.outcome = info.get("outcome")
@@ -48,6 +60,7 @@ def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
     case.audit.append({"event": "customer_outcome", **{k: v for k, v in info.items()
                                                        if k != "detail"},
                        "detail": info.get("detail")})
+    case.complete_run(info.get("outcome") or out.state.value)
     return out
 
 
@@ -67,6 +80,11 @@ class AppealOutput:
     outcome_next: Optional[str] = None
     cta_label: Optional[str] = None
     can_continue: bool = True
+    # P0.5: what produced this result (manifest.py). Admin only.
+    manifest: Optional[dict] = None
+    # P5.5: integrity checks and the execution trace for this run
+    # (integrity/). Admin only.
+    integrity: Optional[dict] = None
 
 
 
@@ -93,8 +111,14 @@ class AutoAppealResult:
 
 
 class AppealPipeline:
-    def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None):
+    def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None,
+                 shadow_judge_enabled: Optional[bool] = None):
         self.kg = kg or KnowledgeGraph()
+        # P5.5: every model call is logged against the case it serves
+        # (integrity/ai_log.py) - task, model, prompt version, digests, timing.
+        llm = ai_log.audited(llm)
+        if judge is not None:
+            judge = ai_log.audited(judge)
         self.extraction = ExtractionEngine(llm)
         self.questions = QuestionEngine(self.kg)
         self.reasoning = ReasoningEngine(self.kg)
@@ -104,18 +128,29 @@ class AppealPipeline:
         # questions are asked. Shares the reasoning engine's retriever so the
         # candidate set comes from the same approved KB index.
         self.analysis = AnalysisEngine(self.kg, llm, retriever=self.reasoning.retriever)
+        self.authority = QuestionAuthority(self.kg)
         # LLM drafting is primary so letters weave allegation, evidence and
         # unresolved facts. TemplateDrafter remains the outage / last-attempt
         # fallback and still builds case-specific REC paragraphs from the pack.
         self.drafter = drafter or LLMDrafter(llm)
         self.fallback = TemplateDrafter(self.kg)
-        self.validation = ValidationEngine(judge)
+        self.validation = ValidationEngine(judge, kg=self.kg)
+        # P6: sentence grounding and the draft-level checks (DV-*), run before
+        # the VAL-* engine; and the optional second-model judge, shadow only.
+        self.draft_validation = DraftValidationEngine(kg=self.kg)
+        self.shadow = (shadow_judge.ShadowJudge(judge or llm)
+                       if shadow_judge.enabled(shadow_judge_enabled) else None)
+        # P5: the only authority over which claims a letter argues. Analysis,
+        # reassessment and ground recovery propose; this decides and locks.
+        self.claim_authority = ClaimPlanBuilder(self.kg, self.reasoning)
 
     # step 1-2
     def ingest(self, case: CaseFile) -> list[str]:
+        case.ensure_run("ingest")
         return self.extraction.run(case)
 
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
+        case.ensure_run("confirm")
         self.extraction.confirm(case, corrections, confirmed)
         # Store narrative before any scope stop so free-text provenance survives
         # out-of-scope routing. Does not change disclosure status.
@@ -127,6 +162,7 @@ class AppealPipeline:
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
     def answer(self, case: CaseFile, answers: dict) -> list[dict]:
+        case.ensure_run("answer")
         for fact, raw in answers.items():
             self.questions.record_answer(case, fact, raw)
         return self._reanalyse(case, case.raw_answers.get("narrative", ""))
@@ -146,19 +182,44 @@ class AppealPipeline:
         if getattr(analysis, "claim_plan", None):
             case.audit.append({"event": "analysis_claim_plan",
                                "claim_plan": analysis.claim_plan})
-        questions = self._pcn_conflict_question(case) + analysis.questions
-        questions += self._site_postcode_question(case, analysis.module_ids, questions)
-        analysis.questions = questions
+        # Every source proposes candidates; the Question Authority decides.
+        #   P1: a document value the customer contradicted (case integrity).
+        #   P2: what the account might mean, its own wording replacing any
+        #       analysis question for the same fact.
+        #   Analysis: the model's questions and the KB gates of grounds it chose.
+        conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)]
+        confirm = [dict(q, source=CONFIRMATION) for q in FactManager.confirmation_questions(case)]
+        hypothesis = [dict(q, source=HYPOTHESIS)
+                      for q in Hypotheses.questions(case, self._could_change_a_ground)]
+        candidates = conflict + confirm + hypothesis + list(analysis.questions)
+        candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
+        review = self.authority.review(
+            case, candidates, selected=analysis.module_ids,
+            prior_rejections=getattr(analysis, "question_rejections", []))
+        # One question at a time. The others wait: the answer to this one may
+        # make them pointless, and the next round re-decides from scratch.
+        # The full question object (question_id, related_module, material
+        # reason, impacts) stays in the authority's trace; what is pending, and
+        # returned, is only what the customer answers.
+        analysis.questions = customer_safe.customer_questions(review.shown)
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
         # next round. Mark as asked when presented; record_answer is idempotent.
-        for q in analysis.questions:
+        for q in review.shown:
             fact = q.get("fact")
             if fact and fact not in case.asked_questions:
                 case.asked_questions.append(fact)
+            if q.get("hypothesis_id"):
+                Hypotheses.mark_asked(case, q["hypothesis_id"], q["text"])
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
-                           "asking": [q["fact"] for q in analysis.questions]})
+                           "asking": [q["fact"] for q in analysis.questions],
+                           "approved_waiting": [q["fact"] for q in review.approved[1:]]})
         return analysis.questions
+
+    def _could_change_a_ground(self, fact: str) -> bool:
+        """Material: some in-force KB module is gated on or requires the fact."""
+        return any(fact in self.kg.gating_facts(m.module_id) or fact in (m.required_facts or [])
+                   for m in self.kg.active_modules())
 
     def _site_postcode_question(self, case: CaseFile, module_ids, already: list[dict]) -> list[dict]:
         """The site postcode, asked only when nothing selected can lead the
@@ -175,8 +236,10 @@ class AppealPipeline:
         if not unlocks or not q:
             return []
         case.audit.append({"event": "site_postcode_material", "unlocks": unlocks})
+        # `source` and `unlocks` are for the Question Authority; the customer
+        # gets only fact/text/type (customer_safe.customer_question).
         return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
-                 "material_because": f"needed to apply {', '.join(unlocks)}"}]
+                 "source": POSTCODE, "unlocks": unlocks}]
 
     @staticmethod
     def _pcn_conflict_question(case: CaseFile) -> list[dict]:
@@ -233,6 +296,7 @@ class AppealPipeline:
         customer did not substantiate.
         """
         flags: list[str] = []
+        case.ensure_run("auto_appeal")
         if case.state == CaseState.CREATED:
             flags = self.ingest(case)
             stopped = self._stop_if_no_appeal_right(case, flags)
@@ -339,6 +403,19 @@ class AppealPipeline:
 
     # step 4-6
     def generate(self, case: CaseFile) -> AppealOutput:
+        """Steps 4-6 for the case's current run, ending in a released letter or a
+        hold, with the run's execution manifest attached either way."""
+        case.ensure_run("generate")
+        out = self._generate(case)
+        from . import manifest
+        from .integrity import record
+        manifest.attach(case, out, self)
+        # P5.5: the run's integrity checks and execution trace, on the output
+        # and in the audit. Never fails the run.
+        record(case, out, self)
+        return out
+
+    def _generate(self, case: CaseFile) -> AppealOutput:
         stop = self._apply_scope_stop(case)
         if stop:
             empty = RetrievalPack(
@@ -352,6 +429,31 @@ class AppealPipeline:
             return _with_outcome(
                 AppealOutput(case.state, None, empty,
                              Draft(case.case_id, []), ValidationResult(False, []), []),
+                case)
+        # P1: a document-owned fact the customer contradicted is not confirmed,
+        # so nothing may be drafted from it, and the customer is asked rather
+        # than the case being held without a route forward.
+        pending = FactManager.needs_confirmation(case)
+        if pending:
+            case.state = CaseState.MANUAL_REVIEW
+            # Through the Question Authority like every other question, one at a time.
+            case.pending_questions = customer_safe.customer_questions(self.authority.review(
+                case, [dict(q, source=CONFIRMATION)
+                       for q in FactManager.confirmation_questions(case)]).shown)
+            case.audit.append({"event": "held_needs_fact_confirmation",
+                               "facts": [c["fact"] for c in pending]})
+            empty = RetrievalPack(
+                primary_route=None, secondary_routes=[], module_ids=[],
+                verified_facts=case.fact_view(), fact_refs={},
+                missing_facts=[c["fact"] for c in pending], evidence_refs=[],
+                prohibited_claims=[], code_version=None, pofa_route="UNRESOLVED",
+                pofa_findings=[], driver_status=case.driver_status.value,
+                jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
+                context_chunks=[], lease_clauses=[],
+                trace=["held: facts need the customer's confirmation"])
+            return _with_outcome(
+                AppealOutput(case.state, None, empty, Draft(case.case_id, []),
+                             ValidationResult(False, []), []),
                 case)
         # Unresolved PCN-number conflict must not ship a letter that may cite the
         # wrong reference: an appeal against a charge that is not the customer's
@@ -378,7 +480,13 @@ class AppealPipeline:
                 AppealOutput(case.state, None, empty, Draft(case.case_id, []),
                              ValidationResult(False, issues), []),
                 case)
-        pack = self._analyse_until_a_ground_can_lead(case)
+        # Proposals: case analysis and ground recovery may still re-propose here.
+        self._analyse_until_a_ground_can_lead(case)
+        # P5: the decision. One LOCKED claim plan; from here on nothing adds,
+        # removes or reorders a claim - the pack, the drafter and validation all
+        # work from this plan (engines/claim_plan_authority.py).
+        plan = self.claim_authority.decide(case, trust=self._plan_trust())
+        pack = self.reasoning.pack_for(case, plan)
         # Structured diagnostic for audit / support — never invents retrieval hits.
         case.audit.append({
             "event": "retrieval_pack",
@@ -429,9 +537,11 @@ class AppealPipeline:
                 case, pack, "support-only grounds; none can lead the letter")
 
         feedback: list[str] = []
-        draft = result = None
+        draft = result = dv = version = None
         widened = False
         attempt = 0
+        # P6: what the drafter is given, as ids and a digest (no text).
+        case.audit.append({"event": "draft_context", **DraftContext.from_pack(pack).audit()})
         while attempt < MAX_ATTEMPTS:
             attempt += 1
             try:
@@ -444,14 +554,16 @@ class AppealPipeline:
                 # Do not substitute TemplateDrafter substantive prose after AI failure.
                 continue
 
-            # Missing knowledge: widen once over the same finalized claims, then hold.
+            # Missing knowledge: widen once over the same LOCKED claims, then hold.
+            # Widening retrieves more approved wording; the claims are the plan's.
             if draft.no_ground_reason:
                 case.audit.append({"event": "no_ground", "attempt": attempt,
                                    "reason": draft.no_ground_reason, "widened": widened})
                 if not widened:
                     widened = True
-                    pack = self.reasoning.analyse(
-                        case, selected_ids=case.analysis_module_ids, widen=True)
+                    pack = self.reasoning.pack_for(case, plan, widen=True)
+                    case.audit.append({"event": "draft_context", "widened": True,
+                                       **DraftContext.from_pack(pack).audit()})
                     attempt -= 1                     # the retry is not an attempt
                     continue
                 case.audit.append({
@@ -465,26 +577,34 @@ class AppealPipeline:
                 case.audit.append({"event": "closing_added", "attempt": attempt,
                                    "blocks": ["PP-END-001", "PP-END-002"]})
             case.state = CaseState.DRAFTED
-            result = self.validation.validate(draft, pack)
+            result, dv = self._validate(case, draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
+            version = self._record_version(case, plan, draft, result, dv, pack,
+                                           released=result.passed)
             if result.passed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
                                  self._evidence_list(case)), case)
             case.state = CaseState.VALIDATION_FAILED
-            feedback = [f"{i.rule}: {i.message} :: {i.sentence}" for i in result.issues]
+            # P6: back to the drafter without internal ids - it is told what failed,
+            # never which modules the plan holds or rejected.
+            feedback = [_CLAIM_ID.sub("an unapproved claim",
+                                        f"{i.rule}: {i.message} :: {i.sentence}")
+                        for i in result.issues]
 
         # Every attempt was refused for something a specific sentence said. Drop
         # those sentences and check what is left: an unsupported point is meant
         # to be omitted, not to take the rest of a sound letter down with it.
         trimmed, dropped = self._without_failing_sentences(draft, result)
         if dropped:
-            checked = self.validation.validate(trimmed, pack)
+            checked, dv = self._validate(case, trimmed, pack)
             case.audit.append({"event": "dropped_failing_sentences",
                                "dropped": dropped, "passed": checked.passed,
                                "issues": [i.rule for i in checked.issues]})
+            self._record_version(case, plan, trimmed, checked, dv, pack,
+                                 released=checked.passed, parent=(version or {}).get("draft_id"))
             if checked.passed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
@@ -500,9 +620,49 @@ class AppealPipeline:
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
 
+    # ------------------------------------------------------------------ P6
+    def _validate(self, case: CaseFile, draft: Draft, pack):
+        """Sentence grounding and the draft checks (DV-*), then the VAL-* engine;
+        one result. A sentence either maps to an approved claim, a fact and the
+        evidence, or it is refused here and goes back to the drafter or is removed."""
+        dv = self.draft_validation.check(draft, pack, {f.fact_id for f in case.facts.values()})
+        case.audit.append({"event": "draft_validation", **dv.summary()})
+        return merge_validation(self.validation.validate(draft, pack), dv), dv
+
+    def _record_version(self, case: CaseFile, plan, draft: Draft, result, dv, pack,
+                        released: bool, parent: Optional[str] = None) -> dict:
+        """Store the draft as an immutable version tied to the claim plan; a draft
+        that is going out is also read by the shadow judge, whose verdict is
+        recorded and never acted on."""
+        judge = None
+        if released and self.shadow is not None:
+            judge = self.shadow.review(draft, pack)
+            case.audit.append({"event": "shadow_judge", "status": judge["status"],
+                               "reasons": judge.get("reasons"), "blocking": False})
+        row = draft_versions.record(case, plan, draft, result, dv.grounding if dv else None,
+                                    judge=judge, parent=parent, released=released)
+        case.audit.append({"event": "draft_version", "draft_id": row["draft_id"],
+                           "version": row["version"], "content_hash": row["content_hash"],
+                           "claim_plan_id": row["claim_plan_id"],
+                           "validation_status": row["validation_status"], "released": released})
+        return row
+
+    def _plan_trust(self) -> dict:
+        """What a claim plan records about what produced it (client trust)."""
+        from . import prompts, version
+        from .manifest import provider_of
+        llm = self.extraction.llm
+        return {"code_version": version.commit(), "prompt_versions": prompts.versions(),
+                "model_versions": dict(getattr(llm, "models", None) or {}),
+                "provider": provider_of(llm)}
+
     # --------------------------------------------------------- recovery rungs
     def _analyse_until_a_ground_can_lead(self, case: CaseFile) -> RetrievalPack:
-        """Build the pack, re-analysing while nothing can carry the letter.
+        """Re-analyse while nothing proposed can carry the letter.
+
+        P5: this is the PROPOSAL phase. It may change case.analysis_module_ids
+        (Case Intelligence's selection); the Claim Plan built after it decides.
+        The pack it returns is only used to test for a leading ground.
 
         Case analysis reads the notice and the account afresh each round, and a
         round that came back with only the keeper-liability framing point is the
@@ -610,6 +770,8 @@ class AppealPipeline:
 # A request to cancel, not any mention of cancelling ("not an automatic
 # cancellation ground" asks for nothing).
 _CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
+# Module ids, which feedback to the drafter never carries (rule names may stay).
+_CLAIM_ID = re.compile(r"\bKB-[A-Z]+(?:-[A-Z0-9]+)+\b")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 
 

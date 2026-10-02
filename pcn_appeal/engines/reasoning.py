@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .narrative import NARRATIVE_FACTS
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
@@ -33,6 +34,7 @@ from ..legal import code_versions, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
+from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
 GLOBAL_PROHIBITED = [
@@ -136,29 +138,7 @@ class ReasoningEngine:
         trace: list[str] = []
         version, pofa_res = self._applicability(case, trace)
         facts = case.fact_view()
-
-        # 3. gate (R-03)
-        eligible = []
-        for m in self.kg.active_modules():
-            ok = evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts)
-            if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \
-                    and m.route in ("GRACE", "CONSIDERATION", "KEYING"):
-                trace.append(f"withheld {m.module_id}: Code version unresolved (R-01)")
-                ok = False
-            if ok:
-                eligible.append(m)
-        # 4. conflicts (R-04)
-        eligible.sort(key=lambda m: -m.strength)
-        kept, dropped = [], set()
-        for m in eligible:
-            if m.module_id in dropped:
-                continue
-            kept.append(m)
-            for c in self.kg.conflicts(m.module_id):
-                if c not in dropped:
-                    dropped.add(c)
-                    trace.append(f"suppressed {c}: conflicts with {m.module_id} (R-04)")
-        kept = [m for m in kept if m.module_id not in dropped]
+        kept, _ = self.eligibility(facts, version, trace)
 
         # 5. assemble the chosen grounds. Case analysis already decided, and its
         # choice was vetoed against do_not_use_when, the PoFA calculation and the
@@ -194,6 +174,69 @@ class ReasoningEngine:
                 secondary.append(m.route)
         return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
                           trace, ordered=[m.module_id for m in selected], widen=widen)
+
+    # ------------------------------------------------------------ gate
+    def eligibility(self, facts: dict, version, trace: Optional[list[str]] = None):
+        """R-03 gate, R-01 Code withholding and R-04 conflict resolution over
+        every in-force module: (kept modules, {module_id: why not kept}).
+
+        Shared by analyse() and the Claim Plan builder (engines/
+        claim_plan_authority.py), so a ground the plan approves is exactly a
+        ground this engine would keep - the pack never drops a plan claim.
+        """
+        trace = trace if trace is not None else []
+        why: dict[str, str] = {}
+        # 3. gate (R-03)
+        eligible = []
+        for m in self.kg.active_modules():
+            ok = evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts)
+            if not ok:
+                why[m.module_id] = "gate does not hold (R-03)"
+            if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \
+                    and m.route in (Route.GRACE, Route.CONSIDERATION, Route.KEYING):
+                trace.append(f"withheld {m.module_id}: Code version unresolved (R-01)")
+                why[m.module_id] = "Code version unresolved (R-01)"
+                ok = False
+            if ok:
+                eligible.append(m)
+        # 4. conflicts (R-04)
+        eligible.sort(key=lambda m: -m.strength)
+        kept, dropped = [], set()
+        for m in eligible:
+            if m.module_id in dropped:
+                continue
+            kept.append(m)
+            for c in self.kg.conflicts(m.module_id):
+                if c not in dropped:
+                    dropped.add(c)
+                    why[c] = f"conflicts with {m.module_id} (R-04)"
+                    trace.append(f"suppressed {c}: conflicts with {m.module_id} (R-04)")
+        kept = [m for m in kept if m.module_id not in dropped]
+        return kept, why
+
+    def pack_for(self, case: CaseFile, plan, widen: bool = False) -> RetrievalPack:
+        """The drafting pack for a LOCKED claim plan, and nothing else.
+
+        The plan has already decided which claims are argued and in what order;
+        this only retrieves their approved wording and the keeper-safe facts.
+        Nothing here gates, resolves or reorders: a module the plan did not
+        approve cannot reach the pack, and every module it did approve does.
+        """
+        if plan.status != "LOCKED":
+            raise ValueError(f"drafting needs a LOCKED claim plan, not {plan.status}")
+        trace: list[str] = []
+        version, pofa_res = self._applicability(case, trace)
+        facts = case.fact_view()
+        selected = [self.kg.modules[mid] for mid in plan.supported_ids]
+        trace.append(f"claim plan {plan.claim_plan_id} v{plan.version} (LOCKED): "
+                     f"{plan.supported_ids}")
+        primary = selected[0].route if selected else None
+        secondary = []
+        for m in selected[1:]:
+            if m.route != primary and m.route not in secondary:
+                secondary.append(m.route)
+        return self._pack(case, selected, primary, secondary, facts, version, pofa_res,
+                          trace, ordered=list(plan.supported_ids), widen=widen, plan=plan)
 
     def leading_grounds(self, module_ids) -> list[str]:
         """Of `module_ids`, those the KB allows to carry the letter.
@@ -236,7 +279,7 @@ class ReasoningEngine:
 
         def route_key(route: str) -> tuple:
             return (
-                1 if route == "LANDOWNER" else 0,
+                1 if route == Route.LANDOWNER else 0,
                 0 if best[route] >= SUPPORTING_THRESHOLD else 1,   # may this route lead?
                 self.kg.route_tier(route),
                 self.kg.route_rank(route),
@@ -249,7 +292,7 @@ class ReasoningEngine:
     # ------------------------------------------------------------------ pack
     def _pack(self, case: CaseFile, selected, primary, secondary, facts,
               version, pofa_res, trace: list[str], ordered: list[str],
-              widen: bool = False) -> RetrievalPack:
+              widen: bool = False, plan=None) -> RetrievalPack:
         """Retrieval restricted to the chosen grounds, then the pack the drafter sees.
 
         The block gates below are safeguards, not selection: a paragraph that
@@ -311,6 +354,8 @@ class ReasoningEngine:
         withheld_from_drafter = (
             "lease_clauses", "keeper_name", "keeper_address",
             "material_account_points", "material_account_summary",
+            "customer_described_event",          # provenance only (P1), not letter content
+            *NARRATIVE_FACTS,                    # narrative atomic facts (P2), provenance only
         )
         verified = {}
         customer_reported: list[str] = []
@@ -421,7 +466,10 @@ class ReasoningEngine:
                 "event_time": facts.get("event_time"),
                 "bay_timing_selected": "KB-BAY-01" in ordered,
             },
-            "claim_plan": (
+            # P5: with a locked plan, its drafting view (approved claims only -
+            # never rejected or candidate modules). Without one (direct engine
+            # use), the analysis-stage proposal record as before.
+            "claim_plan": plan.for_drafting() if plan is not None else (
                 next((a.get("claim_plan") for a in reversed(case.audit)
                       if a.get("event") == "case_analysis" and a.get("claim_plan")),
                      None)
@@ -461,4 +509,5 @@ class ReasoningEngine:
             driver_status=case.driver_status.value, jurisdiction=case.get("jurisdiction", "UNKNOWN"),
             context_chunks=chunks, lease_clauses=case.get("lease_clauses", []), trace=trace,
             evidence_index={e.evidence_id: e.kind for e in case.evidence.values() if e.uploaded},
-            case_context=case_context)
+            case_context=case_context,
+            claim_plan=plan.for_validation() if plan is not None else None)

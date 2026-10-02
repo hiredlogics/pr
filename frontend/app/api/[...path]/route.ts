@@ -44,8 +44,14 @@ const ALLOWED: ReadonlyArray<readonly [string, RegExp]> = [
   ["GET", /^cases\/[^/]+\/(confirmation|letter\.pdf)$/],
 ];
 
-// Credentials for operator routes never travel through the customer proxy.
-const STRIPPED = new Set(["authorization", "x-admin-token"]);
+// Credentials for operator routes never travel through the customer proxy, and
+// the frontend version is the proxy's to set, not the browser's.
+const STRIPPED = new Set(["authorization", "x-admin-token", "x-frontend-version"]);
+
+// The deployed frontend commit (Vercel sets VERCEL_GIT_COMMIT_SHA at build and
+// run time); NEXT_PUBLIC_APP_VERSION for other hosts.
+const FRONTEND_VERSION =
+  process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_APP_VERSION ?? "unknown";
 
 function allowed(method: string, path: string[]): boolean {
   if (path.some((seg) => seg === "" || seg.includes("/") || seg === "." || seg === "..")) {
@@ -66,6 +72,9 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
     const k = key.toLowerCase();
     if (!HOP_BY_HOP.has(k) && !STRIPPED.has(k)) headers.set(key, value);
   });
+  // Which frontend build sent this, for the case execution manifest. Set here,
+  // never taken from the browser.
+  headers.set("x-frontend-version", FRONTEND_VERSION);
 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
 

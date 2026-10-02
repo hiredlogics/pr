@@ -99,9 +99,10 @@ class StoreRoundTrip(unittest.TestCase):
         loaded = self.reload()
         self.assertEqual(loaded.facts["vrm"].status, FactStatus.CONFIRMED)
         self.assertEqual(loaded.facts["vrm"].source.kind, SourceKind.ANSWER)
-        # Append-only: the extracted version is kept, superseded.
-        self.assertEqual(sqlite_store.count(self.db, "facts", "name = 'vrm'"), 2)
-        self.assertEqual(sqlite_store.count(self.db, "facts", "name = 'vrm' AND NOT superseded"), 1)
+        # One node, updated in place; both versions are in the append-only history.
+        self.assertEqual(sqlite_store.count(self.db, "facts", "fact_name = 'vrm'"), 1)
+        self.assertEqual(sqlite_store.count(self.db, "fact_history", "fact = 'vrm'"), 2)
+        self.assertEqual(loaded.facts.node_id("vrm"), self.case.facts.node_id("vrm"))
 
     def test_dates_come_back_as_dates(self):
         from datetime import date
@@ -111,19 +112,20 @@ class StoreRoundTrip(unittest.TestCase):
         self.assertEqual(loaded.facts["parking_event_date"].value, date(2026, 6, 1))
         self.assertEqual(loaded.facts["pcn_number"].value, "PCN-2026-06-01X")
         store.save(loaded)                    # a revived date is not a changed value
-        self.assertEqual(sqlite_store.count(self.db, "facts", "name = 'parking_event_date'"), 1)
+        self.assertEqual(sqlite_store.count(self.db, "facts", "fact_name = 'parking_event_date'"), 1)
 
     def test_an_unchanged_fact_is_not_versioned_again(self):
         self.case.put(fact("vrm", "AB12CDE"))
         store.save(self.case)
         store.save(self.case)
-        self.assertEqual(sqlite_store.count(self.db, "facts", "name = 'vrm'"), 1)
+        self.assertEqual(sqlite_store.count(self.db, "facts", "fact_name = 'vrm'"), 1)
+        self.assertEqual(sqlite_store.count(self.db, "fact_history", "fact = 'vrm'"), 1)
 
     def test_a_fact_removed_from_the_case_does_not_come_back(self):
         self.case.put(fact("child_occupant_present", True, FactStatus.ANSWERED,
                            SourceKind.CUSTOMER_FREE_TEXT, "free_text:child_occupant_present"))
         store.save(self.case)
-        del self.case.facts["child_occupant_present"]
+        self.case.retract("child_occupant_present", "test: removed")
         self.assertNotIn("child_occupant_present", self.reload().facts)
 
     def test_the_narrative_and_latest_answers_survive(self):

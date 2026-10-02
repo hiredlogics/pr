@@ -55,12 +55,17 @@ def init_schema() -> None:
 
 
 def _split(sql: str) -> list[str]:
+    """Statements, one per trailing ";" - except inside a $$ ... $$ body (a DO
+    block), whose own semicolons belong to it."""
     out, buf = [], []
+    in_body = False
     for line in sql.splitlines():
-        if line.strip().startswith("--"):
+        if line.strip().startswith("--") and not in_body:
             continue
         buf.append(line)
-        if line.rstrip().endswith(";"):
+        if line.count("$$") % 2:
+            in_body = not in_body
+        if not in_body and line.rstrip().endswith(";"):
             stmt = "\n".join(buf).strip()
             if stmt:
                 out.append(stmt)

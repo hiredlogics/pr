@@ -19,6 +19,7 @@ from typing import Any, Optional
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile, Fact, FactSource, FactStatus, KBModule, SourceKind
 from ..rules.dsl import evaluate
+from ..routes import Route
 
 
 @dataclass
@@ -73,7 +74,7 @@ def _fact_supports_module(fact_name: str, module: KBModule, facts: dict[str, Any
         "material_account_propositions", "child_occupant_present",
         "bay_child_occupant_accounted",
     ):
-        if module.module_id.startswith("KB-BAY") or module.route == "BAY":
+        if module.module_id.startswith("KB-BAY") or module.route == Route.BAY:
             if facts.get("account_contradicts_allegation"):
                 return "supports"
             return "neutral"
@@ -83,7 +84,7 @@ def _fact_supports_module(fact_name: str, module: KBModule, facts: dict[str, Any
 def _module_gate_satisfied(module: KBModule, facts: dict[str, Any]) -> bool:
     if _is_always_on(module):
         return False
-    if module.route == "LANDOWNER":
+    if module.route == Route.LANDOWNER:
         return False
     if evaluate(module.do_not_use_when, facts):
         return False

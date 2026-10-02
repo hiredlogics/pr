@@ -393,7 +393,7 @@ class ExtractionEngine:
                               confidence=held_ata.confidence))
                 flags = [f for f in flags if f != "uncertain:operator_ata"]
             elif held_ata.usable:
-                held_ata.status = FactStatus.UNCERTAIN
+                case.set_status("operator_ata", FactStatus.UNCERTAIN, reason="ata_unrecognised")
                 flags.append("uncertain:operator_ata")
 
         # EX-16: never silently reconcile conflicting PCN numbers across documents.
@@ -416,7 +416,7 @@ class ExtractionEngine:
                         if (c or {}).get("document_type") == "PRIVATE_PARKING_NOTICE"}
             readings = {r for r in readings if len(r) >= 6}
             if readings and extracted_pcn not in readings and "pcn_number" in case.facts:
-                case.facts["pcn_number"].status = FactStatus.UNCERTAIN
+                case.set_status("pcn_number", FactStatus.UNCERTAIN, reason="pcn_read_disagreement")
                 flags.append("uncertain:pcn_number")
                 case.audit.append({"event": "pcn_read_disagreement",
                                    "readings": sorted(readings | {extracted_pcn})})
@@ -426,7 +426,7 @@ class ExtractionEngine:
                           FactSource(SourceKind.CALCULATION, "pcn_cross_check"),
                           confidence=1.0))
             if "pcn_number" in case.facts:
-                case.facts["pcn_number"].status = FactStatus.UNCERTAIN
+                case.set_status("pcn_number", FactStatus.UNCERTAIN, reason="pcn_conflict")
             # Kept as a fact, not only in the audit, so the pipeline can put the
             # candidates to the customer as a closed choice. Without them the
             # conflict was unresolvable in the one-click flow: the number is
@@ -447,7 +447,7 @@ class ExtractionEngine:
         # EX-03 chronology
         ev_d, is_d = case.get("parking_event_date"), case.get("notice_issue_date")
         if ev_d and is_d and is_d < ev_d:
-            case.facts["notice_issue_date"].status = FactStatus.UNCERTAIN
+            case.set_status("notice_issue_date", FactStatus.UNCERTAIN, reason="chronology")
             flags.append("chronology:issue_before_event")
 
         # EX-04 derived duration
@@ -564,7 +564,7 @@ class ExtractionEngine:
                           FactSource(SourceKind.ANSWER, f"confirm:{name}")))
         for name in confirmed:
             if name in case.facts and case.facts[name].status in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
-                case.facts[name].status = FactStatus.CONFIRMED
+                case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
         # Explicit confirm/correct of the PCN clears a cross-document conflict gate.
         if "pcn_number" in corrections or "pcn_number" in confirmed:
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,

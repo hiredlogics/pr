@@ -111,7 +111,10 @@ class PostgresCases(unittest.TestCase):
         self.assertIn("E1", reloaded.evidence)                 # label round-trips, not a uuid
         self.assertEqual(reloaded.evidence["E1"].kind, "PCN")
 
-    def test_corrected_fact_supersedes_rather_than_overwrites(self):
+    def test_a_fact_is_one_node_with_its_history_kept(self):
+        """P1 Fact Graph: one row per fact, updated in place, every write in
+        fact_history. A customer correction of a confident document reading is
+        a NEEDS_CONFIRMATION conflict: the reading is held, never overwritten."""
         from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
         from pcn_appeal.store import cases as case_store, db
 
@@ -124,13 +127,17 @@ class PostgresCases(unittest.TestCase):
         case_store.save(case)
 
         with db.connect() as conn:
-            rows = conn.execute("SELECT value, status, superseded FROM facts "
-                                "WHERE case_id = %s AND name = 'vrm' ORDER BY created_at",
+            rows = conn.execute("SELECT fact_value, disputed FROM facts "
+                                "WHERE case_id = %s AND fact_name = 'vrm'",
                                 (case.case_id,)).fetchall()
-        self.assertEqual(len(rows), 2, rows)                   # history kept, nothing overwritten
-        self.assertTrue(rows[0][2])                            # old row superseded
-        self.assertFalse(rows[1][2])
-        self.assertEqual(case_store.load(case.case_id).get("vrm"), "XY99ZZZ")
+            history = conn.execute("SELECT outcome FROM fact_history WHERE case_id = %s "
+                                   "AND fact = 'vrm' ORDER BY id", (case.case_id,)).fetchall()
+            conflicts = conn.execute("SELECT status FROM fact_conflicts WHERE case_id = %s",
+                                     (case.case_id,)).fetchall()
+        self.assertEqual(rows, [("AB12CDE", True)])
+        self.assertEqual([h[0] for h in history], ["APPLIED", "CONFLICT"])
+        self.assertEqual([c[0] for c in conflicts], ["NEEDS_CONFIRMATION"])
+        self.assertEqual(case_store.load(case.case_id).facts["vrm"].value, "AB12CDE")
 
 
 if __name__ == "__main__":

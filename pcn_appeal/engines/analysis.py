@@ -34,11 +34,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .narrative import NARRATIVE_FACTS
 from .. import prompts
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile, KBModule
 from ..rules.dsl import evaluate
+from ..routes import GENERAL_GROUND_ROUTES, Route
 from .claim_plan import build_claim_plan
+from .knowledge_matcher import OFFERABLE, RELEVANT, SUPPORTED, KnowledgeMatcher
 
 # A question is a cost to the customer, so the ceiling is low and silence is the
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
@@ -59,8 +62,8 @@ INTERNAL_FACTS = {
     "total_recorded_duration_min", "duration_min", "jurisdiction", "code_version",
     "notice_route", "notice_sides_complete", "pcn_conflict", "pcn_candidates",
     "authority_challenge_proportionate", "independent_evidence_contradicts",
-    "driver_status",
-}
+    "driver_status", "customer_described_event",
+} | NARRATIVE_FACTS
 INTERNAL_PREFIXES = ("pofa_", "ntk_", "_")
 
 
@@ -76,28 +79,6 @@ ANPR_SHAPED_FACTS = {
 # Strength at or above this may lead a letter (mirrors reasoning.SUPPORTING_THRESHOLD).
 LEADING_STRENGTH = 50
 
-# Thin-pack situation prompts when Case Intelligence selected no leading ground
-# and asked nothing. Not a V1 circumstance→ground map: these only unlock
-# customer-answerable facts; grounds still require CI + use_when.
-SITUATION_FALLBACK: list[dict[str, Any]] = [
-    {"fact": "payment_made", "text": "Was a parking payment completed for this visit?",
-     "type": "bool", "material_because": "unlocks payment / keying grounds"},
-    {"fact": "genuine_customer",
-     "text": "Was the visit connected with genuine use of the premises at this location?",
-     "type": "bool", "material_because": "unlocks customer / authorisation grounds"},
-    {"fact": "permit_held",
-     "text": "Was a permit or permission to park held for this location?",
-     "type": "bool", "material_because": "unlocks permit grounds"},
-    {"fact": "signage_issue_raised",
-     "text": "Is there a specific problem with the signs (missing, hidden, damaged, unlit or contradictory)?",
-     "type": "bool", "material_because": "unlocks signage grounds"},
-    {"fact": "short_presence_before_acceptance",
-     "text": "Did the vehicle leave without parking, or was time spent looking for a space or reading the terms?",
-     "type": "bool", "material_because": "unlocks consideration / presence grounds"},
-    {"fact": "vehicle_immobilised",
-     "text": "Did the vehicle become mechanically unable to move (for example breakdown, flat battery or puncture)?",
-     "type": "bool", "material_because": "unlocks breakdown grounds"},
-]
 
 # Semantic topic clusters. Exact fact-name dedupe alone lets the model re-ask
 # "did you use the kiosk?" as "can you remember validating?" under a new name.
@@ -173,6 +154,13 @@ class CaseAnalysis:
     # The case_analysis call failed (after its retry): nothing above is a
     # judgment on the case.
     analysis_failed: bool = False
+    # Questions the pre-checks below dropped, for the Question Authority's
+    # admin trace (engines/question_authority.py): every generated question
+    # is accounted for, not only the ones that reached the authority.
+    question_rejections: list[dict] = field(default_factory=list)
+    # P4: the knowledge match this analysis was offered from (engines/
+    # knowledge_matcher.py) - why each module was offered, blocked or not.
+    knowledge: Any = None
 
     @property
     def needs_answers(self) -> bool:
@@ -195,7 +183,8 @@ class AnalysisEngine:
         """The case_analysis call, retried once. Records `case_analysis_completed`
         or `case_analysis_error` so the outcome can tell "analysis found nothing"
         from "analysis never ran"."""
-        payload = self._payload(case, circumstances, facts, candidates, pofa, code_version)
+        payload = self._payload(case, circumstances, facts, candidates, pofa, code_version,
+                                match=result.knowledge)
         last: Optional[Exception] = None
         for attempt in (1, 2):
             try:
@@ -216,8 +205,14 @@ class AnalysisEngine:
     def analyse(self, case: CaseFile, circumstances: str = "",
                 pofa: Any = None, code_version: Optional[str] = None) -> CaseAnalysis:
         facts = case.fact_view()
-        candidates = self._candidates(case, circumstances, facts)
         result = CaseAnalysis()
+        # P4: verified facts + evidence -> knowledge candidates through explicit
+        # relationships. Blocked and impossible modules are never offered.
+        result.knowledge = KnowledgeMatcher(self.kg).match(case, facts)
+        from ..manifest import kb_digest
+        case.audit.append({"event": "knowledge_match", "kb_digest": kb_digest(self.kg),
+                           **result.knowledge.trace()})
+        candidates = self._candidates(case, circumstances, facts, result.knowledge)
         result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
 
@@ -248,7 +243,8 @@ class AnalysisEngine:
         if omitted:
             try:
                 hint = json.loads(self._payload(
-                    case, circumstances, facts, candidates, pofa, code_version))
+                    case, circumstances, facts, candidates, pofa, code_version,
+                    match=result.knowledge))
                 hint["reassessment"] = {
                     "omitted_gate_satisfied": omitted,
                     "instruction": (
@@ -279,8 +275,9 @@ class AnalysisEngine:
                     f"keeping first finalized plan")
 
         asking = list(raw.get("questions") or []) + self._unlocking_questions(case, result, facts)
+        # Candidates only: the Question Authority (orchestrator._reanalyse)
+        # decides which, if any, the customer sees. Zero is a valid outcome.
         result.questions = self._safe_questions(case, asking, result)
-        result.questions = self._ensure_situation_questions(case, result)
 
         case.audit.append({
             "event": "case_analysis",
@@ -288,6 +285,9 @@ class AnalysisEngine:
             "kept": result.module_ids,
             "suppressed": result.suppressed,
             "claim_plan": result.claim_plan,
+            # P5: what was offered, so the final Claim Plan accounts for every
+            # candidate after a reload (claim_plan_authority).
+            "candidates": list(result.candidate_ids or []),
             "asked": [q["fact"] for q in result.questions],
             "why_asked": {q.get("fact"): q.get("material_because")
                           for q in (raw.get("questions") or []) if q.get("fact")},
@@ -297,7 +297,7 @@ class AnalysisEngine:
 
     # ------------------------------------------------------- candidate set
     def _candidates(self, case: CaseFile, circumstances: str,
-                    facts: dict[str, Any]) -> list[KBModule]:
+                    facts: dict[str, Any], match=None) -> list[KBModule]:
         """Approved grounds worth showing the model, by semantic relevance.
 
         Not filtered by route: that filtering was the V1 branch selector. The
@@ -307,9 +307,17 @@ class AnalysisEngine:
         active = [m for m in self.kg.active_modules()]
         jurisdiction = facts.get("jurisdiction")
         filtered = [m for m in active if self._jurisdiction_ok(m, jurisdiction)]
+        if match is not None:
+            # P4: only modules the relation engine says could still apply. A
+            # BLOCKED module (wrong evidence type, an allegation it cannot
+            # answer, a blocked condition) or a REJECTED one (its gate cannot
+            # hold on what is known) is never shown to the model.
+            filtered = [m for m in filtered
+                        if match.candidates.get(m.module_id) is not None
+                        and match.candidates[m.module_id].status in OFFERABLE]
 
         if self.retriever is None:
-            return filtered[:CANDIDATE_LIMIT]
+            return self._by_relation(filtered, match)[:CANDIDATE_LIMIT]
 
         query = " ".join(str(x) for x in (
             case.get("alleged_breach", ""), circumstances,
@@ -330,7 +338,19 @@ class AnalysisEngine:
         # to Case Intelligence even if semantic rank pushed them out of top-N.
         # This does not finalize them as grounds.
         ranked = self._ensure_gate_satisfied_visible(ranked, filtered, facts)
-        return ranked[:CANDIDATE_LIMIT]
+        return self._by_relation(ranked, match)[:CANDIDATE_LIMIT]
+
+    @staticmethod
+    def _by_relation(ranked: list[KBModule], match) -> list[KBModule]:
+        """Relationship first, similarity second: SUPPORTED, then RELEVANT (the
+        case's facts, evidence or allegation point at it), then the existing
+        order for the rest - so the cap never cuts a supported module."""
+        if match is None:
+            return ranked
+        tier = {SUPPORTED: 0, RELEVANT: 1}
+        pos = {m.module_id: i for i, m in enumerate(ranked)}
+        return sorted(ranked, key=lambda m: (
+            tier.get(match.candidates[m.module_id].status, 2), pos[m.module_id]))
 
     @staticmethod
     def _jurisdiction_ok(module: KBModule, jurisdiction: Optional[str]) -> bool:
@@ -360,7 +380,7 @@ class AnalysisEngine:
         for m in list(filtered) + list(ranked):
             if m.module_id in seen:
                 continue
-            if self._is_always_on(m) or m.route == "LANDOWNER":
+            if self._is_always_on(m) or m.route == Route.LANDOWNER:
                 continue
             if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
                 leaders.append(m)
@@ -385,7 +405,8 @@ class AnalysisEngine:
 
     # --------------------------------------------------------------- payload
     def _payload(self, case: CaseFile, circumstances: str, facts: dict[str, Any],
-                 candidates: list[KBModule], pofa: Any, code_version: Optional[str]) -> str:
+                 candidates: list[KBModule], pofa: Any, code_version: Optional[str],
+                 match=None) -> str:
         closed_facts = sorted({
             *(self.kg.questions or {}).keys(),
             *(f for m in candidates for f in (m.required_facts or [])),
@@ -412,7 +433,12 @@ class AnalysisEngine:
                 "proposition": m.core_proposition,
                 "depends_on": sorted(set(list(m.required_facts or []))),
                 "prohibited_claims": m.prohibited_claims or [],
+                # P4: why the relation engine offered it (status, the conditions
+                # that hold, the facts still missing). Never the whole KB.
+                **({"relation": match.candidates[m.module_id].for_analysis()}
+                   if match is not None and m.module_id in match.candidates else {}),
             } for m in candidates],
+            "case_signals": {k: v["value"] for k, v in (match.signals if match else {}).items()},
             "pofa": {"route": getattr(pofa, "route", None),
                      "findings": list(getattr(pofa, "findings", []) or [])},
             "code_version": code_version,
@@ -485,6 +511,14 @@ class AnalysisEngine:
         """
         findings = list(getattr(pofa, "findings", []) or [])
         proposed_ids = [(e or {}).get("module_id") for e in (proposed or [])]
+        # P4: a module the relation engine BLOCKS for this case is not proposed
+        # to the claim plan at all (the plan's own vetoes are unchanged).
+        match = result.knowledge
+        if match is not None:
+            for mid in [m for m in proposed_ids if m and match.is_blocked(m)]:
+                proposed_ids.remove(mid)
+                self._suppress(result, mid,
+                               f"blocked by relation: {match.candidates[mid].reason}")
         plan = build_claim_plan(
             case, self.kg, proposed_ids, list(result.candidate_ids or []), facts,
             findings=findings, code_version=code_version,
@@ -561,6 +595,7 @@ class AnalysisEngine:
                     "type": shape.get("type", "text"),
                     "options": shape.get("options") or [],
                     "material_because": f"gates {mid}, which analysis proposed for this case",
+                    "related_module": mid,
                     # Named by the KB's own gate, not invented by the model, so the
                     # "one question per topic" cluster must not swallow it: a gate
                     # like {signage_issue_raised AND signage_issue_type} needs both
@@ -574,15 +609,6 @@ class AnalysisEngine:
             (m := self.kg.modules.get(mid)) and m.strength >= LEADING_STRENGTH
             for mid in (module_ids or [])
         )
-
-    def _ensure_situation_questions(self, case: CaseFile,
-                                    result: CaseAnalysis) -> list[dict]:
-        """Thin packs: do not inject a hardcoded situation bank.
-
-        Asking is Case Intelligence's job (prompt thin-pack guidance). A missing
-        field alone must never summon questions (question-authority invariant).
-        """
-        return result.questions
 
     def _safe_questions(self, case: CaseFile, proposed: list[dict],
                         result: CaseAnalysis) -> list[dict]:
@@ -640,29 +666,25 @@ class AnalysisEngine:
             elif admin_kind == "site_postcode":
                 fact = "site_postcode"
             if is_internal_fact(fact):
-                result.trace.append(f"dropped question {fact}: derived by the engines, not asked")
+                self._drop(result, fact, text, "derived by the engines, not asked")
                 continue
             if fact in seen or case.has(fact) or fact in known_on_notice:
-                result.trace.append(f"dropped question {fact}: already known or already asked")
+                self._drop(result, fact, text, "already known or already asked")
                 continue
             if not self._question_material_for_case(case, fact, result, text):
-                result.trace.append(
-                    f"dropped question {fact}: not needed for any available ground")
+                self._drop(result, fact, text, "not needed for any available ground")
                 continue
             if fact in operator_gaps or any(g in fact for g in (
                     "validation_log", "landowner", "signage_plan", "anpr_raw")):
-                result.trace.append(
-                    f"dropped question {fact}: operator-requestable; use records request in draft")
+                self._drop(result, fact, text, "operator-requestable; use records request in draft")
                 continue
             kb_gated = bool((entry or {}).get("kb_gated"))
             topic = self._topic_for(fact, text)
             if topic and topic in dead_topics:
-                result.trace.append(
-                    f"dropped question {fact}: topic {topic} unresolved for this customer")
+                self._drop(result, fact, text, f"topic {topic} unresolved for this customer")
                 continue
             if topic and topic in covered_topics and not kb_gated:
-                result.trace.append(
-                    f"dropped question {fact}: topic {topic} already asked")
+                self._drop(result, fact, text, f"topic {topic} already asked")
                 continue
             # Don't ask the customer to contact the store when operator records
             # can be requested in the draft instead.
@@ -671,21 +693,21 @@ class AnalysisEngine:
                 "contact the store", "ask the store", "speak to the store",
                 "ask sainsbury", "contact sainsbury", "ask the supermarket",
             )):
-                result.trace.append(f"dropped question {fact}: store-contact; use operator records request")
+                self._drop(result, fact, text, "store-contact; use operator records request")
                 continue
             if fact in ANPR_SHAPED_FACTS and not (
                     case.has("entry_time") and case.has("exit_time")):
-                result.trace.append(f"dropped question {fact}: notice has no ANPR entry/exit pair")
+                self._drop(result, fact, text, "notice has no ANPR entry/exit pair")
                 continue
             if qtype not in QUESTION_TYPES:
                 qtype = "text"
 
             low = text.lower()
             if any(b in low for b in self.banned):
-                result.trace.append(f"dropped question {fact}: touches driver identity")
+                self._drop(result, fact, text, "touches driver identity")
                 continue
             if any(marker in low for marker in RATIONALE_MARKERS):
-                result.trace.append(f"dropped question {fact}: explains its own legal purpose")
+                self._drop(result, fact, text, "explains its own legal purpose")
                 continue
 
             question: dict[str, Any] = {"fact": fact, "text": text, "type": qtype}
@@ -697,10 +719,24 @@ class AnalysisEngine:
                 if bank.get("type") == "choice" and bank.get("options"):
                     options = [str(o) for o in bank["options"]]
                 if len(options) < 2:
-                    result.trace.append(f"dropped question {fact}: choice with no options")
+                    self._drop(result, fact, text, "choice with no options")
                     continue
                 question["options"] = options
 
+            # Internal, for the Question Authority: where the candidate came
+            # from and what it is said to decide. Never shown to the customer.
+            from .question_authority import KB_GATE, MODEL, POSTCODE, TRADE_BODY
+            if admin_kind == "site_postcode":
+                from .recovery import postcode_unlocks
+                question.update(source=POSTCODE, unlocks=postcode_unlocks(case, self.kg))
+            elif admin_kind == "operator_ata":
+                question.update(source=TRADE_BODY, unlocks=self._ata_unlocks(case))
+            else:
+                question["source"] = KB_GATE if kb_gated else MODEL
+            if (entry or {}).get("related_module"):
+                question["related_module"] = entry["related_module"]
+            if (entry or {}).get("material_because"):
+                question["material_reason"] = str(entry["material_because"])
             out.append(question)
             seen.add(fact)
             if topic:
@@ -711,6 +747,11 @@ class AnalysisEngine:
                 break
 
         return out
+
+    @staticmethod
+    def _drop(result: CaseAnalysis, fact: str, text: str, why: str) -> None:
+        result.trace.append(f"dropped question {fact}: {why}")
+        result.question_rejections.append({"fact": fact, "text": text, "reason": why})
 
     def _topic_for(self, fact: str, text: str) -> Optional[str]:
         blob = f"{fact} {text}"
@@ -757,7 +798,7 @@ class AnalysisEngine:
         return True
 
     def _fact_specific_path_open(self, case: CaseFile, result: CaseAnalysis) -> bool:
-        """True when BAY/REC/other non-PoFA non-LAND ground is selected or gated-in.
+        """True when BAY/REC/other non-PoFA non-LANDOWNER ground is selected or gated-in.
 
         Also true when the allegation itself is already bay- or validation-shaped:
         those letters do not need ATA/postcode even before every gating fact lands.
@@ -769,25 +810,30 @@ class AnalysisEngine:
             return True
         for mid in result.module_ids:
             mod = self.kg.modules.get(mid)
-            if mod and mod.route not in ("POFA", "LAND"):
+            if mod and mod.route not in GENERAL_GROUND_ROUTES:
                 return True
         facts = case.fact_view()
         for m in self.kg.active_modules():
-            if m.route in ("POFA", "LAND"):
+            if m.route in GENERAL_GROUND_ROUTES:
                 continue
             if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
                 return True
         return False
 
     def _ata_would_unlock(self, case: CaseFile) -> bool:
+        return bool(self._ata_unlocks(case))
+
+    def _ata_unlocks(self, case: CaseFile) -> list[str]:
+        """The in-force Code-dependent modules a known trade body would open."""
         facts = case.fact_view()
+        out = []
         for m in self.kg.active_modules():
-            if m.route == "LAND" or str(m.module_id).startswith("KB-LAND"):
+            if m.route == Route.LANDOWNER:
                 continue
             if not self._needs_code_version(m):
                 continue
             if evaluate(m.do_not_use_when, facts):
                 continue
             if evaluate(m.use_when, facts):
-                return True
-        return False
+                out.append(m.module_id)
+        return out

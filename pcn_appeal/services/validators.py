@@ -14,6 +14,7 @@ their own engine is part of the first non-private service (Phase 3).
 from __future__ import annotations
 
 from ..engines.validation import ValidationEngine
+from ..routes import Route
 from .base import ServiceNotAvailable
 
 # Route-agnostic: provenance, identifiers, dates, enclosed evidence, internal
@@ -42,6 +43,6 @@ def rules_for(route: str) -> tuple[str, ...]:
 def engine_for(route: str, judge=None) -> ValidationEngine:
     """The validator that may check this route's output. Raises for a route
     whose validators do not exist yet, so nothing it produces can be released."""
-    if route == "PRIVATE_PARKING":
+    if route == Route.PRIVATE_PARKING:
         return ValidationEngine(judge)
     raise ServiceNotAvailable(f"{route}: no validators registered; output cannot be released")
