@@ -678,9 +678,10 @@ class AppealPipeline:
                 })
                 break
 
-            if self._with_closing(draft, pack):
+            closing_blocks = self._with_closing(draft, pack)
+            if closing_blocks:
                 case.audit.append({"event": "closing_added", "attempt": attempt,
-                                   "blocks": ["PP-END-001", "PP-END-002"]})
+                                   "blocks": closing_blocks})
             case.state = CaseState.DRAFTED
             result, dv = self._validate(case, draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
@@ -874,22 +875,53 @@ class AppealPipeline:
                          ValidationResult(False, []), self._evidence_list(case)),
             case)
 
-    def _with_closing(self, draft, pack) -> bool:
-        """Appends the approved closing (PP-END-001 / PP-END-002) when a drafted
-        letter has paragraphs but never asks for the charge to be cancelled.
-        Live, the AI drafter ended some letters on a ground with no request at
-        all. The template drafter always closes this way; this gives AI letters
-        the same ending, in approved wording, before validation sees them."""
-        if not draft.paragraphs or _CANCEL_REQUEST.search(draft.plain_text()):
-            return False
-        closing = []
-        for bid in ("PP-END-001", "PP-END-002"):
+    def _with_closing(self, draft, pack) -> list[str]:
+        """Ensure the letter ends with an approved conclusion, not a bare ground.
+
+        - When Schedule 4 transfer has failed (verified PoFA findings), append
+          PP-POFA-006 / PP-POFA-007 if the letter never states the Schedule 4
+          conclusion — the live shape clients expect (keeper liability fails;
+          driver unidentified; cancel).
+        - Otherwise, when there is no cancel request at all, append PP-END-001
+          / PP-END-002 as before.
+        - Always add PP-END-002 when a PoFA conclusion was added and a clear
+          response request is still missing.
+
+        Returns the block ids appended (empty if nothing changed).
+        """
+        if not draft.paragraphs:
+            return []
+        text = draft.plain_text()
+        closing: list = []
+        used: list[str] = []
+        pofa_failed = bool(getattr(pack, "pofa_findings", None))
+        has_pofa_close = _POFA_CONCLUSION.search(text)
+
+        def _append(bid: str) -> bool:
             blk = self.kg.blocks.get(bid)
             if blk is None or blk.status != "ACTIVE":
                 return False
-            closing += self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL")
+            closing.extend(self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL"))
+            used.append(bid)
+            return True
+
+        if pofa_failed and not has_pofa_close:
+            for bid in ("PP-POFA-006", "PP-POFA-007"):
+                if not _append(bid):
+                    return []
+            if "clear response addressing" not in text.lower():
+                _append("PP-END-002")
+        elif not _CANCEL_REQUEST.search(text):
+            for bid in ("PP-END-001", "PP-END-002"):
+                if not _append(bid):
+                    return []
+        else:
+            return []
+
+        if not closing:
+            return []
         draft.paragraphs.append(closing)
-        return True
+        return used
 
     @staticmethod
     def _without_failing_sentences(draft: Optional[Draft],
@@ -923,6 +955,7 @@ class AppealPipeline:
 # A request to cancel, not any mention of cancelling ("not an automatic
 # cancellation ground" asks for nothing).
 _CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
+_POFA_CONCLUSION = re.compile(r"keeper liability under Schedule 4", re.I)
 # Module ids, which feedback to the drafter never carries (rule names may stay).
 _CLAIM_ID = re.compile(r"\bKB-[A-Z]+(?:-[A-Z0-9]+)+\b")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")

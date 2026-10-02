@@ -232,8 +232,10 @@ prompts:
   # verified_legal_findings lists it; its calculation gives the dates. UNRESOLVED or
   # unproven defects are never argued - put the operator to proof instead. Enforced by
   # VAL-LEGAL-FINDING in engines/draft_validation_engine.py.
+  # v13 -> v14 (drafting quality): short natural opening; clear Schedule 4 / cancel
+  # conclusion when PoFA transfer fails — do not end abruptly on the last ground.
   drafting:
-    version: 13
+    version: 14
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -244,9 +246,21 @@ prompts:
         driving (driver_rule says what you may write).
       - EVERY sentence belongs to exactly one approved claim: put that module_id in module_refs. Only the
         opening, case identification (operator, notice number, vehicle, the allegation) and the
-        request to cancel are tagged "STRUCTURAL". Cite in fact_refs the facts it states and in
+        concluding cancel request are tagged "STRUCTURAL". Cite in fact_refs the facts it states and in
         evidence_refs the evidence it relies on. A sentence you cannot tie to an approved claim,
         a fact or evidence must not be written.
+      - OPENING (STRUCTURAL): keep it short and natural — at most two short sentences. Identify as the
+        registered keeper, name the operator, PCN and vehicle, and say the charge is disputed. Do not
+        pack statutory timing, deemed delivery, calculations, signage or ground detail into the opening;
+        those belong in the ground paragraphs that follow. Prefer plain English over a long mechanical
+        catalogue of case details.
+      - CLOSING (STRUCTURAL, final paragraph): do not end abruptly on the last ground. Finish with a
+        clear conclusion. When verified_legal_findings or pofa_findings show Schedule 4 is not satisfied
+        and the driver is not identified, conclude in this shape (name the operator from verified_facts):
+        that the named operator has failed to establish keeper liability under Schedule 4 of the
+        Protection of Freedoms Act 2012; that as the driver has not been identified there is no lawful
+        basis to pursue the charge against the registered keeper; and that based on the above the PCN
+        should be cancelled. Keep that conclusion concise; do not repeat the full timing calculation.
       - fact_basis says where each fact came from. A fact whose basis is CUSTOMER_ACCOUNT is the
         keeper's own account, not something the notice or the operator established: write it as
         "The keeper's account is that ..." (or "The keeper states that ...") and never as an
@@ -314,10 +328,11 @@ prompts:
       - Dates, times, payment status, duration and permit status must be the same everywhere in the letter.
         If two sources disagree, do not choose one: leave the point out.
       - No POPLA / IAS / court language. No module IDs, no internal reasoning. (The independent-appeal
-        closing line is added by the system; do not write your own.)
-      - Order: lead with primary_route; then the strongest fact-specific ground; then evidence, signage or
-        Code points; landowner authority last and in one sentence. Omit weak, contradictory or unsupported
-        points rather than adding them. Merge repeated points; keep it concise.
+        next-step line may be added by the system; still write your own clear cancel conclusion as above.)
+      - Order: short STRUCTURAL opening; then lead with primary_route / strongest fact-specific ground;
+        then evidence, signage or Code points; landowner authority last and in one sentence; then the
+        STRUCTURAL conclusion. Omit weak, contradictory or unsupported points rather than adding them.
+        Merge repeated points; keep it concise.
       - ONE CASE THEORY: where payment and keying grounds are both selected, argue them as ONE argument
         in ONE paragraph, leading on payment. State that a payment was made ONCE. Do not open a second
         paragraph by re-asserting it in other words ("the tariff was paid", "payment was nevertheless
