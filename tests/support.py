@@ -102,6 +102,19 @@ class ReferenceAnalysisLLM:
                 "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
             }])
 
+        # A residential case leads with the agreement's own words, quoted
+        # verbatim and attributed (quote_of), like the approved TemplateDrafter
+        # wording - whichever residential module carries the ground.
+        lease_clauses = list(data.get("lease_clauses") or [])
+        if data.get("primary_route") == "RESIDENTIAL" and lease_clauses and modules:
+            c = lease_clauses[0]
+            paras.append([{
+                "text": (f'Clause {c["clause_ref"]} of the uploaded agreement '
+                         f'provides: "{c["text"]}"'),
+                "fact_refs": [], "module_refs": [modules[0]],
+                "evidence_refs": [c["evidence_id"]], "quote_of": c["evidence_id"],
+            }])
+
         # Timing / module blocks from retrieved wording when present.
         evidence_ids = list(data.get("evidence_refs") or [])
         seen_text: set[str] = set()
@@ -130,6 +143,19 @@ class ReferenceAnalysisLLM:
                     "text": ("The operator is requested to establish that it had sufficient "
                              "authority from the landowner or other entitled party to operate "
                              "and enforce the parking scheme at the location on the material date."),
+                    "fact_refs": [], "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                }])
+                continue
+            clauses = data.get("lease_clauses") or []
+            if mid == "KB-RES-06":
+                ref = next((c.get("clause_ref") for c in clauses
+                            if c.get("has_regulations_power")), None)
+                paras.append([{
+                    "text": (f"The agreement also contains a provision concerning parking "
+                             f"regulations (clause {ref}). The operator is requested to explain "
+                             f"whether any permit requirement relied upon was validly made and "
+                             f"notified under that provision, and how it is said to qualify the "
+                             f"parking right set out above."),
                     "fact_refs": [], "module_refs": [mid], "evidence_refs": [], "quote_of": None,
                 }])
                 continue
@@ -190,10 +216,11 @@ class ReferenceAnalysisLLM:
                         " ", str(text), flags=re.I,
                     )
                     out_text = re.sub(r"\s{2,}", " ", out_text).strip()
+                from pcn_appeal.drafting.drafter import _SENT
                 paras.append([{
-                    "text": out_text, "fact_refs": [], "module_refs": [mid],
+                    "text": s, "fact_refs": [], "module_refs": [mid],
                     "evidence_refs": refs_e, "quote_of": None,
-                }])
+                } for s in _SENT.split(out_text) if s.strip()])
 
         # Factual rebuttal if account contradicts but BAY-02 was not selected
         # (still must not paste customer free text — professional proposition only).
@@ -217,6 +244,37 @@ class ReferenceAnalysisLLM:
                     "module_refs": ["STRUCTURAL"],
                     "evidence_refs": [], "quote_of": None,
                 }])
+
+        # Routes that argue one case theory are drafted as one argument with
+        # the shared point stated once - the merge the drafting prompt requires
+        # of the model and the TemplateDrafter performs itself.
+        from pcn_appeal.drafting.drafter import ONE_ARGUMENT, _restated
+        theory_of = {r: i for i, routes in enumerate(ONE_ARGUMENT) for r in routes}
+
+        def theory(para: list[dict]):
+            for s in para:
+                for m in s.get("module_refs") or []:
+                    mod = self.kg.modules.get(m)
+                    if mod is not None and theory_of.get(mod.route) is not None:
+                        return theory_of[mod.route]
+            return None
+
+        merged: list[list[dict]] = []
+        at: dict[int, int] = {}
+        made: dict[int, set[int]] = {}
+        for para in paras:
+            t = theory(para)
+            if t is None:
+                merged.append(para)
+                continue
+            keep = [s for s in para
+                    if not _restated(s["text"], made.setdefault(t, set()))]
+            if t in at:
+                merged[at[t]] += keep
+            elif keep:
+                at[t] = len(merged)
+                merged.append(keep)
+        paras = [p for p in merged if p]
 
         if len(paras) <= 2 and not modules:
             return {"paragraphs": [], "no_ground_reason": "no finalized claims to draft"}
@@ -259,10 +317,41 @@ class ReferenceAnalysisLLM:
         # so this only has to be stable, not clever.
         supported.sort(key=lambda m: (-m.strength, m.module_id))
 
+        # Near-miss grounds (P7 B1): the production model proposes a ground the
+        # ACCOUNT points at even when its gate is not yet satisfied; analysis
+        # then suppresses it as UNLOCKABLE and asks for the gate's missing
+        # facts. The stand-in approximates that reading deterministically with
+        # the account rules themselves: a candidate (already relevance-filtered
+        # by the retriever) whose gate is not met but whose gating facts
+        # include one the customer's words implicate. A wrong proposal costs a
+        # suppressed ground, never a wrong letter - exactly as in production.
+        from pcn_appeal.engines.account import _RULES
+        circumstances = str(data.get("circumstances") or "")
+        implied = {r.fact_name for r in _RULES if r.pattern.search(circumstances)}
+        implied |= {f for f, v in facts.items()
+                    if v is True and f in {r.fact_name for r in _RULES}}
+        chosen = {m.module_id for m in supported}
+        near_miss = []
+        for m in self.kg.active_modules():
+            if m.module_id not in offered or m.module_id in chosen or not implied:
+                continue
+            if isinstance(m.use_when, dict) and m.use_when.get("always") is True:
+                continue
+            if evaluate(m.do_not_use_when, facts) or evaluate(m.use_when, facts):
+                continue
+            if not (self.kg.gating_facts(m.module_id) & implied):
+                continue
+            near_miss.append(m)
+        near_miss.sort(key=lambda m: (-m.strength, m.module_id))
+
         return {
             "grounds": [{"module_id": m.module_id,
                          "supported_by": sorted(m.required_facts or []),
-                         "note": "use_when satisfied"} for m in supported],
+                         "note": "use_when satisfied"} for m in supported]
+            + [{"module_id": m.module_id,
+                "supported_by": sorted(m.required_facts or []),
+                "note": "account points at this ground; gate facts missing"}
+               for m in near_miss],
             "questions": list(self.ask),
             "not_supported": [],
         }
@@ -313,11 +402,15 @@ def assert_absent_while_under_review(test, module_id: str, *, module_ids,
 # is material so it never asks anything - and a test about the question flow needs
 # questions. This subclass keeps the demo extractor and supplies them.
 
-def demo_asking(questions: list[dict], grounds: Optional[list[str]] = None):
+def demo_asking(questions: list[dict], grounds: Optional[list[str]] = None,
+                once: bool = True):
     """A demo client that asks `questions` once, then stops.
 
     Asking on every round would loop forever: the pipeline re-analyses after each
-    answer, so a client that always asks would never finish.
+    answer, so a client that always asks would never finish. `once=False` keeps
+    re-asking the still-unanswered ones instead - the real model's behaviour
+    when a question it wants was shown later than another (one at a time) -
+    which terminates because every round filters out answered facts.
     """
     from pcn_appeal.llm import DemoLLM
 
@@ -332,7 +425,8 @@ def demo_asking(questions: list[dict], grounds: Optional[list[str]] = None):
                 out["grounds"] = [{"module_id": g, "supported_by": [], "note": "fixture"}
                                   for g in grounds]
             if not self._asked:
-                self._asked = True
+                if once:
+                    self._asked = True
                 asked = json.loads(payload).get("facts") or {}
                 out["questions"] = [q for q in questions if q["fact"] not in asked]
             return out

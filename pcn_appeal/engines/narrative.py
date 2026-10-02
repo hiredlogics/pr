@@ -244,7 +244,7 @@ def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
                                    source_text=text, confidence=r.hypothesis["confidence"],
                                    signals=r.hypothesis["signals"], rule="narrative.read")
             supported.add(_key("multiple_visits", r.hypothesis["value"]))
-    Hypotheses.withdraw_unsupported(case, supported)
+    Hypotheses.withdraw_unsupported(case, supported, rule="narrative.read")
     case.audit.append({"event": "narrative_understanding", "facts": written,
                        "hypotheses": sorted(supported)})
     return {"facts": written, "hypotheses": sorted(supported)}

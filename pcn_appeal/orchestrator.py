@@ -162,19 +162,52 @@ class AppealPipeline:
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
     def answer(self, case: CaseFile, answers: dict) -> list[dict]:
+        """Record answers to questions that were actually asked.
+
+        P7 B1: an answer is only a fact because its question was put to the
+        customer. A fact nobody asked about arriving through this endpoint is
+        refused and audited - accepting it would let any caller write
+        ANSWERED facts straight into the graph. A batch may answer questions
+        across several rounds: each round records what is currently asked,
+        re-analyses, and the follow-up questions unlock the rest of the batch.
+        """
         case.ensure_run("answer")
-        for fact, raw in answers.items():
-            self.questions.record_answer(case, fact, raw)
-        return self._reanalyse(case, case.raw_answers.get("narrative", ""))
+        remaining = dict(answers)
+        recorded_any = False
+        questions: list[dict] = []
+        for _ in range(len(answers) + 1):
+            askable = [f for f in list(remaining)
+                       if f in case.asked_questions
+                       or any(q.get("fact") == f for q in case.pending_questions)]
+            if not askable:
+                break
+            for fact in askable:
+                self.questions.record_answer(case, fact, remaining.pop(fact))
+            recorded_any = True
+            questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            if not remaining or not questions:
+                break
+        for fact in sorted(remaining):
+            case.audit.append({"event": "answer_refused_unasked", "fact": fact})
+        if not recorded_any:
+            return self._reanalyse(case, case.raw_answers.get("narrative", ""))
+        return questions
 
     # ------------------------------------------------------------ V2 analysis
-    def _reanalyse(self, case: CaseFile, narrative: str) -> list[dict]:
+    def _reanalyse(self, case: CaseFile, narrative: str, *,
+                   internal: bool = False) -> list[dict]:
         """Re-run case analysis against everything now known, and return only the
         questions it still genuinely needs.
 
         Called after confirmation and again after every answer, because an answer
         changes what is material: it can settle a ground, open one, or make a
         question that looked necessary pointless.
+
+        P7 B3: `internal=True` marks a round the customer never sees (ground
+        recovery inside generate()). An internal round consumes none of the
+        question budget, marks nothing as asked, and leaves the customer's
+        pending questions untouched - a question is "asked" only when it was
+        actually presented.
         """
         assess_material_account(case)
         analysis = self.analysis_of(case, narrative)
@@ -187,7 +220,8 @@ class AppealPipeline:
         #   P2: what the account might mean, its own wording replacing any
         #       analysis question for the same fact.
         #   Analysis: the model's questions and the KB gates of grounds it chose.
-        conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)]
+        conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)
+                    + self._route_question(case)]
         confirm = [dict(q, source=CONFIRMATION) for q in FactManager.confirmation_questions(case)]
         hypothesis = [dict(q, source=HYPOTHESIS)
                       for q in Hypotheses.questions(case, self._could_change_a_ground)]
@@ -202,6 +236,11 @@ class AppealPipeline:
         # reason, impacts) stays in the authority's trace; what is pending, and
         # returned, is only what the customer answers.
         analysis.questions = customer_safe.customer_questions(review.shown)
+        if internal:
+            case.audit.append({"event": "analysis_round_internal",
+                               "grounds": analysis.module_ids,
+                               "would_ask": [q["fact"] for q in analysis.questions]})
+            return analysis.questions
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
         # next round. Mark as asked when presented; record_answer is idempotent.
@@ -265,6 +304,28 @@ class AppealPipeline:
                     "Which one is on the notice you are appealing?",
             "type": "choice",
             "options": options,
+        }]
+
+    @staticmethod
+    def _route_question(case: CaseFile) -> list[dict]:
+        """P7 B1: WINDSCREEN vs POSTAL decides which Schedule 4 deadline
+        applies, so an unresolved route is confirmed with the customer, never
+        guessed from an absence of document labels. Only asked while the route
+        is UNKNOWN, in a jurisdiction where Schedule 4 could apply, and only
+        once."""
+        route = case.get("notice_route")
+        if route not in (None, "", "UNKNOWN") or "notice_route" in case.asked_questions:
+            return []
+        if case.get("jurisdiction") in ("SCOTLAND", "NORTHERN_IRELAND"):
+            return []
+        if not case.evidence:
+            return []
+        return [{
+            "fact": "notice_route",
+            "text": "How did this parking charge first reach you: was a notice "
+                    "left on the vehicle, or did it arrive by post?",
+            "type": "choice",
+            "options": ["WINDSCREEN", "POSTAL"],
         }]
 
     def analysis_of(self, case: CaseFile, narrative: str):
@@ -343,7 +404,12 @@ class AppealPipeline:
                     }],
                     None, flags + ["notice_sides_incomplete"], [],
                 )
-            questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            # With answers in hand, answer() runs the reanalysis itself. Running
+            # one here first would SHOW its next question (marking it asked,
+            # Q-07) and then throw that round away - the question would be
+            # burned without the customer ever seeing it.
+            questions = ([] if answers
+                         else self._reanalyse(case, case.raw_answers.get("narrative", "")))
         if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
             return self._stop_if_no_appeal_right(case, flags)  # type: ignore[return-value]
         if answers:
@@ -580,13 +646,20 @@ class AppealPipeline:
             result, dv = self._validate(case, draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
-            version = self._record_version(case, plan, draft, result, dv, pack,
-                                           released=result.passed)
+            gate_failed: list[str] = []
             if result.passed:
+                gate_failed = self._integrity_gate(
+                    case, AppealOutput(case.state, render(draft), pack, draft, result,
+                                       self._evidence_list(case)))
+            version = self._record_version(case, plan, draft, result, dv, pack,
+                                           released=result.passed and not gate_failed)
+            if result.passed and not gate_failed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
                                  self._evidence_list(case)), case)
+            if gate_failed:
+                return self._integrity_hold(case, pack, draft, result, gate_failed)
             case.state = CaseState.VALIDATION_FAILED
             # P6: back to the drafter without internal ids - it is told what failed,
             # never which modules the plan holds or rejected.
@@ -603,13 +676,21 @@ class AppealPipeline:
             case.audit.append({"event": "dropped_failing_sentences",
                                "dropped": dropped, "passed": checked.passed,
                                "issues": [i.rule for i in checked.issues]})
-            self._record_version(case, plan, trimmed, checked, dv, pack,
-                                 released=checked.passed, parent=(version or {}).get("draft_id"))
+            gate_failed = []
             if checked.passed:
+                gate_failed = self._integrity_gate(
+                    case, AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
+                                       self._evidence_list(case)))
+            self._record_version(case, plan, trimmed, checked, dv, pack,
+                                 released=checked.passed and not gate_failed,
+                                 parent=(version or {}).get("draft_id"))
+            if checked.passed and not gate_failed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
                                  self._evidence_list(case)), case)
+            if gate_failed:
+                return self._integrity_hold(case, pack, trimmed, checked, gate_failed)
 
         case.state = CaseState.MANUAL_REVIEW
         if result is None:
@@ -618,6 +699,38 @@ class AppealPipeline:
                 "AI drafting failed or declined; substantive template fallback is disabled")])
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
+            case)
+
+    # ------------------------------------------------------------------ P7 B4
+    def _integrity_gate(self, case: CaseFile, candidate) -> list[str]:
+        """The critical integrity checks, run BEFORE a release is final.
+
+        A second, redundant net over the inline gates (VAL-*/DV-*, the claim
+        plan's refusals): a candidate letter that would pass validation but
+        fails a critical check is refused here. Fails closed - an error in the
+        gate itself refuses the release rather than waving it through.
+        """
+        from .integrity import check_case
+        from .integrity.checks import critical_failures
+        try:
+            failed = critical_failures(check_case(case, candidate, self.kg))
+        except Exception as exc:                 # fail closed, never open
+            case.audit.append({"event": "integrity_gate_error",
+                               "error": f"{type(exc).__name__}: {exc}"[:200]})
+            return ["INTEGRITY_GATE_ERROR"]
+        case.audit.append({"event": "integrity_gate", "passed": not failed,
+                           "failed": failed})
+        return failed
+
+    def _integrity_hold(self, case: CaseFile, pack, draft, result, failed: list[str]):
+        """A critical integrity failure at release time: hold the case, keep the
+        letter back, and say which checks refused it."""
+        case.state = CaseState.MANUAL_REVIEW
+        held = ValidationResult(False, list(result.issues) + [ValidationIssue(
+            "VAL-INTEGRITY", "BLOCK",
+            "Critical integrity check failed at release: " + ", ".join(failed))])
+        return _with_outcome(
+            AppealOutput(case.state, None, pack, draft, held, self._evidence_list(case)),
             case)
 
     # ------------------------------------------------------------------ P6
@@ -680,7 +793,8 @@ class AppealPipeline:
             if self.reasoning.leading_grounds(pack.module_ids):
                 return pack
             before = list(case.analysis_module_ids or [])
-            asked = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            asked = self._reanalyse(case, case.raw_answers.get("narrative", ""),
+                                    internal=True)
             now = list(case.analysis_module_ids or [])
             # Never silently wipe a finalized selection to empty — that maps to
             # a processing failure, not a merits judgment that "nothing stands up".

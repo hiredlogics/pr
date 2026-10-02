@@ -207,11 +207,17 @@ class PaymentAttemptIsNotPaymentMade(unittest.TestCase):
                 self.assertNotIn("payment_made", case.facts)
                 self.assertFalse(any("payment was made" in p for p in result["propositions"]))
 
-    def test_completed_payments_still_set_payment_made(self):
+    def test_completed_payments_raise_the_confirming_hypothesis(self):
+        """P7 B2: "I paid" is still recognised as a completed-payment claim -
+        distinct from an attempt - but it proposes a hypothesis to confirm,
+        never the fact itself."""
         for text in ("I paid for parking on the app.", "I paid the parking at the machine."):
             with self.subTest(text=text):
                 case, result = self._facts(text)
-                self.assertIs(case.get("payment_made"), True)
+                self.assertNotIn("payment_made", case.facts)
+                self.assertIn("payment_made",
+                              {h["fact_name"] for h in case.fact_hypotheses})
+                self.assertNotIn("payment_attempt_failed", case.facts)
                 self.assertTrue(all("attempted" not in p for p in result["propositions"]))
 
     def test_question_vocabulary_no_longer_says_made_or_attempted(self):

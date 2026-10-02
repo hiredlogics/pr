@@ -69,7 +69,9 @@ class CumulativeGrounds(unittest.TestCase):
         """Alpha's production case: the PoFA ground vanished when the
         multiple-visit account was added. Both grounds must now coexist."""
         case, pipe = make_case(dict(LATE, entry_time="10:00", exit_time="13:27"))
-        out1 = run(case, pipe, "", {})
+        # P7 B1/B2: the customer's account proposes the visits hypothesis, its
+        # question is asked, and only then is the answer a fact.
+        out1 = run(case, pipe, "We left the car park and came back later that day", {})
         self.assertIn("KB-POFA-02", latest_locked(case).supported_ids)
         pipe.answer(case, {"multiple_visits": True})
         out2 = pipe.generate(case)
@@ -89,7 +91,8 @@ class CumulativeGrounds(unittest.TestCase):
         """Cumulative never means zombie: when the facts change under a
         supported ground, the carried item is rejected with the reason."""
         case, pipe = make_case(dict(LATE, entry_time="10:00", exit_time="13:27"))
-        run(case, pipe, "", {"multiple_visits": True})
+        run(case, pipe, "We left the car park and came back later that day",
+            {"multiple_visits": True})
         self.assertIn("KB-ANPR-01", latest_locked(case).supported_ids)
         case.put(answered("multiple_visits", False))
         case.analysis_module_ids = []
@@ -100,7 +103,8 @@ class CumulativeGrounds(unittest.TestCase):
 
     def test_carry_forward_names_the_previous_plan(self):
         case, pipe = make_case(dict(LATE, entry_time="10:00", exit_time="13:27"))
-        run(case, pipe, "", {"multiple_visits": True})
+        run(case, pipe, "We left the car park and came back later that day",
+            {"multiple_visits": True})
         previous = latest_locked(case)
         case.analysis_module_ids = []
         plan = pipe.claim_authority.build(case, version=9)

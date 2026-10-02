@@ -73,6 +73,7 @@
   "facts": {
     "alleged_breach": "afbc61a63b6a",
     "charge_amount": "ad5736686512",
+    "cross_checked_fields": "62a65fe5cb70",
     "driver_disclosure_to_operator": "23759997b3c5",
     "entry_time": "303b591d2f7b",
     "exit_time": "07755fa775cf",
@@ -90,7 +91,6 @@
     "operator_name": "d1059ef2838a",
     "parking_event_date": "b60518d70930",
     "parking_location": "e33339a37fb8",
-    "pcn_conflict": "60a33e6cf515",
     "pcn_number": "e18ed3ade1e1",
     "pofa_9_2_e_status": "80bf2e217f0b",
     "pofa_finding": "d82bd98d4438",

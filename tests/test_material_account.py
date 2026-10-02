@@ -50,8 +50,20 @@ class FreeTextExtractionScenarios(unittest.TestCase):
     def test_breakdown(self):
         case = _case("Overstayed paid time", "The car broke down and we couldn't leave.")
         dig = assess_material_account(case)
+        # P7 B2: a claimed outcome ("broke down", "couldn't leave") is a
+        # hypothesis with its own question, never a fact from phrasing alone.
+        self.assertIsNone(case.get("vehicle_immobilised"))
+        self.assertIsNone(case.get("immobilisation_prevented_departure"))
+        kinds = {h["fact_name"] for h in case.fact_hypotheses}
+        self.assertIn("vehicle_immobilised", kinds)
+        self.assertIn("immobilisation_prevented_departure", kinds)
+        self.assertFalse(any("immobilised" in p.lower() for p in dig["propositions"]))
+        # Confirmed by the customer's answer, the proposition reaches drafting.
+        for name in ("vehicle_immobilised", "immobilisation_prevented_departure"):
+            case.put(Fact(f"F-{name}", name, True, FactStatus.ANSWERED,
+                          FactSource(SourceKind.ANSWER, f"q:{name}")))
+        dig = assess_material_account(case)
         self.assertTrue(case.get("vehicle_immobilised"))
-        self.assertTrue(case.get("immobilisation_prevented_departure"))
         self.assertTrue(any("immobilised" in p.lower() for p in dig["propositions"]))
 
     def test_payment_failure(self):

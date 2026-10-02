@@ -236,7 +236,10 @@ def _pdf_text(data: bytes) -> str:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(data))
-        return "\n".join((page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES])
+        # \f between pages: the page boundary is load-bearing - the notice
+        # sides gate (notice_completeness.upload_pages_sufficient) reads it to
+        # tell a genuine two-page upload from a single photographed face.
+        return "\f".join((page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES])
     except Exception:
         return ""                                  # encrypted or damaged; rasterising may still work
 

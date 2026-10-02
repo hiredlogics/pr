@@ -47,7 +47,7 @@ from .knowledge_matcher import OFFERABLE, RELEVANT, SUPPORTED, KnowledgeMatcher
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
 # longer supplies the questions.
 DEFAULT_MAX_QUESTIONS = 4
-DEFAULT_MAX_ROUNDS = 3
+DEFAULT_MAX_ROUNDS = 10    # P7 B3: a circuit breaker, not the stopping rule
 CANDIDATE_LIMIT = 24
 
 QUESTION_TYPES = {"bool", "int", "choice", "text"}
@@ -216,10 +216,16 @@ class AnalysisEngine:
         result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
 
+        # P7 B3: materiality is the stopping rule - the flow ends when the
+        # Question Authority approves nothing. The round count is only a
+        # circuit breaker against a loop, and tripping it is recorded durably:
+        # a question silently dropped is a ground silently lost.
         rounds = sum(1 for a in case.audit if a.get("event") == "analysis_round")
         if rounds >= self.max_rounds:
             result.trace.append(
                 f"question round limit reached ({rounds}>={self.max_rounds}); asking nothing")
+            case.audit.append({"event": "question_round_breaker",
+                               "rounds": rounds, "limit": self.max_rounds})
             # Still propose grounds so drafting can proceed with what is known.
             raw = self._call(case, circumstances, facts, candidates, pofa, code_version, result)
             if raw is not None:
@@ -533,7 +539,16 @@ class AnalysisEngine:
         result.trace.extend(plan.trace)
         for claim in plan.claims:
             if claim.get("status") == "excluded":
-                self._suppress(result, claim.get("module_id"), claim.get("reason") or "excluded")
+                reason = claim.get("reason") or "excluded"
+                # P7 B1: a proposed ground excluded only because its gate facts
+                # are not yet established is the UNLOCKABLE case - the one
+                # suppression `_unlocking_questions` may ask about. The claim
+                # plan words it as "use_when not satisfied"; without this
+                # mapping the unlock machinery never saw it and the gate's
+                # missing facts were silently never asked.
+                if reason == "use_when not satisfied":
+                    reason = self.UNLOCKABLE
+                self._suppress(result, claim.get("module_id"), reason)
         if not plan.module_ids:
             result.trace.append("no proposed ground survived the deterministic checks")
         return list(plan.module_ids)

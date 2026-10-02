@@ -336,11 +336,17 @@ class FactsPrintedOnTheNoticeCanBeAnswered(unittest.TestCase):
     dropped in silence because neither fact had a question."""
 
     def test_an_answered_postcode_resolves_the_jurisdiction(self):
-        # No postcode on the notice, which is the situation the question exists for.
-        case, pipe = make_case({**BAY, "site_postcode": None})
+        # No postcode on the notice and a Schedule 4 timing ground that only an
+        # unknown jurisdiction withholds: the situation the postcode question
+        # exists for, so it is actually asked (P7 B1: an answer is only
+        # accepted for a question that was put to the customer).
+        case, pipe = make_case(
+            {**BAY, "site_postcode": None, "notice_issue_date": "20/06/2026"},
+            case_analysis=[{"grounds": [], "questions": [], "not_supported": []}] * 4)
         pipe.ingest(case)
         pipe.confirm(case, {}, list(case.facts), "parent and child bay")
         self.assertNotEqual(case.get("jurisdiction"), "ENGLAND_WALES")
+        self.assertIn("site_postcode", [q["fact"] for q in case.pending_questions])
         pipe.answer(case, {"site_postcode": "SW7 4RR"})
         pipe.generate(case)
         # Re-derived at reasoning time: confirm() promotes the UNKNOWN placeholder,

@@ -128,7 +128,7 @@ class GroundRecoveryPreserve(unittest.TestCase):
         pipe.reasoning.leading_grounds = lambda ids: False  # type: ignore[method-assign]
         pipe.reasoning.analyse = lambda *a, **k: empty  # type: ignore[method-assign]
 
-        def wipe(_c, _narrative):
+        def wipe(_c, _narrative, **_kw):
             _c.analysis_module_ids = []
             return []
 

@@ -271,9 +271,33 @@ class QuestionRepetitionTests(unittest.TestCase):
         result = AnalysisEngine(kg, llm).analyse(case)
         self.assertEqual(result.questions, [])
 
-    def test_question_round_limit_stops_further_asks(self):
+    def test_the_circuit_breaker_stops_further_asks_and_is_recorded(self):
+        """P7 B3: the round cap is a circuit breaker (10), not the stopping
+        rule, and tripping it is a durable audit event, never a silent drop."""
         kg = KnowledgeGraph()
         case = CaseFile("C-R")
+        case.put(Fact("F-breach", "alleged_breach", SAINSBURYS["alleged_breach"],
+                      FactStatus.CONFIRMED, FactSource(SourceKind.DOCUMENT, "E1")))
+        for _ in range(10):
+            case.audit.append({"event": "analysis_round", "grounds": [], "asking": []})
+        llm = FakeLLM({"case_analysis": [{
+            "grounds": [{"module_id": "KB-REC-01", "supported_by": ["alleged_breach"], "note": "x"}],
+            "questions": [{"fact": "further_evidence_available",
+                           "text": "Is any further store confirmation available?",
+                           "type": "bool", "material_because": "x"}],
+            "not_supported": [],
+        }]})
+        result = AnalysisEngine(kg, llm).analyse(case)
+        self.assertEqual(result.questions, [])
+        breaker = [a for a in case.audit if a.get("event") == "question_round_breaker"]
+        self.assertTrue(breaker)
+        self.assertEqual(breaker[-1]["limit"], 10)
+
+    def test_a_material_fourth_question_is_still_asked(self):
+        """P7 B3: three rounds spent must not erase a genuinely material
+        fourth question - materiality, not an arbitrary number, controls."""
+        kg = KnowledgeGraph()
+        case = CaseFile("C-R4")
         case.put(Fact("F-breach", "alleged_breach", SAINSBURYS["alleged_breach"],
                       FactStatus.CONFIRMED, FactSource(SourceKind.DOCUMENT, "E1")))
         for _ in range(3):
@@ -286,7 +310,8 @@ class QuestionRepetitionTests(unittest.TestCase):
             "not_supported": [],
         }]})
         result = AnalysisEngine(kg, llm).analyse(case)
-        self.assertEqual(result.questions, [])
+        self.assertEqual([q["fact"] for q in result.questions],
+                         ["further_evidence_available"])
 
 
 class PcnConflictTests(unittest.TestCase):

@@ -113,4 +113,6 @@ questions:
 banned_question_terms: ["who was driving", "who drove", "name of the driver", "were you driving", "driver's name"]
 # Adaptive questioning. A question is a cost; silence is the default.
 max_questions_v2: 3
-max_question_rounds: 3
+# P7 B3: a circuit breaker against loops only. The stopping rule is
+# materiality: the flow ends when the Question Authority approves nothing.
+max_question_rounds: 10

@@ -173,8 +173,14 @@ class ReleaseDriftDetection(unittest.TestCase):
                         for t, p in prompts.load().items()}
 
     def _release(self, modules=None, prom=None):
+        # P7 B5: a release also pins each block's text digest and the curated
+        # relations; a faithful fixture carries both, since their absence is
+        # itself reported as drift (test_kb_release_discipline covers that).
+        from pcn_appeal.store.kb_sync import DATA, _read, release_manifest
+        pinned = release_manifest(_read(DATA), embedder_id="test")
         return {"kb_modules": {"modules": modules if modules is not None else self.modules},
                 "prompts": prom if prom is not None else self.prompts,
+                "block_texts": pinned["block_texts"], "relations": pinned["relations"],
                 "release_id": "R-test"}
 
     def test_a_release_cut_from_this_yaml_reports_no_drift(self):

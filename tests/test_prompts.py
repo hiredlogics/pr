@@ -20,10 +20,17 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # number the audit log has already attributed to the old ones. Updating this map
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
-    "extraction": 8,
+    # P7 B7 review pass: extraction 8->9 (Schedule 4 invitation flags,
+    # site_postcode never the keeper letterhead) and 9->10 (keeper liability
+    # warning flag, postcode read from body text) were deliberate, commented
+    # bumps in commits 6aa3451 and fcee3de; classification (Phase 2 router)
+    # and page_references (per-document reference isolation) are new tasks.
+    "extraction": 10,
     "case_analysis": 8,
     "drafting": 13,
     "validation": 3,
+    "classification": 2,
+    "page_references": 2,
 }
 
 # Each rule as the terms that show it is still stated, not the sentence that

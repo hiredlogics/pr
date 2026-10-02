@@ -27,11 +27,13 @@ def release_differs_from_yaml(release: dict[str, Any]) -> list[str]:
     served, the running app argues law nobody on the team is looking at - and
     every case is stamped with a release id that does not describe it.
 
-    Modules and prompts are compared because both carry a real version. Block
-    text is NOT compared: no block in building_blocks.yaml declares a version, so
-    `kb_sync` pins them all at "1.0" and a wording change re-syncs over the same
-    row. Block drift is therefore invisible here and to replay - a separate gap,
-    not one this check can honestly cover.
+    Modules and prompts are compared on their versions. Block text and the
+    curated relations carry no usable version, so they are compared on content
+    (P7 B5): the manifest records a digest per block text and the curated
+    relations themselves, which is what makes a wording or relation change
+    visible drift instead of a silent re-sync over the same row. A release
+    published before those fields existed cannot be checked for them and says
+    so, rather than passing silently.
     """
     from .. import prompts
     from ..kg.graph import KnowledgeGraph
@@ -55,6 +57,33 @@ def release_differs_from_yaml(release: dict[str, Any]) -> list[str]:
         served, local = pinned_prompts.get(task), authored_prompts.get(task)
         if served != local:
             out.append(f"prompt {task}: release serves {served}, YAML has {local}")
+
+    # Block texts: the manifest records a digest per block at publication.
+    import hashlib
+
+    from ..kg.relations import load_curated
+    kg = KnowledgeGraph()
+    pinned_texts = release.get("block_texts")
+    if pinned_texts is None:
+        out.append("release predates block-text digests: block drift cannot be checked; republish")
+    else:
+        authored_texts = {bid: hashlib.sha256(b.text.encode()).hexdigest()
+                          for bid, b in kg.blocks.items()}
+        for block_id in sorted(set(pinned_texts) | set(authored_texts)):
+            served, local = pinned_texts.get(block_id), authored_texts.get(block_id)
+            if served is None:
+                out.append(f"block {block_id} is authored but not in the release")
+            elif local is None:
+                out.append(f"block {block_id} is in the release but no longer authored")
+            elif served != local:
+                out.append(f"block {block_id}: the released text differs from the YAML")
+
+    # Curated relations: the release carries them whole.
+    pinned_relations = release.get("relations")
+    if pinned_relations is None:
+        out.append("release predates published relations: relation drift cannot be checked; republish")
+    elif pinned_relations != (load_curated() or {}):
+        out.append("curated relations: the release differs from kb_relations.yaml")
     return out
 
 
@@ -125,5 +154,9 @@ def load_release(release_id: Optional[str] = None) -> dict[str, Any]:
         "routes": manifest["routes"],
         "questions": manifest["questions"],
         "prompts": prompts,
+        # P7 B5: present only on releases published since these were pinned;
+        # release_differs_from_yaml treats their absence as drift to report.
+        "relations": manifest.get("relations"),
+        "block_texts": manifest.get("block_texts"),
         "release_id": release_id,
     }

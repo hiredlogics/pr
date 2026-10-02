@@ -62,6 +62,38 @@ KINDS: dict[str, Kind] = {
         "Determines whether continuous stay is valid",
         "the vehicle attended the site more than once on the material date",
     ),
+    # P7 B2: claims of a completed outcome the customer may believe but be
+    # wrong about. "I paid" is not the same statement as "I tried to pay";
+    # a declined card or an unregistered app payment makes the first false
+    # while the account stays honest. Each is confirmed by its own question;
+    # a directly observable report (payment_attempt_failed: "the machine
+    # didn't work") stays a free-text fact and is not listed here.
+    "payment_made": Kind(
+        "payment_made",
+        "Was a parking payment actually completed for this visit "
+        "(not just attempted)?",
+        "bool",
+        "The account asserts a completed payment",
+        "Determines whether a payment ground is available",
+        "a parking payment was made for the visit",
+    ),
+    "vehicle_immobilised": Kind(
+        "vehicle_immobilised",
+        "Was the vehicle unable to be moved (for example a breakdown) "
+        "during the visit?",
+        "bool",
+        "The account asserts the vehicle could not be moved",
+        "Determines whether a breakdown/frustration ground is available",
+        "the vehicle became immobilised and could not be moved as intended",
+    ),
+    "immobilisation_prevented_departure": Kind(
+        "immobilisation_prevented_departure",
+        "Did that prevent the vehicle from leaving before the time in question?",
+        "bool",
+        "The account asserts the stay was involuntary",
+        "Determines whether the overstay was caused by the immobilisation",
+        "that immobilisation prevented the vehicle from leaving or complying on time",
+    ),
 }
 
 
@@ -127,11 +159,16 @@ class Hypotheses:
         return h
 
     @staticmethod
-    def withdraw_unsupported(case: CaseFile, supported: set[str]) -> None:
-        """The account was re-read and no longer supports these."""
+    def withdraw_unsupported(case: CaseFile, supported: set[str], *,
+                             rule: str) -> None:
+        """The account was re-read and no longer supports these. Scoped to the
+        caller's own proposals (`rule`): the narrative reader re-reading its
+        texts says nothing about what the account rules proposed, and must not
+        withdraw their hypotheses (P7 B2)."""
         from .fact_graph import now
         for h in case.fact_hypotheses:
-            if h["status"] == UNCONFIRMED and h["_key"] not in supported:
+            if h["status"] == UNCONFIRMED and h["rule"] == rule \
+                    and h["_key"] not in supported:
                 h.update(status=WITHDRAWN, updated_at=now())
                 case.audit.append({"event": "hypothesis_withdrawn",
                                    "hypothesis_id": h["hypothesis_id"]})

@@ -29,13 +29,25 @@ NOTICE_LINES = [
 ]
 
 
-def text_pdf(lines=NOTICE_LINES) -> bytes:
-    """A born-digital PDF: the text is selectable, so no pixels are needed."""
+REVERSE_LINES = [
+    "NOTICE - REVERSE",
+    "How to appeal: write to the operator within 28 days of this notice.",
+    "Protection of Freedoms Act 2012, Schedule 4 applies to this charge.",
+]
+
+
+def text_pdf(lines=NOTICE_LINES, reverse=REVERSE_LINES) -> bytes:
+    """A born-digital PDF: the text is selectable, so no pixels are needed.
+    Both sides of the notice by default - the upload gate requires them."""
     import pymupdf
     doc = pymupdf.open()
     page = doc.new_page()
     for i, line in enumerate(lines):
         page.insert_text((60, 80 + i * 18), line, fontsize=11)
+    if reverse:
+        back = doc.new_page()
+        for i, line in enumerate(reverse):
+            back.insert_text((60, 80 + i * 18), line, fontsize=11)
     out = doc.tobytes()
     doc.close()
     return out
@@ -189,7 +201,9 @@ class UploadEndpoint(unittest.TestCase):
         self.assertEqual(body["read_as"][0]["images"], 1)
         self.assertEqual(body["read_as"][0]["chars"], 0)
         self.assertEqual(body["state"], "NO_APPEAL_RIGHT")
-        self.assertEqual(body["stop_code"], "UNSUPPORTED")
+        # V2 routing: an unidentifiable document goes to the unsupported-review
+        # service, and its stop code names that route.
+        self.assertEqual(body["stop_code"], "UNSUPPORTED_REVIEW")
         self.assertEqual(body["questions"], [])
         self.assertIsNone(body.get("letter"))
 
@@ -227,11 +241,44 @@ class UploadEndpoint(unittest.TestCase):
 
     def test_a_choice_answer_outside_its_options_is_refused(self):
         """The frontend must send one of `options`; anything else is a 422 whose
-        detail names the fact and the permitted values."""
-        case_id = self._photo_case()
-        bad = self.c.post(f"/appeal/{case_id}", json={"answers": {"payment_method": "CARROT"}})
+        detail names the fact and the permitted values. The invalid value must
+        belong to a question that was actually asked (P7 B1): an unasked fact
+        is refused silently, which would hide the 422 this test is about. A
+        resident case asks resident_status, a material choice question."""
+        from support import ReferenceAnalysisLLM
+        fields = {n: {"value": v, "confidence": 0.97, "evidence_id": "E1", "page": 1}
+                  for n, v in [("operator_name", "Acme Parking Ltd"),
+                               ("pcn_number", "PCN778899"), ("vrm", "KX19PLT"),
+                               ("parking_location", "Riverside Retail Park"),
+                               ("site_postcode", "M1 4BT"),
+                               ("parking_event_date", "12/06/2026"),
+                               ("notice_issue_date", "02/07/2026"), ("charge_amount", "100"),
+                               ("alleged_breach", "No valid permit displayed"),
+                               ("operator_ata", "BPA")]}
+        ask = [{"fact": "resident_status",
+                "text": "What is the connection to the property where the vehicle was parked?",
+                "type": "choice",
+                "options": ["RESIDENT", "TENANT", "LEASEHOLDER", "VISITOR", "NONE"]}]
+        patch_client(self, ReferenceAnalysisLLM(
+            {"extraction": [{"fields": fields, "doc_types": {"E1": "NTK", "E2": "TENANCY"}}]},
+            ask=ask))
+        lease = ["TENANCY AGREEMENT",
+                 "3.2 The Tenant shall have the right to park one private",
+                 "motor vehicle in the parking space numbered 14 shown on the plan."]
+        notice = [line.replace("Overstayed the maximum permitted period",
+                               "No valid permit displayed") for line in NOTICE_LINES]
+        r = self.post([("files", ("notice.pdf", io.BytesIO(text_pdf(notice)), "application/pdf")),
+                       ("files", ("tenancy.pdf", io.BytesIO(text_pdf(lease, reverse=None)),
+                                  "application/pdf"))],
+                      narrative="I live there, it's my allocated space")
+        body = r.json()
+        self.assertIn("resident_status",
+                      [q["fact"] for q in body.get("questions", [])], body)
+        bad = self.c.post(f"/appeal/{body['case_id']}",
+                          json={"answers": {"resident_status": "CARROT"}})
         self.assertEqual(bad.status_code, 422)
-        self.assertIn("payment_method", bad.json()["detail"])
+        self.assertIn("resident_status", bad.json()["detail"])
+        self.assertIn("TENANT", bad.json()["detail"])
 
     def test_a_choice_answer_is_case_insensitive(self):
         case_id = self._photo_case()

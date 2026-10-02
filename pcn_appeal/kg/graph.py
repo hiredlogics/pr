@@ -69,6 +69,9 @@ class KnowledgeGraph:
         self.modules, self.blocks, self.routes = {}, {}, {}
         self.questions, self.question_cfg = {}, {}
         self.release_id = release.get("release_id")
+        # P7 B5: a release published with its curated relations serves those,
+        # not whatever data/kb_relations.yaml says in this build.
+        self._curated_relations = release.get("relations")
         self._build(release["kb_modules"], release["routes"],
                     release["building_blocks"], release["questions"])
         return self
@@ -164,10 +167,12 @@ class KnowledgeGraph:
     def relations(self):
         """The knowledge relation graph (kg/relations.py): nodes, and the typed
         edges between facts, evidence, signals and modules. Built once, from
-        the same modules this graph holds plus data/kb_relations.yaml."""
+        the same modules this graph holds plus the curated relations: the ones
+        the release was published with, or data/kb_relations.yaml when this
+        graph was built straight from the authored YAML."""
         if getattr(self, "_relations", None) is None:
             from .relations import build
-            self._relations = build(self)
+            self._relations = build(self, curated=getattr(self, "_curated_relations", None))
         return self._relations
 
     def route_tier(self, route: str) -> int:

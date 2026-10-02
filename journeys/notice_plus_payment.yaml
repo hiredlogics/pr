@@ -34,4 +34,9 @@ documents:
       Paid: 2.00  Expires: 16:10
 customer:
   narrative: "I paid at the machine when I arrived. I did not realise the time had run out."
+answers:
+  # P7 B2: "I paid" in the narrative is a claim, so the system now asks the
+  # confirming question. This customer did pay (the receipt covers 14:10-16:10),
+  # so they answer yes; the answer - not the phrase - sets the fact.
+  payment_made: yes
 answer_policy: no

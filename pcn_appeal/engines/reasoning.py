@@ -24,6 +24,7 @@ Rule pack
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from .narrative import NARRATIVE_FACTS
@@ -37,6 +38,7 @@ from ..rules.dsl import evaluate
 from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 GLOBAL_PROHIBITED = [
     "genuine pre-estimate of loss", "unlawful penalty", "who was driving",
     "breakdown automatically frustrates", "10 minutes always cancels",
@@ -302,6 +304,29 @@ class ReasoningEngine:
 
         return sorted(selected, key=lambda m: (route_key(m.route), m.strength, m.module_id))
 
+    @staticmethod
+    def _fill_placeholders(text: str, placeholder_map: dict[str, str], facts: dict,
+                           uploaded: set[str]) -> tuple[str, list[str]]:
+        """Resolve a block's {{placeholders}} from usable facts (R-08c). The
+        map names the fact behind a placeholder whose wording differs from it
+        ({{bay_reference}} -> allocated_bay). Returns the filled text and the
+        placeholders no usable fact could fill."""
+        unfilled: list[str] = []
+
+        def sub(m: "re.Match[str]") -> str:
+            name = placeholder_map.get(m.group(1), m.group(1))
+            if name == "lease_or_tenancy":
+                return "tenancy agreement" if "TENANCY" in uploaded else "lease"
+            value = facts.get(name)
+            if value in (None, "", []):
+                unfilled.append(m.group(1))
+                return m.group(0)
+            if name == "vrm" and isinstance(value, str) and len(value) == 7:
+                value = f"{value[:4]} {value[4:]}"
+            return str(value)
+
+        return _PLACEHOLDER.sub(sub, text), unfilled
+
     # ------------------------------------------------------------------ pack
     def _pack(self, case: CaseFile, selected, primary, secondary, facts,
               version, pofa_res, trace: list[str], ordered: list[str],
@@ -347,6 +372,18 @@ class ReasoningEngine:
                     continue
                 if blk.placeholder_map:
                     placeholder_maps[blk.block_id] = dict(blk.placeholder_map)
+                # R-08c: a {{placeholder}} is filled HERE, deterministically,
+                # from the case's usable facts - never left for a drafter to
+                # fill (it leaks the marker: VAL-LEAK) or to invent a value
+                # for. A block whose placeholder has no usable fact is
+                # withheld like any other unproven assertion.
+                filled, unfilled = self._fill_placeholders(
+                    d.text, blk.placeholder_map or {}, facts, uploaded)
+                if unfilled:
+                    trace.append(f"withheld block {blk.block_id}: no usable fact for "
+                                 f"placeholder {unfilled} (R-08c)")
+                    continue
+                d = Doc(d.doc_id, filled, d.meta)
             chunk = {"id": d.doc_id, "module_id": d.meta["module_id"], "kind": d.meta["kind"],
                      "text": d.text, "sources": self.kg.sources(d.meta["module_id"])}
             # Which verified fact fills each {{placeholder}} in this block, where

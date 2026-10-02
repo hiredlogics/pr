@@ -34,9 +34,26 @@ BREAKDOWN_QUESTIONS = [
 ]
 
 
+# A PoFA-compliant two-sided notice. The reverse carries both Sch 4 para
+# 9(2)(e) invitation limbs and the 9(2)(f) keeper warning on purpose: these
+# cases are about their own grounds (breakdown, late notice), and a reverse
+# missing the statutory wording would add a genuine NTK-defect ground that
+# takes over as primary route.
+NOTICE_TEXT = ("Parking Charge Notice\n"
+               "\fNOTICE - REVERSE\n"
+               "How to appeal: write to the operator within 28 days of this notice.\n"
+               "Protection of Freedoms Act 2012, Schedule 4 applies to this charge.\n"
+               "If you were not the driver, you should provide the full name and current "
+               "address of the driver, or pass this notice to the driver. "
+               "Warning: if, after 28 days, the creditor does not know both the full name and "
+               "a current address for service of the driver, the creditor will have the right "
+               "to recover the unpaid charge from the keeper of the vehicle.")
+
+
 def make_pipe(alleged_breach, extra=None, evidence=None, doc_types=None, ask=None):
     f = dict(BASE, alleged_breach=alleged_breach, **(extra or {}))
-    ev = {"E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Parking Charge Notice")}
+    # Both sides of the notice: a single face is held for the reverse upload.
+    ev = {"E1": EvidenceItem("E1", "PCN", "pcn.pdf", text=NOTICE_TEXT)}
     ev.update(evidence or {})
     # V2: the analysis model chooses the grounds, so the suite supplies a
     # stand-in that evaluates the KB's own gates (tests/support.py).
@@ -151,13 +168,19 @@ class OneClickAppeal(unittest.TestCase):
                                evidence={"E2": EvidenceItem("E2", "RECOVERY_REPORT", "rac.pdf",
                                                             text="RAC job")},
                                doc_types={"E2": "RECOVERY_REPORT"}, ask=BREAKDOWN_QUESTIONS)
-        first = pipe.auto_appeal(case, "the car broke down, battery died, RAC attended")
+        second = pipe.auto_appeal(case, "the car broke down, battery died, RAC attended")
         answers = {"vehicle_immobilised": "yes", "immobilisation_prevented_departure": "yes",
                    "recovery_attended": "yes", "immobilisation_cause": "flat battery",
                    "payment_made": "no", "payment_method": "OTHER",
                    "permitted_period_ended": "yes", "exit_delay_min": 20}
-        asked = {q["fact"] for q in first.questions}
-        second = pipe.auto_appeal(case, answers={k: v for k, v in answers.items() if k in asked})
+        # Questions come one at a time, so answering is a loop - exactly what
+        # the UI does - and only the asked fact may be answered (P7 B1).
+        for _ in range(6):
+            asked = {q["fact"] for q in second.questions}
+            if not asked:
+                break
+            second = pipe.auto_appeal(
+                case, answers={k: v for k, v in answers.items() if k in asked})
 
         self.assertEqual(second.state, CaseState.RELEASED)
         self.assertEqual(second.output.pack.primary_route, "BREAKDOWN")
@@ -167,7 +190,8 @@ class OneClickAppeal(unittest.TestCase):
         f = fields(**dict(BASE, alleged_breach="Overstayed paid time"))
         f["notice_issue_date"]["confidence"] = 0.4              # below EX-02 threshold
         llm = FakeLLM({"extraction": [{"fields": f, "doc_types": {"E1": "PCN"}}]})
-        case = CaseFile("C-2", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf")})
+        case = CaseFile("C-2", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf",
+                                                            text=NOTICE_TEXT)})
         AppealPipeline(llm).auto_appeal(case, "nothing relevant")
 
         self.assertEqual(case.facts["notice_issue_date"].status, FactStatus.UNCERTAIN)

@@ -119,15 +119,30 @@ class AnalysisRemainsFreeToAsk(unittest.TestCase):
         _, questions = run(case, pipe, "I want to challenge this charge")
         self.assertIn("payment_made", [q["fact"] for q in questions])
 
-    def test_a_fact_the_narrative_already_settled_is_not_asked_again(self):
-        """The same question, after the customer has already said it in their own
-        words: materiality is judged against the case, not against a field list."""
+    def test_a_claimed_payment_is_asked_once_in_the_hypothesis_wording(self):
+        """"I paid" is the customer's conclusion, not a settled fact (P7 B2):
+        the account proposes a hypothesis, and its confirming question replaces
+        the analysis question for the same fact - asked once, never twice."""
+        from pcn_appeal.hypotheses import KINDS
         case, pipe = case_with(ask=[{
             "fact": "payment_made", "text": "Was a parking payment made for this visit?",
             "type": "bool", "material_because": "permission defeats the alleged breach"}])
         _, questions = run(case, pipe, "I paid at the machine before I walked off")
+        self.assertIsNone(case.get("payment_made"))
+        asked = [q for q in questions if q["fact"] == "payment_made"]
+        self.assertEqual(len(asked), 1, questions)
+        self.assertEqual(asked[0]["text"], KINDS["payment_made"].question)
+
+    def test_an_answered_payment_claim_is_not_asked_again(self):
+        """Once the customer has answered, the settled fact supersedes both the
+        hypothesis and the analysis question: nothing re-asks it."""
+        case, pipe = case_with(ask=[{
+            "fact": "payment_made", "text": "Was a parking payment made for this visit?",
+            "type": "bool", "material_because": "permission defeats the alleged breach"}])
+        run(case, pipe, "I paid at the machine before I walked off")
+        questions = pipe.answer(case, {"payment_made": "yes"})
         self.assertTrue(case.has("payment_made"))
-        self.assertEqual([q["fact"] for q in questions], [])
+        self.assertEqual([q for q in questions if q["fact"] == "payment_made"], [])
 
 
 class NarrativeDoesNotSelectQuestions(unittest.TestCase):

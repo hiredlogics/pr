@@ -31,6 +31,18 @@ CONFIDENCE_THRESHOLD = 0.85
 # label is translated here so `has_evidence` sees the code the modules use.
 DOC_TYPE_ALIASES = {"WITNESS_STATEMENT": "WITNESS"}
 DATE_FIELDS = {"parking_event_date", "notice_issue_date", "notice_received_date", "ntd_date"}
+
+# P7 B1. The fields a legal conclusion can turn on. Getting one wrong changes
+# which statute applies, which deadline was missed, or which charge the letter
+# answers - so a value for any of these is never trusted on one reading alone.
+# Each is either read twice (the model plus the deterministic reader below,
+# EX-18), explicitly confirmed or corrected by the customer, or it stays
+# UNCERTAIN and unusable.
+LEGAL_CRITICAL = (
+    "parking_event_date", "notice_issue_date", "ntd_date", "notice_received_date",
+    "entry_time", "exit_time", "operator_name", "alleged_breach", "charge_amount",
+    "pcn_number", "vrm", "notice_route",
+)
 VRM_FIELDS = {"vrm", "vrm_entered"}              # both normalised the same way (EX-08)
 # Normalised for the same reason dates are: notices print "19/09/2026 12:23" in a
 # field labelled as a time, and the raw value ends up quoted in the letter.
@@ -192,6 +204,236 @@ def parse_uk_date(v: Any) -> Optional[date]:
         except ValueError:
             continue
     return None
+
+
+# EX-18 (P7 B1). Labelled field patterns: the deterministic second reader for
+# legal-critical fields. Shared with FactRecoveryEngine, which uses them to
+# fill gaps; here they run on every extraction as a CROSS-CHECK of what the
+# model read, never as a fallback. A photographed notice has no text layer, so
+# the reader returning nothing proves nothing - it can only agree or disagree.
+FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
+    "operator_name": re.compile(
+        r"(?:Parking\s+Operator|Operator(?:\s+Name)?|Issued\s+by)\s*[:\-]\s*"
+        r"([A-Za-z0-9][A-Za-z0-9&.'\- ]{2,60})",
+        re.I,
+    ),
+    "parking_location": re.compile(
+        r"(?:Location|Site(?:\s+Name)?|Car\s+Park|Parking\s+at)\s*[:\-]\s*"
+        r"([^\n]{3,80})",
+        re.I,
+    ),
+    "alleged_breach": re.compile(
+        # "Date of Contravention: 12/06/2026" is a date line, not the
+        # allegation - the lookbehind keeps it out of the second reading.
+        r"(?:(?<!of\s)Contravention|Alleged\s+(?:contravention|breach)|"
+        r"Reason(?:\s+for\s+charge)?|Breach)\s*[:\-]\s*([^\n]{5,160})",
+        re.I,
+    ),
+    "charge_amount": re.compile(
+        r"(?:Parking\s+Charge|Charge\s+Amount|Amount\s+Due|Total)\s*[:\-]?\s*"
+        r"(£\s?\d+(?:\.\d{2})?)",
+        re.I,
+    ),
+    "site_postcode": re.compile(
+        r"\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b",
+        re.I,
+    ),
+    "parking_event_date": re.compile(
+        r"(?:Date\s+of\s+(?:Parking|Event|Contravention)|Parking\s+(?:Date|Period)|"
+        r"Event\s+Date)\s*[:\-]\s*"
+        r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})",
+        re.I,
+    ),
+    "notice_issue_date": re.compile(
+        r"(?:Date\s+of\s+(?:Issue|Notice)|Issue\s+Date|Notice\s+Date|"
+        r"Date\s+Issued)\s*[:\-]\s*"
+        r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})",
+        re.I,
+    ),
+    "ntd_date": re.compile(
+        r"(?:Date\s+of\s+)?Notice\s+to\s+Driver\s*(?:date|issued|given)?\s*[:\-]\s*"
+        r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})",
+        re.I,
+    ),
+    "entry_time": re.compile(
+        r"(?:Entry|Arrival|In)\s*(?:Time)?\s*[:\-]\s*(\d{1,2}[:.]\d{2})",
+        re.I,
+    ),
+    "exit_time": re.compile(
+        r"(?:Exit|Departure|Out)\s*(?:Time)?\s*[:\-]\s*(\d{1,2}[:.]\d{2})",
+        re.I,
+    ),
+}
+
+
+def normalise_field_value(name: str, raw: str) -> Any:
+    """One normaliser for both readers, so the comparison compares values,
+    not formatting."""
+    if name in DATE_FIELDS:
+        return parse_uk_date(raw)
+    if name in TIME_FIELDS:
+        return _hhmm(raw)
+    if name in VRM_FIELDS:
+        return re.sub(r"\s+", "", str(raw)).upper()
+    if name == "charge_amount":
+        return re.sub(r"\s+", "", raw)
+    if name == "site_postcode":
+        return re.sub(r"\s+", " ", raw.upper()).strip()
+    if name == "alleged_breach":
+        return re.sub(r"\s+", " ", raw).strip()[:160]
+    if name == "parking_location":
+        return re.sub(r"\s+", " ", raw).strip()[:80]
+    if name == "operator_name":
+        cleaned = re.split(r"\s{2,}|\n|Limited\.?$|Ltd\.?$", raw, maxsplit=1)[0].strip()
+        if cleaned.lower() in {"operator", "name", "parking", "notice"}:
+            return None
+        return cleaned[:60]
+    return raw
+
+
+def _canon(name: str, value: Any) -> Any:
+    """A comparable form of one reading. Dates stay dates; money keeps only its
+    digits ("£100" and "100" are the same amount); free text is lower-cased
+    with whitespace collapsed."""
+    if value is None:
+        return None
+    if name in DATE_FIELDS:
+        return parse_uk_date(value)
+    if name in TIME_FIELDS:
+        return _hhmm(value)
+    if name == "charge_amount":
+        digits = re.sub(r"[^\d.]", "", str(value))
+        return digits.rstrip("0").rstrip(".") if "." in digits else digits
+    return re.sub(r"\s+", " ", str(value)).strip().lower()
+
+
+def _readings_agree(name: str, llm: Any, doc: Any) -> bool:
+    a, b = _canon(name, llm), _canon(name, doc)
+    if a is None or b is None:
+        return False
+    if a == b:
+        return True
+    # Names and prose labels: one reading containing the other is the same
+    # reading ("Acme Parking" on the label line, "Acme Parking Ltd" extracted).
+    if name in ("operator_name", "alleged_breach", "parking_location"):
+        return a in b or b in a
+    return False
+
+
+def cross_check_legal_critical(case: CaseFile) -> list[str]:
+    """EX-18 (P7 B1). Read every legal-critical field a second time with the
+    deterministic patterns and compare against the model's value.
+
+      agree     -> the field is recorded as cross-checked (findings may rely
+                   on it without customer confirmation);
+      disagree  -> the field becomes UNCERTAIN and is flagged for the
+                   confirmation screen - never confidently continued with;
+      ambiguous -> two labelled values in the documents: same treatment;
+      no reading-> nothing proven either way (photos have no text layer).
+    """
+    flags: list[str] = []
+    agreed: list[str] = []
+    for name in LEGAL_CRITICAL:
+        pattern = FIELD_PATTERNS.get(name)
+        f = case.facts.get(name)
+        if pattern is None or f is None or f.source.kind != SourceKind.DOCUMENT \
+                or f.status != FactStatus.EXTRACTED:
+            continue
+        readings: set[Any] = set()
+        for ev in case.evidence.values():
+            for m in pattern.finditer(ev.text or ""):
+                v = normalise_field_value(name, m.group(1).strip())
+                if v is not None:
+                    readings.add(v)
+        if not readings:
+            continue
+        canon = {_canon(name, r) for r in readings}
+        some_agree = any(_readings_agree(name, f.value, r) for r in readings)
+        if some_agree and len(canon) == 1:
+            agreed.append(name)
+            continue
+        # Prose labels: a label line matching the model's value corroborates
+        # it; a second, differently-worded label elsewhere (a covering letter's
+        # own summary) does not put the allegation in doubt. Dates, times and
+        # amounts are different: two distinct labelled values is a real
+        # conflict, whichever one the model happened to pick.
+        if some_agree and name in ("operator_name", "alleged_breach", "parking_location"):
+            agreed.append(name)
+            continue
+        if some_agree:
+            reason, detail = "cross_check_ambiguous", "documents carry more than one value"
+        else:
+            reason, detail = "cross_check_mismatch", "deterministic reading disagrees"
+        case.set_status(name, FactStatus.UNCERTAIN, reason=reason)
+        flags.append(f"conflict:{name}")
+        case.audit.append({"event": reason, "fact": name, "note": detail,
+                           "model_value": str(f.value),
+                           "document_values": sorted(str(r) for r in readings)})
+    if agreed:
+        case.put(Fact("F-cross_checked_fields", "cross_checked_fields", sorted(agreed),
+                      FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "legal_critical_cross_check")))
+    return flags
+
+
+def cross_checked(case: CaseFile) -> set[str]:
+    """The legal-critical fields whose two readings agreed (empty when the
+    cross-check never ran or nothing agreed)."""
+    return set(case.get("cross_checked_fields") or [])
+
+
+def validate_chronology(case: CaseFile, *, stage: str) -> list[str]:
+    """EX-03 (P7 B1): what the dates and times say must be possible.
+
+    Impossible orderings never continue confidently: each offending fact is
+    made UNCERTAIN (whatever its status - a corrected value is re-validated
+    like any other) and flagged for the customer. Where the rule cannot tell
+    which of a pair is wrong, both are.
+
+      * no legal-critical date may be in the future;
+      * parking event <= Notice to Driver <= Notice to Keeper issue;
+      * notice issue <= notice received;
+      * entry time before exit time (same-day reading).
+    """
+    flags: list[str] = []
+
+    def demote(name: str, flag: str) -> None:
+        if name in case.facts and case.facts[name].status != FactStatus.UNCERTAIN:
+            case.set_status(name, FactStatus.UNCERTAIN, reason=f"chronology:{flag}")
+        if f"chronology:{flag}" not in flags:
+            flags.append(f"chronology:{flag}")
+
+    def value(name: str) -> Optional[date]:
+        f = case.facts.get(name)
+        v = parse_uk_date(f.value) if f is not None else None
+        return v
+
+    today = date.today()
+    held = {n: value(n) for n in
+            ("parking_event_date", "ntd_date", "notice_issue_date", "notice_received_date")}
+    for name, v in held.items():
+        if v is not None and v > today:
+            demote(name, f"future:{name}")
+    ev, ntd, iss, rec = (held[n] for n in
+                         ("parking_event_date", "ntd_date", "notice_issue_date",
+                          "notice_received_date"))
+    if ev and iss and iss < ev:
+        demote("notice_issue_date", "issue_before_event")
+    if ev and ntd and ntd < ev:
+        demote("ntd_date", "ntd_before_event")
+        demote("parking_event_date", "ntd_before_event")
+    if ntd and iss and iss < ntd:
+        demote("ntd_date", "ntk_before_ntd")
+        demote("notice_issue_date", "ntk_before_ntd")
+    if iss and rec and rec < iss:
+        demote("notice_received_date", "received_before_issue")
+    a, b = _hhmm(case.get("entry_time")), _hhmm(case.get("exit_time"))
+    if a and b and b < a:
+        demote("entry_time", "times_inverted")
+        demote("exit_time", "times_inverted")
+    if flags:
+        case.audit.append({"event": "chronology_flags", "stage": stage, "flags": flags})
+    return flags
 
 
 def jurisdiction_from_postcode(pc: Optional[str]) -> str:
@@ -444,11 +686,10 @@ class ExtractionEngine:
         # FactRecoveryEngine exhausts the documents and the calculators, and case
         # analysis decides whether what is left is material enough to ask about.
 
-        # EX-03 chronology
-        ev_d, is_d = case.get("parking_event_date"), case.get("notice_issue_date")
-        if ev_d and is_d and is_d < ev_d:
-            case.set_status("notice_issue_date", FactStatus.UNCERTAIN, reason="chronology")
-            flags.append("chronology:issue_before_event")
+        # EX-18 (P7 B1): second reading of every legal-critical field, then the
+        # chronology / plausibility suite. Both run on every extraction.
+        flags += cross_check_legal_critical(case)
+        flags += validate_chronology(case, stage="extraction")
 
         # EX-04 derived duration
         mins = _minutes(case.get("entry_time"), case.get("exit_time"))
@@ -554,19 +795,42 @@ class ExtractionEngine:
         """Confirmation screen result. Corrections override extraction; confirmed
         fields are promoted. Driver-identification status is asked HERE as a
         status question (has it already been given to the operator?), never as
-        'who was driving'."""
+        'who was driving'.
+
+        P7 B1: an UNCERTAIN field is never promoted by its mere presence in
+        `confirmed` - the UI sends every displayed field, and a value the
+        system itself does not trust needs the customer to actually type it
+        (a correction). An unparseable corrected date is an error, not a
+        silently-written None. Corrected values are re-validated: a correction
+        that creates an impossible chronology goes straight back to UNCERTAIN.
+        """
         for name, value in corrections.items():
             if name in DATE_FIELDS:
-                value = parse_uk_date(value)
+                parsed = parse_uk_date(value)
+                if parsed is None:
+                    raise ValueError(f"{name}: {value!r} is not a recognisable date")
+                value = parsed
+            if name in TIME_FIELDS:
+                parsed = _hhmm(value)
+                if parsed is None:
+                    raise ValueError(f"{name}: {value!r} is not a recognisable time")
+                value = parsed
             if name == "operator_ata":
                 value = normalise_operator_ata(value) or value
             case.put(Fact(f"F-{name}", name, value, FactStatus.CORRECTED,
                           FactSource(SourceKind.ANSWER, f"confirm:{name}")))
         for name in confirmed:
-            if name in case.facts and case.facts[name].status in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
+            if name in corrections:
+                continue
+            if name in case.facts and case.facts[name].status == FactStatus.EXTRACTED:
                 case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
-        # Explicit confirm/correct of the PCN clears a cross-document conflict gate.
-        if "pcn_number" in corrections or "pcn_number" in confirmed:
+            elif name in case.facts and case.facts[name].status == FactStatus.UNCERTAIN:
+                case.audit.append({"event": "uncertain_not_auto_confirmed", "fact": name})
+        # Only an explicit correction (the customer typed the number) clears a
+        # cross-document conflict; blanket confirmation of pre-filled fields
+        # does not choose between two charge numbers.
+        if "pcn_number" in corrections:
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
                           FactSource(SourceKind.ANSWER, "confirm:pcn_number")))
+        validate_chronology(case, stage="confirm")
         case.state = CaseState.CONFIRMED

@@ -178,7 +178,9 @@ def check_case(case, out=None, kg=None) -> list[dict]:
     verified = legal_findings.verified_types(getattr(case, "legal_findings", []) or [])
     unproven = []
     for sentence in re.split(r"(?<=[.!?])\s+", letter_text):
-        asserted = legal_findings.asserted_types(sentence)
+        # Assertion-only types are policed at draft time with the approved-wording
+        # exemption (P7 B6); this check keeps to calculable defects.
+        asserted = legal_findings.asserted_types(sentence) - legal_findings.ASSERTION_ONLY
         if asserted and not legal_findings.PUT_TO_PROOF.search(sentence) \
                 and not (asserted & verified):
             unproven.append({"asserted": sorted(asserted), "sentence_sha":
@@ -193,11 +195,31 @@ def check_case(case, out=None, kg=None) -> list[dict]:
     hit = DRIVER.search(letter) if (letter and unidentified) else None
     results.append(_check("DRIVER_NOT_IDENTIFIED", hit is None,
                           None if hit is None else {"match": hit.group(0)}))
+
+    # 10. every supported claim carries its supporting facts (P7 B4: the
+    # in-memory twin of the database check of the same name)
+    unsupported = [i.module_id for p in locked for i in p.items
+                   if i.status == "SUPPORTED" and not i.supporting_facts]
+    results.append(_check("SUPPORTED_ITEMS_HAVE_SUPPORT", not unsupported,
+                          {"unsupported": unsupported} if unsupported else None))
     return results
 
 
 def passed(results: list[dict]) -> bool:
     return all(r["status"] == PASS for r in results)
+
+
+# P7 B4: the checks whose failure refuses a release. Belt over the inline
+# gates (VAL-*/DV-* and the claim-plan refusals): any of these failing while a
+# letter is about to be released routes the case to MANUAL_REVIEW instead.
+# The rest of the checks stay observational (bookkeeping, not legal integrity).
+CRITICAL = ("NO_CLAIM_OUTSIDE_PLAN", "FACTS_HAVE_SOURCES", "NO_CUSTOMER_LEAKAGE",
+            "DRIVER_NOT_IDENTIFIED", "LEGAL_DEFECTS_VERIFIED",
+            "STATE_MACHINE_CONSISTENT", "SUPPORTED_ITEMS_HAVE_SUPPORT")
+
+
+def critical_failures(results: list[dict]) -> list[str]:
+    return [r["check"] for r in results if r["check"] in CRITICAL and r["status"] != PASS]
 
 
 # ------------------------------------------------------------- database

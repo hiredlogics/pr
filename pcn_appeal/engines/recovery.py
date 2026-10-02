@@ -21,8 +21,9 @@ from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from ..disclosure import keeper_route_blocked
 from ..routes import GENERAL_GROUND_ROUTES, Route
 from .extraction import (
-    DATE_FIELDS, TIME_FIELDS, VRM_FIELDS, _hhmm, _pcn_candidates_from_text,
-    derive_jurisdiction, known_operator_ata, normalise_operator_ata, parse_uk_date,
+    FIELD_PATTERNS, _pcn_candidates_from_text, derive_jurisdiction,
+    known_operator_ata, normalise_field_value, normalise_operator_ata,
+    validate_chronology,
 )
 
 
@@ -49,52 +50,9 @@ VRM_RE = re.compile(
     re.I,
 )
 
-# Labelled field patterns — only used when the fact is still missing/uncertain.
-FIELD_PATTERNS: dict[str, re.Pattern[str]] = {
-    "operator_name": re.compile(
-        r"(?:Parking\s+Operator|Operator(?:\s+Name)?|Issued\s+by)\s*[:\-]\s*"
-        r"([A-Za-z0-9][A-Za-z0-9&.'\- ]{2,60})",
-        re.I,
-    ),
-    "parking_location": re.compile(
-        r"(?:Location|Site(?:\s+Name)?|Car\s+Park|Parking\s+at)\s*[:\-]\s*"
-        r"([^\n]{3,80})",
-        re.I,
-    ),
-    "alleged_breach": re.compile(
-        r"(?:Contravention|Alleged\s+(?:contravention|breach)|Reason(?:\s+for\s+charge)?|"
-        r"Breach)\s*[:\-]\s*([^\n]{5,160})",
-        re.I,
-    ),
-    "charge_amount": re.compile(
-        r"(?:Parking\s+Charge|Charge\s+Amount|Amount\s+Due|Total)\s*[:\-]?\s*"
-        r"(£\s?\d+(?:\.\d{2})?)",
-        re.I,
-    ),
-    "site_postcode": re.compile(
-        r"\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b",
-        re.I,
-    ),
-    "parking_event_date": re.compile(
-        r"(?:Date\s+of\s+(?:Parking|Event)|Parking\s+(?:Date|Period)|Event\s+Date)\s*[:\-]\s*"
-        r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})",
-        re.I,
-    ),
-    "notice_issue_date": re.compile(
-        r"(?:Date\s+of\s+(?:Issue|Notice)|Issue\s+Date|Notice\s+Date|"
-        r"Date\s+Issued)\s*[:\-]\s*"
-        r"(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})",
-        re.I,
-    ),
-    "entry_time": re.compile(
-        r"(?:Entry|Arrival|In)\s*(?:Time)?\s*[:\-]\s*(\d{1,2}[:.]\d{2})",
-        re.I,
-    ),
-    "exit_time": re.compile(
-        r"(?:Exit|Departure|Out)\s*(?:Time)?\s*[:\-]\s*(\d{1,2}[:.]\d{2})",
-        re.I,
-    ),
-}
+# Labelled field patterns now live in extraction.py (EX-18), where they run on
+# every extraction as the cross-check second reading; here they are reused
+# only to fill facts that are still missing.
 
 ATA_RE = re.compile(r"\b(BPA|IPC|British Parking Association|International Parking Community)\b", re.I)
 
@@ -149,6 +107,12 @@ class FactRecoveryEngine:
         ]
 
         self._recover_from_documents(case, report)
+        # P7 B1: a date the deterministic reader just adopted obeys the same
+        # chronology rules as an extracted one - adoption is not a bypass.
+        chron = validate_chronology(case, stage="recovery")
+        if chron:
+            report.conflicts.extend(c.split(":", 1)[1] for c in chron)
+            report.trace.append(f"chronology after recovery: {chron}")
         self._classify_receipt_vs_validation(case, report)
         self._run_calculations(case, report)
         self._assess_ntk_schedule4_content(case, report)
@@ -250,27 +214,7 @@ class FactRecoveryEngine:
                 self._adopt(case, report, "operator_ata", next(iter(atas)), "document_ata_scan")
 
     def _normalise_field(self, name: str, raw: str) -> Any:
-        if name in DATE_FIELDS:
-            return parse_uk_date(raw)
-        if name in TIME_FIELDS:
-            return _hhmm(raw)
-        if name in VRM_FIELDS:
-            return re.sub(r"\s+", "", str(raw)).upper()
-        if name == "charge_amount":
-            return re.sub(r"\s+", "", raw)
-        if name == "site_postcode":
-            return re.sub(r"\s+", " ", raw.upper()).strip()
-        if name == "alleged_breach":
-            return re.sub(r"\s+", " ", raw).strip()[:160]
-        if name == "parking_location":
-            return re.sub(r"\s+", " ", raw).strip()[:80]
-        if name == "operator_name":
-            # Stop at common trailing noise.
-            cleaned = re.split(r"\s{2,}|\n|Limited\.?$|Ltd\.?$", raw, maxsplit=1)[0].strip()
-            if cleaned.lower() in {"operator", "name", "parking", "notice"}:
-                return None
-            return cleaned[:60]
-        return raw
+        return normalise_field_value(name, raw)
 
     def _adopt(self, case: CaseFile, report: RecoveryReport, name: str,
                value: Any, method: str) -> None:

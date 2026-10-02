@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from ..models import FactStatus, SourceKind
 from .pofa import PofaResult
 
 VERIFIED = "VERIFIED"
@@ -59,6 +60,12 @@ class FindingSpec:
     # defect must then set out the calculated dates and the day count
     # (VAL-PARTICULARS), never a generic "outside the statutory period".
     timed: bool = False
+    # P7 B6: an assertion guard with no calculator (yet). It can never be
+    # VERIFIED, so the drafter's own assertion of this defect is always
+    # refused; only approved knowledge-module wording (plan- and fact-gated)
+    # or putting the operator to proof remains. When an evidential calculator
+    # is added later, the flag comes off and the finding route takes over.
+    assertion_only: bool = False
 
 
 # Sentence-level assertion patterns. Lookaheads, so word order does not matter
@@ -110,7 +117,33 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
            r"amount of the\s+(parking\s+)?charge|mandatory|prescribed|"
            r"required\s+(information|content|particulars))\b)"),
         ("ntk_defect_document_confirmed", "notice_sides_complete")),
+    # P7 B6: evidence-sensitive grounds get the same discipline as PoFA. No
+    # calculator exists yet, so these can never be VERIFIED: a drafter-authored
+    # assertion of the defect is refused; approved module wording (gated on the
+    # case's facts) and putting the operator to proof remain the only routes.
+    FindingSpec(
+        "SIGNAGE_DEFECT",
+        "inadequate, non-compliant or incapable signage",
+        _R(r"^(?=.*\b(sign|signs|signage|signposting)\b)"
+           r"(?=.*\b(inadequate\w*|insufficient\w*|unclear|illegible|obscured|"
+           r"non-?compliant|defective|unlawful|incapable|"
+           r"not\s+(?:\w+\s+){0,3}(?:prominent\w*|adequate\w*|sufficient\w*|compliant|"
+           r"communicated|displayed|legible|visible))\b)"),
+        (),
+        assertion_only=True),
+    FindingSpec(
+        "OPERATOR_AUTHORITY_ABSENT",
+        "the operator lacking landowner authority to issue the charge",
+        _R(r"^(?=.*\b(operator|creditor)\b[^.]{0,90}"
+           r"\b(no|not|lacks?|lacked|without|absent|lost)\b[^.]{0,60}"
+           r"\b(authority|authorisation|authorised|standing|right)\b)"),
+        (),
+        assertion_only=True),
 )}
+
+# The types the drafter may only use through approved wording or a verified
+# finding; `evaluate` writes no records for them until a calculator exists.
+ASSERTION_ONLY = frozenset(t for t, s in REGISTRY.items() if s.assertion_only)
 
 # A defect suggested rather than proved ("the notice appears non-compliant").
 # Never allowed unless some defect is verified; the registry pattern that
@@ -236,6 +269,27 @@ def rejection(module, facts: dict, verified: set[str]) -> Optional[str]:
     return None
 
 
+def unconfirmed_support(case, spec: FindingSpec) -> list[str]:
+    """P7 B1: the supporting facts this finding may NOT rest on - a
+    document-sourced value on one uncorroborated model reading. Customer
+    confirmation / correction / answer, a deterministic reader's own value
+    (DERIVED), or an agreeing cross-check (EX-18) each make the fact
+    trustworthy; a bare EXTRACTED reading does not prove a statutory breach."""
+    checked = set(case.get("cross_checked_fields") or [])
+    weak = []
+    for name in spec.facts:
+        f = case.facts.get(name)
+        if f is None or f.source.kind != SourceKind.DOCUMENT:
+            continue
+        if f.status in (FactStatus.CONFIRMED, FactStatus.CORRECTED,
+                        FactStatus.ANSWERED, FactStatus.DERIVED):
+            continue
+        if name in checked:
+            continue
+        weak.append(name)
+    return weak
+
+
 # ---------------------------------------------------------------- evaluate
 def evaluate(case, res: PofaResult, modules=()) -> list[dict]:
     """Run the Legal Calculation Engine over the registered finding types and
@@ -316,7 +370,15 @@ def evaluate(case, res: PofaResult, modules=()) -> list[dict]:
     existing = {r.get("finding_type"): r for r in (case.legal_findings or [])}
     records: list[dict] = []
     for ftype, spec in REGISTRY.items():
+        if spec.assertion_only:        # no calculator: an assertion guard only,
+            continue                   # never a record and never VERIFIED
         status, calc = decide(ftype)
+        if status == VERIFIED:
+            weak = unconfirmed_support(case, spec)
+            if weak:
+                status = UNRESOLVED
+                calc["note"] = ("supporting facts not confirmed or cross-checked: "
+                                + ", ".join(weak))
         rec = existing.get(ftype)
         if rec is None:
             rec = {"finding_id": finding_id(case.case_id, ftype), "case_id": case.case_id,
@@ -399,7 +461,8 @@ def particulars(finding: dict) -> dict:
 
 
 __all__ = ["VERIFIED", "NOT_SUPPORTED", "UNRESOLVED", "STATUSES", "REGISTRY", "FindingSpec",
-           "VAGUE_DEFECT", "PUT_TO_PROOF", "asserted_types", "describe", "verified_types",
+           "VAGUE_DEFECT", "PUT_TO_PROOF", "ASSERTION_ONLY", "asserted_types", "describe",
+           "verified_types",
            "referenced_findings", "gate_depends_on_finding", "rejection", "REJECTION_REASON",
            "evaluate", "for_pack", "finding_id"]
 

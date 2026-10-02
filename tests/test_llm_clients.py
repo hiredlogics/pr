@@ -150,6 +150,12 @@ class FullPipelineOverOpenAI(unittest.TestCase):
                                             "note": "postal notice served late"}],
                                "questions": [], "not_supported": []})
 
+        # The drafter runs over the same OpenAI path (V2), so the stub answers
+        # it too - with the reference drafting response the Fake/Demo paths use,
+        # serialized the way the real API would return it.
+        from support import ReferenceAnalysisLLM
+        reference = ReferenceAnalysisLLM({})
+
         def reply(kw):
             """Dispatch on the system prompt, the way the real API sees it."""
             system = kw["messages"][0]["content"]
@@ -157,6 +163,13 @@ class FullPipelineOverOpenAI(unittest.TestCase):
                 return json.dumps(extraction)
             if system.startswith("You analyse"):
                 return analysis
+            if system.startswith("You draft"):
+                user = kw["messages"][-1]["content"]
+                if isinstance(user, list):   # OpenAI content parts
+                    user = "".join(p.get("text", "") for p in user if isinstance(p, dict))
+                return json.dumps(reference._draft(user))
+            if "validation" in system.lower() or "issues" in system.lower():
+                return json.dumps({"issues": []})
             return hints
 
         stub = StubOpenAI(reply=reply)

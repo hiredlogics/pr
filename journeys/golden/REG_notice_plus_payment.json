@@ -8,7 +8,7 @@
       "KB-PAY-01",
       "KB-REC-01"
     ],
-    "plan_digest": "2b1b9de9c83b046d6d895f286a77cf3f9587aef6d5b4535b07703cefa745f9d6"
+    "plan_digest": "f95457cace8bc1f01366e7e5282fb13bf2a0ca04e75dc68987911915001d51fd"
   },
   "draft": {
     "content_hash": "704532cf6469c3d6d772bfe6214083bef7644e60feb35e3db0bfcd281625a6ed",
@@ -105,14 +105,15 @@
     "account_contradicts_allegation": "60a33e6cf515",
     "alleged_breach": "afbc61a63b6a",
     "charge_amount": "ad5736686512",
+    "cross_checked_fields": "62a65fe5cb70",
     "driver_disclosure_to_operator": "23759997b3c5",
     "entry_time": "303b591d2f7b",
     "exit_time": "07755fa775cf",
     "jurisdiction": "3d8b1b9f8f1d",
     "lease_has_regulations_clause": "60a33e6cf515",
     "lease_parking_clause_found": "60a33e6cf515",
-    "material_account_proposition": "24cde2d6ad2d",
-    "material_account_propositions": "585490bc458e",
+    "material_account_proposition": "1e0497235af5",
+    "material_account_propositions": "b1d0936bbef6",
     "notice_issue_date": "9896cbc5690b",
     "notice_route": "3b314d5ff8c4",
     "notice_sides_complete": "3cbc87c7681f",
@@ -127,7 +128,6 @@
     "parking_validation_status": "23759997b3c5",
     "payment_attempt_failed": "3cbc87c7681f",
     "payment_made": "3cbc87c7681f",
-    "pcn_conflict": "60a33e6cf515",
     "pcn_number": "e18ed3ade1e1",
     "pofa_9_2_e_status": "80bf2e217f0b",
     "pofa_finding": "d82bd98d4438",
@@ -138,8 +138,15 @@
     "vrm": "71994b04010b"
   },
   "questions": {
-    "asked": [],
-    "reviewed": []
+    "asked": [
+      "payment_made"
+    ],
+    "reviewed": [
+      {
+        "decision": "APPROVED",
+        "fact": null
+      }
+    ]
   },
   "validation": {
     "integrity": [],

@@ -99,6 +99,18 @@ CREATE TABLE kb_releases (                           -- immutable snapshot an ad
   manifest jsonb NOT NULL                            -- {module_id: version, block_id: version, ...}
 );
 
+-- P7 B5 (0010_kb_releases_insert_only.sql): cases are stamped with the release
+-- id that produced them, so a published release is never updated or deleted -
+-- a correction is a new release id.
+CREATE OR REPLACE FUNCTION kb_releases_insert_only() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'kb_releases is insert-only: a published release is immutable - publish a new release id';
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS kb_releases_insert_only ON kb_releases;
+CREATE TRIGGER kb_releases_insert_only BEFORE UPDATE OR DELETE ON kb_releases
+  FOR EACH ROW EXECUTE FUNCTION kb_releases_insert_only();
+
 CREATE TABLE code_versions (
   version_id text PRIMARY KEY, label text, effective_from date, effective_to date,
   applies_to_ata text[], provisions jsonb, verified boolean DEFAULT false, verified_by text

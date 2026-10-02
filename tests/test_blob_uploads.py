@@ -23,6 +23,9 @@ Date of Issue: 02/07/2026
 Charge: 100
 Alleged Breach: Overstay
 Trade Association: BPA
+\fNOTICE - REVERSE
+How to appeal: write to the operator within 28 days of this notice.
+Protection of Freedoms Act 2012, Schedule 4 applies to this charge.
 """
 
 BLOB = "https://public.blob.vercel-storage.com/abc/notice.txt"

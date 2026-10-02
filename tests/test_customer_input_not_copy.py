@@ -59,15 +59,27 @@ class ExtractionPreservesMeaning(unittest.TestCase):
         self.assertNotIn("i tried", props)
 
     def test_payment_made_informal(self):
+        # P7 B2: "I paid" is the customer's claim of a completed payment - a
+        # hypothesis to confirm, not a fact ("The machine wasn't working" is a
+        # report; "I paid" is a conclusion the customer can be wrong about).
         case, dig = self._digest("No payment", "I paid via the app for the visit.")
+        self.assertIsNone(case.get("payment_made"))
+        self.assertIn("payment_made", {h["fact_name"] for h in case.fact_hypotheses})
+        case.put(Fact("F-payment_made", "payment_made", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "q:payment_made")))
+        dig = assess_material_account(case)
         self.assertTrue(case.get("payment_made"))
         self.assertTrue(any("payment" in p.lower() for p in dig["propositions"]))
 
     def test_breakdown(self):
         case, dig = self._digest(
             "Overstay", "Car broke down flat battery — couldn't leave the car park.")
-        self.assertTrue(case.get("vehicle_immobilised"))
-        self.assertTrue(case.get("immobilisation_prevented_departure"))
+        # P7 B2: hypotheses to confirm, not facts from phrasing alone.
+        self.assertIsNone(case.get("vehicle_immobilised"))
+        self.assertIsNone(case.get("immobilisation_prevented_departure"))
+        kinds = {h["fact_name"] for h in case.fact_hypotheses}
+        self.assertIn("vehicle_immobilised", kinds)
+        self.assertIn("immobilisation_prevented_departure", kinds)
         self.assertNotIn("couldn't leave", " ".join(dig["propositions"]).lower())
 
     def test_residential(self):

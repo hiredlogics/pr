@@ -244,10 +244,25 @@ class H_ResidentialFactsReachDrafting(unittest.TestCase):
             charge_amount="£100", alleged_breach="No permit displayed",
             operator_ata="BPA",
         )
-        llm = ReferenceAnalysisLLM({"extraction": [{"fields": fields(**f),
-                                                    "doc_types": {"E1": "PCN"}}]})
+        # P7 B1: the facts arrive as answers to questions the analysis judged
+        # material (scripted, as the production model would ask them) - and
+        # resident_status is only material because the lease is on the case:
+        # without a parking clause nothing turns on it and the Question
+        # Authority rightly refuses the question.
+        llm = ReferenceAnalysisLLM(
+            {"extraction": [{"fields": fields(**f),
+                             "doc_types": {"E1": "PCN", "E2": "TENANCY"}}]},
+            ask=[{"fact": "resident_status",
+                  "text": "What is the keeper's connection to the site?",
+                  "type": "text", "material_because": "residential rights"},
+                 {"fact": "permit_held",
+                  "text": "Was a permit for the space held at the time?",
+                  "type": "bool", "material_because": "permit allegation"}])
+        lease = ("3.2 The Tenant shall have the right to park one private motor "
+                 "vehicle in the parking space numbered 14 shown on the plan.")
         case = CaseFile("C-RES", evidence={
-            "E1": EvidenceItem("E1", "PCN", "p.pdf", text="No permit")})
+            "E1": EvidenceItem("E1", "PCN", "p.pdf", text="No permit"),
+            "E2": EvidenceItem("E2", "TENANCY", "tenancy.pdf", text=lease)})
         pipe = AppealPipeline(llm)
         pipe.ingest(case)
         pipe.confirm(case, {}, list(case.facts), "I am a resident")

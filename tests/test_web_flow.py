@@ -22,7 +22,10 @@ Entry Time: 14:05
 Exit Time: 16:58
 Charge: 100
 Alleged Breach: Overstayed the maximum permitted period
-Trade Association: BPA"""
+Trade Association: BPA
+\fNOTICE - REVERSE
+How to appeal: write to the operator within 28 days of this notice.
+Protection of Freedoms Act 2012, Schedule 4 applies to this charge."""
 
 NARRATIVE = "the letter only arrived weeks later and there was a queue at the barrier"
 

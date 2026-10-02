@@ -26,7 +26,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from ..hypotheses import CONFIRMED, KINDS
+from ..hypotheses import CONFIRMED, KINDS, Hypotheses
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from . import narrative
 
@@ -85,8 +85,8 @@ _RULES: tuple[CircumstanceRule, ...] = (
         re.compile(
             r"\b("
             r"broke down|breakdown|broken down|"
-            r"flat (battery|tyre|tire)|puncture|"
-            r"couldn'?t (move|drive|start)|would not start|"
+            r"flat (battery|tyre|tire)|battery (died|dead|failed|was flat)|puncture|"
+            r"(couldn'?t|wouldn'?t|would not|could not) (move|drive|start)|"
             r"immobilised|immobilized|stranded"
             r")",
             re.I,
@@ -294,6 +294,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     breach = str(case.get("alleged_breach") or "").strip().lower()
     extractions: list[FreeTextExtraction] = []
     seen_facts: set[str] = set()
+    account_supported: set[str] = set()
 
     for raw in texts:
         text = str(raw).strip()
@@ -310,6 +311,20 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
                 "child_occupant_present", "blue_badge_displayed", "permit_held",
                 "bay_conditions_met_accounted", "ev_charging_session", "payment_made",
             } and rule.value is True and _match_negated(text, m):
+                continue
+            # P7 B2: a claim of a completed outcome the customer may believe
+            # but be wrong about ("I paid", "it broke down and we couldn't
+            # leave") is a hypothesis, not a fact. It is asked about; only the
+            # customer's answer - or an existing document/answer value, which
+            # supersedes it - sets the fact. Confirmed, its proposition
+            # re-enters drafting through _confirmed_hypotheses below.
+            if rule.fact_name in KINDS:
+                h = Hypotheses.propose(
+                    case, rule.fact_name, rule.value, source_text=text,
+                    confidence=0.6, signals=[f"account:{rule.fact_name}"],
+                    rule="account.circumstance")
+                account_supported.add(h["_key"])
+                seen_facts.add(rule.fact_name)
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
             existing = case.facts.get(rule.fact_name)
@@ -340,6 +355,11 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             ))
             seen_facts.add(rule.fact_name)
 
+    # The account was re-read in full above: withdraw account-proposed
+    # hypotheses the texts no longer support (narrative's own proposals are
+    # withdrawn by narrative.understand under its own rule).
+    Hypotheses.withdraw_unsupported(case, account_supported,
+                                    rule="account.circumstance")
     _record_described_event(case, texts)
     extractions += _confirmed_hypotheses(case, breach)
     extractions += _answered_circumstances(case, {e.fact_name for e in extractions})

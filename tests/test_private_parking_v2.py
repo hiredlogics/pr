@@ -276,9 +276,19 @@ class S05_AnprAndVisits(unittest.TestCase):
         self.assertNotIn("multiple_visits", r.analysis_questions, r.dump())
 
     def test_short_stay_does_not_equal_parking_period(self):
-        """Scenario 7: very short entry/exit → consideration / not automatic parking."""
+        """Scenario 7: very short entry/exit → consideration / not automatic parking.
+
+        P7 B1: the facts arrive as answers to questions the analysis judged
+        material (scripted here, as the production model would ask them) -
+        an answer nothing asked for is refused."""
+        ask = [{"fact": "no_parking_took_place",
+                "text": "Did the vehicle leave without parking taking place?",
+                "type": "bool", "material_because": "consideration period"},
+               {"fact": "short_presence_before_acceptance",
+                "text": "Was the vehicle only briefly on site before leaving?",
+                "type": "bool", "material_because": "consideration period"}]
         case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
-                                "alleged_breach": "No ticket displayed"})
+                                "alleged_breach": "No ticket displayed"}, ask=ask)
         r = run_pipeline(case, pipe, "drove through looking for a space then left",
                          answers={"no_parking_took_place": True,
                                   "short_presence_before_acceptance": True},

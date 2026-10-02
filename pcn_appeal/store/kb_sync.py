@@ -29,13 +29,44 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 
 def _read(d: Path) -> dict[str, Any]:
-    return {name: yaml.safe_load((d / f"{name}.yaml").read_text())
-            for name in ("kb_modules", "building_blocks", "routes", "questions", "code_versions",
-                         "prompts")}
+    src = {name: yaml.safe_load((d / f"{name}.yaml").read_text())
+           for name in ("kb_modules", "building_blocks", "routes", "questions", "code_versions",
+                        "prompts")}
+    relations = d / "kb_relations.yaml"
+    src["kb_relations"] = yaml.safe_load(relations.read_text()) if relations.exists() else {}
+    return src
 
 
 def new_release_id() -> str:
     return "kb-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _sha(text: str) -> str:
+    import hashlib
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def release_manifest(src: dict[str, Any], *, embedder_id: str) -> dict[str, Any]:
+    """The immutable snapshot one release pins (P7 B5). Beyond the id->version
+    maps it carries the curated relations and a digest per block text, so a
+    served release argues the relations it was published with and a block
+    wording change is visible drift, not a silent re-sync over version 1.0."""
+    modules: list[dict] = src["kb_modules"]["modules"]
+    blocks: dict[str, dict] = src["building_blocks"]["blocks"]
+    return {
+        "modules": {m["module_id"]: str(m.get("version", "1.0")) for m in modules},
+        "blocks": {bid: str(b.get("version", "1.0")) for bid, b in blocks.items()},
+        "block_texts": {bid: _sha(b["text"]) for bid, b in blocks.items()},
+        "prompts": {task: int(pr.get("version", 1))
+                    for task, pr in (src["prompts"].get("prompts", {}) or {}).items()},
+        "routes": src["routes"],
+        "questions": src["questions"],
+        "conflicts_with": src["kb_modules"].get("conflicts_with", []) or [],
+        "legal_sources": src["kb_modules"].get("legal_sources", {}) or {},
+        "relations": src.get("kb_relations") or {},
+        "embedder": embedder_id,
+        "embed_dim": EMBED_DIM,
+    }
 
 
 def sync(data_dir: Path = DATA, release_id: Optional[str] = None,
@@ -48,8 +79,6 @@ def sync(data_dir: Path = DATA, release_id: Optional[str] = None,
 
     modules: list[dict] = src["kb_modules"]["modules"]
     blocks: dict[str, dict] = src["building_blocks"]["blocks"]
-    conflicts: list = src["kb_modules"].get("conflicts_with", []) or []
-    sources: dict = src["kb_modules"].get("legal_sources", {}) or {}
 
     # ---------------------------------------------------------------- embed
     index: list[tuple[str, str, str, str]] = []          # item_id, version, kind, text
@@ -126,22 +155,21 @@ def sync(data_dir: Path = DATA, release_id: Optional[str] = None,
                 """, (task, int(pr.get("version", 1)), task, str(pr["body"]).rstrip()))
 
             if publish:
-                manifest = {
-                    "modules": {m["module_id"]: str(m.get("version", "1.0")) for m in modules},
-                    "blocks": {bid: str(b.get("version", "1.0")) for bid, b in blocks.items()},
-                    "prompts": {task: int(pr.get("version", 1))
-                                for task, pr in (src["prompts"].get("prompts", {}) or {}).items()},
-                    "routes": src["routes"],
-                    "questions": src["questions"],
-                    "conflicts_with": conflicts,
-                    "legal_sources": sources,
-                    "embedder": getattr(embedder, "id", "unknown"),
-                    "embed_dim": EMBED_DIM,
-                }
+                manifest = release_manifest(src, embedder_id=getattr(embedder, "id", "unknown"))
+                # Insert-only (P7 B5): a release is immutable the moment it is
+                # published - a case stamped with its id must always replay the
+                # same rules. Re-publishing the same id is an error, never an
+                # update. The schema enforces the same rule with a trigger
+                # (0010), so no other code path can rewrite one either.
+                held = cur.execute("SELECT 1 FROM kb_releases WHERE kb_release_id = %s",
+                                   (release_id,)).fetchone()
+                if held is not None:
+                    raise ValueError(
+                        f"KB release {release_id} is already published and immutable; "
+                        "publish under a new release id")
                 cur.execute("""
                     INSERT INTO kb_releases (kb_release_id, published_at, published_by, manifest)
                     VALUES (%s, now(), %s, %s)
-                    ON CONFLICT (kb_release_id) DO UPDATE SET manifest = EXCLUDED.manifest
                 """, (release_id, published_by, _json(manifest)))
         conn.commit()
 

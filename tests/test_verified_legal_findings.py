@@ -294,7 +294,12 @@ class GateIsGeneric(unittest.TestCase):
             self.assertTrue(spec.description)
             self.assertTrue(spec.assertion.pattern)
             self.assertEqual(spec.finding_type, ftype)
-            self.assertTrue(spec.facts)
+            # a calculable finding reads facts; an assertion-only guard (P7 B6)
+            # has no calculator yet, so no fact list
+            if spec.assertion_only:
+                self.assertFalse(spec.facts)
+            else:
+                self.assertTrue(spec.facts)
 
     def test_content_defect_findings_follow_the_document_facts(self):
         case, pipe = make_case()

@@ -210,25 +210,42 @@ def _load_kg() -> KnowledgeGraph:
     instead is how the app ends up arguing different law from the release every
     case is stamped with - which is exactly how a client came to be retesting a
     version nobody could identify.
+
+    P7 B5: production NEVER serves the YAML. Every production case must be
+    stamped with a published, immutable release id, so with no database, no
+    release, or an unreachable release table, production refuses to start -
+    ALLOW_KB_DRIFT only lets a release that drifted from this build's YAML be
+    served, it never substitutes the YAML itself.
     """
     if not db.enabled():
+        if runtime.is_production():
+            raise RuntimeError(
+                "production requires a published KB release: DATABASE_URL is not set, and "
+                "the authored YAML fallback is never served in production (P7 B5)")
         return KnowledgeGraph()
 
     from .store import kb_source
     try:
         released = kb_source.latest_release_id()
     except Exception as exc:
-        if not ALLOW_KB_DRIFT:
+        if runtime.is_production() or not ALLOW_KB_DRIFT:
             raise RuntimeError(
                 f"cannot reach the KB release table ({exc}). The database is the system of "
                 "record when DATABASE_URL is set, so serving the YAML here would argue "
-                "unverified law. Fix the database, or set ALLOW_KB_DRIFT=1 to serve the "
-                "authored YAML deliberately.") from exc
+                "unverified law. Fix the database"
+                + ("." if runtime.is_production() else
+                   ", or set ALLOW_KB_DRIFT=1 to serve the authored YAML deliberately.")
+            ) from exc
         KB_STATUS.update(source="yaml", reason=f"release table unreachable: {exc}", drift=[])
         print(f"[kb] release table unreachable ({exc}); serving YAML by ALLOW_KB_DRIFT")
         return KnowledgeGraph()
 
     if released is None:
+        if runtime.is_production():
+            raise RuntimeError(
+                "production requires a published KB release and none exists; publish one "
+                "(POST /admin/kb/releases or `python -m pcn_appeal.store sync`) - the "
+                "authored YAML fallback is never served in production (P7 B5)")
         KB_STATUS.update(source="yaml", reason="no KB release published", drift=[])
         print("[kb] no KB release published; serving YAML "
               "(publish with `python -m pcn_appeal.store sync`)")
@@ -349,6 +366,18 @@ def _require_admin(authorization: Optional[str], x_admin_token: Optional[str]) -
         raise HTTPException(401, "admin authorization required")
 
 
+def _ephemeral(authorization: Optional[str], x_admin_token: Optional[str],
+               x_ephemeral_case: Optional[str]) -> bool:
+    """P7 B5: `X-Ephemeral-Case: 1` makes the case in-memory only, so the KB
+    release gate can drive the real customer endpoints without writing journey
+    cases into the cases table. Admin-only: a customer must not be able to make
+    their own case unpersisted."""
+    if (x_ephemeral_case or "").strip() != "1":
+        return False
+    _require_admin(authorization, x_admin_token)
+    return True
+
+
 def _case(case_id: str) -> dict[str, Any]:
     rec = CASES.get(case_id)
     if rec is None and db.enabled():
@@ -379,7 +408,7 @@ def _rehydrate(case_id: str) -> Optional[dict[str, Any]]:
 
 
 def _persist(case: CaseFile, out=None) -> None:
-    if not db.enabled():
+    if getattr(case, "_ephemeral", False) or not db.enabled():
         return
     from .store import cases as case_store
     case_store.save(case)
@@ -388,9 +417,15 @@ def _persist(case: CaseFile, out=None) -> None:
         case_store.save_execution_trace(case, out)
 
 
-def _new_case() -> tuple[str, dict[str, Any]]:
+def _new_case(ephemeral: bool = False) -> tuple[str, dict[str, Any]]:
     pipe = _pipeline()                   # before the case row: no orphan on a 503
-    if db.enabled():
+    if ephemeral:
+        # P7 B5: a KB-gate journey run. Never a database row - the gate must
+        # not write test cases into the production cases table.
+        import uuid
+        case = CaseFile(f"C-GATE-{uuid.uuid4().hex[:10]}")
+        case._ephemeral = True
+    elif db.enabled():
         from .store import cases as case_store
         case = case_store.new_case(kb_release_id=KG.release_id)
     else:
@@ -456,13 +491,17 @@ def health():
 
 # --------------------------------------------------------------------- one click
 @app.post("/appeal")
-def appeal(body: AppealIn):
+def appeal(body: AppealIn,
+           authorization: Optional[str] = Header(None),
+           x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+           x_ephemeral_case: Optional[str] = Header(None, alias="X-Ephemeral-Case")):
     """Upload -> extract -> auto-confirm -> reason -> draft -> validate, in one call.
 
     Returns either `questions` (a fact is missing that gates a ground worth
     having - answer them via POST /appeal/{case_id}) or the finished `letter`.
     """
-    case_id, rec = _new_case()
+    case_id, rec = _new_case(ephemeral=_ephemeral(authorization, x_admin_token,
+                                                  x_ephemeral_case))
     case: CaseFile = rec["case"]
     from .disclosure import apply_disclosure
     apply_disclosure(case, body.driver_already_named_to_operator, source="appeal_json")
@@ -478,7 +517,10 @@ def appeal(body: AppealIn):
 
 @app.post("/appeal/files")
 async def appeal_files(files: list[UploadFile] = File(...), narrative: str = Form(""),
-                       driver_already_named_to_operator: Optional[str] = Form(None)):
+                       driver_already_named_to_operator: Optional[str] = Form(None),
+                       authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token"),
+                       x_ephemeral_case: Optional[str] = Header(None, alias="X-Ephemeral-Case")):
     """Same one-click journey, but taking the files a customer actually has:
     a photo of the notice, a PDF that arrived by email, a receipt screenshot.
 
@@ -489,7 +531,8 @@ async def appeal_files(files: list[UploadFile] = File(...), narrative: str = For
     `driver_already_named_to_operator` is parsed strictly as a string Form field
     (never a coerced bool): the string \"false\" must not become True.
     """
-    case_id, rec = _new_case()
+    case_id, rec = _new_case(ephemeral=_ephemeral(authorization, x_admin_token,
+                                                  x_ephemeral_case))
     case: CaseFile = rec["case"]
     from .disclosure import apply_disclosure
     apply_disclosure(case, driver_already_named_to_operator, source="appeal_files_form")
@@ -1204,6 +1247,68 @@ class EdgeCreateIn(KnowledgeChangeIn):
     target_key: str
     confidence: float = 1.0
     edge_reason: str = ""
+
+
+class KbReleaseIn(BaseModel):
+    release_id: Optional[str] = None         # defaults to a timestamped id
+    published_by: str = "admin"
+
+
+def _release_gate() -> dict:
+    """P7 B5: the journey regression harness, run in-process against this very
+    app and the golden snapshots in the repo. Publishing is refused unless
+    every journey passes, goldens included - the gate is the same suite a
+    developer runs with `python -m pcn_appeal.integrity journeys`."""
+    from fastapi.testclient import TestClient
+
+    from .integrity.journeys import JourneyRunner, run_directory, summary
+    root = Path(__file__).resolve().parent.parent
+    journeys_dir = root / "journeys"
+    if not journeys_dir.is_dir():
+        raise HTTPException(503, "the journey suite is not present in this build; "
+                                 "a KB release cannot be gated, so it cannot be published here")
+    token = (os.getenv("ADMIN_TRACE_TOKEN") or os.getenv("ADMIN_TOKEN") or "").strip()
+    headers = {"X-Ephemeral-Case": "1"}
+    if token:
+        headers["X-Admin-Token"] = token
+    client = TestClient(app, headers=headers)
+    runner = JourneyRunner(client, admin_token=token or None,
+                           golden_dir=journeys_dir / "golden")
+    return summary(run_directory(runner, journeys_dir))
+
+
+@app.post("/admin/kb/releases", status_code=201)
+def publish_kb_release(body: KbReleaseIn,
+                       authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Publish a new immutable KB release from the authored YAML (P7 B5).
+
+    Refused unless the full journey/golden suite passes against the law this
+    build would publish. On success the release is inserted (insert-only - a
+    held id is a 409, never an overwrite) and this process reloads its graph
+    so it serves what it just published.
+    """
+    _require_admin(authorization, x_admin_token)
+    if not db.enabled():
+        raise HTTPException(503, "publishing a KB release needs the database (DATABASE_URL)")
+    gate = _release_gate()
+    if gate["passed"] != gate["journeys"]:
+        raise HTTPException(409, {
+            "message": "KB release refused: the journey suite is not green",
+            "failed": gate["failed"],
+            "results": [{"name": r["name"], "failures": r.get("failures", [])}
+                        for r in gate["results"] if r["name"] in gate["failed"]]})
+    from .store import kb_sync
+    try:
+        published = kb_sync.sync(publish=True, release_id=body.release_id,
+                                 published_by=body.published_by)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    global KG
+    KG = _load_kg()
+    return {"release": published,
+            "gate": {"journeys": gate["journeys"], "passed": gate["passed"]},
+            "serving": {"kb_release": KG.release_id, "source": KB_STATUS["source"]}}
 
 
 def _knowledge_store():

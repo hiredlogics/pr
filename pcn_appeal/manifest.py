@@ -41,7 +41,9 @@ def _sha(data: Any) -> str:
 
 def kb_digest(kg) -> str:
     """A fingerprint of the knowledge base as loaded: each module's id,
-    version, status, strength and gates, and each block's text. The YAML has no
+    version, status, strength and gates, each block's text, and the relation
+    graph (P7 B5 - every edge id is a UUIDv5 of the edge's content, so the
+    sorted ids fingerprint the derived AND curated relations). The YAML has no
     release id, so this is what tells two YAML builds apart."""
     cached = getattr(kg, "_manifest_digest", None)
     if cached:
@@ -51,7 +53,8 @@ def kb_digest(kg) -> str:
                       json.dumps(m.do_not_use_when, sort_keys=True, default=str))
                      for m in kg.modules.values())
     blocks = sorted((b.block_id, b.status, _sha(b.text)) for b in kg.blocks.values())
-    digest = _sha({"modules": modules, "blocks": blocks})
+    relations = [e.edge_id for e in kg.relations.edges]
+    digest = _sha({"modules": modules, "blocks": blocks, "relations": relations})
     try:
         kg._manifest_digest = digest
     except Exception:

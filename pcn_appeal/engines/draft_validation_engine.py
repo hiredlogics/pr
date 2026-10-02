@@ -258,14 +258,27 @@ class DraftValidationEngine:
                     "findings do not support; state the facts and put the operator to proof", t)
                 reasons.append("legal_conclusion")
 
-            # ---- LEGAL FINDING (P6.1): a specific defect needs its VERIFIED finding
+            # ---- LEGAL FINDING (P6.1): a specific defect needs its VERIFIED finding.
+            # P7 B6: assertion-only types (no calculator yet) additionally accept
+            # approved module wording - the controlled document's own proposition,
+            # gated by the plan and the facts - but never the drafter's own claim.
             asserted = legal.asserted_types(t)
-            if asserted and not legal.PUT_TO_PROOF.search(t) and \
-                    not (asserted & verified_findings):
+            hard = asserted - legal.ASSERTION_ONLY
+            soft = asserted & legal.ASSERTION_ONLY
+            if hard and not legal.PUT_TO_PROOF.search(t) and \
+                    not (hard & verified_findings):
                 add("VAL-LEGAL-FINDING",
-                    f"States that a legal defect exists ({legal.describe(asserted)}) "
+                    f"States that a legal defect exists ({legal.describe(hard)}) "
                     "but no verified legal finding supports it; a defect may only be "
                     "stated when the deterministic calculation proved it", t)
+                reasons.append("unverified_legal_defect")
+            elif soft and not legal.PUT_TO_PROOF.search(t) and \
+                    not (soft & verified_findings) and \
+                    not self._attributed_in_wording(t, text_by_module):
+                add("VAL-LEGAL-FINDING",
+                    f"Asserts a defect ({legal.describe(soft)}) that no verified "
+                    "finding and no approved wording supports; state the facts and "
+                    "put the operator to proof instead", t)
                 reasons.append("unverified_legal_defect")
             elif not asserted and legal.VAGUE_DEFECT.search(t) and not REPORTED.search(t) \
                     and not verified_findings:
@@ -338,12 +351,24 @@ class DraftValidationEngine:
         if draft.paragraphs:
             covered = {m for g in result.grounding if g["status"] == GROUNDED
                        for m in g["claim_plan_items"]}
+            # Approved wording can be SHARED between sibling modules of one
+            # theory (the same block listed by several modules). A sentence
+            # belongs to exactly one claim, so the letter rightly states that
+            # wording once - the siblings are still argued by it, not dropped.
+            texts = [re.sub(r"\s+", " ", s.text.strip().lower())
+                     for s in draft.sentences()]
+            grounded_texts = [texts[g["i"]] for g in result.grounding
+                              if g["status"] == GROUNDED and g["claim_plan_items"]]
             for mid in approved:
-                if mid != STRUCTURAL and mid not in covered:
-                    add("VAL-COVERAGE",
-                        f"{labels.get(mid) or mid} is approved in the Claim Plan but the "
-                        "letter never argues it; every approved ground needs at least one "
-                        "grounded sentence", None)
+                if mid == STRUCTURAL or mid in covered:
+                    continue
+                wording = re.sub(r"\s+", " ", (text_by_module.get(mid) or "").lower())
+                if wording and any(t and t in wording for t in grounded_texts):
+                    continue
+                add("VAL-COVERAGE",
+                    f"{labels.get(mid) or mid} is approved in the Claim Plan but the "
+                    "letter never argues it; every approved ground needs at least one "
+                    "grounded sentence", None)
         return result
 
     # --------------------------------------------------------------- internals
