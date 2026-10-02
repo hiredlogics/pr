@@ -289,6 +289,11 @@ class CaseFile:
     # P2: possible values read from the customer's account. Not facts: never in
     # `facts`, so never in fact_view / the reasoning gate / drafting (hypotheses.py).
     fact_hypotheses: list[dict] = field(default_factory=list)
+    # P5: every claim plan version for this case, oldest first
+    # (engines/claim_plan_authority.FinalClaimPlan). The last LOCKED one is the
+    # only authority over what a letter argues; earlier ones are SUPERSEDED and
+    # never change.
+    claim_plans: list = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -449,6 +454,10 @@ class RetrievalPack:
     # unresolved topics. Never includes raw narrative wording that could leak
     # driver identity.
     case_context: dict = field(default_factory=dict)
+    # P5: the LOCKED claim plan this pack was built from (claim_plan_authority
+    # .FinalClaimPlan.for_validation). Validation checks every argument against
+    # it. Never sent to the drafter; None only outside the pipeline.
+    claim_plan: Optional[dict] = None
 
 
 # --------------------------------------------------------------------------- drafting

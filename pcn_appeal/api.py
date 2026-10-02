@@ -916,7 +916,9 @@ def case_facts(case_id: str, authorization: Optional[str] = Header(None),
             # P3: every question decision, approved or rejected, and why.
             "question_trace": question_authority.trace(case),
             # P4: facts -> relationships -> knowledge, and every rejection.
-            "knowledge": _knowledge_trace(rec)}
+            "knowledge": _knowledge_trace(rec),
+            # P5: the locked claim plan - what is argued, what is not, and why.
+            "claim_plan": _claim_plan_trace(rec["case"])}
 
 
 class FactWriteIn(BaseModel):
@@ -1167,7 +1169,9 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             # P3: candidate -> module -> target fact -> approved/rejected -> reason.
             "question_trace": question_authority.trace(rec["case"]),
             # P4: facts -> relationships -> knowledge, and every rejection.
-            "knowledge": _knowledge_trace(rec)}
+            "knowledge": _knowledge_trace(rec),
+            # P5: the locked claim plan - what is argued, what is not, and why.
+            "claim_plan": _claim_plan_trace(rec["case"])}
 
 
 
@@ -1327,6 +1331,65 @@ def knowledge_for_facts(facts: str, authorization: Optional[str] = Header(None),
     _admin(authorization, x_admin_token)
     from .knowledge_ingestion.queries import knowledge_for_facts as q
     return {"knowledge": q({f.strip(): True for f in facts.split(",") if f.strip()})}
+
+
+# ---------------------------------------------------------------- P5 claim plans
+def _claim_plan_trace(case: CaseFile) -> Optional[dict]:
+    """Admin only: the case's current locked plan - selected / rejected /
+    blocked / unresolved, each with its reason - and its version history."""
+    from .engines.claim_plan_authority import latest_locked
+    plan = latest_locked(case)
+    if plan is None:
+        return None
+    return {"claim_plan_id": plan.claim_plan_id, "version": plan.version,
+            "status": plan.status, "approved": plan.supported_ids, "trace": plan.trace(),
+            "required_evidence": plan.required_evidence(),
+            "versions": [{"version": p.version, "status": p.status,
+                          "claim_plan_id": p.claim_plan_id, "approved": p.supported_ids}
+                         for p in case.claim_plans]}
+
+
+def _plan_version(case: CaseFile, version: int):
+    plan = next((p for p in case.claim_plans if p.version == version), None)
+    if plan is None:
+        raise HTTPException(404, f"no claim plan version {version}")
+    return plan
+
+
+@app.get("/admin/cases/{case_id}/claim-plans")
+def claim_plans(case_id: str, authorization: Optional[str] = Header(None),
+                x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Every claim plan version for the case, with its admin trace."""
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return {"case_id": case.case_id,
+            "plans": [dict(p.as_dict(), trace=p.trace()) for p in case.claim_plans]}
+
+
+@app.get("/admin/cases/{case_id}/claim-plans/compare")
+def claim_plans_compare(case_id: str, a: int, b: int, authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """What changed between two runs' plans: claims, priorities, facts, versions."""
+    from .engines.claim_plan_authority import diff
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return diff(_plan_version(case, a), _plan_version(case, b))
+
+
+@app.get("/admin/cases/{case_id}/claim-plans/explain")
+def claim_plan_explain(case_id: str, module_id: str, version: Optional[int] = None,
+                       authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Why was this argument included, or excluded?"""
+    from .engines.claim_plan_authority import latest_locked
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    plan = _plan_version(case, version) if version is not None else latest_locked(case)
+    if plan is None:
+        raise HTTPException(409, "no claim plan yet - POST /generate")
+    item = plan.item(module_id)
+    return {"module_id": module_id, "version": plan.version, "explanation": plan.explain(module_id),
+            "item": item.as_dict() if item else None}
 
 
 # Admin (role: legal_admin) - edit without redeploys (Dev Pack Phase 10).

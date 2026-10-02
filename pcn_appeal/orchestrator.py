@@ -16,6 +16,7 @@ from typing import Optional
 from .drafting.drafter import LLMDrafter, TemplateDrafter
 from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
+from .engines.claim_plan_authority import ClaimPlanBuilder
 from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
 from .engines.question_authority import (CONFIRMATION, CONFLICT, HYPOTHESIS, POSTCODE,
@@ -120,7 +121,10 @@ class AppealPipeline:
         # fallback and still builds case-specific REC paragraphs from the pack.
         self.drafter = drafter or LLMDrafter(llm)
         self.fallback = TemplateDrafter(self.kg)
-        self.validation = ValidationEngine(judge)
+        self.validation = ValidationEngine(judge, kg=self.kg)
+        # P5: the only authority over which claims a letter argues. Analysis,
+        # reassessment and ground recovery propose; this decides and locks.
+        self.claim_authority = ClaimPlanBuilder(self.kg, self.reasoning)
 
     # step 1-2
     def ingest(self, case: CaseFile) -> list[str]:
@@ -454,7 +458,13 @@ class AppealPipeline:
                 AppealOutput(case.state, None, empty, Draft(case.case_id, []),
                              ValidationResult(False, issues), []),
                 case)
-        pack = self._analyse_until_a_ground_can_lead(case)
+        # Proposals: case analysis and ground recovery may still re-propose here.
+        self._analyse_until_a_ground_can_lead(case)
+        # P5: the decision. One LOCKED claim plan; from here on nothing adds,
+        # removes or reorders a claim - the pack, the drafter and validation all
+        # work from this plan (engines/claim_plan_authority.py).
+        plan = self.claim_authority.decide(case, trust=self._plan_trust())
+        pack = self.reasoning.pack_for(case, plan)
         # Structured diagnostic for audit / support — never invents retrieval hits.
         case.audit.append({
             "event": "retrieval_pack",
@@ -520,14 +530,14 @@ class AppealPipeline:
                 # Do not substitute TemplateDrafter substantive prose after AI failure.
                 continue
 
-            # Missing knowledge: widen once over the same finalized claims, then hold.
+            # Missing knowledge: widen once over the same LOCKED claims, then hold.
+            # Widening retrieves more approved wording; the claims are the plan's.
             if draft.no_ground_reason:
                 case.audit.append({"event": "no_ground", "attempt": attempt,
                                    "reason": draft.no_ground_reason, "widened": widened})
                 if not widened:
                     widened = True
-                    pack = self.reasoning.analyse(
-                        case, selected_ids=case.analysis_module_ids, widen=True)
+                    pack = self.reasoning.pack_for(case, plan, widen=True)
                     attempt -= 1                     # the retry is not an attempt
                     continue
                 case.audit.append({
@@ -576,9 +586,22 @@ class AppealPipeline:
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
 
+    def _plan_trust(self) -> dict:
+        """What a claim plan records about what produced it (client trust)."""
+        from . import prompts, version
+        from .manifest import provider_of
+        llm = self.extraction.llm
+        return {"code_version": version.commit(), "prompt_versions": prompts.versions(),
+                "model_versions": dict(getattr(llm, "models", None) or {}),
+                "provider": provider_of(llm)}
+
     # --------------------------------------------------------- recovery rungs
     def _analyse_until_a_ground_can_lead(self, case: CaseFile) -> RetrievalPack:
-        """Build the pack, re-analysing while nothing can carry the letter.
+        """Re-analyse while nothing proposed can carry the letter.
+
+        P5: this is the PROPOSAL phase. It may change case.analysis_module_ids
+        (Case Intelligence's selection); the Claim Plan built after it decides.
+        The pack it returns is only used to test for a leading ground.
 
         Case analysis reads the notice and the account afresh each round, and a
         round that came back with only the keeper-liability framing point is the

@@ -96,6 +96,7 @@ def save(case: CaseFile) -> None:
             _save_pages(cur, case)
 
             _save_fact_graph(cur, case)
+            _save_claim_plans(cur, case)
 
             latest = _latest_raw_answers(cur, case.case_id)
             for question, raw in case.raw_answers.items():
@@ -240,6 +241,104 @@ def _load_hypotheses(conn, case: CaseFile) -> None:
         if resolved_by is not None or resolved_at is not None:
             h.update(resolved_by=resolved_by, resolved_at=_stamp(resolved_at))
         case.fact_hypotheses.append(h)
+
+
+def _save_claim_plans(cur, case: CaseFile) -> None:
+    """P5: each claim plan version once, items with it; afterwards only its
+    LOCKED -> SUPERSEDED transition. The database refuses items for a locked
+    plan and any other change to one (0006_claim_plan_authority.sql), so:
+
+      1. a new plan is written CONFIRMED with its items;
+      2. in version order, plans now SUPERSEDED are locked (if new) and
+         superseded - superseded_by then names a row that exists, and the
+         case's previous LOCKED plan is gone before another is locked;
+      3. the plan that is LOCKED is locked (at most one per case).
+    """
+    stored = {str(r[0]): r[1] for r in cur.execute(
+        "SELECT claim_plan_id, status FROM claim_plans WHERE case_id = %s",
+        (case.case_id,)).fetchall()}
+    plans = sorted((p.as_dict() for p in case.claim_plans), key=lambda d: d["version"])
+    for d in plans:
+        if d["claim_plan_id"] in stored:
+            continue
+        trust = d["trust"]
+        cur.execute("""
+            INSERT INTO claim_plans (claim_plan_id, case_id, analysis_run_id, run_number, version,
+                                     status, created_at, confirmed_at, inputs_digest, plan_digest,
+                                     code_version, kb_version, prompt_version, model_version,
+                                     facts_used, relationships_used, trust,
+                                     material_fact_accounting)
+            VALUES (%s, %s, %s, %s, %s, 'CONFIRMED', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (d["claim_plan_id"], case.case_id, d["analysis_run_id"], d["run_number"],
+              d["version"], d["created_at"], d["confirmed_at"], d["inputs_digest"],
+              d["plan_digest"], trust.get("code_version"), _json(trust.get("kb_version") or {}),
+              _json(trust.get("prompt_versions") or {}), _json(trust.get("model_versions") or {}),
+              _json(_jsonable(trust.get("facts_used") or {})),
+              _json(_jsonable(trust.get("relationships_used") or [])),
+              _json(_jsonable(trust)), _json(_jsonable(d["material_fact_accounting"]))))
+        for n, item in enumerate(d["items"]):
+            cur.execute("""
+                INSERT INTO claim_plan_items (item_id, claim_plan_id, ordinal, knowledge_id,
+                                              module_id, claim_type, status, decision, reason,
+                                              supporting_facts, evidence_refs, relationships,
+                                              priority, topic)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (item["item_id"], d["claim_plan_id"], n, item["knowledge_id"], item["module_id"],
+                  item["claim_type"], item["status"], item["decision"], item["reason"],
+                  _json(_jsonable(item["supporting_facts"])),
+                  _json(_jsonable(item["evidence_refs"])),
+                  _json(_jsonable(item["relationships"])), item["priority"], item["topic"]))
+        stored[d["claim_plan_id"]] = "CONFIRMED"
+
+    def lock(d):
+        cur.execute("UPDATE claim_plans SET status = 'LOCKED', locked_at = %s "
+                    "WHERE claim_plan_id = %s", (d["locked_at"], d["claim_plan_id"]))
+
+    for d in plans:
+        if d["status"] == "SUPERSEDED" and stored[d["claim_plan_id"]] != "SUPERSEDED":
+            if stored[d["claim_plan_id"]] == "CONFIRMED":
+                lock(d)
+            cur.execute("UPDATE claim_plans SET status = 'SUPERSEDED', superseded_at = %s, "
+                        "superseded_by = %s WHERE claim_plan_id = %s",
+                        (d["superseded_at"], d["superseded_by"], d["claim_plan_id"]))
+    for d in plans:
+        if d["status"] == "LOCKED" and stored[d["claim_plan_id"]] == "CONFIRMED":
+            lock(d)
+
+
+def _load_claim_plans(conn, case: CaseFile) -> None:
+    from ..engines.claim_plan_authority import FinalClaimPlan
+    for (plan_id, run_uuid, run_number, version, status, created, confirmed, locked,
+         superseded, superseded_by, inputs_digest, plan_digest, trust,
+         accounting) in conn.execute("""
+            SELECT claim_plan_id, analysis_run_id, run_number, version, status, created_at,
+                   confirmed_at, locked_at, superseded_at, superseded_by, inputs_digest,
+                   plan_digest, trust, material_fact_accounting
+            FROM claim_plans WHERE case_id = %s ORDER BY version
+    """, (case.case_id,)).fetchall():
+        items = []
+        for (item_id, knowledge, module_id, claim_type, istatus, decision, reason, facts,
+             evidence, rels, priority, topic) in conn.execute("""
+                SELECT item_id, knowledge_id, module_id, claim_type, status, decision, reason,
+                       supporting_facts, evidence_refs, relationships, priority, topic
+                FROM claim_plan_items WHERE claim_plan_id = %s ORDER BY ordinal
+        """, (str(plan_id),)).fetchall():
+            items.append({"item_id": str(item_id), "knowledge_id": str(knowledge),
+                          "module_id": module_id, "claim_type": claim_type, "status": istatus,
+                          "decision": decision, "reason": reason,
+                          "supporting_facts": _loaded(facts) or [],
+                          "evidence_refs": _loaded(evidence) or [],
+                          "relationships": _loaded(rels) or [], "priority": priority,
+                          "topic": topic or ""})
+        case.claim_plans.append(FinalClaimPlan.from_dict({
+            "claim_plan_id": str(plan_id), "case_id": case.case_id,
+            "analysis_run_id": str(run_uuid), "run_number": run_number, "version": version,
+            "status": status, "created_at": _stamp(created), "confirmed_at": _stamp(confirmed),
+            "locked_at": _stamp(locked), "superseded_at": _stamp(superseded),
+            "superseded_by": None if superseded_by is None else str(superseded_by),
+            "inputs_digest": inputs_digest, "plan_digest": plan_digest,
+            "trust": _loaded(trust) or {}, "material_fact_accounting": _loaded(accounting) or [],
+            "items": items}))
 
 
 def _stamp(at) -> Optional[str]:
@@ -396,6 +495,7 @@ def load(case_id: str) -> CaseFile:
                 "_held": _revived(held), "_proposed": _revived(proposed)})
 
         _load_hypotheses(conn, case)
+        _load_claim_plans(conn, case)
     return case
 
 

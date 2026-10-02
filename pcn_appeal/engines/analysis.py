@@ -285,6 +285,9 @@ class AnalysisEngine:
             "kept": result.module_ids,
             "suppressed": result.suppressed,
             "claim_plan": result.claim_plan,
+            # P5: what was offered, so the final Claim Plan accounts for every
+            # candidate after a reload (claim_plan_authority).
+            "candidates": list(result.candidate_ids or []),
             "asked": [q["fact"] for q in result.questions],
             "why_asked": {q.get("fact"): q.get("material_because")
                           for q in (raw.get("questions") or []) if q.get("fact")},

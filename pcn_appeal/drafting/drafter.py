@@ -64,6 +64,27 @@ def _restated(text: str, made: set[int]) -> bool:
     return False
 
 
+# P5: case_context keys the drafter never receives. customer_source_texts are
+# the customer's own wording (narrative and free-text answers), kept in the pack
+# only so validation can tell pasted customer prose (VAL-CUSTOMER-COPY). The
+# drafter works from normalised facts and the locked claim plan, never raw text.
+WITHHELD_FROM_DRAFTER = ("customer_source_texts",)
+
+
+def drafting_payload(pack: RetrievalPack) -> dict:
+    """Everything the drafter sees: the LOCKED claim plan's claims (module_ids,
+    their approved wording in context_chunks, case_context.claim_plan), verified
+    facts and uploaded evidence. Not the knowledge base, not rejected or
+    candidate modules, not the raw narrative."""
+    payload = {k: getattr(pack, k) for k in (
+        "primary_route", "secondary_routes", "verified_facts", "fact_refs", "evidence_refs",
+        "prohibited_claims", "code_version", "pofa_route", "pofa_findings", "driver_status",
+        "context_chunks", "lease_clauses", "case_context", "module_ids", "evidence_index")}
+    payload["case_context"] = {k: v for k, v in (pack.case_context or {}).items()
+                               if k not in WITHHELD_FROM_DRAFTER}
+    return payload
+
+
 class LLMDrafter:
     """Primary production drafter: case-specific prose from the RetrievalPack."""
 
@@ -80,10 +101,7 @@ class LLMDrafter:
 
     def draft(self, case_id: str, pack: RetrievalPack, feedback: Optional[list[str]] = None,
               attempt: int = 1) -> Draft:
-        payload = {k: getattr(pack, k) for k in (
-            "primary_route", "secondary_routes", "verified_facts", "fact_refs", "evidence_refs",
-            "prohibited_claims", "code_version", "pofa_route", "pofa_findings", "driver_status",
-            "context_chunks", "lease_clauses", "case_context", "module_ids", "evidence_index")}
+        payload = drafting_payload(pack)
         if feedback:
             payload["validator_feedback"] = feedback
         out = self.llm.complete_json(task="drafting", system=prompts.system("drafting"),

@@ -83,6 +83,32 @@ CREATE TABLE knowledge_release_items (release_id, item_type, item_id, content_ha
   PRIMARY KEY (release_id, item_type, item_id));
 CREATE TABLE knowledge_changes (change_id PRIMARY KEY, entity_type, entity_id, action, version,
   changed_by, changed_at, reason, before, after);
+CREATE TABLE claim_plans (claim_plan_id PRIMARY KEY, case_id NOT NULL, analysis_run_id NOT NULL,
+  run_number, version NOT NULL, status NOT NULL, created_at, confirmed_at, locked_at,
+  superseded_at, superseded_by REFERENCES claim_plans, inputs_digest, plan_digest,
+  code_version, kb_version,
+  prompt_version, model_version, facts_used, relationships_used, trust,
+  material_fact_accounting, UNIQUE (case_id, version));
+CREATE UNIQUE INDEX claim_plans_one_locked ON claim_plans (case_id) WHERE status = 'LOCKED';
+CREATE TABLE claim_plan_items (item_id PRIMARY KEY,
+  claim_plan_id NOT NULL REFERENCES claim_plans, ordinal NOT NULL,
+  knowledge_id NOT NULL, module_id NOT NULL, claim_type, status NOT NULL, decision NOT NULL,
+  reason NOT NULL, supporting_facts, evidence_refs, relationships, priority, topic,
+  UNIQUE (claim_plan_id, module_id));
+-- The lock, as 0006_claim_plan_authority.sql enforces it in Postgres.
+CREATE TRIGGER claim_plan_items_no_update BEFORE UPDATE ON claim_plan_items
+  BEGIN SELECT RAISE(ABORT, 'claim plan items are immutable'); END;
+CREATE TRIGGER claim_plan_items_locked BEFORE INSERT ON claim_plan_items
+  WHEN (SELECT status FROM claim_plans WHERE claim_plan_id = NEW.claim_plan_id)
+       IN ('LOCKED', 'SUPERSEDED')
+  BEGIN SELECT RAISE(ABORT, 'claim plan is locked: create a new version'); END;
+CREATE TRIGGER claim_plans_locked BEFORE UPDATE ON claim_plans
+  WHEN OLD.status IN ('LOCKED', 'SUPERSEDED') AND (
+       NOT (NEW.status = OLD.status OR (OLD.status = 'LOCKED' AND NEW.status = 'SUPERSEDED'))
+       OR NEW.version IS NOT OLD.version OR NEW.inputs_digest IS NOT OLD.inputs_digest
+       OR NEW.plan_digest IS NOT OLD.plan_digest OR NEW.locked_at IS NOT OLD.locked_at
+       OR NEW.facts_used IS NOT OLD.facts_used OR NEW.trust IS NOT OLD.trust)
+  BEGIN SELECT RAISE(ABORT, 'claim plan is locked: only LOCKED -> SUPERSEDED'); END;
 """ + "".join(
     f"CREATE TRIGGER {t}_order AFTER INSERT ON {t} BEGIN UPDATE {t} SET created_at = "
     f"(SELECT COALESCE(MAX(created_at), 0) + 1 FROM {t}) WHERE rowid = NEW.rowid; END;\n"
@@ -135,6 +161,9 @@ def make_store() -> tuple[sqlite3.Connection, object]:
     """A fresh in-memory database and a `connect()` drop-in for it."""
     db = sqlite3.connect(":memory:", check_same_thread=False)
     db.create_function("now", 0, lambda: "now")
+    # Only the claim plan tables declare foreign keys: superseded_by must name
+    # a stored plan, as it must in Postgres.
+    db.execute("PRAGMA foreign_keys = ON")
     db.executescript(DDL)
 
     @contextmanager
