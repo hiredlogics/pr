@@ -104,7 +104,18 @@ CREATE TABLE ai_execution_logs (id INTEGER PRIMARY KEY, case_id NOT NULL, run_id
 CREATE TABLE case_execution_trace (case_id NOT NULL, run_id NOT NULL, execution_id NOT NULL,
   passed NOT NULL, failed_checks, checks NOT NULL, trace NOT NULL, report, created_at,
   PRIMARY KEY (case_id, run_id));
+CREATE TABLE draft_versions (draft_id PRIMARY KEY, case_id NOT NULL, claim_plan_id REFERENCES claim_plans,
+  run_id, version NOT NULL, attempt, parent_draft_id, model, prompt_version, content_hash NOT NULL,
+  content NOT NULL, validation_status NOT NULL, issues, grounding, judge, released NOT NULL DEFAULT 0,
+  created_at, UNIQUE (case_id, version), UNIQUE (case_id, claim_plan_id, content_hash));
 -- The lock, as 0006_claim_plan_authority.sql enforces it in Postgres.
+CREATE TRIGGER draft_versions_immutable BEFORE UPDATE ON draft_versions
+  WHEN NEW.draft_id IS NOT OLD.draft_id OR NEW.case_id IS NOT OLD.case_id
+    OR NEW.claim_plan_id IS NOT OLD.claim_plan_id OR NEW.version IS NOT OLD.version
+    OR NEW.model IS NOT OLD.model OR NEW.prompt_version IS NOT OLD.prompt_version
+    OR NEW.content_hash IS NOT OLD.content_hash OR NEW.content IS NOT OLD.content
+    OR (OLD.released AND NOT NEW.released)
+  BEGIN SELECT RAISE(ABORT, 'a draft version is immutable: write a new version'); END;
 CREATE TRIGGER claim_plan_items_no_update BEFORE UPDATE ON claim_plan_items
   BEGIN SELECT RAISE(ABORT, 'claim plan items are immutable'); END;
 CREATE TRIGGER claim_plan_items_locked BEFORE INSERT ON claim_plan_items

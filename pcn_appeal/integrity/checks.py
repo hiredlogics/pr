@@ -159,7 +159,19 @@ def check_case(case, out=None, kg=None) -> list[dict]:
     results.append(_check("MANIFEST_RECORDED", (not generated) or manifest,
                           {"generated": generated, "manifest": manifest}))
 
-    # 9. driver never identified
+    # 9a. a draft that exists has a recorded version tied to the claim plan
+    versions_this_run = [v for v in getattr(case, "draft_versions", []) or []
+                         if v.get("run_id") == case.run_id]
+    if has_draft:
+        from ..drafting.versions import content_hash
+        digest = content_hash(draft)
+        match = [v for v in versions_this_run if v["content_hash"] == digest]
+        plan_ids = {p.claim_plan_id for p in locked}
+        ok = bool(match) and all(v.get("claim_plan_id") in plan_ids for v in match)
+        results.append(_check("DRAFT_VERSION_RECORDED", ok,
+                              None if ok else {"versions": len(versions_this_run),
+                                               "content_hash": digest[:12]}))
+    # 9b. driver never identified
     letter = getattr(out, "letter", None) or ""
     unidentified = getattr(case.driver_status, "value", str(case.driver_status)) == "UNIDENTIFIED"
     hit = DRIVER.search(letter) if (letter and unidentified) else None

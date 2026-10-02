@@ -18,6 +18,7 @@ from typing import Optional
 from ..kg.graph import KnowledgeGraph
 from .. import prompts
 from ..llm import LLMClient
+from .context import DraftContext
 from ..models import Draft, DraftSentence, RetrievalPack
 from ..routes import Route
 
@@ -72,17 +73,12 @@ WITHHELD_FROM_DRAFTER = ("customer_source_texts",)
 
 
 def drafting_payload(pack: RetrievalPack) -> dict:
-    """Everything the drafter sees: the LOCKED claim plan's claims (module_ids,
-    their approved wording in context_chunks, case_context.claim_plan), verified
-    facts and uploaded evidence. Not the knowledge base, not rejected or
-    candidate modules, not the raw narrative."""
-    payload = {k: getattr(pack, k) for k in (
-        "primary_route", "secondary_routes", "verified_facts", "fact_refs", "evidence_refs",
-        "prohibited_claims", "code_version", "pofa_route", "pofa_findings", "driver_status",
-        "context_chunks", "lease_clauses", "case_context", "module_ids", "evidence_index")}
-    payload["case_context"] = {k: v for k, v in (pack.case_context or {}).items()
-                               if k not in WITHHELD_FROM_DRAFTER}
-    return payload
+    """Everything the drafter sees, built by DraftContext (drafting/context.py):
+    the LOCKED claim plan's approved claims, verified facts with where each
+    came from, uploaded evidence, the approved wording for those claims. Not
+    the knowledge base, not rejected or candidate modules, not the raw
+    narrative, not trace or confidence."""
+    return DraftContext.from_pack(pack).to_payload()
 
 
 class LLMDrafter:

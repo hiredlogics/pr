@@ -1,0 +1,26 @@
+{
+  "claim_plan": {
+    "approved": [],
+    "plan_digest": null
+  },
+  "draft": {
+    "content_hash": null,
+    "judge": null,
+    "structure": [],
+    "versions": 0
+  },
+  "facts": {
+    "driver_disclosure_to_operator": "23759997b3c5"
+  },
+  "questions": {
+    "asked": [],
+    "reviewed": []
+  },
+  "validation": {
+    "integrity": [],
+    "issues": [],
+    "outcome": null,
+    "state": "NO_APPEAL_RIGHT",
+    "status": null
+  }
+}

@@ -123,6 +123,25 @@ def case_report(case, out=None, kg=None, checks: Optional[list[dict]] = None) ->
     if outcome:
         lines += ["", f"Customer outcome: {outcome}"]
 
+    # P6: the drafts written this run, each tied to its claim plan, with how
+    # every sentence was grounded and what the shadow judge said.
+    versions = [v for v in getattr(case, "draft_versions", []) or [] if v.get("run_id") == case.run_id]
+    lines += ["", "## Drafts", ""]
+    if versions:
+        lines += ["| Version | Draft | Claim plan | Attempt | Validation | Released | Grounding | Shadow judge |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for v in versions:
+            g = {}
+            for row in v.get("grounding") or []:
+                g[row["status"]] = g.get(row["status"], 0) + 1
+            judge = (v.get("judge") or {}).get("status") or "-"
+            lines.append(f"| {v['version']} | {v['draft_id'][:8]} ({v['content_hash'][:8]}) | "
+                         f"{(v.get('claim_plan_id') or '')[:8]} | {v.get('attempt')} | "
+                         f"{v['validation_status']} | {'yes' if v.get('released') else 'no'} | "
+                         f"{', '.join(f'{k}={n}' for k, n in sorted(g.items())) or '-'} | {judge} |")
+    else:
+        lines.append("- (no draft written in this run)")
+
     lines += ["", "## Integrity checks", "", "| Check | Status | Detail |", "|---|---|---|"]
     for c in checks:
         lines.append(f"| {c['check']} | {c['status']} | {_v(c.get('detail')) if c['status'] == 'FAIL' else ''} |")

@@ -305,6 +305,9 @@ class CaseFile:
     # input/output digests, never the text itself.
     state_history: list[dict] = field(default_factory=list)
     ai_calls: list[dict] = field(default_factory=list)
+    # P6: every draft written for this case, immutable, tied to the claim plan
+    # it was written from (drafting/versions.py).
+    draft_versions: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:

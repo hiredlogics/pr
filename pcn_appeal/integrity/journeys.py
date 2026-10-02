@@ -61,13 +61,15 @@ class JourneyResult:
     report: str = ""
     report_path: Optional[str] = None
     plan_digests: list[Optional[str]] = field(default_factory=list)
+    snapshot: dict = field(default_factory=dict)
+    diffs: dict = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return {"journey": self.name, "result": "PASS" if self.passed else "FAIL",
                 "case_ids": self.case_ids, "state": self.state, "outcome": self.outcome,
                 "approved": self.approved, "failures": self.failures,
                 "checks": [(c["check"], c["status"]) for c in self.checks],
-                "report": self.report_path}
+                "report": self.report_path, "diffs": self.diffs}
 
 
 def load_journey(path: Path) -> dict:
@@ -105,7 +107,10 @@ class JourneyRunner:
     for in-process runs, httpx.Client(base_url=...) for a deployed API."""
 
     def __init__(self, client, admin_token: Optional[str] = None,
-                 out_dir: Optional[Path] = None):
+                 out_dir: Optional[Path] = None, golden_dir: Optional[Path] = None,
+                 update_golden: bool = False):
+        self.golden_dir = golden_dir
+        self.update_golden = update_golden
         self.client = client
         self.headers = {"X-Admin-Token": admin_token} if admin_token else {}
         self.out_dir = Path(out_dir) if out_dir else None
@@ -201,6 +206,21 @@ class JourneyRunner:
         letter = final.get("letter") or ""
         failures += self._expectations(expect, state, outcome, approved, letter,
                                        final.get("_asked") or [])
+        snap = snapshot(final, audit)
+        diffs: dict = {}
+        if self.golden_dir:
+            gpath = Path(self.golden_dir) / f"{name}.json"
+            if self.update_golden:
+                gpath.parent.mkdir(parents=True, exist_ok=True)
+                gpath.write_text(json.dumps(snap, indent=2, sort_keys=True, default=str) + "\n")
+            elif gpath.exists():
+                diffs = compare(json.loads(gpath.read_text()), json.loads(
+                    json.dumps(snap, default=str)))
+                if regressed(diffs):
+                    failures += [f"regression {section}: {item}"
+                                 for section, items in diffs.items() for item in items]
+            else:
+                failures.append(f"no golden snapshot {gpath.name} (run with --update-golden)")
         report = audit.get("report") or ""
         path = None
         if self.out_dir and report:
@@ -211,8 +231,10 @@ class JourneyRunner:
                          + ("\n".join(f"- {f}" for f in failures) + "\n\n" if failures else "")
                          + report)
             path = str(p)
-        return JourneyResult(name, case_ids, not failures, state, outcome, approved, failures,
-                             checks, report, path, digests)
+        res = JourneyResult(name, case_ids, not failures, state, outcome, approved, failures,
+                            checks, report, path, digests)
+        res.snapshot, res.diffs = snap, diffs
+        return res
 
     @staticmethod
     def _expectations(expect: dict, state, outcome, approved, letter, asked) -> list[str]:
@@ -239,6 +261,82 @@ class JourneyRunner:
         return out
 
 
+# ------------------------------------------------------------ regression
+SECTIONS = ("facts", "questions", "claim_plan", "draft", "validation")
+
+
+def snapshot(final: dict, audit: dict) -> dict:
+    """One run in comparable form. Fact values are digests, so a snapshot holds
+    no customer data and a changed fact is still visible by name."""
+    reg = audit.get("regression") or {}
+    plan = audit.get("claim_plan") or {}
+    drafts = reg.get("drafts") or []
+    released = next((d for d in reversed(drafts) if d.get("released")), None)
+    last = released or (drafts[-1] if drafts else {})
+    return {
+        "facts": reg.get("facts") or {},
+        "questions": {"asked": list(final.get("_asked") or []),
+                      "reviewed": reg.get("questions") or []},
+        "claim_plan": {"approved": list(plan.get("approved") or []),
+                       "plan_digest": plan.get("plan_digest")},
+        "draft": {"versions": len(drafts), "content_hash": last.get("content_hash"),
+                  "structure": [[list(i), st] for i, st in last.get("structure") or []],
+                  "judge": last.get("judge")},
+        "validation": {"state": final.get("state"), "outcome": final.get("outcome"),
+                       "status": last.get("validation_status"), "issues": last.get("issues") or [],
+                       "integrity": sorted(c["check"] for c in
+                                           (audit.get("integrity") or {}).get("checks") or []
+                                           if c["status"] != "PASS")},
+    }
+
+
+def compare(golden: dict, current: dict) -> dict:
+    """Differences per section; an empty dict means the run matches. A draft
+    whose wording changed but whose structure (claim per sentence, grounding)
+    did not is reported as TEXT_ONLY, so a model upgrade is told apart from a
+    change in what the letter argues."""
+    diffs: dict[str, list[str]] = {}
+
+    def note(section, text):
+        diffs.setdefault(section, []).append(text)
+
+    gf, cf = golden.get("facts") or {}, current.get("facts") or {}
+    for name in sorted(set(gf) | set(cf)):
+        if name not in cf:
+            note("facts", f"{name}: no longer established")
+        elif name not in gf:
+            note("facts", f"{name}: newly established")
+        elif gf[name] != cf[name]:
+            note("facts", f"{name}: value changed")
+    gq, cq = golden.get("questions") or {}, current.get("questions") or {}
+    if gq.get("asked") != cq.get("asked"):
+        note("questions", f"asked {cq.get('asked')} (was {gq.get('asked')})")
+    if gq.get("reviewed") != cq.get("reviewed"):
+        note("questions", "question decisions changed")
+    gp, cp = golden.get("claim_plan") or {}, current.get("claim_plan") or {}
+    if gp.get("approved") != cp.get("approved"):
+        note("claim_plan", f"approved {cp.get('approved')} (was {gp.get('approved')})")
+    gd, cd = golden.get("draft") or {}, current.get("draft") or {}
+    if gd.get("structure") != cd.get("structure"):
+        note("draft", "STRUCTURE changed: what the letter argues, or how it is grounded")
+    elif gd.get("content_hash") != cd.get("content_hash"):
+        note("draft", "TEXT_ONLY: wording changed, structure identical")
+    gv, cv = golden.get("validation") or {}, current.get("validation") or {}
+    for key in ("state", "outcome", "status", "issues", "integrity"):
+        if gv.get(key) != cv.get(key):
+            note("validation", f"{key}: {cv.get(key)!r} (was {gv.get(key)!r})")
+    return diffs
+
+
+def regressed(diffs: dict) -> bool:
+    """A TEXT_ONLY draft difference alone is not a regression."""
+    for section, items in diffs.items():
+        if section == "draft" and all(i.startswith("TEXT_ONLY") for i in items):
+            continue
+        return True
+    return False
+
+
 def run_directory(runner: JourneyRunner, directory: Path) -> list[JourneyResult]:
     results = []
     for path in sorted(Path(directory).glob("*.yaml")) + sorted(Path(directory).glob("*.yml")):
@@ -252,4 +350,5 @@ def summary(results: list[JourneyResult]) -> dict:
             "results": [r.as_dict() for r in results]}
 
 
-__all__ = ["JourneyRunner", "JourneyResult", "load_journey", "run_directory", "summary"]
+__all__ = ["JourneyRunner", "JourneyResult", "load_journey", "run_directory", "summary",
+           "snapshot", "compare", "regressed"]

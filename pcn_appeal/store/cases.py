@@ -97,6 +97,7 @@ def save(case: CaseFile) -> None:
 
             _save_fact_graph(cur, case)
             _save_claim_plans(cur, case)
+            _save_draft_versions(cur, case)
             _save_integrity(cur, case)
 
             latest = _latest_raw_answers(cur, case.case_id)
@@ -305,6 +306,50 @@ def _save_claim_plans(cur, case: CaseFile) -> None:
     for d in plans:
         if d["status"] == "LOCKED" and stored[d["claim_plan_id"]] == "CONFIRMED":
             lock(d)
+
+
+def _save_draft_versions(cur, case: CaseFile) -> None:
+    """P6: drafts are immutable; what changes is how they fared (validation,
+    grounding, shadow-judge verdict, released)."""
+    for r in case.draft_versions:
+        if r.get("_persisted") and not r.get("_dirty"):
+            continue
+        cur.execute("""
+            INSERT INTO draft_versions (draft_id, case_id, claim_plan_id, run_id, version, attempt,
+                                        parent_draft_id, model, prompt_version, content_hash,
+                                        content, validation_status, issues, grounding, judge,
+                                        released, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (draft_id) DO UPDATE SET
+              validation_status = excluded.validation_status, issues = excluded.issues,
+              grounding = excluded.grounding, judge = excluded.judge,
+              released = excluded.released, attempt = excluded.attempt, run_id = excluded.run_id
+        """, (r["draft_id"], case.case_id, r.get("claim_plan_id"), r.get("run_id"), r["version"],
+              r.get("attempt"), r.get("parent_draft_id"), r.get("model"), r.get("prompt_version"),
+              r["content_hash"], _json(r["content"]), r["validation_status"],
+              _json(r.get("issues") or []), _json(r.get("grounding") or []),
+              _json(r.get("judge")) if r.get("judge") is not None else None,
+              bool(r.get("released")), r["created_at"]))
+        r["_persisted"] = True
+        r.pop("_dirty", None)
+
+
+def _load_draft_versions(conn, case: CaseFile) -> None:
+    for (did, plan_id, run, version, attempt, parent, model, pv, digest, content, status, issues,
+         grounding, judge, released, at) in conn.execute("""
+            SELECT draft_id, claim_plan_id, run_id, version, attempt, parent_draft_id, model,
+                   prompt_version, content_hash, content, validation_status, issues, grounding,
+                   judge, released, created_at
+            FROM draft_versions WHERE case_id = %s ORDER BY version""", (case.case_id,)).fetchall():
+        case.draft_versions.append({
+            "draft_id": str(did), "case_id": case.case_id,
+            "claim_plan_id": None if plan_id is None else str(plan_id), "run_id": run,
+            "version": version, "attempt": attempt,
+            "parent_draft_id": None if parent is None else str(parent), "model": model,
+            "prompt_version": pv, "content_hash": digest, "content": _loaded(content) or [],
+            "validation_status": status, "issues": _loaded(issues) or [],
+            "grounding": _loaded(grounding) or [], "judge": _loaded(judge),
+            "released": bool(released), "created_at": _stamp(at), "_persisted": True})
 
 
 def _save_integrity(cur, case: CaseFile) -> None:
@@ -588,6 +633,7 @@ def load(case_id: str) -> CaseFile:
 
         _load_hypotheses(conn, case)
         _load_claim_plans(conn, case)
+        _load_draft_versions(conn, case)
         _load_integrity(conn, case)
     return case
 

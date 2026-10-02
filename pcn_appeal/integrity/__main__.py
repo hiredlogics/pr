@@ -32,7 +32,8 @@ def _journeys(args) -> int:
         from fastapi.testclient import TestClient
         from ..api import app
         client = TestClient(app)
-    runner = JourneyRunner(client, token, Path(args.out) if args.out else None)
+    runner = JourneyRunner(client, token, Path(args.out) if args.out else None,
+                           Path(args.golden) if args.golden else None, args.update_golden)
     results = run_directory(runner, Path(args.directory))
     out = summary(results)
     print(json.dumps(out, indent=2, default=str))
@@ -58,6 +59,8 @@ def main(argv=None) -> int:
     j.add_argument("--out", help="write <case>_CASE_REPORT.md files here")
     j.add_argument("--base-url", help="deployed API to drive instead of in-process")
     j.add_argument("--admin-token")
+    j.add_argument("--golden", help="directory of golden snapshots to compare each run against")
+    j.add_argument("--update-golden", action="store_true", help="write the snapshots instead of comparing")
     j.set_defaults(fn=_journeys)
     d = sub.add_parser("db-checks", help="database integrity checks")
     d.add_argument("--case")

@@ -53,6 +53,8 @@ _EVENT_STAGE = {
     "draft_error": "DRAFTING", "no_ground": "DRAFTING", "no_ground_after_widen": "DRAFTING",
     "closing_added": "DRAFTING", "auto_appeal_generating": "DRAFTING",
     "validation": "VALIDATION", "dropped_failing_sentences": "VALIDATION",
+    "draft_context": "DRAFTING", "draft_version": "DRAFTING",
+    "draft_validation": "VALIDATION", "shadow_judge": "VALIDATION",
     "customer_outcome": "OUTCOME", "run_completed": "OUTCOME",
     "execution_manifest": "OUTCOME", "execution_manifest_failed": "OUTCOME",
     "integrity_check": "OUTCOME",

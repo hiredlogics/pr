@@ -1445,7 +1445,31 @@ def case_audit(case_id: str, authorization: Optional[str] = Header(None),
             "claim_plan": None if plan is None else {
                 "version": plan.version, "status": plan.status, "approved": plan.supported_ids,
                 "plan_digest": plan.plan_digest, "trace": plan.trace()},
-            "report": integ.get("report")}
+            "report": integ.get("report"),
+            # P6: what the regression harness snapshots and compares.
+            "regression": _regression_view(case)}
+
+
+def _regression_view(case: CaseFile) -> dict:
+    """The run in comparable form: facts as digests (names visible, values not),
+    the question decisions, the draft versions with their grounding, validation."""
+    import hashlib
+    audit = [a for a in case.audit if a.get("run_id", 0) == case.run_id]
+    return {
+        "facts": {n: hashlib.sha256(str(f.value).encode()).hexdigest()[:12]
+                  for n, f in sorted(case.facts.items()) if f.usable},
+        "questions": [{"fact": a.get("fact"), "decision": a.get("decision")}
+                      for a in audit if a.get("event") == "question_review"],
+        "drafts": [{"version": v["version"], "draft_id": v["draft_id"],
+                    "content_hash": v["content_hash"], "claim_plan_id": v["claim_plan_id"],
+                    "validation_status": v["validation_status"],
+                    "issues": sorted({i["rule"] for i in v.get("issues") or []}),
+                    "released": v.get("released"),
+                    "structure": [(tuple(g["claim_plan_items"]), g["status"])
+                                  for g in v.get("grounding") or []],
+                    "judge": (v.get("judge") or {}).get("status")}
+                   for v in case.draft_versions if v.get("run_id") == case.run_id],
+    }
 
 
 @app.get("/admin/cases/{case_id}/audit/report.md")

@@ -18,6 +18,9 @@ from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.claim_plan_authority import ClaimPlanBuilder
 from .integrity import ai_log
+from .drafting import shadow_judge, versions as draft_versions
+from .drafting.context import DraftContext
+from .engines.draft_validation_engine import DraftValidationEngine, merge as merge_validation
 from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
 from .engines.question_authority import (CONFIRMATION, CONFLICT, HYPOTHESIS, POSTCODE,
@@ -108,11 +111,14 @@ class AutoAppealResult:
 
 
 class AppealPipeline:
-    def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None):
+    def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None,
+                 shadow_judge_enabled: Optional[bool] = None):
         self.kg = kg or KnowledgeGraph()
         # P5.5: every model call is logged against the case it serves
         # (integrity/ai_log.py) - task, model, prompt version, digests, timing.
         llm = ai_log.audited(llm)
+        if judge is not None:
+            judge = ai_log.audited(judge)
         self.extraction = ExtractionEngine(llm)
         self.questions = QuestionEngine(self.kg)
         self.reasoning = ReasoningEngine(self.kg)
@@ -129,6 +135,11 @@ class AppealPipeline:
         self.drafter = drafter or LLMDrafter(llm)
         self.fallback = TemplateDrafter(self.kg)
         self.validation = ValidationEngine(judge, kg=self.kg)
+        # P6: sentence grounding and the draft-level checks (DV-*), run before
+        # the VAL-* engine; and the optional second-model judge, shadow only.
+        self.draft_validation = DraftValidationEngine(kg=self.kg)
+        self.shadow = (shadow_judge.ShadowJudge(judge or llm)
+                       if shadow_judge.enabled(shadow_judge_enabled) else None)
         # P5: the only authority over which claims a letter argues. Analysis,
         # reassessment and ground recovery propose; this decides and locks.
         self.claim_authority = ClaimPlanBuilder(self.kg, self.reasoning)
@@ -526,9 +537,11 @@ class AppealPipeline:
                 case, pack, "support-only grounds; none can lead the letter")
 
         feedback: list[str] = []
-        draft = result = None
+        draft = result = dv = version = None
         widened = False
         attempt = 0
+        # P6: what the drafter is given, as ids and a digest (no text).
+        case.audit.append({"event": "draft_context", **DraftContext.from_pack(pack).audit()})
         while attempt < MAX_ATTEMPTS:
             attempt += 1
             try:
@@ -549,6 +562,8 @@ class AppealPipeline:
                 if not widened:
                     widened = True
                     pack = self.reasoning.pack_for(case, plan, widen=True)
+                    case.audit.append({"event": "draft_context", "widened": True,
+                                       **DraftContext.from_pack(pack).audit()})
                     attempt -= 1                     # the retry is not an attempt
                     continue
                 case.audit.append({
@@ -562,26 +577,34 @@ class AppealPipeline:
                 case.audit.append({"event": "closing_added", "attempt": attempt,
                                    "blocks": ["PP-END-001", "PP-END-002"]})
             case.state = CaseState.DRAFTED
-            result = self.validation.validate(draft, pack)
+            result, dv = self._validate(case, draft, pack)
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
+            version = self._record_version(case, plan, draft, result, dv, pack,
+                                           released=result.passed)
             if result.passed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
                                  self._evidence_list(case)), case)
             case.state = CaseState.VALIDATION_FAILED
-            feedback = [f"{i.rule}: {i.message} :: {i.sentence}" for i in result.issues]
+            # P6: back to the drafter without internal ids - it is told what failed,
+            # never which modules the plan holds or rejected.
+            feedback = [_CLAIM_ID.sub("an unapproved claim",
+                                        f"{i.rule}: {i.message} :: {i.sentence}")
+                        for i in result.issues]
 
         # Every attempt was refused for something a specific sentence said. Drop
         # those sentences and check what is left: an unsupported point is meant
         # to be omitted, not to take the rest of a sound letter down with it.
         trimmed, dropped = self._without_failing_sentences(draft, result)
         if dropped:
-            checked = self.validation.validate(trimmed, pack)
+            checked, dv = self._validate(case, trimmed, pack)
             case.audit.append({"event": "dropped_failing_sentences",
                                "dropped": dropped, "passed": checked.passed,
                                "issues": [i.rule for i in checked.issues]})
+            self._record_version(case, plan, trimmed, checked, dv, pack,
+                                 released=checked.passed, parent=(version or {}).get("draft_id"))
             if checked.passed:
                 case.state = CaseState.RELEASED
                 return _with_outcome(
@@ -596,6 +619,33 @@ class AppealPipeline:
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
+
+    # ------------------------------------------------------------------ P6
+    def _validate(self, case: CaseFile, draft: Draft, pack):
+        """Sentence grounding and the draft checks (DV-*), then the VAL-* engine;
+        one result. A sentence either maps to an approved claim, a fact and the
+        evidence, or it is refused here and goes back to the drafter or is removed."""
+        dv = self.draft_validation.check(draft, pack, {f.fact_id for f in case.facts.values()})
+        case.audit.append({"event": "draft_validation", **dv.summary()})
+        return merge_validation(self.validation.validate(draft, pack), dv), dv
+
+    def _record_version(self, case: CaseFile, plan, draft: Draft, result, dv, pack,
+                        released: bool, parent: Optional[str] = None) -> dict:
+        """Store the draft as an immutable version tied to the claim plan; a draft
+        that is going out is also read by the shadow judge, whose verdict is
+        recorded and never acted on."""
+        judge = None
+        if released and self.shadow is not None:
+            judge = self.shadow.review(draft, pack)
+            case.audit.append({"event": "shadow_judge", "status": judge["status"],
+                               "reasons": judge.get("reasons"), "blocking": False})
+        row = draft_versions.record(case, plan, draft, result, dv.grounding if dv else None,
+                                    judge=judge, parent=parent, released=released)
+        case.audit.append({"event": "draft_version", "draft_id": row["draft_id"],
+                           "version": row["version"], "content_hash": row["content_hash"],
+                           "claim_plan_id": row["claim_plan_id"],
+                           "validation_status": row["validation_status"], "released": released})
+        return row
 
     def _plan_trust(self) -> dict:
         """What a claim plan records about what produced it (client trust)."""
@@ -720,6 +770,8 @@ class AppealPipeline:
 # A request to cancel, not any mention of cancelling ("not an automatic
 # cancellation ground" asks for nothing).
 _CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
+# Module ids, which feedback to the drafter never carries (rule names may stay).
+_CLAIM_ID = re.compile(r"\bKB-[A-Z]+(?:-[A-Z0-9]+)+\b")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 
 

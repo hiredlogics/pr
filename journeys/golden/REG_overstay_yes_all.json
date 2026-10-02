@@ -1,0 +1,108 @@
+{
+  "claim_plan": {
+    "approved": [
+      "KB-POFA-01",
+      "KB-POFA-04",
+      "KB-POFA-05",
+      "KB-POFA-02",
+      "KB-REC-01"
+    ],
+    "plan_digest": "d93be5caef9e49a7028ef21ec9c65e822d90e74f37e23b77320f52d2ded88c2f"
+  },
+  "draft": {
+    "content_hash": "cea76436951e6148ad9ac321c9642b1b17395b73c5e69161c013fe1f2bfa2045",
+    "judge": null,
+    "structure": [
+      [
+        [],
+        "STRUCTURAL"
+      ],
+      [
+        [],
+        "STRUCTURAL"
+      ],
+      [
+        [
+          "KB-POFA-01"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-POFA-01"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-POFA-04"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-POFA-05"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-POFA-02"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-REC-01"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [],
+        "STRUCTURAL"
+      ]
+    ],
+    "versions": 2
+  },
+  "facts": {
+    "alleged_breach": "afbc61a63b6a",
+    "charge_amount": "ad5736686512",
+    "driver_disclosure_to_operator": "23759997b3c5",
+    "entry_time": "303b591d2f7b",
+    "exit_time": "07755fa775cf",
+    "jurisdiction": "3d8b1b9f8f1d",
+    "lease_has_regulations_clause": "60a33e6cf515",
+    "lease_parking_clause_found": "60a33e6cf515",
+    "notice_issue_date": "9896cbc5690b",
+    "notice_route": "3b314d5ff8c4",
+    "notice_sides_complete": "3cbc87c7681f",
+    "ntk_defect_document_confirmed": "3cbc87c7681f",
+    "ntk_defect_keeper_warning": "3cbc87c7681f",
+    "ntk_invites_name_driver": "60a33e6cf515",
+    "ntk_invites_pass_to_driver": "3cbc87c7681f",
+    "operator_ata": "aa8472b84a27",
+    "operator_name": "d1059ef2838a",
+    "parking_event_date": "b60518d70930",
+    "parking_location": "e33339a37fb8",
+    "pcn_conflict": "60a33e6cf515",
+    "pcn_number": "e18ed3ade1e1",
+    "pofa_9_2_e_status": "80bf2e217f0b",
+    "pofa_finding": "d82bd98d4438",
+    "pofa_route": "3b314d5ff8c4",
+    "site_postcode": "3c262990cebd",
+    "total_recorded_duration_min": "4a8596a7790b",
+    "visited_premises": "3cbc87c7681f",
+    "vrm": "71994b04010b"
+  },
+  "questions": {
+    "asked": [],
+    "reviewed": []
+  },
+  "validation": {
+    "integrity": [],
+    "issues": [],
+    "outcome": null,
+    "state": "RELEASED",
+    "status": "PASSED"
+  }
+}
