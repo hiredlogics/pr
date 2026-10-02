@@ -131,6 +131,11 @@ class DraftContext:
             "prohibited_claims": list(pack.prohibited_claims or []),
             "code_version": pack.code_version, "pofa_route": pack.pofa_route,
             "pofa_findings": list(pack.pofa_findings or []),
+            # P6.1: VERIFIED legal findings only. The pack is built that way
+            # (legal/findings.for_pack); this filter holds even if a caller
+            # hands over a wider list.
+            "legal_findings": [dict(f) for f in (pack.legal_findings or [])
+                               if f.get("status") == "VERIFIED"],
         }
         case = {k: ctx.get(k) for k in CASE_CONTEXT_ALLOWED if k in ctx}
         if "supported_grounds" in case:
@@ -162,6 +167,9 @@ class DraftContext:
             # P6
             "fact_basis": self.fact_basis,
             "driver_rule": DRIVER_RULE.get(self.driver_status, DRIVER_RULE["UNIDENTIFIED"]),
+            # P6.1: the only legal defects the letter may state, each with the
+            # deterministic calculation that proved it.
+            "verified_legal_findings": self.guidance["legal_findings"],
         }
         return payload
 
@@ -176,6 +184,8 @@ class DraftContext:
                                                  if v == CUSTOMER_ACCOUNT),
                 "evidence": list(self.evidence),
                 "chunks": len(self.guidance["context_chunks"]),
+                "legal_findings": sorted(str(f.get("finding_type"))
+                                         for f in self.guidance["legal_findings"]),
                 "context_sha256": _digest(self.to_payload())}
 
     def violations(self) -> list[str]:

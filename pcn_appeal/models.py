@@ -308,6 +308,10 @@ class CaseFile:
     # P6: every draft written for this case, immutable, tied to the claim plan
     # it was written from (drafting/versions.py).
     draft_versions: list[dict] = field(default_factory=list)
+    # P6.1: one record per legal defect type (legal/findings.py): VERIFIED,
+    # NOT_SUPPORTED or UNRESOLVED, with the facts and calculation behind it.
+    # Written only by the Legal Calculation Engine, never by a model.
+    legal_findings: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -490,6 +494,10 @@ class RetrievalPack:
     # .FinalClaimPlan.for_validation). Validation checks every argument against
     # it. Never sent to the drafter; None only outside the pipeline.
     claim_plan: Optional[dict] = None
+    # P6.1: VERIFIED legal findings only (legal/findings.for_pack). The drafter
+    # and the validator read defects from here; UNRESOLVED and NOT_SUPPORTED
+    # findings never enter a pack.
+    legal_findings: list[dict] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- drafting

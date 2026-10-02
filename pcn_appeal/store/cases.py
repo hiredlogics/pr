@@ -19,7 +19,7 @@ import json
 import os
 import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from ..models import (CaseFile, CaseState, DriverStatus, EvidenceItem, Fact, FactSource,
@@ -98,6 +98,7 @@ def save(case: CaseFile) -> None:
             _save_fact_graph(cur, case)
             _save_claim_plans(cur, case)
             _save_draft_versions(cur, case)
+            _save_legal_findings(cur, case)
             _save_integrity(cur, case)
 
             latest = _latest_raw_answers(cur, case.case_id)
@@ -332,6 +333,44 @@ def _save_draft_versions(cur, case: CaseFile) -> None:
               bool(r.get("released")), r["created_at"]))
         r["_persisted"] = True
         r.pop("_dirty", None)
+
+
+def _save_legal_findings(cur, case: CaseFile) -> None:
+    """P6.1: one row per (case, defect type); the assessment may move, the
+    identity may not (DB trigger)."""
+    for r in case.legal_findings:
+        if r.get("_persisted") and not r.get("_dirty"):
+            continue
+        cur.execute("""
+            INSERT INTO legal_findings (finding_id, case_id, run_id, finding_type, status,
+                                        supporting_facts, calculation_result, legal_module_id,
+                                        created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (finding_id) DO UPDATE SET
+              status = excluded.status, supporting_facts = excluded.supporting_facts,
+              calculation_result = excluded.calculation_result,
+              legal_module_id = excluded.legal_module_id, run_id = excluded.run_id,
+              updated_at = excluded.updated_at
+        """, (r["finding_id"], case.case_id, r.get("run_id"), r["finding_type"], r["status"],
+              _json(r.get("supporting_facts") or []), _json(r.get("calculation_result") or {}),
+              r.get("legal_module_id"), r["created_at"],
+              datetime.now(timezone.utc).isoformat()))
+        r["_persisted"] = True
+        r.pop("_dirty", None)
+
+
+def _load_legal_findings(conn, case: CaseFile) -> None:
+    for (fid, run, ftype, status, facts, calc, module, created) in conn.execute("""
+            SELECT finding_id, run_id, finding_type, status, supporting_facts,
+                   calculation_result, legal_module_id, created_at
+            FROM legal_findings WHERE case_id = %s ORDER BY finding_type""",
+            (case.case_id,)).fetchall():
+        case.legal_findings.append({
+            "finding_id": str(fid), "case_id": case.case_id, "run_id": run,
+            "finding_type": ftype, "status": status,
+            "supporting_facts": _loaded(facts) or [],
+            "calculation_result": _loaded(calc) or {}, "legal_module_id": module,
+            "created_at": _stamp(created), "_persisted": True})
 
 
 def _load_draft_versions(conn, case: CaseFile) -> None:
@@ -634,6 +673,7 @@ def load(case_id: str) -> CaseFile:
         _load_hypotheses(conn, case)
         _load_claim_plans(conn, case)
         _load_draft_versions(conn, case)
+        _load_legal_findings(conn, case)
         _load_integrity(conn, case)
     return case
 

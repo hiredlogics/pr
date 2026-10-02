@@ -509,7 +509,11 @@ class AnalysisEngine:
         Does not auto-seed strength>=50 grounds and does not strip LAND merely
         because another ground exists. Omissions are listed for reassessment.
         """
-        findings = list(getattr(pofa, "findings", []) or [])
+        # P6.1: what counts is the VERIFIED legal findings the calculation
+        # engine recorded, not the raw code list.
+        from ..legal import findings as legal_findings
+        findings = sorted(legal_findings.verified_types(
+            case.legal_findings, getattr(pofa, "findings", []) or []))
         proposed_ids = [(e or {}).get("module_id") for e in (proposed or [])]
         # P4: a module the relation engine BLOCKS for this case is not proposed
         # to the claim plan at all (the plan's own vetoes are unchanged).

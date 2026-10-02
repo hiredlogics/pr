@@ -108,6 +108,14 @@ CREATE TABLE draft_versions (draft_id PRIMARY KEY, case_id NOT NULL, claim_plan_
   run_id, version NOT NULL, attempt, parent_draft_id, model, prompt_version, content_hash NOT NULL,
   content NOT NULL, validation_status NOT NULL, issues, grounding, judge, released NOT NULL DEFAULT 0,
   created_at, UNIQUE (case_id, version), UNIQUE (case_id, claim_plan_id, content_hash));
+CREATE TABLE legal_findings (finding_id PRIMARY KEY, case_id NOT NULL, run_id,
+  finding_type NOT NULL, status NOT NULL CHECK (status IN ('VERIFIED', 'NOT_SUPPORTED', 'UNRESOLVED')),
+  supporting_facts, calculation_result, legal_module_id, created_at, updated_at,
+  UNIQUE (case_id, finding_type));
+CREATE TRIGGER legal_findings_immutable BEFORE UPDATE ON legal_findings
+  WHEN NEW.finding_id IS NOT OLD.finding_id OR NEW.case_id IS NOT OLD.case_id
+    OR NEW.finding_type IS NOT OLD.finding_type OR NEW.created_at IS NOT OLD.created_at
+  BEGIN SELECT RAISE(ABORT, 'legal_findings: finding identity is immutable'); END;
 -- The lock, as 0006_claim_plan_authority.sql enforces it in Postgres.
 CREATE TRIGGER draft_versions_immutable BEFORE UPDATE ON draft_versions
   WHEN NEW.draft_id IS NOT OLD.draft_id OR NEW.case_id IS NOT OLD.case_id

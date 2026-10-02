@@ -126,6 +126,20 @@ def case_report(case, out=None, kg=None, checks: Optional[list[dict]] = None) ->
     # P6: the drafts written this run, each tied to its claim plan, with how
     # every sentence was grounded and what the shadow judge said.
     versions = [v for v in getattr(case, "draft_versions", []) or [] if v.get("run_id") == case.run_id]
+    lines += ["", "## Legal findings", ""]
+    findings = getattr(case, "legal_findings", []) or []
+    if findings:
+        lines += ["| Finding | Status | Facts | Calculation |", "|---|---|---|---|"]
+        for f in findings:
+            facts = ", ".join(e.get("fact", "") for e in f.get("supporting_facts") or []) or "-"
+            calc = f.get("calculation_result") or {}
+            shown = "; ".join(f"{k}={v}" for k, v in sorted(calc.items())
+                              if k in ("deadline", "presumed_delivery", "days_between",
+                                       "pofa_route", "note", "defects"))
+            lines.append(f"| {f.get('finding_type')} | {f.get('status')} | {facts} | {shown or '-'} |")
+    else:
+        lines.append("- (no legal findings assessed)")
+
     lines += ["", "## Drafts", ""]
     if versions:
         lines += ["| Version | Draft | Claim plan | Attempt | Validation | Released | Grounding | Shadow judge |",

@@ -1140,6 +1140,7 @@ def get_appeal(case_id: str,
     return {"state": out.state.value, "letter": out.letter, "evidence_list": out.evidence_list,
             "primary_route": out.pack.primary_route, "secondary_routes": out.pack.secondary_routes,
             "pofa_route": out.pack.pofa_route, "pofa_findings": out.pack.pofa_findings,
+            "legal_findings": list(getattr(out.pack, "legal_findings", []) or []),
             "code_version": out.pack.code_version, "module_ids": out.pack.module_ids,
             "manifest": getattr(out, "manifest", None)}
 

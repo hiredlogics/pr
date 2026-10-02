@@ -30,7 +30,7 @@ from .narrative import NARRATIVE_FACTS
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
-from ..legal import code_versions, pofa
+from ..legal import code_versions, findings as legal_findings, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
@@ -117,6 +117,19 @@ class ReasoningEngine:
         from ..legal.pofa import PofaResult
         res = PofaResult(route, findings, notes,
                          presumed_delivery=res.presumed_delivery, deadline=res.deadline)
+        # P6.1: the Legal Calculation Engine records one finding per defect
+        # type (VERIFIED / NOT_SUPPORTED / UNRESOLVED) from this same
+        # deterministic result. The audit shows what changed; the model never
+        # writes a finding.
+        before = {r.get("finding_type"): r.get("status") for r in case.legal_findings}
+        records = legal_findings.evaluate(case, res, self.kg.active_modules())
+        after = {r["finding_type"]: r["status"] for r in records}
+        if after != before:
+            case.audit.append({"event": "legal_findings", "run_id": case.run_id,
+                               "findings": [{"finding_type": t, "status": s}
+                                            for t, s in sorted(after.items())]})
+        trace += [f"legal_finding:{t}={s}" for t, s in sorted(after.items())
+                  if s != legal_findings.NOT_SUPPORTED]
         return version if status == "RESOLVED" else None, res
 
     # ------------------------------------------------------------------ main
@@ -506,6 +519,7 @@ class ReasoningEngine:
             prohibited_claims=prohibited,
             code_version=version.version_id if version else None,
             pofa_route=pofa_res.route, pofa_findings=pofa_res.findings,
+            legal_findings=legal_findings.for_pack(case),
             driver_status=case.driver_status.value, jurisdiction=case.get("jurisdiction", "UNKNOWN"),
             context_chunks=chunks, lease_clauses=case.get("lease_clauses", []), trace=trace,
             evidence_index={e.evidence_id: e.kind for e in case.evidence.values() if e.uploaded},

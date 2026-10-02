@@ -663,3 +663,39 @@ END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS draft_versions_immutable ON draft_versions;
 CREATE TRIGGER draft_versions_immutable BEFORE UPDATE ON draft_versions
   FOR EACH ROW EXECUTE FUNCTION draft_versions_immutable();
+
+-- ---------------------------------------------------------------- P6.1 legal findings
+-- 0009_legal_findings.sql: one row per (case, defect type), written only by the
+-- deterministic Legal Calculation Engine. A defect ground and a defect sentence
+-- both require a VERIFIED row.
+CREATE TABLE IF NOT EXISTS legal_findings (
+  finding_id         uuid PRIMARY KEY,
+  case_id            uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  run_id             int,
+  finding_type       text NOT NULL,
+  status             text NOT NULL CHECK (status IN ('VERIFIED', 'NOT_SUPPORTED', 'UNRESOLVED')),
+  supporting_facts   jsonb NOT NULL DEFAULT '[]'::jsonb,
+  calculation_result jsonb NOT NULL DEFAULT '{}'::jsonb,
+  legal_module_id    text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (case_id, finding_type)
+);
+CREATE INDEX IF NOT EXISTS legal_findings_case ON legal_findings (case_id);
+
+CREATE OR REPLACE FUNCTION legal_findings_immutable() RETURNS trigger AS $$
+BEGIN
+  IF NEW.finding_id IS DISTINCT FROM OLD.finding_id
+     OR NEW.case_id IS DISTINCT FROM OLD.case_id
+     OR NEW.finding_type IS DISTINCT FROM OLD.finding_type
+     OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'legal_findings: finding identity is immutable';
+  END IF;
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS legal_findings_immutable ON legal_findings;
+CREATE TRIGGER legal_findings_immutable BEFORE UPDATE ON legal_findings
+  FOR EACH ROW EXECUTE FUNCTION legal_findings_immutable();
