@@ -35,6 +35,16 @@ from test_claim_plan_authority import NARRATIVE, anpr, answer, bay, photo_notice
 
 JOURNEYS = Path(__file__).resolve().parent.parent / "journeys"
 CANCEL = "The operator is requested to cancel the Parking Charge Notice."
+# P6.2 VAL-COVERAGE: every approved ground needs a grounded sentence, so a
+# draft that should clear validation must also argue KB-POFA-01 (both the anpr
+# and bay fixtures approve it alongside their main ground).
+POFA_COVER = ("The operator is required to demonstrate that the statutory conditions for "
+              "keeper liability under Schedule 4 of the Protection of Freedoms Act 2012 "
+              "were met.")
+
+
+def pofa_cover():
+    return sentence(POFA_COVER, ("KB-POFA-01",))
 
 
 def sentence(text, modules=("STRUCTURAL",), facts=(), evidence=()):
@@ -181,7 +191,7 @@ class SentenceGrounding(unittest.TestCase):
         good = sentence("The keeper's account is that children were present in the vehicle.",
                         modules=("KB-BAY-02",), facts=(fact_id(case, "child_occupant_present"),))
         stray = sentence("An unattached assertion.", modules=())
-        attach = draft_of(case, opening(case), good, stray, sentence(CANCEL))
+        attach = draft_of(case, opening(case), good, stray, pofa_cover(), sentence(CANCEL))
         queue_drafts(pipe, attach, attach, attach)
         out = pipe.generate(case)
         self.assertNotIn("unattached assertion", (out.letter or "").lower())
@@ -203,7 +213,8 @@ class CustomerLanguage(unittest.TestCase):
     def verdict(self, text, modules=("KB-BAY-02",), facts=None):
         facts = [self.child] if facts is None else facts
         return check(self.pipe, self.case,
-                     draft_of(self.case, sentence(text, modules, facts), sentence(CANCEL)),
+                     draft_of(self.case, sentence(text, modules, facts), pofa_cover(),
+                              sentence(CANCEL)),
                      self.pack)
 
     def test_the_keepers_account_is_attributed(self):
@@ -248,6 +259,7 @@ class ParentChildCase(unittest.TestCase):
             opening(case),
             sentence("The keeper's account is that children were present in the vehicle.",
                      ("KB-BAY-02",), (children,)),
+            pofa_cover(),
             sentence(CANCEL))
         queue_drafts(pipe, letter)
         out = pipe.generate(case)
@@ -321,7 +333,12 @@ class DraftChecks(unittest.TestCase):
             self.assertIn("DV-LEAK", rules(self.verdict(sentence(text, (self.module,)))), text)
 
     def test_a_clean_draft_clears_every_check(self):
-        r = self.verdict(sentence("The Parking Charge Notice alleges an overstay.", ("STRUCTURAL",)))
+        r = self.verdict(
+            sentence("The Parking Charge Notice alleges an overstay.", ("STRUCTURAL",)),
+            sentence("The keeper's account is that the vehicle left and returned, so there "
+                     "were separate visits.", (self.module,),
+                     (fact_id(self.case, "multiple_visits"),)),
+            pofa_cover())
         self.assertEqual(rules(r), set(), r.issues)
 
 
@@ -388,7 +405,7 @@ class AnprMultipleVisits(unittest.TestCase):
         self.assertIn("DV-ACCOUNT", rules(bare))
         attributed = check(pipe, case, draft_of(case, sentence(
             "The keeper's account is that the vehicle left and returned, so there were separate "
-            "visits.", ("KB-ANPR-01",), (visits,)), cancel), pack)
+            "visits.", ("KB-ANPR-01",), (visits,)), pofa_cover(), cancel), pack)
         self.assertEqual(rules(attributed), set(), attributed.issues)
 
 
@@ -444,7 +461,7 @@ class DraftVersions(unittest.TestCase):
             self.assertEqual(r["claim_plan_id"], plan.claim_plan_id)
             self.assertRegex(r["content_hash"], r"^[0-9a-f]{64}$")
             self.assertTrue(r["model"])
-            self.assertEqual(r["prompt_version"], 12)
+            self.assertEqual(r["prompt_version"], 13)
             self.assertIn(r["validation_status"], ("PASSED", "FAILED"))
             self.assertTrue(r["created_at"])
         released = [r for r in rows if r["released"]]

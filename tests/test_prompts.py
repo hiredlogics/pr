@@ -22,7 +22,7 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 EXPECTED_VERSIONS = {
     "extraction": 8,
     "case_analysis": 8,
-    "drafting": 12,
+    "drafting": 13,
     "validation": 3,
 }
 

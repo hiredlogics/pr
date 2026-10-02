@@ -63,6 +63,11 @@ EVIDENCE_REQUIRED = "EVIDENCE_REQUIRED"
 NOT_SELECTED = "NOT_SELECTED"               # offered / gate holds, CI did not choose it
 MISSING_FACTS = "MISSING_FACTS"             # could apply; facts still unknown
 NO_VERIFIED_FINDING = "NO_VERIFIED_FINDING"  # P6.1: legal defect not verified
+# P6.2: supported grounds are cumulative.
+VERIFIED_FINDING = "VERIFIED_FINDING"       # a calculated statutory defect: argued on the
+                                            # calculation, independently of model selection
+CARRIED_FORWARD = "CARRIED_FORWARD"         # supported in the previous locked plan and the
+                                            # gate + supporting facts still hold
 
 _NS = uuid.UUID("6b1f4c1e-5f0a-4d8e-9c55-0d7a5c1a9e05")
 _MUTABLE_WHEN_LOCKED = frozenset({"status", "superseded_at", "superseded_by"})
@@ -534,6 +539,73 @@ class ClaimPlanBuilder:
             put(mid, SUPPORTED, SELECTED,
                 "selected by Case Intelligence; gate holds, nothing blocks it, "
                 "supported by verified facts", support, evidence)
+
+        # 1b. P6.2: a ground licensed by a VERIFIED legal finding is argued on
+        # the calculation. Case Intelligence adds judgment grounds; it cannot
+        # subtract a statutory defect the deterministic engine proved.
+        for m in kept:
+            mid = m.module_id
+            if mid in decided:
+                continue
+            lic = legal_findings.referenced_findings(m) & verified_findings
+            if not lic:
+                continue
+            cand = match.candidates.get(mid)
+            if cand is not None and cand.status == "BLOCKED":
+                continue                      # step 3 records the block
+            support = self._support(m, cand, facts)
+            if not support:
+                continue
+            missing = self._required_evidence_missing(m, uploaded)
+            evidence = self._evidence(m, uploaded)
+            if missing:
+                put(mid, UNRESOLVED, EVIDENCE_REQUIRED,
+                    "evidence required before it can be argued: " + ", ".join(missing),
+                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
+                continue
+            put(mid, SUPPORTED, VERIFIED_FINDING,
+                "licensed by verified legal finding " + "/".join(sorted(lic)) +
+                "; a calculated statutory defect is argued independently of selection",
+                support, evidence)
+
+        # 1c. P6.2: grounds are cumulative across plan versions. A ground the
+        # latest LOCKED plan supported stays supported while its module is
+        # active, its gate holds, nothing blocks it and its support stands;
+        # a new customer fact can add grounds, never silently remove one.
+        previous = latest_locked(case)
+        for item in (previous.supported if previous is not None else []):
+            mid = item.module_id
+            m = self.kg.modules.get(mid)
+            if mid in decided or m is None or m.status != "ACTIVE":
+                continue
+            cand = match.candidates.get(mid)
+            if cand is not None and cand.status == "BLOCKED":
+                continue                      # step 3 records the block
+            if mid not in kept_ids:
+                put(mid, REJECTED, GATE,
+                    f"supported in plan v{previous.version} but the gate no longer holds "
+                    "on the current facts: " + gate_why.get(mid, "reasoning gate"))
+                continue
+            refusal = legal_findings.rejection(m, facts, verified_findings)
+            if refusal:
+                put(mid, REJECTED, NO_VERIFIED_FINDING, refusal)
+                continue
+            support = self._support(m, cand, facts)
+            if not support:
+                put(mid, REJECTED, NO_SUPPORTING_FACTS,
+                    f"supported in plan v{previous.version} but no verified fact or "
+                    "uploaded evidence supports it any more")
+                continue
+            missing = self._required_evidence_missing(m, uploaded)
+            evidence = self._evidence(m, uploaded)
+            if missing:
+                put(mid, UNRESOLVED, EVIDENCE_REQUIRED,
+                    "evidence required before it can be argued: " + ", ".join(missing),
+                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
+                continue
+            put(mid, SUPPORTED, CARRIED_FORWARD,
+                f"supported in plan v{previous.version}; gate and supporting facts "
+                "still hold", support, evidence)
 
         # 2. Proposals the analysis-stage veto already refused.
         for mid, why in proposals["vetoed"].items():

@@ -311,6 +311,39 @@ class DraftValidationEngine:
         # ---- STRUCTURE
         if draft.paragraphs and not CANCEL_REQUEST.search(draft.plain_text()):
             add("DV-STRUCTURE", "The letter never asks for the charge to be cancelled", None)
+
+        # ---- PARTICULARS (P6.2, letter-level): a verified timing defect that
+        # licenses an approved ground must be argued on its calculation - the
+        # dates and the day count - never only "outside the statutory period".
+        letter = draft.plain_text() if draft.paragraphs else ""
+        if letter:
+            for f in pack.legal_findings or []:
+                if f.get("legal_module_id") not in approved:
+                    continue
+                p = legal.particulars(f)
+                missing = [f"{k} {v}" for k, v in sorted((p.get("dates") or {}).items())
+                           if not legal.date_stated(v, letter)]
+                days = p.get("days")
+                if days and not legal.days_stated(days, letter):
+                    missing.append(f"the day count ({days} days)")
+                if missing:
+                    add("VAL-PARTICULARS",
+                        f"A verified finding ({f.get('description') or f.get('finding_type')}) "
+                        "supports an approved ground, so the letter must set out the "
+                        "calculation it rests on. State each of these and the conclusion "
+                        "that keeper liability does not transfer: " + "; ".join(missing),
+                        None)
+
+        # ---- COVERAGE (P6.2, letter-level): every approved ground is argued.
+        if draft.paragraphs:
+            covered = {m for g in result.grounding if g["status"] == GROUNDED
+                       for m in g["claim_plan_items"]}
+            for mid in approved:
+                if mid != STRUCTURAL and mid not in covered:
+                    add("VAL-COVERAGE",
+                        f"{labels.get(mid) or mid} is approved in the Claim Plan but the "
+                        "letter never argues it; every approved ground needs at least one "
+                        "grounded sentence", None)
         return result
 
     # --------------------------------------------------------------- internals

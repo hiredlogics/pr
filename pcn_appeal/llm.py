@@ -20,6 +20,8 @@ import os
 import re
 from typing import Any, Protocol
 
+from .legal import findings as legal_findings
+
 
 class LLMClient(Protocol):
     def complete_json(self, *, task: str, system: str, user: str,
@@ -374,7 +376,26 @@ class DemoLLM:
                 "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
             }])
         used = 0
+        findings_by_module: dict = {}
+        for f in data.get("verified_legal_findings") or []:
+            m = f.get("legal_module_id")
+            if m and m not in findings_by_module:
+                findings_by_module[m] = f
         for mid in modules:
+            # P6.2: a verified timed finding is argued on its calculation -
+            # the exact dates and day count - before any retrieved wording.
+            lf = findings_by_module.get(mid)
+            if lf:
+                sentence = legal_findings.particularised_sentence(lf)
+                if sentence:
+                    paras.append([{
+                        "text": sentence,
+                        "fact_refs": [refs[k] for k in ("parking_event_date",
+                                                        "notice_issue_date",
+                                                        "ntd_date") if k in refs],
+                        "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                    }])
+                    used += 1
             block_texts = [
                 c.get("text") for c in chunks
                 if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text")

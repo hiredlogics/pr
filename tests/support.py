@@ -19,6 +19,7 @@ import re
 from typing import Any, Optional
 
 from pcn_appeal.kg.graph import KnowledgeGraph
+from pcn_appeal.legal import findings as legal_findings
 from pcn_appeal.rules.dsl import evaluate
 
 
@@ -104,7 +105,25 @@ class ReferenceAnalysisLLM:
         # Timing / module blocks from retrieved wording when present.
         evidence_ids = list(data.get("evidence_refs") or [])
         seen_text: set[str] = set()
+        findings_by_module: dict[str, dict] = {}
+        for f in data.get("verified_legal_findings") or []:
+            m = f.get("legal_module_id")
+            if m and m not in findings_by_module:
+                findings_by_module[m] = f
         for mid in modules:
+            # P6.2: a verified timed finding is argued on its calculation -
+            # the exact dates and day count - before any retrieved wording.
+            lf = findings_by_module.get(mid)
+            if lf:
+                sentence = legal_findings.particularised_sentence(lf)
+                if sentence:
+                    paras.append([{
+                        "text": sentence,
+                        "fact_refs": [refs[k] for k in ("parking_event_date",
+                                                        "notice_issue_date",
+                                                        "ntd_date") if k in refs],
+                        "module_refs": [mid], "evidence_refs": [], "quote_of": None,
+                    }])
             if mid == "KB-LAND-01":
                 # Only emit when CI selected it (already in module_ids).
                 paras.append([{
