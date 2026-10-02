@@ -90,17 +90,34 @@ class SpecTests(unittest.TestCase):
         self.assertIn(("child_occupant_present", "answer:children_present"),
                       {(b["fact"], b["source"]) for b in basis})
 
-    def test_1b_the_account_alone_no_longer_supports_it(self):
+    def test_1b_an_explicit_account_does_support_it(self):
         # Was: the narrative supported KB-BAY-02 exactly as an answer did.
-        # KB-BAY-02 v1.1 (client-directed, 2026-10-02) ends that: the module
-        # restates the proposition to the operator in the keeper's name, so it
-        # may only rest on a fact the customer expressly stated or confirmed.
-        # The account is still read - the fact is extracted, and it still
-        # supports grounds that do not assert it on the keeper's behalf - but
-        # it no longer carries this one on its own. Test 1a covers the answer
-        # path, which is how this ground is now reached.
-        case, pipe = pipeline_case(PARENT_CHILD, narrative="My kids were in the car with me.")
+        # Then KB-BAY-02 v1.1 required the fact to be stated or confirmed, and
+        # this read as "free text never qualifies".
+        #
+        # CLIENT CORRECTION (2026-10-02): "my kids were in the car" IS the
+        # customer expressly providing the fact. v1.1 required the fact to be
+        # PROVIDED OR CONFIRMED, and an unambiguous statement in the
+        # narrative is providing it. Only wording the fact has to be read OUT
+        # of ("I was with my family") stays inferred - see test_1b3.
+        case, pipe = pipeline_case(PARENT_CHILD,
+                                   narrative="My kids were in the car with me.")
         self.assertTrue(case.get("child_occupant_present"))
+        prov = {r["fact_name"]: r for r in (case.free_text_provenance or [])}
+        self.assertEqual(prov["child_occupant_present"]["provenance"], "ASSERTED")
+        self.assertEqual(
+            KnowledgeMatcher(pipe.kg).match(case).candidates["KB-BAY-02"].status,
+            SUPPORTED)
+
+    def test_1b3_an_ambiguous_account_does_not_support_it(self):
+        """"I was with my family" does not say a CHILD was present, so the
+        system may not assert one in the keeper's name."""
+        case, pipe = pipeline_case(PARENT_CHILD,
+                                   narrative="I was travelling with my family.")
+        prov = {r["fact_name"]: r for r in (case.free_text_provenance or [])}
+        row = prov.get("child_occupant_present")
+        if row is not None:
+            self.assertNotEqual(row["provenance"], "ASSERTED", row)
         self.assertNotEqual(
             KnowledgeMatcher(pipe.kg).match(case).candidates["KB-BAY-02"].status,
             SUPPORTED)

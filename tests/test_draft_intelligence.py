@@ -35,16 +35,18 @@ from test_claim_plan_authority import NARRATIVE, anpr, answer, bay, photo_notice
 
 JOURNEYS = Path(__file__).resolve().parent.parent / "journeys"
 CANCEL = "The operator is requested to cancel the Parking Charge Notice."
-# P6.2 VAL-COVERAGE: every approved ground needs a grounded sentence, so a
-# draft that should clear validation must also argue KB-POFA-01 (both the anpr
-# and bay fixtures approve it alongside their main ground).
-POFA_COVER = ("The operator is required to demonstrate that the statutory conditions for "
-              "keeper liability under Schedule 4 of the Protection of Freedoms Act 2012 "
-              "were met.")
+# P6.2 VAL-COVERAGE: every approved ground needs a grounded sentence. These
+# fixtures used to approve KB-POFA-01 alongside their main ground - it opened on
+# keeper status and an unidentified driver alone - so a draft that was meant to
+# clear validation had to argue Schedule 4 too. KB-POFA-01 v1.1 requires a
+# specific authorised PoFA issue, so these cases no longer approve it and the
+# cover sentence would now be an unauthorised substantive PoFA proposition
+# (DV-CLAIM / VAL-POFA-AUTHORITY). It is kept as an empty tuple so the call
+# sites still read the same.
 
 
 def pofa_cover():
-    return sentence(POFA_COVER, ("KB-POFA-01",))
+    return ()
 
 
 def sentence(text, modules=("STRUCTURAL",), facts=(), evidence=()):
@@ -52,7 +54,13 @@ def sentence(text, modules=("STRUCTURAL",), facts=(), evidence=()):
 
 
 def draft_of(case, *sentences):
-    return Draft(case.case_id, [[s] for s in sentences])
+    """Build a draft, skipping any empty slot (see `pofa_cover`)."""
+    flat = []
+    for s in sentences:
+        if s is None or (isinstance(s, tuple) and not s):
+            continue
+        flat.extend(s if isinstance(s, (list, tuple)) else [s])
+    return Draft(case.case_id, [[s] for s in flat])
 
 
 def pack_of(case, pipe):
@@ -346,8 +354,13 @@ class PaymentAttempt(unittest.TestCase):
     """Test 2: an attempt is not a payment."""
 
     def setUp(self):
+        # payment_method is what opens KB-PAY-03 (a failed app payment). The
+        # fixture previously relied on KB-POFA-01, which opened on keeper
+        # status alone and is closed in v1.1; this file is about what the
+        # drafter may say about payment, so it needs the payment ground.
         self.case, self.pipe = scenario("Overstayed paid time",
-                                        answers={"payment_attempted": True},
+                                        answers={"payment_attempted": True,
+                                                 "payment_method": "APP"},
                                         narrative="I tried to pay on the app but it failed")
         self.pack, plan = pack_of(self.case, self.pipe)
         self.module = plan.supported_ids[0]

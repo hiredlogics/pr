@@ -362,10 +362,25 @@ def evaluate(case, res: PofaResult, modules=()) -> list[dict]:
             return NOT_SUPPORTED, calc
         return UNRESOLVED, calc                               # pragma: no cover
 
+    # Which module a finding licenses is decided by specificity, not by the
+    # order modules happen to sit in kb_modules.yaml. A module whose gate names
+    # one finding code is about that finding; a module that lists several names
+    # them as alternative preconditions and is about something broader. The
+    # finding's calculation is argued inside the licensed module's paragraph
+    # (llm.py) and VAL-PARTICULARS polices it there, so attributing a postal
+    # timing finding to a general keeper-liability module would attach the
+    # dates to the wrong sentence. Strength breaks ties between equally
+    # specific modules; module_id keeps it deterministic after that.
     licenses: dict[str, str] = {}
+    _rank: dict[str, tuple] = {}
     for m in modules or ():
-        for code in referenced_findings(m):
-            licenses.setdefault(code, m.module_id)
+        # Not `codes`: that name belongs to the verified finding set above,
+        # which `decide` closes over.
+        gated = referenced_findings(m)
+        key = (len(gated), -int(getattr(m, "strength", 0) or 0), m.module_id)
+        for code in gated:
+            if code not in _rank or key < _rank[code]:
+                _rank[code], licenses[code] = key, m.module_id
 
     existing = {r.get("finding_type"): r for r in (case.legal_findings or [])}
     records: list[dict] = []

@@ -66,7 +66,14 @@ def anpr(**kw):
 
 
 def photo_notice(**kw):
-    return scenario("Parked without displaying a valid ticket", answers={"multiple_visits": True},
+    # payment_made/payment_method give this notice ONE approved ground
+    # (KB-PAY-01) while ANPR stays blocked, which is the shape
+    # UnsupportedClaimFailsValidation needs: a module in the plan to cite and a
+    # module outside it to be refused. The in-plan module used to be
+    # KB-POFA-01, which opened on keeper status alone until v1.1 closed it.
+    answers = {"multiple_visits": True, "payment_made": True, "payment_method": "APP"}
+    answers.update(kw.pop("answers", None) or {})
+    return scenario("Parked without displaying a valid ticket", answers=answers,
                     extra={"observation_time": "10:15"}, **kw)
 
 
@@ -159,15 +166,16 @@ class UnsupportedClaimFailsValidation(unittest.TestCase):
         block = next(kg.blocks[b] for b in kg.modules["KB-ANPR-01"].building_blocks
                      if b in kg.blocks and kg.blocks[b].status == "ACTIVE")
         sentence = max(block.letter_text.split(". "), key=len).strip()
-        res = self._validate(DraftSentence(sentence, module_refs=["KB-POFA-01"]))
+        res = self._validate(DraftSentence(sentence, module_refs=["KB-PAY-01"]))
         self.assertIn("ANPR not approved in Claim Plan",
                       [i.message for i in self.plan_issues(res)])
 
-    def test_pofa_paragraph_with_pofa_in_plan_passes_the_plan_check(self):
-        self.assertIn("KB-POFA-01", self.plan.supported_ids)
+    def test_a_paragraph_whose_module_is_in_the_plan_passes_the_plan_check(self):
+        self.assertIn("KB-PAY-01", self.plan.supported_ids)
         res = self._validate(DraftSentence(
-            "Keeper liability is not automatic and the operator must show it has met "
-            "the statutory conditions.", module_refs=["KB-POFA-01"]))
+            "The keeper's record is that payment was made for this visit, and the "
+            "operator is requested to reconcile its transaction records.",
+            module_refs=["KB-PAY-01"]))
         self.assertEqual(self.plan_issues(res), [])
 
     def test_feedback_names_the_family_not_the_rejected_module(self):
@@ -319,13 +327,20 @@ class LockedPlanCannotMutate(unittest.TestCase):
 
 # ---------------------------------------------------------------- 4
 class NewCustomerFactCreatesVersion2(unittest.TestCase):
-    """Spec 4: V1 = POFA; the customer adds payment information -> V2."""
+    """Spec 4: V1 has no ground on the notice alone; the customer adds payment
+    information -> V2.
+
+    V1 used to be ["KB-POFA-01"], which opened on keeper status and an
+    unidentified driver with no PoFA issue of any kind. v1.1 closed that, so a
+    bare overstay notice now supports nothing until the customer says
+    something - which is the point this test makes about versioning.
+    """
 
     def test_new_fact_new_version_old_one_untouched(self):
         case, pipe = scenario("Overstayed paid time")
         pipe.generate(case)
         v1 = latest_locked(case)
-        self.assertEqual((v1.version, v1.supported_ids), (1, ["KB-POFA-01"]))
+        self.assertEqual((v1.version, v1.supported_ids), (1, []))
         v1_items = [i.as_dict() for i in v1.items]
 
         answer(case, {"payment_made": True, "payment_method": "APP"})
@@ -344,7 +359,7 @@ class NewCustomerFactCreatesVersion2(unittest.TestCase):
                        and a["version"] == 2)["changes"]
         self.assertIn("payment_made", changes["facts"]["added"])
         self.assertIn("KB-PAY-01", [c["module_id"] for c in changes["changed"]])
-        self.assertEqual(changes["approved_before"], ["KB-POFA-01"])
+        self.assertEqual(changes["approved_before"], [])
 
 
 # ---------------------------------------------------------------- 5

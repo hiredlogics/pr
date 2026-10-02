@@ -280,6 +280,10 @@ class CaseFile:
     # Free-text extraction provenance: original → normalized fact → drafting
     # proposition (source=CUSTOMER_FREE_TEXT). Drafting uses propositions only.
     free_text_provenance: list = field(default_factory=list)
+    # Established facts that directly contradict what the notice asserts
+    # (pcn_appeal.rebuttal). Each is a ground in its own right: the evidential
+    # put-to-proof argument supports it and may never replace it.
+    factual_rebuttals: list = field(default_factory=list)
     audit: list[dict] = field(default_factory=list)
     # P0.3: the current analysis run and whether it has finished. 0 = no run yet.
     run_id: int = 0

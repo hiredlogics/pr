@@ -45,6 +45,14 @@ class CircumstanceRule:
     # Optional: only treat as contradicting a bay-style allegation when these
     # tokens appear in alleged_breach (empty = always available as a fact).
     allegation_families: tuple[str, ...] = ()
+    # Wording that states this fact outright, as opposed to wording the fact
+    # can merely be read out of. `pattern` is tuned for recall, so it also
+    # matches oblique phrasing; a hit on `asserts` means the customer said the
+    # proposition themselves and provenance is ASSERTED rather than INFERRED.
+    #
+    # Each rule either declares this or is INFERRED-only. Nothing is promoted
+    # to an assertion by default: a missing `asserts` is the safe answer.
+    asserts: Optional[re.Pattern[str]] = None
 
 
 def _gap(n: int) -> str:
@@ -95,6 +103,20 @@ _RULES: tuple[CircumstanceRule, ...] = (
         ),
         "the vehicle was being used in connection with the presence of children",
         ("child", "family", "parent"),
+        # Says a child WAS there, in the customer's own words. "My children
+        # were in the car" asserts it; "I was with my family" does not, because
+        # a family party need not include a child - that stays INFERRED and is
+        # asked about if it matters.
+        asserts=re.compile(
+            r"\b(my|our|the)\s+(kids?|children|child|toddler|baby|infant|son|daughter)\b"
+            + _gap(30) + r"\b(was|were|is|are|in (the )?(car|vehicle)|with me|with us|"
+            r"remained|stayed|sat|sitting|asleep)\b|"
+            r"\b(kids?|children|child|toddler|baby|infant|son|daughter)\b"
+            + _gap(20) + r"\b(was|were)\b" + _gap(20)
+            + r"\b(in (the )?(car|vehicle)|with me|with us|present)\b|"
+            r"\bi\s+(was|had)\b" + _gap(25)
+            + r"\b(my\s+)?(kids?|children|child|toddler|baby|infant)\b",
+            re.I),
     ),
     # Seeking a space / arrival
     CircumstanceRule(
@@ -225,6 +247,15 @@ _RULES: tuple[CircumstanceRule, ...] = (
         ),
         "a disabled person's badge or equivalent indicator was displayed in the vehicle",
         ("disabled", "blue badge", "accessible"),
+        # The recall pattern already requires the badge AND a display verb, so
+        # a hit is the customer saying the badge was on display. What it must
+        # additionally be is theirs or the vehicle's, not a general remark.
+        asserts=re.compile(
+            r"\b(my|our|his|her|their|the)\s+blue\s*badge\b" + _gap(30)
+            + r"\b(was|were)?\s*(displayed|shown|on (display|show)|in the (car|vehicle|window))\b|"
+            r"\b(i|we)\s+(had|displayed|showed|was displaying|were displaying)\b"
+            + _gap(25) + r"\bblue\s*badge\b",
+            re.I),
     ),
     # Permit / authorisation
     CircumstanceRule(
@@ -240,6 +271,14 @@ _RULES: tuple[CircumstanceRule, ...] = (
         ),
         "a valid permit or permission to park was held for the location",
         ("permit",),
+        # First person, past/present possession of a permit or permission.
+        asserts=re.compile(
+            r"\b(i|we)\s+(had|have|held|hold|was|were)\b" + _gap(30)
+            + r"\b(permit|permission to park|authorised|authorized)\b|"
+            r"\b(my|our)\s+permit\b" + _gap(25)
+            + r"\b(was|were|is|are)\b" + _gap(20)
+            + r"\b(valid|displayed|shown|on (display|show)|in the (car|vehicle|window))\b",
+            re.I),
     ),
     # Residential
     CircumstanceRule(
@@ -264,6 +303,10 @@ _RULES: tuple[CircumstanceRule, ...] = (
         ),
         "the vehicle's presence was connected with genuine loading or unloading activity",
         ("loading",),
+        asserts=re.compile(
+            r"\b(i|we)\s+(was|were|had been)\s+(loading|unloading|delivering)\b|"
+            r"\b(i|we)\s+(loaded|unloaded|delivered)\b",
+            re.I),
     ),
     # EV charging. "Charge" on its own is the parking charge itself - every
     # customer writes it - so the word only counts next to a vehicle, a charger
@@ -315,17 +358,27 @@ class FreeTextExtraction:
     drafting_proposition: str = ""
     relevant_to_allegation: bool = False
     # How the customer put this fact forward, which decides whether it may be
-    # restated TO THE OPERATOR as the keeper's own material assertion
-    # (KB-BAY-02). "INFERRED" is the system's reading of prose and is not
-    # enough on its own; "STATED" is a closed-form answer the customer gave;
-    # "CONFIRMED" is a hypothesis the customer was asked about and affirmed.
+    # restated TO THE OPERATOR as the keeper's own material assertion and
+    # whether it may contradict an allegation proposition.
+    #
+    #   STATED    a closed-form answer the customer gave
+    #   CONFIRMED a hypothesis the customer was asked about and affirmed
+    #   ASSERTED  the customer stated the proposition unambiguously in their
+    #             own words ("my children were in the car"). This IS the
+    #             customer providing the fact: the rule's own wording is what
+    #             they wrote, so asking them to confirm it would be asking
+    #             them to repeat themselves.
+    #   INFERRED  the system read the fact out of wording that does not say it
+    #             outright ("I was with my family" does not say a CHILD was
+    #             present). Not enough to assert; may still support other
+    #             grounds, and may be asked about if material.
     provenance: str = "INFERRED"
 
     @property
     def customer_asserted(self) -> bool:
         """True when the customer themselves put this fact forward, rather than
-        the system inferring it from their prose."""
-        return self.provenance in ("STATED", "CONFIRMED")
+        the system inferring it from wording that did not say it."""
+        return self.provenance in ("STATED", "CONFIRMED", "ASSERTED")
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -435,13 +488,18 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
                     ),
                 ))
             relevant = _relevant_to_allegation(rule, breach)
+            # An unambiguous statement in the customer's own words IS the
+            # customer providing the fact. Only wording the fact had to be
+            # read OUT of stays INFERRED.
+            asserted = bool(rule.asserts and rule.asserts.search(text))
             extractions.append(FreeTextExtraction(
                 original=text,
                 fact_name=rule.fact_name,
                 normalized_value=rule.value,
                 drafting_proposition=rule.proposition,
                 relevant_to_allegation=relevant,
-                provenance="STATED" if answered else "INFERRED",
+                provenance=("STATED" if answered
+                            else "ASSERTED" if asserted else "INFERRED"),
             ))
             seen_facts.add(rule.fact_name)
 

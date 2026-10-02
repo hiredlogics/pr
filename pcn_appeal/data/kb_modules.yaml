@@ -42,7 +42,29 @@ modules:
   - module_id: KB-POFA-01
     route: POFA
     topic: "Keeper liability threshold"
-    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {eq: [jurisdiction, ENGLAND_WALES]}]}
+    # v1.1 CLIENT DIRECTED. Being the registered keeper, with the driver
+    # unidentified, is the CIRCUMSTANCE in which Schedule 4 might matter. It is
+    # not itself a defect, and on its own it must not put a substantive
+    # Schedule 4 proposition into a letter. The gate therefore additionally
+    # requires a specific authorised PoFA issue: a verified timing finding, or
+    # a confirmed statutory-content defect. Those are the same conditions
+    # KB-POFA-05 already requires, so the two cannot disagree about whether a
+    # PoFA point exists.
+    use_when:
+      all:
+        - eq: [driver_status, UNIDENTIFIED]
+        - eq: [jurisdiction, ENGLAND_WALES]
+        - any:
+            - in: [pofa_finding, [POFA_POSTAL_LATE, POFA_NTD_NTK_LATE,
+                                  POFA_NTD_NTK_TOO_EARLY, POFA_NTK_INVITATION_DEFECT]]
+            - all:
+                - is: ntk_defect_document_confirmed
+                - any:
+                    - is: ntk_defect_parking_details
+                    - is: ntk_defect_keeper_warning
+                    - is: ntk_defect_creditor
+                    - is: ntk_defect_charge_amount
+                    - is: ntk_defect_statutory_invitation
     do_not_use_when: {eq: [relevant_land, false]}
     core_proposition: "Keeper liability is not automatic. If the operator seeks recovery from the keeper under Schedule 4, the applicable statutory conditions must be satisfied."
     required_facts: [notice_route, parking_event_date, notice_issue_date]
@@ -54,12 +76,12 @@ modules:
     building_blocks: [PP-INTRO-002, PP-POFA-001]
     strength: 40
     status: ACTIVE
-    version: "1.0"
+    version: "1.1"
     effective_from: null      # to be set by administrator
     effective_to: null
     last_legal_review: null   # to be set after legal review
     source_reference: "Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx / 3. Keeper Liability / PoFA / KB-POFA-01"
-    change_notes: Core proposition restored to source wording. Admin fields added. The jurisdiction gate is not in the source USE WHEN; kept because Schedule 4 applies in England and Wales only.
+    change_notes: Core proposition restored to source wording. Admin fields added. The jurisdiction gate is not in the source USE WHEN; kept because Schedule 4 applies in England and Wales only. v1.1 CLIENT DIRECTED - the gate additionally requires a specific authorised PoFA issue (a verified timing finding or a confirmed statutory-content defect). Keeper status plus an unidentified driver is the circumstance in which Schedule 4 may matter, not a ground; on its own it previously released a substantive Schedule 4 paragraph with no finding of any kind. The proposition and blocks are unchanged.
 
   - module_id: KB-POFA-02
     route: POFA

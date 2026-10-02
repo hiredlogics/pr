@@ -193,6 +193,11 @@ class FinalClaimPlan:
         self.plan_digest: Optional[str] = None
         self.trust = _freeze(dict(trust))
         self.material_fact_accounting = _freeze(list(material_fact_accounting or []))
+        # Structured factual-rebuttal grounds (pcn_appeal.rebuttal): an
+        # established fact that contradicts what the notice asserts. Set while
+        # the plan is still DRAFT, so a LOCKED plan's grounds are immutable
+        # like its items, and included in the content digest.
+        self.factual_rebuttals: tuple = ()
         self.items: tuple = ()
 
     # -------------------------------------------------------- immutability
@@ -256,7 +261,11 @@ class FinalClaimPlan:
         self.superseded_by = by.claim_plan_id
 
     def content_digest(self) -> str:
-        return _sha([i.content() for i in self.items])
+        return _sha({"items": [i.content() for i in self.items],
+                     "factual_rebuttals": [
+                         {k: v for k, v in _thaw(r).items()
+                          if k not in ("ground_id", "supporting_fact_ids")}
+                         for r in self.factual_rebuttals]})
 
     # --------------------------------------------------------------- views
     @property
@@ -308,7 +317,30 @@ class FinalClaimPlan:
         return {"claim_plan_id": self.claim_plan_id, "version": self.version,
                 "status": self.status, "plan_digest": self.plan_digest,
                 "approved": self.supported_ids,
-                "labels": {i.module_id: claim_label(i.module_id) for i in self.items}}
+                "labels": {i.module_id: claim_label(i.module_id) for i in self.items},
+                # Every ground the plan locked, module-backed and factual
+                # alike. VAL-MATERIAL-FACT-COVERAGE reads the rebuttals'
+                # required_particulars from here.
+                "grounds": self.grounds()}
+
+    def grounds(self) -> list[dict]:
+        """The plan's grounds in drafting order: factual rebuttals first.
+
+        A direct contradiction of the allegation is the primary answer to it;
+        a module-backed evidential point supports that answer. Ordering them
+        here is what stops the support being presented as the whole case.
+        """
+        out = [_thaw(r) for r in self.factual_rebuttals]
+        for i in self.supported:
+            out.append({"ground_id": i.item_id, "ground_type": "KB_MODULE",
+                        "module_id": i.module_id,
+                        "supporting_module_ids": [i.module_id],
+                        "claim_type": i.claim_type, "priority": i.priority,
+                        "topic": i.topic,
+                        "supporting_fact_ids": [
+                            _thaw(f).get("fact_id") for f in i.supporting_facts
+                            if _thaw(f).get("fact_id")]})
+        return out
 
     def trace(self) -> list[str]:
         """Admin-only. One line per item: what was selected and why, what was
@@ -674,6 +706,16 @@ class ClaimPlanBuilder:
                 decision=d["decision"], reason=d["reason"],
                 supporting_facts=_freeze(d["support"]), evidence_refs=_freeze(d["evidence"]),
                 relationships=_freeze(rels), priority=rank.get(mid), topic=d["topic"]))
+        # Factual rebuttals: an established fact that contradicts what the
+        # notice asserts is a ground of its own, derived from the SUPPORTED
+        # modules so it can name the KB framing that supports it. Set while
+        # the plan is DRAFT; locked with everything else.
+        from ..rebuttal import derive_factual_rebuttals, record as _record_rebuttals
+        rebuttals = derive_factual_rebuttals(
+            case, module_ids=[mid for mid, d in decided.items()
+                              if d["status"] == SUPPORTED], kg=self.kg)
+        plan.factual_rebuttals = _freeze([r.as_dict() for r in rebuttals])
+        _record_rebuttals(case, rebuttals)
         trust["facts_used"] = self._facts_used(case, used_facts)
         trust["relationships_used"] = relationships
         trust["signals"] = {k: v["value"] for k, v in match.signals.items()}

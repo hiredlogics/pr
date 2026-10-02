@@ -170,8 +170,46 @@ class DraftContext:
             # P6.1: the only legal defects the letter may state, each with the
             # deterministic calculation that proved it.
             "verified_legal_findings": self.guidance["legal_findings"],
+            # P8: grounds the plan locked where an established fact directly
+            # contradicts the notice. REQUIRED content, not background: the
+            # letter must state the fact and connect it to the allegation.
+            # Passed separately from `verified_facts` because a fact sitting in
+            # a dictionary is something the drafter may use, while this is
+            # something it must say - and VAL-MATERIAL-FACT-COVERAGE fails the
+            # draft if it does not.
+            "required_factual_rebuttals": self.required_factual_rebuttals(),
         }
         return payload
+
+    def required_factual_rebuttals(self) -> list[dict]:
+        """The FACTUAL_REBUTTAL grounds, as drafting instructions.
+
+        Ordered before the modules that support them: a direct contradiction of
+        the allegation is the primary answer to it, and the evidential
+        put-to-proof point is support. Presenting the support alone argues the
+        weaker case.
+        """
+        plan = self.claim_plan if isinstance(self.claim_plan, dict) else {}
+        out = []
+        for g in (plan.get("grounds") or []):
+            if not isinstance(g, dict) or g.get("ground_type") != "FACTUAL_REBUTTAL":
+                continue
+            out.append({
+                "ground_id": g.get("ground_id"),
+                "allegation_ref": g.get("allegation_ref"),
+                "allegation_type": g.get("allegation_type"),
+                "relationship": g.get("relationship"),
+                "fact_name": g.get("subject"),
+                "fact_value": g.get("fact_value"),
+                "fact_refs": list(g.get("supporting_fact_ids") or []),
+                "supporting_module_ids": list(g.get("supporting_module_ids") or []),
+                "proposition": g.get("drafting_proposition") or "",
+                "required_particulars": [dict(p) for p in
+                                         (g.get("required_particulars") or [])],
+                "priority": g.get("priority"),
+                "role": "PRIMARY",
+            })
+        return out
 
     # ------------------------------------------------------------ audit
     def audit(self) -> dict:

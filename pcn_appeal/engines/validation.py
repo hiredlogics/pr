@@ -33,6 +33,13 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-EVIDENCE-CONTRADICTION contradiction claims / EVIDENCE route without the required fact
   VAL-CUSTOMER-COPY customer free-text pasted into the letter instead of rewritten
   VAL-ACCOUNT-COVERAGE material account fact marked used but professional proposition absent
+  VAL-MATERIAL-FACT-COVERAGE a FACTUAL_REBUTTAL ground the plan locked is not
+               expressed in the draft: the required particular is missing, so the
+               confirmed fact that answers the allegation was replaced by the
+               evidential point that merely supports it
+  VAL-POFA-AUTHORITY a substantive Schedule 4 / keeper-liability proposition with
+               no locked PoFA ground (and, where the ground is finding-controlled,
+               no matching verified finding). Neutral keeper framing stays allowed
 """
 from __future__ import annotations
 
@@ -77,6 +84,92 @@ CONTRADICTION_CLAIM = R(
 )
 POFA_DEFECT = R(r"(not delivered within|did not meet the applicable statutory timing|fails to provide the route-specific|"
                 r"does not contain (a compliant|the applicable statutory)|does not (properly )?comply with the applicable)")
+# A SUBSTANTIVE Schedule 4 proposition: it tells the operator what the statute
+# requires of it, or that keeper liability has not been established. Distinct
+# from POFA_DEFECT, which catches an allegation that a specific condition
+# FAILED. Being the keeper is the circumstance in which Schedule 4 might
+# matter; it is not itself a defect, so neither of these may appear without a
+# locked PoFA ground.
+POFA_SUBSTANTIVE = R(
+    r"(statutory conditions for keeper liability|"
+    r"keeper liability (does not|cannot|has not been)|"
+    r"(cannot|not) (be )?transfer\w*[^.]{0,40}\b(keeper|liability)|"
+    r"liability (cannot|has not been)[^.]{0,30}transferr?ed|"
+    r"must establish[^.]{0,60}\bSchedule 4\b|"
+    r"\bSchedule 4\b[^.]{0,60}(have been satisfied|has not been satisfied|not satisfied|"
+    r"must be satisfied|conditions must)|"
+    r"(has not|have not) established[^.]{0,40}keeper liability)")
+# Keeper framing that asserts nothing about the statute. Always allowed.
+POFA_NEUTRAL = R(
+    r"(appeal(ing)? as the registered keeper|submitted by the registered keeper|"
+    r"i am the registered keeper|no admission is made as to the identity)")
+def _pofa_authorised(pack) -> bool:
+    """Whether a substantive Schedule 4 proposition is authorised.
+
+    Needs a PoFA ground in the LOCKED plan. Where the plan is unavailable the
+    retrieval set is used, because a module only reaches the pack through the
+    plan. A finding-controlled ground additionally needs the verified finding:
+    without it the letter would allege a defect nothing established.
+    """
+    plan = getattr(pack, "claim_plan", None) or {}
+    approved = set(plan.get("approved") or []) if isinstance(plan, dict) else set()
+    if not approved:
+        approved = set(getattr(pack, "module_ids", None) or [])
+    pofa_grounds = {m for m in approved if str(m).startswith("KB-POFA-")}
+    if not pofa_grounds:
+        return False
+    # KB-POFA-01/04/05 argue from a verified finding; without one there is
+    # nothing for the proposition to rest on.
+    finding_controlled = {"KB-POFA-01", "KB-POFA-04", "KB-POFA-05"}
+    if pofa_grounds <= finding_controlled:
+        return bool(getattr(pack, "pofa_findings", None))
+    return True
+
+
+def _rebuttal_grounds(pack) -> list[dict]:
+    """FACTUAL_REBUTTAL grounds carried by the LOCKED claim plan."""
+    plan = getattr(pack, "claim_plan", None) or {}
+    if not isinstance(plan, dict):
+        return []
+    return [g for g in (plan.get("grounds") or [])
+            if isinstance(g, dict) and g.get("ground_type") == "FACTUAL_REBUTTAL"]
+
+
+# What a fact NAME means in plain words, so coverage can be checked
+# semantically: the drafter may write "a child was travelling in the vehicle"
+# for child_occupant_present and must not be failed for not copying a phrase.
+# Keyed on fact names, never on operators or sites.
+_FACT_LANGUAGE: dict[str, tuple[str, ...]] = {
+    "child_occupant_present": ("child", "children", "infant", "toddler", "baby"),
+    "blue_badge_displayed": ("blue badge", "disabled person", "badge"),
+    "permit_held": ("permit", "permission to park", "season ticket", "authorised"),
+    "payment_made": ("paid", "payment", "tariff"),
+    "payment_attempt_failed": ("payment", "machine", "failed", "unsuccessful"),
+    "multiple_visits": ("left", "returned", "second visit", "more than once",
+                        "separate visit", "two visits"),
+    "ev_charging_session": ("charging", "charge point", "electric"),
+    "loading_activity": ("loading", "unloading", "delivery", "delivering"),
+    "disability_extra_time": ("disabilit", "disabled", "additional time",
+                              "extra time"),
+    "bay_conditions_met_accounted": ("conditions of use", "entitled to use",
+                                     "eligible"),
+    "vehicle_immobilised": ("broke down", "breakdown", "immobilised",
+                            "could not be moved"),
+    "resident_connection_stated": ("resident", "tenant", "lease"),
+}
+
+
+def _fact_expressed(fact_name: str, value, low_full: str) -> bool:
+    """Whether the draft says this fact, in any professional wording."""
+    for token in _FACT_LANGUAGE.get(fact_name, ()):
+        if token in low_full:
+            return True
+    # Unknown fact: fall back to the readable form of its own name, so a new
+    # fact is not silently exempt from coverage.
+    words = [w for w in fact_name.split("_") if len(w) > 3]
+    return bool(words) and all(w in low_full for w in words)
+
+
 CODE_VALUE = R(r"\b\d+[- ]minutes?\b.*\b(grace|consideration)\b|\b(grace|consideration)\b.*\b\d+[- ]minutes?\b")
 UNIVERSAL_RULE = R(r"\b(10[- ]minute rule|always cancel|automatically cancel)")
 BREAK_AUTO = R(r"\bautomatic(ally)? (frustrat|void|cancel)|breakdown (always|automatically)")
@@ -295,6 +388,14 @@ class ValidationEngine:
                 block("VAL-EVIDENCE", "Claims evidence is enclosed but none is uploaded/referenced", t)
             if POFA_DEFECT.search(t) and not pack.pofa_findings:
                 block("VAL-POFA", "PoFA defect alleged without verified finding", t)
+            # Keeper status is the circumstance in which Schedule 4 might
+            # matter, never the ground itself. A substantive proposition about
+            # what the statute requires needs a PoFA ground the plan locked.
+            if POFA_SUBSTANTIVE.search(t) and not POFA_NEUTRAL.search(t) \
+                    and not _pofa_authorised(pack):
+                block("VAL-POFA-AUTHORITY",
+                      "Substantive Schedule 4 / keeper-liability proposition without a "
+                      "locked PoFA ground or matching verified finding", t)
             if CODE_VALUE.search(t) and not pack.code_version:
                 block("VAL-CODE", "Code value used without resolved Code version", t)
             if UNIVERSAL_RULE.search(t):
@@ -464,6 +565,30 @@ class ValidationEngine:
                           f"Material fact {fact_name} was marked used but its "
                           "professional proposition is missing from the letter")
                     break
+
+        # ------------------------------------------------ VAL-MATERIAL-FACT-COVERAGE
+        # A FACTUAL_REBUTTAL the plan locked is the PRIMARY answer to the
+        # allegation. The drafter may word it however reads best, but it may
+        # not drop it and leave only the evidential point that supports it: a
+        # letter saying "the operator has not demonstrated the breach" where
+        # the plan holds a confirmed "a child was present" has argued the
+        # weaker case and abandoned the stronger one.
+        for ground in _rebuttal_grounds(pack):
+            for part in ground.get("required_particulars") or []:
+                if part.get("type") != "STATE_FACT":
+                    continue
+                fact_name = part.get("fact_name") or ground.get("subject") or ""
+                if not fact_name:
+                    continue
+                value = ground.get("fact_value")
+                if _fact_expressed(fact_name, value, low_full):
+                    continue
+                block("VAL-MATERIAL-FACT-COVERAGE",
+                      f"The claim plan locked a factual rebuttal on {fact_name} "
+                      f"(contradicting {ground.get('allegation_type') or 'the allegation'}) "
+                      "but the letter does not state it; an evidential challenge "
+                      "cannot replace the confirmed fact that answers the allegation")
+                break
 
         # Pack-level: EVIDENCE route / KB-EV-01 requires the contradiction fact.
         routes = {pack.primary_route, *(pack.secondary_routes or [])}

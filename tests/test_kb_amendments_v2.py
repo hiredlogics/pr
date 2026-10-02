@@ -134,15 +134,32 @@ def _bay_case(narrative: str) -> CaseFile:
 
 class AMaterialFactMustComeFromTheCustomer(unittest.TestCase):
     """KB-BAY-02 restates the proposition TO THE OPERATOR in the keeper's name,
-    so an inferred read of prose must not supply it."""
+    so the customer must have PROVIDED or CONFIRMED it. Prose the customer
+    stated outright provides it; prose the system can only read a proposition
+    out of does not."""
 
     def test_an_inferred_read_does_not_establish_the_contradiction(self):
-        # The system's reading of prose, with no question answered. The fact
-        # may still be extracted; what it may not do is become the assertion.
-        case = _bay_case("I had my children in the car with me the whole time.")
+        # Wording the fact can only be inferred from: the customer never said
+        # a child was present. The fact may still be a hypothesis; what it may
+        # not do is become an assertion made in the keeper's name.
+        case = _bay_case("I was travelling with family that afternoon.")
         assess_material_account(case)
         self.assertIsNot(case.get("account_contradicts_allegation"), True)
         self.assertFalse(_gate("KB-BAY-02", case.fact_view()))
+
+    def test_an_explicit_narrative_assertion_does_establish_it(self):
+        # CLIENT DIRECTED: "My children were in the car with me the whole
+        # time." is the customer providing the fact, not the system inferring
+        # it. Free text is not second-class, and no duplicate confirming
+        # question may be required merely because the source was narrative.
+        case = _bay_case("My children were in the car with me the whole time.")
+        assess_material_account(case)
+        self.assertTrue(case.get("account_contradicts_allegation"))
+        self.assertTrue(_gate("KB-BAY-02", case.fact_view()))
+        row = next(r for r in case.free_text_provenance
+                   if r["fact_name"] == "child_occupant_present")
+        self.assertEqual(row["provenance"], "ASSERTED")
+        self.assertTrue(row["customer_asserted"])
 
     def test_an_explicit_answer_does_establish_it(self):
         case = _bay_case("I was in the bay.")
@@ -154,9 +171,10 @@ class AMaterialFactMustComeFromTheCustomer(unittest.TestCase):
         self.assertTrue(_gate("KB-BAY-02", case.fact_view()))
 
     def test_the_headline_proposition_is_never_an_inferred_one(self):
-        # Both present: an inferred child read and an answered badge. The
-        # restated assertion must be the one the customer actually gave.
-        case = _bay_case("The kids were in the car.")
+        # Both present: a child read that is only inferable from the prose,
+        # and an answered badge. The restated assertion must be the one the
+        # customer actually gave, never the one the system worked out.
+        case = _bay_case("I was travelling with family that afternoon.")
         case.put(Fact("F-bb", "blue_badge_displayed", True, FactStatus.ANSWERED,
                       FactSource(SourceKind.ANSWER, "q:blue_badge_displayed")))
         assess_material_account(case)

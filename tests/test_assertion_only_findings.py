@@ -75,7 +75,13 @@ class RegistryShape(unittest.TestCase):
 class DrafterAssertionsAreRefused(unittest.TestCase):
     def setUp(self):
         self.case, self.pipe = make_case()
-        self.out = run(self.case, self.pipe, "", {})
+        # A substantive non-PoFA ground. This file is about what the DRAFTER
+        # may assert, so it needs an approved module to cite; what that module
+        # argues is immaterial. Previously the bare fixture's only ground was
+        # KB-POFA-01, which opened on keeper status alone - the spurious PoFA
+        # ground closed in v1.1.
+        self.out = run(self.case, self.pipe, "I paid for my parking at the machine.",
+                       {"payment_made": "yes"})
         self.known = {f.fact_id for f in self.case.facts.values()}
         self.module = self.out.pack.module_ids[0]
 
