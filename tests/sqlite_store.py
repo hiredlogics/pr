@@ -61,10 +61,26 @@ CREATE TABLE fact_hypotheses (hypothesis_id PRIMARY KEY, case_id, fact_name, pos
 CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, fact_id, previous,
   new, previous_status, status, source_kind, source_ref, source_type, changed_by, reason,
   outcome, at, recorded_at);
-CREATE TABLE knowledge_nodes (knowledge_id PRIMARY KEY, module_id UNIQUE, name, category, version,
-  status, effective_from, effective_to, metadata, updated_by, updated_at);
-CREATE TABLE knowledge_edges (edge_id PRIMARY KEY, source_type, source_id, relationship_type,
-  target_type, target_id, weight, metadata, origin, status, version, updated_by, updated_at);
+CREATE TABLE knowledge_release (release_id PRIMARY KEY, source_document, source_document_hash,
+  compiled_digest, relations_version, parser_version, document_version, parent_release_id,
+  created_at, created_by, reason, module_count, relationship_count, manifest, drift);
+CREATE TABLE knowledge_modules (knowledge_id PRIMARY KEY, module_id UNIQUE, name, category, version,
+  status, effective_from, effective_to, source_document, source_reference, source_hash, release_id,
+  metadata, created_at, updated_at, updated_by);
+CREATE TABLE knowledge_rules (rule_id PRIMARY KEY, knowledge_id, rule_type, rule_definition,
+  created_at);
+CREATE TABLE knowledge_required_facts (id PRIMARY KEY, knowledge_id, fact_name, requirement_type,
+  metadata);
+CREATE TABLE knowledge_evidence_requirements (id PRIMARY KEY, knowledge_id, evidence_type,
+  requirement);
+CREATE TABLE knowledge_restrictions (id PRIMARY KEY, knowledge_id, restriction_type, content,
+  metadata);
+CREATE TABLE graph_nodes (node_id PRIMARY KEY, node_type, entity_id, metadata,
+  UNIQUE (node_type, entity_id));
+CREATE TABLE graph_edges (edge_id PRIMARY KEY, source_node, relationship_type, target_node,
+  confidence, origin, status, metadata, updated_by, updated_at);
+CREATE TABLE knowledge_release_items (release_id, item_type, item_id, content_hash, content,
+  PRIMARY KEY (release_id, item_type, item_id));
 CREATE TABLE knowledge_changes (change_id PRIMARY KEY, entity_type, entity_id, action, version,
   changed_by, changed_at, reason, before, after);
 """ + "".join(
@@ -133,7 +149,7 @@ def install(test) -> sqlite3.Connection:
     fresh SQLite database for the duration of one test."""
     db, connect = make_store()
     for patcher in (mock.patch("pcn_appeal.store.cases.connect", connect),
-                    mock.patch("pcn_appeal.store.knowledge.connect", connect),
+                    mock.patch("pcn_appeal.knowledge_ingestion.store.connect", connect),
                     mock.patch("pcn_appeal.store.db.enabled", return_value=True)):
         patcher.start()
         test.addCleanup(patcher.stop)

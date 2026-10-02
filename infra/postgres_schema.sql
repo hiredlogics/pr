@@ -331,40 +331,8 @@ CREATE TABLE IF NOT EXISTS fact_hypotheses (
 CREATE INDEX IF NOT EXISTS fact_hypotheses_open ON fact_hypotheses (case_id)
   WHERE status = 'UNCONFIRMED';
 
--- 0004_knowledge_graph.sql (P4)
-
-CREATE TABLE IF NOT EXISTS knowledge_nodes (
-  knowledge_id    uuid PRIMARY KEY,
-  module_id       varchar NOT NULL UNIQUE,
-  name            text NOT NULL,
-  category        varchar NOT NULL,
-  version         varchar NOT NULL,
-  status          varchar NOT NULL CHECK (status IN ('DRAFT', 'REVIEW', 'ACTIVE', 'DISABLED')),
-  effective_from  date,
-  effective_to    date,
-  metadata        jsonb NOT NULL DEFAULT '{}'::jsonb,
-  updated_by      text,
-  updated_at      timestamptz
-);
-
-CREATE TABLE IF NOT EXISTS knowledge_edges (
-  edge_id            uuid PRIMARY KEY,
-  source_type        varchar NOT NULL CHECK (source_type IN ('MODULE', 'FACT', 'EVIDENCE', 'SIGNAL')),
-  source_id          varchar NOT NULL,
-  relationship_type  varchar NOT NULL CHECK (relationship_type IN ('SUPPORTS', 'BLOCKS',
-                       'REQUIRES', 'CONFLICTS_WITH', 'DEPENDS_ON', 'EVIDENCE_SUPPORTS')),
-  target_type        varchar NOT NULL CHECK (target_type IN ('MODULE', 'FACT', 'EVIDENCE', 'SIGNAL')),
-  target_id          varchar NOT NULL,
-  weight             numeric NOT NULL DEFAULT 1.0,
-  metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
-  origin             varchar NOT NULL DEFAULT 'DERIVED' CHECK (origin IN ('DERIVED', 'CURATED')),
-  status             varchar NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVIEW', 'REMOVED')),
-  version            int NOT NULL DEFAULT 1,
-  updated_by         text,
-  updated_at         timestamptz
-);
-CREATE INDEX IF NOT EXISTS knowledge_edges_target ON knowledge_edges (target_type, target_id);
-CREATE INDEX IF NOT EXISTS knowledge_edges_source ON knowledge_edges (source_type, source_id);
+-- 0004_knowledge_graph.sql (P4): governance log. Its knowledge_nodes /
+-- knowledge_edges are superseded by 0005 and not created here.
 
 CREATE TABLE IF NOT EXISTS knowledge_changes (
   change_id    uuid PRIMARY KEY,
@@ -379,3 +347,124 @@ CREATE TABLE IF NOT EXISTS knowledge_changes (
   after        jsonb
 );
 CREATE INDEX IF NOT EXISTS knowledge_changes_entity ON knowledge_changes (entity_type, entity_id);
+
+-- 0005_knowledge_graph.sql (P4b)
+
+CREATE TABLE IF NOT EXISTS knowledge_release (
+  release_id            uuid PRIMARY KEY,
+  source_document       text NOT NULL,
+  source_document_hash  varchar(64) NOT NULL,
+  compiled_digest       varchar(64) NOT NULL,
+  relations_version     varchar NOT NULL,
+  parser_version        varchar NOT NULL,
+  document_version      varchar,
+  parent_release_id     uuid REFERENCES knowledge_release,
+  created_at            timestamptz NOT NULL,
+  created_by            text NOT NULL,
+  reason                text NOT NULL,
+  module_count          int NOT NULL,
+  relationship_count    int NOT NULL,
+  manifest              jsonb NOT NULL,
+  drift                 jsonb NOT NULL,
+  UNIQUE (source_document_hash, compiled_digest, relations_version, parser_version)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_modules (
+  knowledge_id     uuid PRIMARY KEY,
+  module_id        varchar(100) UNIQUE NOT NULL,
+  name             text NOT NULL,
+  category         varchar(100) NOT NULL,
+  version          varchar(50) NOT NULL,
+  status           varchar(50) NOT NULL CHECK (status IN ('DRAFT', 'REVIEW', 'ACTIVE',
+                     'DISABLED', 'RETIRED')),
+  effective_from   date,
+  effective_to     date,
+  source_document  text NOT NULL,
+  source_reference text,
+  source_hash      varchar(64) NOT NULL,
+  release_id       uuid REFERENCES knowledge_release,
+  metadata         jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  updated_by       text
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_rules (
+  rule_id          uuid PRIMARY KEY,
+  knowledge_id     uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  rule_type        varchar(50) NOT NULL CHECK (rule_type IN ('USE_WHEN', 'DO_NOT_USE_WHEN',
+                     'CORE_PROPOSITION', 'AI_MUST_CHECK', 'LEGAL_BASIS', 'DRAFTING_GUIDANCE',
+                     'DOCUMENT_FIELD')),
+  rule_definition  jsonb NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS knowledge_rules_module ON knowledge_rules (knowledge_id);
+
+CREATE TABLE IF NOT EXISTS knowledge_required_facts (
+  id                uuid PRIMARY KEY,
+  knowledge_id      uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  fact_name         varchar(200) NOT NULL,
+  requirement_type  varchar(50) NOT NULL CHECK (requirement_type IN ('GATE', 'REQUIRED', 'CHECK')),
+  metadata          jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS knowledge_required_facts_fact ON knowledge_required_facts (fact_name);
+
+CREATE TABLE IF NOT EXISTS knowledge_evidence_requirements (
+  id             uuid PRIMARY KEY,
+  knowledge_id   uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  evidence_type  varchar(100) NOT NULL,
+  requirement    jsonb NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_restrictions (
+  id                uuid PRIMARY KEY,
+  knowledge_id      uuid NOT NULL REFERENCES knowledge_modules ON DELETE CASCADE,
+  restriction_type  varchar(100) NOT NULL CHECK (restriction_type IN ('PROHIBITED_CLAIM',
+                      'DRAFTING_RULE')),
+  content           text NOT NULL,
+  metadata          jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS graph_nodes (
+  node_id    uuid PRIMARY KEY,
+  node_type  varchar(50) NOT NULL CHECK (node_type IN ('FACT', 'KNOWLEDGE', 'EVIDENCE',
+               'CLAIM', 'QUESTION', 'RULE')),
+  entity_id  varchar(200) NOT NULL,
+  metadata   jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (node_type, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS graph_edges (
+  edge_id            uuid PRIMARY KEY,
+  source_node        uuid NOT NULL REFERENCES graph_nodes,
+  relationship_type  varchar(100) NOT NULL CHECK (relationship_type IN ('SUPPORTS', 'BLOCKS',
+                       'REQUIRES', 'CONFLICTS_WITH', 'DEPENDS_ON', 'EVIDENCE_SUPPORTS')),
+  target_node        uuid NOT NULL REFERENCES graph_nodes,
+  confidence         numeric NOT NULL DEFAULT 1.0,
+  origin             varchar(20) NOT NULL CHECK (origin IN ('YAML_COMPILED', 'CURATED', 'DOCX', 'ADMIN')),
+  status             varchar(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVIEW', 'REMOVED')),
+  metadata           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_by         text,
+  updated_at         timestamptz
+);
+CREATE INDEX IF NOT EXISTS graph_edges_source ON graph_edges (source_node, relationship_type);
+CREATE INDEX IF NOT EXISTS graph_edges_target ON graph_edges (target_node, relationship_type);
+
+CREATE TABLE IF NOT EXISTS knowledge_release_items (
+  release_id    uuid NOT NULL REFERENCES knowledge_release ON DELETE CASCADE,
+  item_type     varchar(20) NOT NULL CHECK (item_type IN ('MODULE', 'EDGE')),
+  item_id       varchar(200) NOT NULL,
+  content_hash  varchar(64) NOT NULL,
+  content       jsonb NOT NULL,
+  PRIMARY KEY (release_id, item_type, item_id)
+);
+
+-- The governance log (0004) now also records module status changes, imports
+-- and graph edge changes.
+ALTER TABLE knowledge_changes DROP CONSTRAINT IF EXISTS knowledge_changes_entity_type_check;
+ALTER TABLE knowledge_changes ADD CONSTRAINT knowledge_changes_entity_type_check
+  CHECK (entity_type IN ('NODE', 'EDGE', 'MODULE', 'RELEASE'));
+ALTER TABLE knowledge_changes DROP CONSTRAINT IF EXISTS knowledge_changes_action_check;
+ALTER TABLE knowledge_changes ADD CONSTRAINT knowledge_changes_action_check
+  CHECK (action IN ('SEED', 'CREATE', 'UPDATE', 'DISABLE', 'REMOVE', 'ACTIVATE', 'RETIRE',
+                    'IMPORT'));

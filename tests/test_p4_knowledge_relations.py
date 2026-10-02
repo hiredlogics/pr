@@ -9,11 +9,7 @@ Run:  python -m unittest tests.test_p4_knowledge_relations -v
 from __future__ import annotations
 
 import json
-import os
 import unittest
-from unittest import mock
-
-from fastapi.testclient import TestClient
 
 from pcn_appeal import api
 from pcn_appeal.engines.analysis import AnalysisEngine
@@ -25,8 +21,6 @@ from pcn_appeal.kg.relations import (BLOCKS, CURATED, DEPENDS_ON, DERIVED, EVIDE
 from pcn_appeal.models import CaseFile, EvidenceItem, Fact, FactSource, FactStatus, SourceKind
 from support import ReferenceAnalysisLLM
 from test_question_authority import case_with
-
-import sqlite_store
 
 KG = KnowledgeGraph()
 ANPR_MODULES = ("KB-ANPR-01", "KB-ANPR-02", "KB-ANPR-03", "KB-TIME-01")
@@ -337,167 +331,10 @@ class CaseIntelligenceInput(unittest.TestCase):
         self.assertIn("rejected", ev[-1])
 
 
-# =========================================================== admin knowledge store
-class KnowledgeStore(unittest.TestCase):
-
-    def setUp(self):
-        self.db = sqlite_store.install(self)
-        from pcn_appeal.store import knowledge
-        self.k = knowledge
-
-    def seed(self):
-        return self.k.seed(KG)
-
-    def test_seed_loads_every_node_and_edge_and_is_idempotent(self):
-        first = self.seed()
-        self.assertEqual(first["nodes"], len(KG.modules))
-        self.assertEqual(first["edges"], len(KG.relations.edges))
-        self.assertEqual(self.seed(), {"nodes": 0, "edges": 0,
-                                       "relations_version": first["relations_version"]})
-        self.assertEqual(sqlite_store.count(self.db, "knowledge_nodes"), len(KG.modules))
-
-    def test_every_change_needs_a_user_and_a_reason(self):
-        self.seed()
-        for who, why in (("", "r"), ("admin", ""), ("  ", "r")):
-            with self.subTest(who=who, why=why), self.assertRaises(self.k.KnowledgeChangeError):
-                self.k.disable_module("KB-PAY-01", changed_by=who, reason=why)
-
-    def test_update_bumps_version_stages_and_logs(self):
-        self.seed()
-        out = self.k.update_module("KB-PAY-01", {"strength": 70}, changed_by="legal.a",
-                                   reason="raise weight after review")
-        self.assertEqual(out["node"]["version"], "1.1")
-        self.assertEqual(out["node"]["status"], "REVIEW")
-        ch = self.k.list_changes("KB-PAY-01")[0]
-        self.assertEqual((ch["action"], ch["changed_by"], ch["reason"], ch["version"]),
-                         ("UPDATE", "legal.a", "raise weight after review", "1.1"))
-        self.assertTrue(ch["changed_at"])
-        self.assertEqual(ch["before"]["metadata"]["strength"], KG.modules["KB-PAY-01"].strength)
-        self.assertEqual(ch["after"]["metadata"]["strength"], 70)
-
-    def test_gate_change_recomputes_derived_edges(self):
-        self.seed()
-        out = self.k.update_module("KB-PAY-01", {"use_when": {"all": [
-            {"is": "payment_made"}, {"exists": "payment_method"}]}},
-            changed_by="legal.a", reason="require the method")
-        self.assertEqual(out["derived_added"], 1)
-        edges = self.k.list_edges("KB-PAY-01")
-        self.assertTrue(any(e["source_id"] == "payment_method" and e["status"] == "REVIEW"
-                            for e in edges))
-
-    def test_bad_predicate_is_refused(self):
-        self.seed()
-        for bad in ({"implies": "x"}, {"all": []}, {"eq": "x"}, {"is": 3}):
-            with self.subTest(bad=bad), self.assertRaises(self.k.KnowledgeChangeError):
-                self.k.update_module("KB-PAY-01", {"use_when": bad}, changed_by="a", reason="r")
-
-    def test_create_and_disable_module(self):
-        self.seed()
-        out = self.k.create_module({"module_id": "KB-NEW-01", "name": "New ground",
-                                    "use_when": {"is": "some_fact"}},
-                                   changed_by="legal.a", reason="new ground drafted")
-        self.assertEqual(out["node"]["status"], "REVIEW")
-        with self.assertRaises(self.k.KnowledgeChangeError):
-            self.k.create_module({"module_id": "KB-NEW-01", "name": "x", "use_when": {"is": "y"}},
-                                 changed_by="a", reason="r")
-        out = self.k.disable_module("KB-NEW-01", changed_by="legal.b", reason="withdrawn")
-        self.assertEqual((out["node"]["status"], out["node"]["version"]), ("DISABLED", "1.1"))
-        self.assertEqual([c["action"] for c in self.k.list_changes("KB-NEW-01")],
-                         ["DISABLE", "CREATE"])
-
-    def test_create_and_remove_a_curated_relationship(self):
-        self.seed()
-        out = self.k.create_edge("SIGNAL", "allegation_class=OVERSTAY", "SUPPORTS", "MODULE",
-                                 "KB-BAY-01", changed_by="legal.a", reason="test relevance",
-                                 weight=0.5)
-        eid = out["edge"]["edge_id"]
-        self.assertEqual((out["edge"]["origin"], out["edge"]["status"]), (CURATED, "REVIEW"))
-        with self.assertRaises(self.k.KnowledgeChangeError):
-            self.k.create_edge("SIGNAL", "allegation_class=OVERSTAY", "SUPPORTS", "MODULE",
-                               "KB-BAY-01", changed_by="legal.a", reason="again")
-        out = self.k.remove_edge(eid, changed_by="legal.b", reason="not needed")
-        self.assertEqual((out["edge"]["status"], out["edge"]["version"]), ("REMOVED", 2))
-        self.assertNotIn(eid, {e["edge_id"] for e in self.k.list_edges()})
-        self.assertIn(eid, {e["edge_id"] for e in self.k.list_edges(include_removed=True)})
-        self.assertEqual([c["action"] for c in self.k.list_changes(eid)], ["REMOVE", "CREATE"])
-
-    def test_unknown_relationship_or_module_is_refused(self):
-        self.seed()
-        with self.assertRaises(self.k.KnowledgeChangeError):
-            self.k.create_edge("FACT", "x", "IMPLIES", "MODULE", "KB-PAY-01",
-                               changed_by="a", reason="r")
-        with self.assertRaises(self.k.KnowledgeChangeError):
-            self.k.create_edge("FACT", "x", "SUPPORTS", "MODULE", "KB-NOPE-99",
-                               changed_by="a", reason="r")
-
-    def test_a_derived_relationship_cannot_be_removed(self):
-        self.seed()
-        derived = next(e for e in KG.relations.edges if e.origin == DERIVED)
-        with self.assertRaises(self.k.KnowledgeChangeError) as cm:
-            self.k.remove_edge(derived.edge_id, changed_by="a", reason="r")
-        self.assertIn("gate", str(cm.exception))
-
-    def test_admin_changes_do_not_reach_live_reasoning(self):
-        """Staged until a release is published: the live matcher is unchanged."""
-        self.seed()
-        self.k.disable_module("KB-PAY-01", changed_by="legal.a", reason="staged")
-        m = match(facts_case({"alleged_breach": "Failed to pay the tariff"},
-                             {"payment_made": True}))
-        self.assertEqual(m.candidates["KB-PAY-01"].status, SUPPORTED)
-
-
-# =========================================================== admin API
-class KnowledgeAdminApi(unittest.TestCase):
-
-    def setUp(self):
-        sqlite_store.install(self)
-        from pcn_appeal.store import knowledge
-        knowledge.seed(KG)
-        self.client = TestClient(api.app)
-        p = mock.patch.dict(os.environ, {"ADMIN_TOKEN": "t0k"})
-        p.start()
-        self.addCleanup(p.stop)
-        self.h = {"X-Admin-Token": "t0k"}
-
-    def test_admin_only(self):
-        for method, url, body in (
-                ("get", "/admin/knowledge/nodes", None),
-                ("get", "/admin/knowledge/edges", None),
-                ("get", "/admin/knowledge/changes", None),
-                ("post", "/admin/knowledge/modules/KB-PAY-01/disable",
-                 {"changed_by": "a", "reason": "r"})):
-            with self.subTest(url=url):
-                r = getattr(self.client, method)(url, **({"json": body} if body else {}))
-                self.assertEqual(r.status_code, 401)
-
-    def test_update_through_the_api_is_logged(self):
-        r = self.client.patch("/admin/knowledge/modules/KB-PAY-01", headers=self.h,
-                              json={"changed_by": "legal.a", "reason": "weight",
-                                    "changes": {"strength": 61}})
-        self.assertEqual(r.status_code, 200, r.text)
-        ch = self.client.get("/admin/knowledge/changes?entity_id=KB-PAY-01",
-                             headers=self.h).json()["changes"]
-        self.assertEqual((ch[0]["changed_by"], ch[0]["reason"], ch[0]["version"]),
-                         ("legal.a", "weight", "1.1"))
-
-    def test_reason_is_required(self):
-        r = self.client.post("/admin/knowledge/modules/KB-PAY-01/disable", headers=self.h,
-                             json={"changed_by": "legal.a", "reason": ""})
-        self.assertEqual(r.status_code, 422)
-        r = self.client.post("/admin/knowledge/modules/KB-PAY-01/disable", headers=self.h,
-                             json={"changed_by": "legal.a"})
-        self.assertEqual(r.status_code, 422)
-
-    def test_edges_round_trip(self):
-        r = self.client.post("/admin/knowledge/edges", headers=self.h, json={
-            "changed_by": "legal.a", "reason": "relevance", "source_type": "SIGNAL",
-            "source_id": "allegation_class=PERMIT", "relationship_type": "SUPPORTS",
-            "target_type": "MODULE", "target_id": "KB-BAY-01"})
-        self.assertEqual(r.status_code, 200, r.text)
-        eid = r.json()["edge"]["edge_id"]
-        r = self.client.post(f"/admin/knowledge/edges/{eid}/remove", headers=self.h,
-                             json={"changed_by": "legal.a", "reason": "undo"})
-        self.assertEqual(r.json()["edge"]["status"], "REMOVED")
+# =========================================================== admin trace
+# Store / governance / admin API tests moved to tests/test_knowledge_ingestion.py
+# when P4b replaced the P4 knowledge_nodes / knowledge_edges store.
+class KnowledgeTrace(unittest.TestCase):
 
     def test_case_trace_includes_the_knowledge_match(self):
         case, pipe = pipeline_case(NO_PARKING, answers={"payment_made": True})
@@ -507,12 +344,12 @@ class KnowledgeAdminApi(unittest.TestCase):
         self.assertEqual(set(t), {"relations_version", "signals", "selected", "relevant",
                                   "rejected"})
 
-
-class KnowledgeAdminWithoutDatabase(unittest.TestCase):
-    def test_store_endpoints_say_the_database_is_needed(self):
-        with mock.patch.dict(os.environ, {"DATABASE_URL": "", "ADMIN_TOKEN": ""}):
-            r = TestClient(api.app).get("/admin/knowledge/nodes")
-        self.assertEqual(r.status_code, 503)
+    def test_the_audit_names_the_kb_it_matched_against(self):
+        from pcn_appeal.manifest import kb_digest
+        case = facts_case({"alleged_breach": NO_PARKING})
+        AnalysisEngine(KG, ReferenceAnalysisLLM()).analyse(case)
+        ev = [a for a in case.audit if a.get("event") == "knowledge_match"][-1]
+        self.assertEqual(ev["kb_digest"], kb_digest(KG))
 
 
 if __name__ == "__main__":

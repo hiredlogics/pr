@@ -209,7 +209,9 @@ class AnalysisEngine:
         # P4: verified facts + evidence -> knowledge candidates through explicit
         # relationships. Blocked and impossible modules are never offered.
         result.knowledge = KnowledgeMatcher(self.kg).match(case, facts)
-        case.audit.append({"event": "knowledge_match", **result.knowledge.trace()})
+        from ..manifest import kb_digest
+        case.audit.append({"event": "knowledge_match", "kb_digest": kb_digest(self.kg),
+                           **result.knowledge.trace()})
         candidates = self._candidates(case, circumstances, facts, result.knowledge)
         result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")

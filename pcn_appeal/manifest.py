@@ -89,6 +89,9 @@ def build(case, out, pipeline) -> dict:
         "kb": {
             "release_id": getattr(kg, "release_id", None),
             "digest": kb_digest(kg),
+            # P4b: with `digest`, names the knowledge release this run matches
+            # (knowledge_release.compiled_digest / relations_version).
+            "relations_version": getattr(getattr(kg, "relations", None), "version", None),
             "modules": {mid: kg.modules[mid].version for mid in module_ids if mid in kg.modules},
         },
         "prompts": prompts.versions(),

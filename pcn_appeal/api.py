@@ -1171,87 +1171,73 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
 
 
 
-# ---------------------------------------------------------------- knowledge (P4)
-# Staged knowledge management: every change needs a user and a reason and is
-# logged with its version (store/knowledge.py). Nothing here reaches live
-# reasoning until a KB release is published, which stays gated below.
+# ---------------------------------------------------------------- knowledge (P4 / P4b)
+# Governance over the ingested knowledge store (knowledge_ingestion/store.py).
+# Module CONTENT comes from the controlled document through an import; admins
+# change status and ADMIN relationships. Every change needs a user and a
+# reason and is logged with its timestamp and version. Nothing here reaches
+# live reasoning until a KB release is published, which stays gated below.
 class KnowledgeChangeIn(BaseModel):
     changed_by: str
     reason: str
 
 
-class ModuleCreateIn(KnowledgeChangeIn):
-    module: dict
-    category: str = "FACTUAL_GROUND"
-
-
-class ModuleUpdateIn(KnowledgeChangeIn):
-    changes: dict
+class KnowledgeImportIn(KnowledgeChangeIn):
+    document: Optional[str] = None          # defaults to the controlled document in data/
 
 
 class EdgeCreateIn(KnowledgeChangeIn):
     source_type: str
-    source_id: str
+    source_key: str
     relationship_type: str
     target_type: str
-    target_id: str
-    weight: float = 1.0
+    target_key: str
+    confidence: float = 1.0
     edge_reason: str = ""
 
 
 def _knowledge_store():
     if not db.enabled():
         raise HTTPException(503, "knowledge management needs the database (DATABASE_URL)")
-    from .store import knowledge
-    return knowledge
+    from .knowledge_ingestion import store
+    return store
 
 
 def _knowledge_call(fn, *args, **kwargs):
-    from .store.knowledge import KnowledgeChangeError
+    from .knowledge_ingestion.store import KnowledgeChangeError
     try:
         return fn(*args, **kwargs)
     except KnowledgeChangeError as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
-@app.get("/admin/knowledge/nodes")
-def knowledge_nodes(status: Optional[str] = None, authorization: Optional[str] = Header(None),
-                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+def _admin(authorization, x_admin_token):
     _require_admin(authorization, x_admin_token)
-    return {"nodes": _knowledge_store().list_nodes(status)}
+    return _knowledge_store()
 
 
-@app.get("/admin/knowledge/edges")
-def knowledge_edges(module_id: Optional[str] = None, include_removed: bool = False,
-                    authorization: Optional[str] = Header(None),
-                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    return {"edges": _knowledge_store().list_edges(module_id, include_removed=include_removed)}
-
-
-@app.get("/admin/knowledge/changes")
-def knowledge_changes(entity_id: Optional[str] = None, authorization: Optional[str] = Header(None),
+@app.get("/admin/knowledge/modules")
+def knowledge_modules(q: Optional[str] = None, category: Optional[str] = None,
+                      status: Optional[str] = None, authorization: Optional[str] = Header(None),
                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    return {"changes": _knowledge_store().list_changes(entity_id)}
+    """View / search modules (id, name, metadata and rule text)."""
+    k = _admin(authorization, x_admin_token)
+    return {"modules": k.list_modules(q, category, status)}
 
 
-@app.post("/admin/knowledge/modules")
-def knowledge_create_module(body: ModuleCreateIn, authorization: Optional[str] = Header(None),
-                            x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    k = _knowledge_store()
-    return _knowledge_call(k.create_module, body.module, changed_by=body.changed_by,
-                           reason=body.reason, category=body.category)
+@app.get("/admin/knowledge/modules/{module_id}")
+def knowledge_module(module_id: str, authorization: Optional[str] = Header(None),
+                     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.get_module, module_id)
 
 
-@app.patch("/admin/knowledge/modules/{module_id}")
-def knowledge_update_module(module_id: str, body: ModuleUpdateIn,
-                            authorization: Optional[str] = Header(None),
-                            x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    k = _knowledge_store()
-    return _knowledge_call(k.update_module, module_id, body.changes, changed_by=body.changed_by,
+@app.post("/admin/knowledge/modules/{module_id}/activate")
+def knowledge_activate_module(module_id: str, body: KnowledgeChangeIn,
+                              authorization: Optional[str] = Header(None),
+                              x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.activate_module, module_id, changed_by=body.changed_by,
                            reason=body.reason)
 
 
@@ -1259,30 +1245,88 @@ def knowledge_update_module(module_id: str, body: ModuleUpdateIn,
 def knowledge_disable_module(module_id: str, body: KnowledgeChangeIn,
                              authorization: Optional[str] = Header(None),
                              x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    k = _knowledge_store()
+    k = _admin(authorization, x_admin_token)
     return _knowledge_call(k.disable_module, module_id, changed_by=body.changed_by,
                            reason=body.reason)
+
+
+@app.get("/admin/knowledge/edges")
+def knowledge_edges(module_id: Optional[str] = None, include_removed: bool = False,
+                    authorization: Optional[str] = Header(None),
+                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"edges": _knowledge_call(k.list_edges, module_id, include_removed=include_removed)}
 
 
 @app.post("/admin/knowledge/edges")
 def knowledge_create_edge(body: EdgeCreateIn, authorization: Optional[str] = Header(None),
                           x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    k = _knowledge_store()
-    return _knowledge_call(k.create_edge, body.source_type, body.source_id,
-                           body.relationship_type, body.target_type, body.target_id,
-                           changed_by=body.changed_by, reason=body.reason, weight=body.weight,
-                           edge_reason=body.edge_reason)
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.create_edge, body.source_type, body.source_key,
+                           body.relationship_type, body.target_type, body.target_key,
+                           changed_by=body.changed_by, reason=body.reason,
+                           confidence=body.confidence, edge_reason=body.edge_reason)
 
 
 @app.post("/admin/knowledge/edges/{edge_id}/remove")
 def knowledge_remove_edge(edge_id: str, body: KnowledgeChangeIn,
                           authorization: Optional[str] = Header(None),
                           x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
-    _require_admin(authorization, x_admin_token)
-    k = _knowledge_store()
+    k = _admin(authorization, x_admin_token)
     return _knowledge_call(k.remove_edge, edge_id, changed_by=body.changed_by, reason=body.reason)
+
+
+@app.get("/admin/knowledge/changes")
+def knowledge_changes(entity_id: Optional[str] = None, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"changes": k.list_changes(entity_id)}
+
+
+@app.post("/admin/knowledge/import")
+def knowledge_import(body: KnowledgeImportIn, authorization: Optional[str] = Header(None),
+                     x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Import the controlled document. Only files under data/ are accepted: a
+    path is never taken from the request as-is."""
+    k = _admin(authorization, x_admin_token)
+    path = k.DEFAULT_DOCUMENT
+    if body.document:
+        cand = (k.DEFAULT_DOCUMENT.parent / Path(body.document).name)
+        if cand.suffix.lower() != ".docx" or not cand.is_file():
+            raise HTTPException(422, "document must be a .docx in the knowledge data directory")
+        path = cand
+    return _knowledge_call(k.ingest, path, created_by=body.changed_by, reason=body.reason, kg=KG)
+
+
+@app.get("/admin/knowledge/releases")
+def knowledge_releases(authorization: Optional[str] = Header(None),
+                       x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return {"releases": k.list_releases()}
+
+
+@app.get("/admin/knowledge/releases/compare")
+def knowledge_compare(a: str, b: str, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.compare_releases, a, b)
+
+
+@app.get("/admin/knowledge/relationship-changes")
+def knowledge_relationship_changes(release_id: Optional[str] = None,
+                                   authorization: Optional[str] = Header(None),
+                                   x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    k = _admin(authorization, x_admin_token)
+    return _knowledge_call(k.relationship_changes, release_id)
+
+
+@app.get("/admin/knowledge/graph/facts")
+def knowledge_for_facts(facts: str, authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """Knowledge connected to facts (comma-separated names, each taken as present)."""
+    _admin(authorization, x_admin_token)
+    from .knowledge_ingestion.queries import knowledge_for_facts as q
+    return {"knowledge": q({f.strip(): True for f in facts.split(",") if f.strip()})}
 
 
 # Admin (role: legal_admin) - edit without redeploys (Dev Pack Phase 10).

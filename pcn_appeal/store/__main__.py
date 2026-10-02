@@ -4,7 +4,9 @@
     python -m pcn_appeal.store init     # apply infra/postgres_schema.sql
     python -m pcn_appeal.store sync     # push data/*.yaml -> tables + pgvector, publish a release
     python -m pcn_appeal.store status    # what is actually in there
-    python -m pcn_appeal.store knowledge-seed   # KB modules + relationships -> knowledge_* (P4)
+
+Knowledge base ingestion (controlled DOCX -> knowledge_* / graph_*) has its own
+CLI: python -m pcn_appeal.knowledge_ingestion --help
 """
 from __future__ import annotations
 
@@ -47,17 +49,7 @@ def _status() -> int:
     return 0
 
 
-def _knowledge_seed() -> int:
-    from ..kg.graph import KnowledgeGraph
-    from .knowledge import seed
-    result = seed(KnowledgeGraph())
-    print(f"relations {result['relations_version']}")
-    print(f"nodes     {result['nodes']} written")
-    print(f"edges     {result['edges']} written")
-    return 0
-
-
-COMMANDS = {"init": _init, "sync": _sync, "status": _status, "knowledge-seed": _knowledge_seed}
+COMMANDS = {"init": _init, "sync": _sync, "status": _status}
 
 
 def main(argv: list[str]) -> int:
