@@ -198,6 +198,77 @@ class UnsupportedClaimFailsValidation(unittest.TestCase):
         self.assertNotIn(rogue, out.letter or "")
 
 
+class SharedBoilerplateIsNotAnArgument(unittest.TestCase):
+    """P5 review: the VAL-PLAN wording check must not mistake common request,
+    closing or framing wording for an unapproved argument."""
+
+    # Requests and closings a letter writes whatever it argues.
+    GENERIC = (
+        "Please provide copies of the evidence relied upon, including any photographs "
+        "and the full record of the vehicle's entry and exit.",
+        "The operator is put to strict proof of the alleged contravention and of its "
+        "entitlement to issue a parking charge at this location.",
+        "I would be grateful if the operator could review this appeal and cancel the "
+        "parking charge notice without further delay.",
+        "Please confirm in writing that the charge has been cancelled and that no further "
+        "action will be taken in respect of this notice.",
+    )
+    PLANS = (["KB-POFA-01"], ["KB-BAY-02", "KB-POFA-01"], ["KB-PAY-01", "KB-POFA-01"],
+             ["KB-ANPR-01", "KB-POFA-01"], ["KB-LAND-01"], ["KB-INFRA-01"])
+
+    @classmethod
+    def setUpClass(cls):
+        cls.pipe = AppealPipeline(ReferenceAnalysisLLM({}))
+        kg = cls.pipe.kg
+        attached = {b for m in kg.modules.values() for b in m.building_blocks}
+        cls.structural = [b for b in kg.blocks.values()
+                          if b.status == "ACTIVE" and b.block_id not in attached]
+
+    def pack(self, approved):
+        from pcn_appeal.models import RetrievalPack
+        return RetrievalPack(
+            primary_route=None, secondary_routes=[], module_ids=list(approved),
+            verified_facts={}, fact_refs={}, missing_facts=[], evidence_refs=[],
+            prohibited_claims=[], code_version=None, pofa_route="POSTAL", pofa_findings=[],
+            driver_status="UNIDENTIFIED", jurisdiction="ENGLAND_WALES", context_chunks=[],
+            lease_clauses=[], claim_plan={"status": LOCKED, "approved": list(approved),
+                                          "labels": {}})
+
+    def plan_issues(self, text, approved, refs=("STRUCTURAL",)):
+        res = self.pipe.validation.validate(
+            Draft("C", [[DraftSentence(text, module_refs=list(refs))]]), self.pack(approved))
+        return [i.message for i in res.issues if i.rule == "VAL-PLAN"]
+
+    def test_generic_requests_pass_under_every_plan(self):
+        for approved in self.PLANS:
+            for text in self.GENERIC:
+                with self.subTest(plan=approved, text=text[:40]):
+                    self.assertEqual(self.plan_issues(text, approved), [])
+
+    def test_structural_blocks_pass_under_every_plan(self):
+        """Introduction and closing wording belongs to no module (PP-END-001 / 002
+        are appended by the orchestrator to every AI letter)."""
+        self.assertTrue(self.structural)
+        for approved in self.PLANS:
+            for blk in self.structural:
+                for sentence in blk.letter_text.split(". "):
+                    with self.subTest(plan=approved, block=blk.block_id):
+                        self.assertEqual(self.plan_issues(sentence, approved), [])
+
+    def test_wording_shared_with_an_approved_module_passes(self):
+        """GRACE and INFRA share the ANPR exit-timestamp wording: with INFRA in
+        the plan it is INFRA's own wording, not an unapproved GRACE argument."""
+        text = ("An ANPR exit timestamp records passage at the camera and does not "
+                "necessarily establish that the vehicle remained parked until then.")
+        self.assertEqual(self.plan_issues(text, ["KB-INFRA-01"], refs=["KB-INFRA-01"]), [])
+
+    def test_positive_control_the_same_shared_wording_fails_without_either_module(self):
+        text = ("An ANPR exit timestamp records passage at the camera and does not "
+                "necessarily establish that the vehicle remained parked until then.")
+        issues = self.plan_issues(text, ["KB-POFA-01"], refs=["KB-POFA-01"])
+        self.assertTrue(any(m.endswith("not approved in Claim Plan") for m in issues), issues)
+
+
 # ---------------------------------------------------------------- 3
 class LockedPlanCannotMutate(unittest.TestCase):
     """Spec 3: no adding or removing claims, no priority or reasoning changes."""

@@ -179,7 +179,7 @@ existing tests. Its output is identical to before.
 Messages name the claim family, never the rejected module id, because they are
 fed back to the drafter.
 
-### 7. Tests: `tests/test_claim_plan_authority.py` (29 tests)
+### 7. Tests: `tests/test_claim_plan_authority.py` (33 tests)
 
 | Spec | Test |
 |---|---|
@@ -193,6 +193,7 @@ fed back to the drafter.
 | client trust | `ClientTrust` (code / KB / prompt / model versions, facts used with source, relationship edge ids, explain in/out, blocked trace) |
 | authority | `OnlyThePlanDecides` (never adds a ground; drafting refuses an unlocked plan; widen keeps claims) |
 | admin | `AdminRoutes` |
+| review: shared boilerplate | `SharedBoilerplateIsNotAnArgument` (generic requests and every structural block pass under six plan shapes; wording shared with an approved module passes; positive control: the same shared wording fails when neither module is approved) |
 
 **Mutation checks**
 
@@ -262,9 +263,10 @@ This file.
 env -u OPENAI_API_KEY DATABASE_URL= LLM_PROVIDER= APP_ENV= .venv/bin/python -m unittest discover -s tests
 ```
 
-- Result: 721 tests.
+- Result: 725 tests (after the review follow-up).
 - Failures: the same 29 as the baseline (23 F + 6 E). No new failures, none fixed.
-- `tests/test_claim_plan_authority.py`: 29/29 pass.
+- `tests/test_claim_plan_authority.py`: 33/33 pass.
+- Repeated runs (review): each of the six scenarios run 5 times in fresh pipelines gives one distinct result (plan digest, inputs digest, approved claims, state, letter hash). Local deterministic stand-in only; the real model was not run.
 
 **Before/after through `generate()`**
 
