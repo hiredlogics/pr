@@ -231,12 +231,15 @@ class HypothesesAreNotFacts(unittest.TestCase):
 class QuestionShape(unittest.TestCase):
 
     def test_internal_fields_are_present_and_never_shown(self):
-        case, _, questions = pipeline()
-        q = next(q for q in questions if q["fact"] == "multiple_visits")
+        # P3: the candidate carries the hypothesis' reason and impact; the
+        # question returned (and pending) is only what the customer answers.
+        case = account(SHOPPING)
+        [q] = Hypotheses.questions(case, lambda f: True)
         self.assertEqual((q["target_fact"], q["reason"], q["possible_impact"]),
                          ("multiple_visits", "Could change ANPR interpretation",
                           "Determines whether continuous stay is valid"))
-        shown = customer_safe.customer_question(q)
+        case, _, questions = pipeline()
+        shown = next(q for q in questions if q["fact"] == "multiple_visits")
         self.assertEqual(set(shown), {"fact", "text", "type"})
         self.assertEqual(customer_safe.leaks(shown), [])
 

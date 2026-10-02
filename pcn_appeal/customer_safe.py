@@ -37,6 +37,9 @@ INTERNAL_KEYS = frozenset({
     "primary_route", "secondary_routes", "code_version", "missing_facts",
     "prohibited_claims", "policy", "differed", "run_id", "analysis_run_id",
     "possible_impact", "hypothesis_id", "hypotheses", "fact_hypotheses", "hypothesis_trace",
+    # P3 Question Authority: the question object beyond what is answered.
+    "question_id", "related_module", "impact_if_yes", "impact_if_no", "question_trace",
+    "priority", "kb_gated",
 })
 
 # Internal identifiers. Shapes, not a list, so a new module is covered the day

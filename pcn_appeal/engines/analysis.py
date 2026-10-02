@@ -78,28 +78,6 @@ ANPR_SHAPED_FACTS = {
 # Strength at or above this may lead a letter (mirrors reasoning.SUPPORTING_THRESHOLD).
 LEADING_STRENGTH = 50
 
-# Thin-pack situation prompts when Case Intelligence selected no leading ground
-# and asked nothing. Not a V1 circumstance→ground map: these only unlock
-# customer-answerable facts; grounds still require CI + use_when.
-SITUATION_FALLBACK: list[dict[str, Any]] = [
-    {"fact": "payment_made", "text": "Was a parking payment completed for this visit?",
-     "type": "bool", "material_because": "unlocks payment / keying grounds"},
-    {"fact": "genuine_customer",
-     "text": "Was the visit connected with genuine use of the premises at this location?",
-     "type": "bool", "material_because": "unlocks customer / authorisation grounds"},
-    {"fact": "permit_held",
-     "text": "Was a permit or permission to park held for this location?",
-     "type": "bool", "material_because": "unlocks permit grounds"},
-    {"fact": "signage_issue_raised",
-     "text": "Is there a specific problem with the signs (missing, hidden, damaged, unlit or contradictory)?",
-     "type": "bool", "material_because": "unlocks signage grounds"},
-    {"fact": "short_presence_before_acceptance",
-     "text": "Did the vehicle leave without parking, or was time spent looking for a space or reading the terms?",
-     "type": "bool", "material_because": "unlocks consideration / presence grounds"},
-    {"fact": "vehicle_immobilised",
-     "text": "Did the vehicle become mechanically unable to move (for example breakdown, flat battery or puncture)?",
-     "type": "bool", "material_because": "unlocks breakdown grounds"},
-]
 
 # Semantic topic clusters. Exact fact-name dedupe alone lets the model re-ask
 # "did you use the kiosk?" as "can you remember validating?" under a new name.
@@ -175,6 +153,10 @@ class CaseAnalysis:
     # The case_analysis call failed (after its retry): nothing above is a
     # judgment on the case.
     analysis_failed: bool = False
+    # Questions the pre-checks below dropped, for the Question Authority's
+    # admin trace (engines/question_authority.py): every generated question
+    # is accounted for, not only the ones that reached the authority.
+    question_rejections: list[dict] = field(default_factory=list)
 
     @property
     def needs_answers(self) -> bool:
@@ -281,8 +263,9 @@ class AnalysisEngine:
                     f"keeping first finalized plan")
 
         asking = list(raw.get("questions") or []) + self._unlocking_questions(case, result, facts)
+        # Candidates only: the Question Authority (orchestrator._reanalyse)
+        # decides which, if any, the customer sees. Zero is a valid outcome.
         result.questions = self._safe_questions(case, asking, result)
-        result.questions = self._ensure_situation_questions(case, result)
 
         case.audit.append({
             "event": "case_analysis",
@@ -563,6 +546,7 @@ class AnalysisEngine:
                     "type": shape.get("type", "text"),
                     "options": shape.get("options") or [],
                     "material_because": f"gates {mid}, which analysis proposed for this case",
+                    "related_module": mid,
                     # Named by the KB's own gate, not invented by the model, so the
                     # "one question per topic" cluster must not swallow it: a gate
                     # like {signage_issue_raised AND signage_issue_type} needs both
@@ -576,15 +560,6 @@ class AnalysisEngine:
             (m := self.kg.modules.get(mid)) and m.strength >= LEADING_STRENGTH
             for mid in (module_ids or [])
         )
-
-    def _ensure_situation_questions(self, case: CaseFile,
-                                    result: CaseAnalysis) -> list[dict]:
-        """Thin packs: do not inject a hardcoded situation bank.
-
-        Asking is Case Intelligence's job (prompt thin-pack guidance). A missing
-        field alone must never summon questions (question-authority invariant).
-        """
-        return result.questions
 
     def _safe_questions(self, case: CaseFile, proposed: list[dict],
                         result: CaseAnalysis) -> list[dict]:
@@ -642,29 +617,25 @@ class AnalysisEngine:
             elif admin_kind == "site_postcode":
                 fact = "site_postcode"
             if is_internal_fact(fact):
-                result.trace.append(f"dropped question {fact}: derived by the engines, not asked")
+                self._drop(result, fact, text, "derived by the engines, not asked")
                 continue
             if fact in seen or case.has(fact) or fact in known_on_notice:
-                result.trace.append(f"dropped question {fact}: already known or already asked")
+                self._drop(result, fact, text, "already known or already asked")
                 continue
             if not self._question_material_for_case(case, fact, result, text):
-                result.trace.append(
-                    f"dropped question {fact}: not needed for any available ground")
+                self._drop(result, fact, text, "not needed for any available ground")
                 continue
             if fact in operator_gaps or any(g in fact for g in (
                     "validation_log", "landowner", "signage_plan", "anpr_raw")):
-                result.trace.append(
-                    f"dropped question {fact}: operator-requestable; use records request in draft")
+                self._drop(result, fact, text, "operator-requestable; use records request in draft")
                 continue
             kb_gated = bool((entry or {}).get("kb_gated"))
             topic = self._topic_for(fact, text)
             if topic and topic in dead_topics:
-                result.trace.append(
-                    f"dropped question {fact}: topic {topic} unresolved for this customer")
+                self._drop(result, fact, text, f"topic {topic} unresolved for this customer")
                 continue
             if topic and topic in covered_topics and not kb_gated:
-                result.trace.append(
-                    f"dropped question {fact}: topic {topic} already asked")
+                self._drop(result, fact, text, f"topic {topic} already asked")
                 continue
             # Don't ask the customer to contact the store when operator records
             # can be requested in the draft instead.
@@ -673,21 +644,21 @@ class AnalysisEngine:
                 "contact the store", "ask the store", "speak to the store",
                 "ask sainsbury", "contact sainsbury", "ask the supermarket",
             )):
-                result.trace.append(f"dropped question {fact}: store-contact; use operator records request")
+                self._drop(result, fact, text, "store-contact; use operator records request")
                 continue
             if fact in ANPR_SHAPED_FACTS and not (
                     case.has("entry_time") and case.has("exit_time")):
-                result.trace.append(f"dropped question {fact}: notice has no ANPR entry/exit pair")
+                self._drop(result, fact, text, "notice has no ANPR entry/exit pair")
                 continue
             if qtype not in QUESTION_TYPES:
                 qtype = "text"
 
             low = text.lower()
             if any(b in low for b in self.banned):
-                result.trace.append(f"dropped question {fact}: touches driver identity")
+                self._drop(result, fact, text, "touches driver identity")
                 continue
             if any(marker in low for marker in RATIONALE_MARKERS):
-                result.trace.append(f"dropped question {fact}: explains its own legal purpose")
+                self._drop(result, fact, text, "explains its own legal purpose")
                 continue
 
             question: dict[str, Any] = {"fact": fact, "text": text, "type": qtype}
@@ -699,10 +670,24 @@ class AnalysisEngine:
                 if bank.get("type") == "choice" and bank.get("options"):
                     options = [str(o) for o in bank["options"]]
                 if len(options) < 2:
-                    result.trace.append(f"dropped question {fact}: choice with no options")
+                    self._drop(result, fact, text, "choice with no options")
                     continue
                 question["options"] = options
 
+            # Internal, for the Question Authority: where the candidate came
+            # from and what it is said to decide. Never shown to the customer.
+            from .question_authority import KB_GATE, MODEL, POSTCODE, TRADE_BODY
+            if admin_kind == "site_postcode":
+                from .recovery import postcode_unlocks
+                question.update(source=POSTCODE, unlocks=postcode_unlocks(case, self.kg))
+            elif admin_kind == "operator_ata":
+                question.update(source=TRADE_BODY, unlocks=self._ata_unlocks(case))
+            else:
+                question["source"] = KB_GATE if kb_gated else MODEL
+            if (entry or {}).get("related_module"):
+                question["related_module"] = entry["related_module"]
+            if (entry or {}).get("material_because"):
+                question["material_reason"] = str(entry["material_because"])
             out.append(question)
             seen.add(fact)
             if topic:
@@ -713,6 +698,11 @@ class AnalysisEngine:
                 break
 
         return out
+
+    @staticmethod
+    def _drop(result: CaseAnalysis, fact: str, text: str, why: str) -> None:
+        result.trace.append(f"dropped question {fact}: {why}")
+        result.question_rejections.append({"fact": fact, "text": text, "reason": why})
 
     def _topic_for(self, fact: str, text: str) -> Optional[str]:
         blob = f"{fact} {text}"
@@ -782,7 +772,12 @@ class AnalysisEngine:
         return False
 
     def _ata_would_unlock(self, case: CaseFile) -> bool:
+        return bool(self._ata_unlocks(case))
+
+    def _ata_unlocks(self, case: CaseFile) -> list[str]:
+        """The in-force Code-dependent modules a known trade body would open."""
         facts = case.fact_view()
+        out = []
         for m in self.kg.active_modules():
             if m.route == Route.LANDOWNER:
                 continue
@@ -791,5 +786,5 @@ class AnalysisEngine:
             if evaluate(m.do_not_use_when, facts):
                 continue
             if evaluate(m.use_when, facts):
-                return True
-        return False
+                out.append(m.module_id)
+        return out

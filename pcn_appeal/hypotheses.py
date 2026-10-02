@@ -173,10 +173,10 @@ class Hypotheses:
 
     @classmethod
     def questions(cls, case: CaseFile, material: Callable[[str], bool]) -> list[dict]:
-        """One question per open hypothesis that could change a ground, asked
-        once (Q-07: a question shown is never asked again under any name).
-        An unanswered hypothesis stays a hypothesis and is never used."""
-        from .fact_graph import now
+        """One candidate question per open hypothesis that could change a
+        ground, never one already asked (Q-07). Candidates only: the Question
+        Authority decides whether it is shown, and `mark_asked` records it
+        when it is. An unanswered hypothesis stays a hypothesis, never used."""
         out, seen = [], set()
         for h in cls.open(case):
             fact = h["fact_name"]
@@ -187,12 +187,18 @@ class Hypotheses:
             q.update(target_fact=fact, reason=h["reason"], possible_impact=h["possible_impact"],
                      hypothesis_id=h["hypothesis_id"])
             out.append(q)
-            if h["asked_at"] is None:
-                h["asked_at"] = now()
-                case.audit.append({"event": "hypothesis_question_asked",
-                                   "hypothesis_id": h["hypothesis_id"], "fact": fact,
-                                   "text": q["text"]})
         return out
+
+    @staticmethod
+    def mark_asked(case: CaseFile, hypothesis_id: str, text: str) -> None:
+        """The hypothesis' question was shown to the customer."""
+        from .fact_graph import now
+        h = next((x for x in case.fact_hypotheses if x["hypothesis_id"] == hypothesis_id), None)
+        if h is None or h["asked_at"] is not None:
+            return
+        h["asked_at"] = now()
+        case.audit.append({"event": "hypothesis_question_asked",
+                           "hypothesis_id": hypothesis_id, "fact": h["fact_name"], "text": text})
 
     # ------------------------------------------------------------ trace
     @staticmethod

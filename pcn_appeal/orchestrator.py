@@ -18,10 +18,13 @@ from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
+from .engines.question_authority import (CONFIRMATION, CONFLICT, HYPOTHESIS, POSTCODE,
+                                         QuestionAuthority)
 from .engines.questioning import QuestionEngine
 from .engines.reasoning import ReasoningEngine
 from .engines.recovery import FactRecoveryEngine, postcode_unlocks
 from .engines.validation import ValidationEngine
+from . import customer_safe
 from .fact_graph import FactManager
 from .hypotheses import Hypotheses
 from .kg.graph import KnowledgeGraph
@@ -111,6 +114,7 @@ class AppealPipeline:
         # questions are asked. Shares the reasoning engine's retriever so the
         # candidate set comes from the same approved KB index.
         self.analysis = AnalysisEngine(self.kg, llm, retriever=self.reasoning.retriever)
+        self.authority = QuestionAuthority(self.kg)
         # LLM drafting is primary so letters weave allegation, evidence and
         # unresolved facts. TemplateDrafter remains the outage / last-attempt
         # fallback and still builds case-specific REC paragraphs from the pack.
@@ -156,28 +160,38 @@ class AppealPipeline:
         if getattr(analysis, "claim_plan", None):
             case.audit.append({"event": "analysis_claim_plan",
                                "claim_plan": analysis.claim_plan})
-        # P1: a document value the customer contradicted is asked about before
-        # anything else; the case does not proceed silently past it.
-        confirm = [q for q in FactManager.confirmation_questions(case)
-                   if q["fact"] not in {x.get("fact") for x in analysis.questions}]
-        # P2: what the account might mean, asked once when it could change a
-        # ground. The hypothesis' own wording replaces any analysis question
-        # for the same fact; unanswered, it stays a hypothesis and is unused.
-        hypothesis = Hypotheses.questions(case, self._could_change_a_ground)
-        asked_by_hypothesis = {q["fact"] for q in hypothesis}
-        questions = self._pcn_conflict_question(case) + confirm + hypothesis + [
-            q for q in analysis.questions if q.get("fact") not in asked_by_hypothesis]
-        questions += self._site_postcode_question(case, analysis.module_ids, questions)
-        analysis.questions = questions
+        # Every source proposes candidates; the Question Authority decides.
+        #   P1: a document value the customer contradicted (case integrity).
+        #   P2: what the account might mean, its own wording replacing any
+        #       analysis question for the same fact.
+        #   Analysis: the model's questions and the KB gates of grounds it chose.
+        conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)]
+        confirm = [dict(q, source=CONFIRMATION) for q in FactManager.confirmation_questions(case)]
+        hypothesis = [dict(q, source=HYPOTHESIS)
+                      for q in Hypotheses.questions(case, self._could_change_a_ground)]
+        candidates = conflict + confirm + hypothesis + list(analysis.questions)
+        candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
+        review = self.authority.review(
+            case, candidates, selected=analysis.module_ids,
+            prior_rejections=getattr(analysis, "question_rejections", []))
+        # One question at a time. The others wait: the answer to this one may
+        # make them pointless, and the next round re-decides from scratch.
+        # The full question object (question_id, related_module, material
+        # reason, impacts) stays in the authority's trace; what is pending, and
+        # returned, is only what the customer answers.
+        analysis.questions = customer_safe.customer_questions(review.shown)
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
         # next round. Mark as asked when presented; record_answer is idempotent.
-        for q in analysis.questions:
+        for q in review.shown:
             fact = q.get("fact")
             if fact and fact not in case.asked_questions:
                 case.asked_questions.append(fact)
+            if q.get("hypothesis_id"):
+                Hypotheses.mark_asked(case, q["hypothesis_id"], q["text"])
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
-                           "asking": [q["fact"] for q in analysis.questions]})
+                           "asking": [q["fact"] for q in analysis.questions],
+                           "approved_waiting": [q["fact"] for q in review.approved[1:]]})
         return analysis.questions
 
     def _could_change_a_ground(self, fact: str) -> bool:
@@ -200,8 +214,10 @@ class AppealPipeline:
         if not unlocks or not q:
             return []
         case.audit.append({"event": "site_postcode_material", "unlocks": unlocks})
-        # Why it is asked (`unlocks`) is in the audit entry above, never on the question.
-        return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"]}]
+        # `source` and `unlocks` are for the Question Authority; the customer
+        # gets only fact/text/type (customer_safe.customer_question).
+        return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
+                 "source": POSTCODE, "unlocks": unlocks}]
 
     @staticmethod
     def _pcn_conflict_question(case: CaseFile) -> list[dict]:
@@ -394,7 +410,10 @@ class AppealPipeline:
         pending = FactManager.needs_confirmation(case)
         if pending:
             case.state = CaseState.MANUAL_REVIEW
-            case.pending_questions = FactManager.confirmation_questions(case)
+            # Through the Question Authority like every other question, one at a time.
+            case.pending_questions = customer_safe.customer_questions(self.authority.review(
+                case, [dict(q, source=CONFIRMATION)
+                       for q in FactManager.confirmation_questions(case)]).shown)
             case.audit.append({"event": "held_needs_fact_confirmation",
                                "facts": [c["fact"] for c in pending]})
             empty = RetrievalPack(

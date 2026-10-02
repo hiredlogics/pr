@@ -339,8 +339,15 @@ prompts:
   #     memory (Source Register: the AI must analyse the actual wording).
   #   - Consideration vs grace: never select both for the same period
   #     (KB-CON-01 DO NOT; Appendix B).
+  # v6 -> v7 (P3 Question Authority):
+  #   - Removed the thin-pack exception ("you MUST ask 1-3 plain situation
+  #     questions ... Do not end the case with zero questions"). A thin pack is
+  #     not a reason to ask. Zero questions is a valid outcome.
+  #   - Each question names the candidate it would decide (`related_module`).
+  #     Internal; the Question Authority checks it (engines/question_authority.py)
+  #     and rejects a question no candidate depends on.
   case_analysis:
-    version: 6
+    version: 7
     body: |-
       You analyse a UK private parking charge against an approved legal knowledge base.
 
@@ -397,16 +404,14 @@ prompts:
          if the customer answered, a ground would become arguable that is not arguable
          now, or one you have selected would be confirmed or ruled out. If nothing
          meets that test, ask nothing. Asking is a cost to the customer; silence is
-         the default.
-         EXCEPTION — thin packs: if the only supportable candidates are weak / support-only
-         (for example landowner authority alone) and no strength≥50 ground is available yet,
-         you MUST ask 1–3 plain situation questions the customer can answer (payment made,
-         permit held, genuine customer visit, signage problem, breakdown, time looking for
-         a space). Do not end the case with zero questions and only landowner authority.
+         the default. Zero questions is a valid outcome, including when the only
+         supportable ground is weak: never ask because a pack is thin, a field is
+         empty or a candidate exists. A question whose yes and no would lead to the
+         same result must not be asked.
          Before asking, assume recovery has already re-examined the documents and run
          the UK rule calculators. Only ask when recovery.unknown_material still lists
          a gap the customer (not the operator) can resolve AND the answer would change
-         an available ground — or when the thin-pack exception above applies.
+         an available ground.
          Do not ask for operator_ata or site_postcode when the
          grounds you have selected do not need a Code version or jurisdiction.
          Never re-ask a topic in already_asked or unresolved_topics with different wording.
@@ -437,12 +442,14 @@ prompts:
         ],
         "questions": [
           {"fact": "...", "text": "...", "type": "bool|int|choice|text", "options": ["..."],
+           "related_module": "the candidate module_id the answer would decide",
            "material_because": "one internal line, never shown to the customer"}
         ],
         "not_supported": [{"module_id": "...", "why": "one internal line"}]
       }
 
-      At most 3 questions. Prefer none. `options` only for type "choice".
+      At most 3 questions. Prefer none; zero questions is a valid outcome. Every question
+      must name a related_module from candidates. `options` only for type "choice".
 
   # Engine 4's semantic check. Deliberately a separate prompt from `drafting`, and
   # routed to a different model (see llm.py DISTINCT_FROM), so the checker does not
