@@ -21,7 +21,7 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
     "extraction": 8,
-    "case_analysis": 7,
+    "case_analysis": 8,
     "drafting": 10,
     "validation": 2,
 }

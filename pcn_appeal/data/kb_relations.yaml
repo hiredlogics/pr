@@ -1,0 +1,128 @@
+# Curated knowledge relationships (P4).
+#
+# Most relationships are DERIVED, not written here: kg/relations.py reads every
+# module's own `use_when`, `do_not_use_when`, `required_facts` and the
+# `conflicts_with` list in kb_modules.yaml and turns them into SUPPORTS /
+# BLOCKS / REQUIRES / EVIDENCE_SUPPORTS / CONFLICTS_WITH edges. Those always
+# agree with the gates the reasoning engine enforces (R-03), because they are
+# computed from the same predicates.
+#
+# This file holds only what the gates cannot express:
+#   signals        case-level classifications computed from verified facts with
+#                  the KB's own predicate language (rules/dsl.py). First match
+#                  wins; `default` when nothing matches. They are never written
+#                  to the Fact Graph and never reach the drafter.
+#   edges          SIGNAL -> MODULE relationships. BLOCKS removes a module from
+#                  the case outright (it is never offered to case analysis and a
+#                  proposal of it is suppressed); SUPPORTS marks a module as
+#                  relevant to the case (offered first) but never selects it -
+#                  selection still needs the module's own gate.
+#   depends_on     FACT -> FACT: which facts a derived fact is computed from, so
+#                  a trace can say "account_contradicts_allegation=true because
+#                  child_occupant_present=true".
+#
+# Generic only: allegation and evidence SHAPES, no operator, site or PCN rules.
+# Edit through review like kb_modules.yaml; bump `version`.
+version: "1.0"
+
+signals:
+  evidence_method:
+    description: How the notice says the event was recorded.
+    values:
+      - value: ANPR
+        when: {all: [{exists: entry_time}, {exists: exit_time}]}
+      - value: ATTENDANT_PHOTO
+        when: {any: [{exists: observation_time}, {eq: [notice_route, WINDSCREEN]}]}
+    default: UNKNOWN
+
+  allegation_class:
+    description: What kind of term the notice says was broken.
+    values:
+      - value: PROHIBITION
+        when: {any: [
+          {contains: [alleged_breach, "no parking"]}, {contains: [alleged_breach, "no-parking"]},
+          {contains: [alleged_breach, "no stopping"]}, {contains: [alleged_breach, "no waiting"]},
+          {contains: [alleged_breach, "prohibited"]}, {contains: [alleged_breach, "yellow line"]},
+          {contains: [alleged_breach, "hatched"]}, {contains: [alleged_breach, "keep clear"]},
+          {contains: [alleged_breach, "fire lane"]}, {contains: [alleged_breach, "emergency access"]},
+          {contains: [alleged_breach, "footway"]}, {contains: [alleged_breach, "pavement"]},
+          {contains: [alleged_breach, "obstruct"]}, {contains: [alleged_breach, "not a parking"]},
+          {contains: [alleged_breach, "not a designated"]}]}
+      - value: RESTRICTED_BAY
+        when: {any: [
+          {is: restricted_bay_alleged},
+          {contains: [alleged_breach, "parent and child"]}, {contains: [alleged_breach, "parent & child"]},
+          {contains: [alleged_breach, "disabled bay"]}, {contains: [alleged_breach, "blue badge"]},
+          {contains: [alleged_breach, "ev bay"]}, {contains: [alleged_breach, "electric vehicle"]},
+          {contains: [alleged_breach, "reserved"]}, {contains: [alleged_breach, "loading bay"]}]}
+      - value: OVERSTAY
+        when: {any: [
+          {contains: [alleged_breach, "overstay"]}, {contains: [alleged_breach, "exceed"]},
+          {contains: [alleged_breach, "maximum stay"]}, {contains: [alleged_breach, "max stay"]},
+          {contains: [alleged_breach, "longer than"]}, {contains: [alleged_breach, "time limit"]}]}
+      - value: PERMIT
+        when: {any: [{contains: [alleged_breach, "permit"]}, {contains: [alleged_breach, "authoris"]}]}
+      - value: PAYMENT
+        when: {any: [
+          {contains: [alleged_breach, "pay"]}, {contains: [alleged_breach, "ticket"]},
+          {contains: [alleged_breach, "tariff"]}, {contains: [alleged_breach, "validat"]}]}
+    default: UNCLASSIFIED
+
+edges:
+  # ---- evidence type: an attendant / photo observation is not an ANPR record.
+  # Multiple-visit, capture-pairing, timestamp and presence-vs-parking arguments
+  # are all about ANPR camera records, which this notice does not rely on.
+  - source: [SIGNAL, evidence_method=ATTENDANT_PHOTO]
+    relationship: BLOCKS
+    targets: [KB-ANPR-01, KB-ANPR-02, KB-ANPR-03, KB-TIME-01]
+    reason: wrong evidence type (the notice relies on an attendant or photo observation, not ANPR)
+
+  # ---- allegation type: no payment, tariff keying or end-of-period grace can
+  # permit parking where parking is prohibited.
+  - source: [SIGNAL, allegation_class=PROHIBITION]
+    relationship: BLOCKS
+    targets: [KB-PAY-01, KB-PAY-02, KB-PAY-03, KB-KEY-01, KB-KEY-02, KB-GRACE-01, KB-GRACE-02]
+    reason: payment allegation absent (a prohibition cannot be answered by payment or grace)
+
+  # ---- relevance: the allegation makes these modules worth considering first.
+  - source: [SIGNAL, allegation_class=RESTRICTED_BAY]
+    relationship: SUPPORTS
+    targets: [KB-BAY-01, KB-BAY-02, KB-EQ-01, KB-EQ-03, KB-EVCH-01, KB-ACT-01]
+    weight: 0.5
+    reason: the allegation is about the conditions of a restricted bay
+  - source: [SIGNAL, allegation_class=OVERSTAY]
+    relationship: SUPPORTS
+    targets: [KB-GRACE-01, KB-GRACE-02, KB-CON-01, KB-ANPR-01, KB-TIME-01, KB-PAY-01, KB-KEY-01]
+    weight: 0.5
+    reason: the allegation is about the length of stay
+  - source: [SIGNAL, allegation_class=PAYMENT]
+    relationship: SUPPORTS
+    targets: [KB-PAY-01, KB-PAY-02, KB-PAY-03, KB-KEY-01, KB-KEY-02, KB-CON-01, KB-CON-02, KB-REC-01]
+    weight: 0.5
+    reason: the allegation is about payment
+  - source: [SIGNAL, allegation_class=PERMIT]
+    relationship: SUPPORTS
+    targets: [KB-AUTH-01, KB-AUTH-02, KB-AUTH-03, KB-RES-06, KB-REC-01]
+    weight: 0.5
+    reason: the allegation is about a permit or authorisation
+  - source: [SIGNAL, evidence_method=ANPR]
+    relationship: SUPPORTS
+    targets: [KB-ANPR-01, KB-ANPR-02, KB-ANPR-03, KB-TIME-01]
+    weight: 0.5
+    reason: the notice relies on ANPR entry and exit captures
+
+depends_on:
+  # engines/account.py: the account contradicts a restricted-bay allegation
+  # when the customer states an eligibility condition of the bay.
+  account_contradicts_allegation: [child_occupant_present, blue_badge_displayed, permit_held,
+                                   bay_conditions_met_accounted, disability_extra_time,
+                                   ev_charging_session, loading_activity, alleged_breach]
+  material_account_proposition: [account_contradicts_allegation]
+  # engines/extraction.py calculators
+  observation_window_min: [observation_time, event_time]
+  total_recorded_duration_min: [entry_time, exit_time]
+  restricted_bay_alleged: [alleged_breach]
+  # PoFA / jurisdiction calculators
+  jurisdiction: [site_postcode]
+  pofa_route: [notice_route]
+  pofa_finding: [parking_event_date, notice_issue_date, ntd_date, notice_route, jurisdiction]

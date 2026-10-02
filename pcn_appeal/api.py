@@ -882,6 +882,15 @@ def _public(rows: list[dict]) -> list[dict]:
     return [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
 
 
+def _knowledge_trace(rec: dict) -> dict:
+    """The knowledge match on the case's current facts (read-only; the
+    match recorded at each analysis is in the audit as `knowledge_match`)."""
+    from .engines.knowledge_matcher import KnowledgeMatcher
+    pipe = rec.get("pipe")
+    kg = getattr(pipe, "kg", None) or KG
+    return KnowledgeMatcher(kg).match(rec["case"]).trace()
+
+
 @app.get("/cases/{case_id}/facts")
 def case_facts(case_id: str, authorization: Optional[str] = Header(None),
                x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
@@ -905,7 +914,9 @@ def case_facts(case_id: str, authorization: Optional[str] = Header(None),
             "fact_hypotheses": _public(case.fact_hypotheses),
             "hypothesis_trace": Hypotheses.trace(case),
             # P3: every question decision, approved or rejected, and why.
-            "question_trace": question_authority.trace(case)}
+            "question_trace": question_authority.trace(case),
+            # P4: facts -> relationships -> knowledge, and every rejection.
+            "knowledge": _knowledge_trace(rec)}
 
 
 class FactWriteIn(BaseModel):
@@ -1154,8 +1165,124 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             # P2: narrative -> hypothesis -> question -> answer -> final fact.
             "hypotheses": Hypotheses.trace(rec["case"]),
             # P3: candidate -> module -> target fact -> approved/rejected -> reason.
-            "question_trace": question_authority.trace(rec["case"])}
+            "question_trace": question_authority.trace(rec["case"]),
+            # P4: facts -> relationships -> knowledge, and every rejection.
+            "knowledge": _knowledge_trace(rec)}
 
+
+
+# ---------------------------------------------------------------- knowledge (P4)
+# Staged knowledge management: every change needs a user and a reason and is
+# logged with its version (store/knowledge.py). Nothing here reaches live
+# reasoning until a KB release is published, which stays gated below.
+class KnowledgeChangeIn(BaseModel):
+    changed_by: str
+    reason: str
+
+
+class ModuleCreateIn(KnowledgeChangeIn):
+    module: dict
+    category: str = "FACTUAL_GROUND"
+
+
+class ModuleUpdateIn(KnowledgeChangeIn):
+    changes: dict
+
+
+class EdgeCreateIn(KnowledgeChangeIn):
+    source_type: str
+    source_id: str
+    relationship_type: str
+    target_type: str
+    target_id: str
+    weight: float = 1.0
+    edge_reason: str = ""
+
+
+def _knowledge_store():
+    if not db.enabled():
+        raise HTTPException(503, "knowledge management needs the database (DATABASE_URL)")
+    from .store import knowledge
+    return knowledge
+
+
+def _knowledge_call(fn, *args, **kwargs):
+    from .store.knowledge import KnowledgeChangeError
+    try:
+        return fn(*args, **kwargs)
+    except KnowledgeChangeError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/admin/knowledge/nodes")
+def knowledge_nodes(status: Optional[str] = None, authorization: Optional[str] = Header(None),
+                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    return {"nodes": _knowledge_store().list_nodes(status)}
+
+
+@app.get("/admin/knowledge/edges")
+def knowledge_edges(module_id: Optional[str] = None, include_removed: bool = False,
+                    authorization: Optional[str] = Header(None),
+                    x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    return {"edges": _knowledge_store().list_edges(module_id, include_removed=include_removed)}
+
+
+@app.get("/admin/knowledge/changes")
+def knowledge_changes(entity_id: Optional[str] = None, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    return {"changes": _knowledge_store().list_changes(entity_id)}
+
+
+@app.post("/admin/knowledge/modules")
+def knowledge_create_module(body: ModuleCreateIn, authorization: Optional[str] = Header(None),
+                            x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    k = _knowledge_store()
+    return _knowledge_call(k.create_module, body.module, changed_by=body.changed_by,
+                           reason=body.reason, category=body.category)
+
+
+@app.patch("/admin/knowledge/modules/{module_id}")
+def knowledge_update_module(module_id: str, body: ModuleUpdateIn,
+                            authorization: Optional[str] = Header(None),
+                            x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    k = _knowledge_store()
+    return _knowledge_call(k.update_module, module_id, body.changes, changed_by=body.changed_by,
+                           reason=body.reason)
+
+
+@app.post("/admin/knowledge/modules/{module_id}/disable")
+def knowledge_disable_module(module_id: str, body: KnowledgeChangeIn,
+                             authorization: Optional[str] = Header(None),
+                             x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    k = _knowledge_store()
+    return _knowledge_call(k.disable_module, module_id, changed_by=body.changed_by,
+                           reason=body.reason)
+
+
+@app.post("/admin/knowledge/edges")
+def knowledge_create_edge(body: EdgeCreateIn, authorization: Optional[str] = Header(None),
+                          x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    k = _knowledge_store()
+    return _knowledge_call(k.create_edge, body.source_type, body.source_id,
+                           body.relationship_type, body.target_type, body.target_id,
+                           changed_by=body.changed_by, reason=body.reason, weight=body.weight,
+                           edge_reason=body.edge_reason)
+
+
+@app.post("/admin/knowledge/edges/{edge_id}/remove")
+def knowledge_remove_edge(edge_id: str, body: KnowledgeChangeIn,
+                          authorization: Optional[str] = Header(None),
+                          x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    k = _knowledge_store()
+    return _knowledge_call(k.remove_edge, edge_id, changed_by=body.changed_by, reason=body.reason)
 
 
 # Admin (role: legal_admin) - edit without redeploys (Dev Pack Phase 10).

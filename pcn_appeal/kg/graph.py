@@ -160,6 +160,16 @@ class KnowledgeGraph:
                 and (m.effective_from is None or m.effective_from <= day)
                 and (m.effective_to is None or day <= m.effective_to))
 
+    @property
+    def relations(self):
+        """The knowledge relation graph (kg/relations.py): nodes, and the typed
+        edges between facts, evidence, signals and modules. Built once, from
+        the same modules this graph holds plus data/kb_relations.yaml."""
+        if getattr(self, "_relations", None) is None:
+            from .relations import build
+            self._relations = build(self)
+        return self._relations
+
     def route_tier(self, route: str) -> int:
         return self.routes.get(route, {}).get("tier", 9)
 

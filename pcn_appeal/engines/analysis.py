@@ -41,6 +41,7 @@ from ..models import CaseFile, KBModule
 from ..rules.dsl import evaluate
 from ..routes import GENERAL_GROUND_ROUTES, Route
 from .claim_plan import build_claim_plan
+from .knowledge_matcher import OFFERABLE, RELEVANT, SUPPORTED, KnowledgeMatcher
 
 # A question is a cost to the customer, so the ceiling is low and silence is the
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
@@ -157,6 +158,9 @@ class CaseAnalysis:
     # admin trace (engines/question_authority.py): every generated question
     # is accounted for, not only the ones that reached the authority.
     question_rejections: list[dict] = field(default_factory=list)
+    # P4: the knowledge match this analysis was offered from (engines/
+    # knowledge_matcher.py) - why each module was offered, blocked or not.
+    knowledge: Any = None
 
     @property
     def needs_answers(self) -> bool:
@@ -179,7 +183,8 @@ class AnalysisEngine:
         """The case_analysis call, retried once. Records `case_analysis_completed`
         or `case_analysis_error` so the outcome can tell "analysis found nothing"
         from "analysis never ran"."""
-        payload = self._payload(case, circumstances, facts, candidates, pofa, code_version)
+        payload = self._payload(case, circumstances, facts, candidates, pofa, code_version,
+                                match=result.knowledge)
         last: Optional[Exception] = None
         for attempt in (1, 2):
             try:
@@ -200,8 +205,12 @@ class AnalysisEngine:
     def analyse(self, case: CaseFile, circumstances: str = "",
                 pofa: Any = None, code_version: Optional[str] = None) -> CaseAnalysis:
         facts = case.fact_view()
-        candidates = self._candidates(case, circumstances, facts)
         result = CaseAnalysis()
+        # P4: verified facts + evidence -> knowledge candidates through explicit
+        # relationships. Blocked and impossible modules are never offered.
+        result.knowledge = KnowledgeMatcher(self.kg).match(case, facts)
+        case.audit.append({"event": "knowledge_match", **result.knowledge.trace()})
+        candidates = self._candidates(case, circumstances, facts, result.knowledge)
         result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
 
@@ -232,7 +241,8 @@ class AnalysisEngine:
         if omitted:
             try:
                 hint = json.loads(self._payload(
-                    case, circumstances, facts, candidates, pofa, code_version))
+                    case, circumstances, facts, candidates, pofa, code_version,
+                    match=result.knowledge))
                 hint["reassessment"] = {
                     "omitted_gate_satisfied": omitted,
                     "instruction": (
@@ -282,7 +292,7 @@ class AnalysisEngine:
 
     # ------------------------------------------------------- candidate set
     def _candidates(self, case: CaseFile, circumstances: str,
-                    facts: dict[str, Any]) -> list[KBModule]:
+                    facts: dict[str, Any], match=None) -> list[KBModule]:
         """Approved grounds worth showing the model, by semantic relevance.
 
         Not filtered by route: that filtering was the V1 branch selector. The
@@ -292,9 +302,17 @@ class AnalysisEngine:
         active = [m for m in self.kg.active_modules()]
         jurisdiction = facts.get("jurisdiction")
         filtered = [m for m in active if self._jurisdiction_ok(m, jurisdiction)]
+        if match is not None:
+            # P4: only modules the relation engine says could still apply. A
+            # BLOCKED module (wrong evidence type, an allegation it cannot
+            # answer, a blocked condition) or a REJECTED one (its gate cannot
+            # hold on what is known) is never shown to the model.
+            filtered = [m for m in filtered
+                        if match.candidates.get(m.module_id) is not None
+                        and match.candidates[m.module_id].status in OFFERABLE]
 
         if self.retriever is None:
-            return filtered[:CANDIDATE_LIMIT]
+            return self._by_relation(filtered, match)[:CANDIDATE_LIMIT]
 
         query = " ".join(str(x) for x in (
             case.get("alleged_breach", ""), circumstances,
@@ -315,7 +333,19 @@ class AnalysisEngine:
         # to Case Intelligence even if semantic rank pushed them out of top-N.
         # This does not finalize them as grounds.
         ranked = self._ensure_gate_satisfied_visible(ranked, filtered, facts)
-        return ranked[:CANDIDATE_LIMIT]
+        return self._by_relation(ranked, match)[:CANDIDATE_LIMIT]
+
+    @staticmethod
+    def _by_relation(ranked: list[KBModule], match) -> list[KBModule]:
+        """Relationship first, similarity second: SUPPORTED, then RELEVANT (the
+        case's facts, evidence or allegation point at it), then the existing
+        order for the rest - so the cap never cuts a supported module."""
+        if match is None:
+            return ranked
+        tier = {SUPPORTED: 0, RELEVANT: 1}
+        pos = {m.module_id: i for i, m in enumerate(ranked)}
+        return sorted(ranked, key=lambda m: (
+            tier.get(match.candidates[m.module_id].status, 2), pos[m.module_id]))
 
     @staticmethod
     def _jurisdiction_ok(module: KBModule, jurisdiction: Optional[str]) -> bool:
@@ -370,7 +400,8 @@ class AnalysisEngine:
 
     # --------------------------------------------------------------- payload
     def _payload(self, case: CaseFile, circumstances: str, facts: dict[str, Any],
-                 candidates: list[KBModule], pofa: Any, code_version: Optional[str]) -> str:
+                 candidates: list[KBModule], pofa: Any, code_version: Optional[str],
+                 match=None) -> str:
         closed_facts = sorted({
             *(self.kg.questions or {}).keys(),
             *(f for m in candidates for f in (m.required_facts or [])),
@@ -397,7 +428,12 @@ class AnalysisEngine:
                 "proposition": m.core_proposition,
                 "depends_on": sorted(set(list(m.required_facts or []))),
                 "prohibited_claims": m.prohibited_claims or [],
+                # P4: why the relation engine offered it (status, the conditions
+                # that hold, the facts still missing). Never the whole KB.
+                **({"relation": match.candidates[m.module_id].for_analysis()}
+                   if match is not None and m.module_id in match.candidates else {}),
             } for m in candidates],
+            "case_signals": {k: v["value"] for k, v in (match.signals if match else {}).items()},
             "pofa": {"route": getattr(pofa, "route", None),
                      "findings": list(getattr(pofa, "findings", []) or [])},
             "code_version": code_version,
@@ -470,6 +506,14 @@ class AnalysisEngine:
         """
         findings = list(getattr(pofa, "findings", []) or [])
         proposed_ids = [(e or {}).get("module_id") for e in (proposed or [])]
+        # P4: a module the relation engine BLOCKS for this case is not proposed
+        # to the claim plan at all (the plan's own vetoes are unchanged).
+        match = result.knowledge
+        if match is not None:
+            for mid in [m for m in proposed_ids if m and match.is_blocked(m)]:
+                proposed_ids.remove(mid)
+                self._suppress(result, mid,
+                               f"blocked by relation: {match.candidates[mid].reason}")
         plan = build_claim_plan(
             case, self.kg, proposed_ids, list(result.candidate_ids or []), facts,
             findings=findings, code_version=code_version,

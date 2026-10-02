@@ -346,8 +346,14 @@ prompts:
   #   - Each question names the candidate it would decide (`related_module`).
   #     Internal; the Question Authority checks it (engines/question_authority.py)
   #     and rejects a question no candidate depends on.
+  # v7 -> v8 (P4 knowledge relationships):
+  #   - `candidates` are now chosen by the relation engine (engines/
+  #     knowledge_matcher.py), never the whole KB: modules the case's facts,
+  #     evidence and allegation connect to, then semantic matches. Blocked and
+  #     impossible modules are not offered. Each carries `relation`.
+  #   - `case_signals` (evidence_method, allegation_class) are given.
   case_analysis:
-    version: 7
+    version: 8
     body: |-
       You analyse a UK private parking charge against an approved legal knowledge base.
 
@@ -360,9 +366,18 @@ prompts:
         unresolved_topics    - topics the customer could not clarify (e.g. cannot remember); do not re-ask
         preferred_fact_names - prefer these snake_case names when you must ask
         candidates           - approved KB grounds, each with an id, topic, proposition and
-                               the facts it depends on. These are the ONLY grounds available.
+                               the facts it depends on, chosen for THIS case by explicit
+                               relationships between its facts, evidence and allegation.
+                               Each has `relation`: status SUPPORTED (its conditions hold on
+                               the verified facts), RELEVANT (the case points at it but a
+                               condition is still missing) or OPEN (could apply; nothing
+                               points at it yet), the conditions that hold (`supported_by`)
+                               and the facts still `missing`. A ground that is not SUPPORTED
+                               is not arguable yet. These are the ONLY grounds available.
                                Never return a module_id that is not in candidates, even one
                                named elsewhere in these instructions.
+        case_signals         - how the notice recorded the event (evidence_method) and what
+                               kind of term it alleges was broken (allegation_class)
         pofa                 - the result of a deterministic statutory calculation
         code_version         - the resolved Code of Practice version, or null
         recovery             - automatic fact-recovery digest already run against the documents,

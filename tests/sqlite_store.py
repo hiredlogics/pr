@@ -61,6 +61,12 @@ CREATE TABLE fact_hypotheses (hypothesis_id PRIMARY KEY, case_id, fact_name, pos
 CREATE TABLE fact_history (id INTEGER PRIMARY KEY, case_id, run_id, fact, fact_id, previous,
   new, previous_status, status, source_kind, source_ref, source_type, changed_by, reason,
   outcome, at, recorded_at);
+CREATE TABLE knowledge_nodes (knowledge_id PRIMARY KEY, module_id UNIQUE, name, category, version,
+  status, effective_from, effective_to, metadata, updated_by, updated_at);
+CREATE TABLE knowledge_edges (edge_id PRIMARY KEY, source_type, source_id, relationship_type,
+  target_type, target_id, weight, metadata, origin, status, version, updated_by, updated_at);
+CREATE TABLE knowledge_changes (change_id PRIMARY KEY, entity_type, entity_id, action, version,
+  changed_by, changed_at, reason, before, after);
 """ + "".join(
     f"CREATE TRIGGER {t}_order AFTER INSERT ON {t} BEGIN UPDATE {t} SET created_at = "
     f"(SELECT COALESCE(MAX(created_at), 0) + 1 FROM {t}) WHERE rowid = NEW.rowid; END;\n"
@@ -127,6 +133,7 @@ def install(test) -> sqlite3.Connection:
     fresh SQLite database for the duration of one test."""
     db, connect = make_store()
     for patcher in (mock.patch("pcn_appeal.store.cases.connect", connect),
+                    mock.patch("pcn_appeal.store.knowledge.connect", connect),
                     mock.patch("pcn_appeal.store.db.enabled", return_value=True)):
         patcher.start()
         test.addCleanup(patcher.stop)

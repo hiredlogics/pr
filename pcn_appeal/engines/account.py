@@ -342,6 +342,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
 
     _record_described_event(case, texts)
     extractions += _confirmed_hypotheses(case, breach)
+    extractions += _answered_circumstances(case, {e.fact_name for e in extractions})
 
     if not extractions:
         case.free_text_provenance = []
@@ -441,6 +442,30 @@ def _confirmed_hypotheses(case: CaseFile, breach: str) -> list[FreeTextExtractio
                                       normalized_value=h["possible_value"],
                                       drafting_proposition=kind.proposition,
                                       relevant_to_allegation=True))
+    return out
+
+
+def _answered_circumstances(case: CaseFile, seen: set[str]) -> list[FreeTextExtraction]:
+    """A circumstance the customer stated by ANSWERING a question (P4).
+
+    Same effect as the account saying it and the customer confirming it: an
+    answered "were children in the vehicle? yes" is a customer statement of the
+    bay's condition, and counts towards account_contradicts_allegation exactly
+    as a confirmed hypothesis does. Only a true closed-form answer to a fact a
+    circumstance rule knows counts; the answer fact itself is unchanged
+    (source ANSWER, owner customer).
+    """
+    out, breach = [], str(case.get("alleged_breach") or "").lower()
+    for rule in _RULES:
+        if rule.fact_name in seen or rule.value is not True:
+            continue
+        f = case.facts.get(rule.fact_name)
+        if f is None or not f.usable or f.source.kind != SourceKind.ANSWER or f.value is not True:
+            continue
+        seen = seen | {rule.fact_name}
+        out.append(FreeTextExtraction(original=f"answer: {rule.fact_name}", fact_name=rule.fact_name,
+                                      normalized_value=True, drafting_proposition=rule.proposition,
+                                      relevant_to_allegation=_relevant_to_allegation(rule, breach)))
     return out
 
 
