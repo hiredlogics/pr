@@ -6,6 +6,14 @@ KB-BAY-01 → PP-BAY-002, and KB-BAY-01 requires observation_window_min <= 5.
 These tests assert the account remains available for Case Intelligence and
 drafting regardless of observation window, without auto-seeding grounds by
 strength or auto-deleting LAND merely because another ground exists.
+
+Client amendment (2026-10-02, KB-BAY-02 v1.1): a material fact restated to the
+operator in the keeper's name must have been expressly stated or confirmed by
+the customer, not inferred from their prose. The narrative alone therefore no
+longer sets `account_contradicts_allegation`, so these cases confirm the
+occupancy fact the way the UI does - the customer answers the question their
+account prompted. What the suite is actually about, that the account survives
+every observation-window variant, is unchanged.
 """
 from __future__ import annotations
 
@@ -37,6 +45,22 @@ BASE = dict(
 )
 
 KIDS = "Left kids in the car. Child remained in the vehicle during the visit."
+
+# The customer's own answer to the question the account prompts. KB-BAY-02 may
+# only restate a fact they put forward themselves, so the suite supplies it as
+# an answer rather than relying on the system's reading of KIDS.
+STATED_OCCUPANCY = {"child_occupant_present": True}
+
+
+def _state_occupancy(case, answers=STATED_OCCUPANCY):
+    """Record the occupancy fact as a customer answer (source ANSWER), which is
+    what the UI produces when the customer confirms it."""
+    from pcn_appeal.models import Fact, FactSource, SourceKind
+    for name, value in answers.items():
+        case.put(Fact(f"F-{name}", name, value, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, f"q:{name}")))
+    assess_material_account(case)
+    return case
 
 
 def _pipe(extra=None, ask=None, case_analysis=None, llm=None):
@@ -97,6 +121,12 @@ def bay_case(extra=None, narrative=KIDS, ask=None, analysis_queue=None):
     pipe.ingest(case)
     pipe.confirm(case, {}, [n for n, f in case.facts.items()
                             if f.status == FactStatus.EXTRACTED], narrative)
+    # Where the account describes children in the vehicle, the customer
+    # confirms it (KB-BAY-02 v1.1: inferred prose may not supply the restated
+    # assertion). An empty, ambiguous or negated account confirms nothing -
+    # those variants are asserting that the system does not invent the fact.
+    if case.get("child_occupant_present") is True:
+        _state_occupancy(case)
     return case, pipe
 
 
@@ -140,18 +170,17 @@ class AccountIndependentOfWindow(unittest.TestCase):
         out = self._assert_account(case, pipe)
         timing = (out.pack.case_context or {}).get("timing_argument") or {}
         self.assertEqual(timing.get("observation_window_min"), 45)
-        # BAY timing gate fails at 45 — must not delete the account rebuttal.
-        self.assertFalse(timing.get("bay_timing_selected") and
-                         out.pack.verified_facts.get("observation_window_min", 0) > 5
-                         and "KB-BAY-01" in out.pack.module_ids and False)
-        if out.pack.verified_facts.get("observation_window_min", 0) > 5:
-            self.assertNotIn("KB-BAY-01", out.pack.module_ids)
-            # Account rebuttal is a separate claim from timing.
-            if out.state == CaseState.RELEASED or out.pack.module_ids:
-                self.assertTrue(
-                    "KB-BAY-02" in out.pack.module_ids
-                    or out.pack.case_context.get("factual_rebuttal", {}).get("propositions"),
-                    out.pack.module_ids)
+        # KB-BAY-01 v1.5 (client-directed): no duration threshold. A 45-minute
+        # record is no more capable of showing WHO was using an eligibility bay
+        # than a short one, so the put-to-proof request stands here too - the
+        # old rule dropped it at anything over five minutes. What this suite is
+        # about is that the account rebuttal survives regardless; it does.
+        self.assertIn("KB-BAY-01", out.pack.module_ids)
+        # Account rebuttal is a separate claim from the observation record.
+        self.assertTrue(
+            "KB-BAY-02" in out.pack.module_ids
+            or out.pack.case_context.get("factual_rebuttal", {}).get("propositions"),
+            out.pack.module_ids)
 
     def test_observation_times_missing_account_still_available(self):
         case, pipe = bay_case(extra={
@@ -197,8 +226,10 @@ class ClaimPlanOwnership(unittest.TestCase):
         from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
         case.put(Fact("F1", "restricted_bay_alleged", True, FactStatus.EXTRACTED,
                       FactSource(SourceKind.DOCUMENT, "E1")))
-        case.put(Fact("F2", "observation_window_min", 0, FactStatus.DERIVED,
-                      FactSource(SourceKind.CALCULATION, "window")))
+        # KB-BAY-01 v1.5: the gate is the eligibility element, not a window
+        # duration (EX-19 derives this from the allegation and the record).
+        case.put(Fact("F2", "bay_eligibility_unevidenced", True, FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "bay_eligibility_assessment")))
         plan = build_claim_plan(
             case, kg, proposed_ids=["KB-LAND-01"],
             candidate_ids=["KB-LAND-01", "KB-BAY-01"],
@@ -215,8 +246,10 @@ class ClaimPlanOwnership(unittest.TestCase):
         from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
         case.put(Fact("F1", "restricted_bay_alleged", True, FactStatus.EXTRACTED,
                       FactSource(SourceKind.DOCUMENT, "E1")))
-        case.put(Fact("F2", "observation_window_min", 0, FactStatus.DERIVED,
-                      FactSource(SourceKind.CALCULATION, "window")))
+        # KB-BAY-01 v1.5: the gate is the eligibility element, not a window
+        # duration (EX-19 derives this from the allegation and the record).
+        case.put(Fact("F2", "bay_eligibility_unevidenced", True, FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "bay_eligibility_assessment")))
         plan = build_claim_plan(
             case, kg, proposed_ids=["KB-BAY-01", "KB-LAND-01"],
             candidate_ids=["KB-BAY-01", "KB-LAND-01"],

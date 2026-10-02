@@ -157,6 +157,15 @@ RESTRICTED_BAY = re.compile(
     r"|\b(bay|space)\b[^.\n]{0,40}\breserved\b",
     re.I)
 
+# EX-20. Allegations whose wording involves a site validation / permit /
+# payment mechanism. This is a CANDIDATE signal only: it says the mechanism may
+# be in issue, never that it is. KB-REC-01's records request needs a case fact
+# establishing materiality as well (see `_validation_mechanism_material`).
+VALIDATION_SHAPED = re.compile(
+    r"\b(validat(e|ed|ion)|voucher|kiosk|ticket\s*machine|pay[\s-]*(and|&)?[\s-]*display|"
+    r"permit|season\s*ticket|tariff|scratch\s*card|pay[\s-]*by[\s-]*phone)\b",
+    re.I)
+
 SCOTLAND = {"AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "ZE"}
 MIXED_BORDER = {"TD", "CA", "NP", "SY", "CH", "LD", "LL"}   # needs full-postcode lookup
 INJECTION = re.compile(r"(ignore (all|previous|the above)|system prompt|you are (now )?an? (ai|assistant)|"
@@ -519,6 +528,46 @@ def _minutes(t1: Any, t2: Any, signed: bool = True) -> Optional[int]:
     return abs(m)
 
 
+def _validation_mechanism_material(case: CaseFile) -> tuple[bool, str]:
+    """EX-20. Whether a validation / permit / payment mechanism is actually in
+    issue in this case, and the case fact that establishes it.
+
+    KB-REC-01 asks the operator to go and review its validation, kiosk, permit
+    and transaction records. That request only belongs in an appeal when
+    something in the case puts the mechanism in issue. The allegation's wording
+    is not that something: "permit" or "pay and display" appears in enormous
+    numbers of notices as a description of the site, and a records request sent
+    on that basis is generic rather than material.
+
+    Each basis below is a fact established from the case itself - a document
+    read, a calculation, or an answer the customer gave - not a word in the
+    allegation. The first match wins and is recorded as the basis, so the
+    reason the request entered the appeal is always auditable.
+    """
+    # The customer engaged the mechanism and whether it worked is unresolved:
+    # the operator's own records are the only thing that can settle it.
+    if case.get("parking_validation_status") == "UNKNOWN":
+        return True, "parking_validation_status_unknown"
+    if case.get("shopping_purchase_confirmed") and not case.get("parking_validation_status"):
+        return True, "purchase_confirmed_validation_unresolved"
+    # A payment or permit the customer asserts, which the notice does not
+    # reflect: the discrepancy is in the operator's transaction records.
+    if case.get("payment_made") is True and not case.get("payment_recorded_in_document"):
+        return True, "payment_asserted_not_recorded"
+    if case.get("payment_attempt_failed") is True:
+        return True, "payment_attempt_failed"
+    if case.get("permit_held") is True:
+        return True, "permit_asserted"
+    if case.get("resident_connection_stated") is True and case.get("permit_held") is not False:
+        return True, "resident_permit_in_issue"
+    # Evidence the customer supplied that only the operator's records can
+    # reconcile with the allegation.
+    kinds = {e.kind for e in case.evidence.values() if e.uploaded}
+    if kinds & {"RECEIPT", "APP_SCREENSHOT", "PERMIT"}:
+        return True, "customer_supplied_transaction_evidence"
+    return False, ""
+
+
 def _keying_error(vrm: Optional[str], entered: Optional[str]) -> Optional[str]:
     """EX-09. MINOR when the keyed registration is one character out of the
     vehicle's; DIFFERENT_VEHICLE when it is a different plate altogether.
@@ -719,6 +768,69 @@ class ExtractionEngine:
         if RESTRICTED_BAY.search(str(case.get("alleged_breach") or "")):
             case.put(Fact("F-restricted_bay_alleged", "restricted_bay_alleged", True,
                           FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "breach_classify")))
+
+            # EX-19 whether the operator's recorded observation can establish
+            # THIS contravention, which is what decides if a put-to-proof
+            # request is warranted (KB-BAY-01).
+            #
+            # There is no threshold here, and deliberately so: no minute figure
+            # carries independent legal significance, and an earlier five-minute
+            # cut-off implied one that no approved source supports. What matters
+            # is the nature of the allegation against the nature of the record.
+            #
+            # An eligibility bay is enforced on WHO OR WHAT was using it - a
+            # parent with a child, a badge holder, a vehicle on charge, a permit
+            # holder. That is a status, and a status is not shown by noting when
+            # a vehicle was seen: a timestamp records presence, not entitlement.
+            # So where the allegation turns on eligibility and the operator's
+            # case rests on its own recorded observation, the operator is put to
+            # proof of the eligibility element with the photographs and records
+            # it relies on. A wide window does not cure this; a narrow one is
+            # not what creates it.
+            #
+            # The request is withheld when the operator has evidenced the
+            # eligibility element some other way, because then there is nothing
+            # to put to proof - that is the "context of the alleged
+            # contravention" the gate is assessed in.
+            has_observation = (case.get("observation_time") is not None
+                               or case.get("observation_window_min") is not None
+                               or case.get("event_time") is not None)
+            eligibility_evidenced = bool(
+                case.get("bay_eligibility_evidenced")
+                or case.get("bay_conditions_met_accounted"))
+            if has_observation and not eligibility_evidenced:
+                case.put(Fact(
+                    "F-bay_eligibility_unevidenced", "bay_eligibility_unevidenced", True,
+                    FactStatus.DERIVED,
+                    FactSource(SourceKind.CALCULATION, "bay_eligibility_assessment")))
+
+        # EX-20 whether a validation / permit / payment mechanism is genuinely
+        # material to THIS case, which is what KB-REC-01's records request
+        # needs. The allegation's wording alone is only a candidate signal: the
+        # word "permit" appearing in a notice does not make the operator's
+        # permit records material, and a module must activate because the case
+        # facts make it relevant, not because a keyword matched.
+        if VALIDATION_SHAPED.search(str(case.get("alleged_breach") or "")):
+            case.put(Fact(
+                "F-validation_mechanism_alleged", "validation_mechanism_alleged", True,
+                FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "breach_classify")))
+            material, why = _validation_mechanism_material(case)
+            if material:
+                case.put(Fact(
+                    "F-validation_mechanism_material", "validation_mechanism_material", True,
+                    FactStatus.DERIVED,
+                    FactSource(SourceKind.CALCULATION, f"validation_materiality:{why}")))
+                case.audit.append({
+                    "event": "validation_materiality",
+                    "material": True, "basis": why,
+                })
+            else:
+                case.audit.append({
+                    "event": "validation_materiality",
+                    "material": False,
+                    "basis": "allegation mentions a validation/permit mechanism but no case "
+                             "fact establishes that it is in issue; records request withheld",
+                })
 
         # EX-10 the notice's own record of a completed payment (see VAL-CONFLICT)
         if any(PAYMENT_RECORDED.search(e.text or "") for e in case.evidence.values()):

@@ -90,8 +90,30 @@ class SpecTests(unittest.TestCase):
         self.assertIn(("child_occupant_present", "answer:children_present"),
                       {(b["fact"], b["source"]) for b in basis})
 
-    def test_1b_the_same_from_the_customers_account(self):
+    def test_1b_the_account_alone_no_longer_supports_it(self):
+        # Was: the narrative supported KB-BAY-02 exactly as an answer did.
+        # KB-BAY-02 v1.1 (client-directed, 2026-10-02) ends that: the module
+        # restates the proposition to the operator in the keeper's name, so it
+        # may only rest on a fact the customer expressly stated or confirmed.
+        # The account is still read - the fact is extracted, and it still
+        # supports grounds that do not assert it on the keeper's behalf - but
+        # it no longer carries this one on its own. Test 1a covers the answer
+        # path, which is how this ground is now reached.
         case, pipe = pipeline_case(PARENT_CHILD, narrative="My kids were in the car with me.")
+        self.assertTrue(case.get("child_occupant_present"))
+        self.assertNotEqual(
+            KnowledgeMatcher(pipe.kg).match(case).candidates["KB-BAY-02"].status,
+            SUPPORTED)
+
+    def test_1b2_confirming_the_account_does_support_it(self):
+        # The same customer, having answered the question their account
+        # prompted: the ground is available again.
+        from pcn_appeal.engines.account import assess_material_account
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+        case, pipe = pipeline_case(PARENT_CHILD, narrative="My kids were in the car with me.")
+        case.put(Fact("F-child", "child_occupant_present", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "q:child_occupant_present")))
+        assess_material_account(case)
         self.assertEqual(KnowledgeMatcher(pipe.kg).match(case).candidates["KB-BAY-02"].status,
                          SUPPORTED)
 

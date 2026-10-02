@@ -256,9 +256,48 @@ class AppealPipeline:
         return analysis.questions
 
     def _could_change_a_ground(self, fact: str) -> bool:
-        """Material: some in-force KB module is gated on or requires the fact."""
-        return any(fact in self.kg.gating_facts(m.module_id) or fact in (m.required_facts or [])
-                   for m in self.kg.active_modules())
+        """Material: some in-force KB module is gated on or requires the fact,
+        directly or through a derived fact that is computed from it.
+
+        The indirect case is load-bearing. `child_occupant_present` gates no
+        module by name: it feeds `account_contradicts_allegation`, which is
+        what KB-BAY-02 reads. Judged on direct gates alone the fact looks
+        immaterial, so its confirming question was never generated - and since
+        the KB-BAY-02 v1.1 amendment requires the customer's own statement, the
+        ground would simply go unargued rather than being asked about. The
+        dependency is already declared in kb_relations.yaml (`depends_on`), so
+        materiality follows that declaration rather than restating it here.
+        """
+        def gates(name: str) -> bool:
+            return any(name in self.kg.gating_facts(m.module_id)
+                       or name in (m.required_facts or [])
+                       for m in self.kg.active_modules())
+
+        if gates(fact):
+            return True
+        # Walk the declared derivation edges: a fact is material when something
+        # computed from it is. Depth-limited and cycle-safe - the graph is
+        # authored, so a bad edge must not hang question generation.
+        depends = getattr(self.kg.relations, "depends_on", {}) or {}
+        derived_from: dict[str, list[str]] = {}
+        for derived, sources in depends.items():
+            for src in sources or []:
+                derived_from.setdefault(src, []).append(derived)
+        seen, frontier = {fact}, [fact]
+        for _ in range(4):
+            nxt = []
+            for name in frontier:
+                for derived in derived_from.get(name, []):
+                    if derived in seen:
+                        continue
+                    if gates(derived):
+                        return True
+                    seen.add(derived)
+                    nxt.append(derived)
+            if not nxt:
+                break
+            frontier = nxt
+        return False
 
     def _site_postcode_question(self, case: CaseFile, module_ids, already: list[dict]) -> list[dict]:
         """The site postcode, asked only when nothing selected can lead the

@@ -727,49 +727,80 @@ modules:
   # operator's own printed times.
   - module_id: KB-BAY-01
     route: BAY
-    topic: Observation window too narrow to establish a bay-eligibility breach
-    use_when: {all: [{is: restricted_bay_alleged}, {exists: observation_window_min}, {lte: [observation_window_min, 5]}]}
-    do_not_use_when: {always: false}
-    core_proposition: The operator's recorded observation and event times do not themselves show how the bay was used during the visit, so the operator is put to proof of the alleged breach with its photographs and their timestamps.
-    required_facts: [restricted_bay_alleged, observation_window_min]
+    topic: Recorded observation does not establish the bay-eligibility element
+    use_when: {all: [{is: restricted_bay_alleged}, {is: bay_eligibility_unevidenced}]}
+    do_not_use_when: {any: [{is: bay_eligibility_evidenced}, {is: bay_conditions_met_accounted}]}
+    core_proposition: An allegation that a reserved bay was used without meeting its conditions of use turns on who or what was using the bay, which the operator's recorded observation and event times do not themselves establish, so the operator is put to proof of that element with the photographs and records it relies on and their timestamps.
+    required_facts: [restricted_bay_alleged, bay_eligibility_unevidenced]
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
     legal_basis_origin: NOT_IN_SOURCE
-    drafting_notes: State the recorded observation and event times and the operator's burden. Do not invent occupancy. Account contradiction is argued under KB-BAY-02, not here.
-    prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text]
+    drafting_notes: State the recorded observation and event times as the operator printed them, and the element the operator must prove. Do not invent occupancy, do not assert the bay's conditions were met, and do not characterise the observation as brief or as an instant. Account contradiction is argued under KB-BAY-02, not here.
+    prohibited_claims: [the bay was not reserved, the restriction is unenforceable, inventing that an eligible occupant was present, pasting customer free text, asserting the observation period was too short to be lawful, treating any particular observation duration as legally insufficient]
     building_blocks: [PP-BAY-001]
     strength: 65
     status: ACTIVE
-    version: "1.4"
+    version: "1.5"
     effective_from: null
     effective_to: null
     last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Timing-only. Account rebuttal moved to KB-BAY-02 so material facts are independent of the five-minute gate. 1.4 (2026-10-01) - wording is a put-to-proof request; it no longer infers that the operator's record spans only an interval or instant (client issues 23/26). PENDING CLIENT APPROVAL.
+    change_notes: >-
+      Timing-only. Account rebuttal moved to KB-BAY-02 so material facts are
+      independent of the observation record. 1.4 (2026-10-01) - wording is a
+      put-to-proof request; it no longer infers that the operator's record spans
+      only an interval or instant (client issues 23/26). 1.5 (2026-10-02) -
+      client approved the put-to-proof principle and directed removal of the
+      five-minute trigger, which treated a system-authored figure as though it
+      had independent legal significance. The gate is now
+      bay_eligibility_unevidenced (EX-19): the relevance of the observation is
+      assessed against what the alleged contravention requires proving - an
+      eligibility bay is enforced on who or what was using it, which a
+      timestamp does not show - and the request is withheld where the operator
+      has evidenced that element another way. No duration threshold remains.
+      CLIENT APPROVED (principle); trigger amended per client direction.
 
   # Factual account rebuttal for restricted-bay allegations. Uses the existing
   # PP-BAY-002 wording. Gate does NOT depend on observation_window_min.
   - module_id: KB-BAY-02
     route: BAY
     topic: Keeper account inconsistent with restricted-bay eligibility premise
-    use_when: {all: [{is: restricted_bay_alleged}, {is: account_contradicts_allegation}]}
+    use_when: {all: [{is: restricted_bay_alleged}, {is: account_contradicts_allegation}, {exists: material_account_proposition}]}
     do_not_use_when: {always: false}
     core_proposition: The keeper's professionally restated account is inconsistent with the factual premise that the bay's conditions of use were unmet.
     required_facts: [restricted_bay_alleged, account_contradicts_allegation, material_account_proposition]
     evidence_helpful: [PHOTO]
     legal_basis: [CL-evidential-weight]
     legal_basis_origin: NOT_IN_SOURCE
-    drafting_notes: Incorporate material_account_proposition only. Never paste customer free text. Never invent who was driving. Do not equate child presence with legal entitlement beyond the inconsistency with the allegation's premise.
-    prohibited_claims: [the bay was not reserved, inventing entitlement, pasting customer free text, asserting legal entitlement solely from child presence]
+    drafting_notes: >-
+      Incorporate material_account_proposition only. Never paste customer free
+      text. Never invent who was driving. Do not equate child presence with
+      legal entitlement beyond the inconsistency with the allegation's premise.
+      The proposition is restated to the operator as the keeper's own material
+      assertion, so it may only rest on a fact the customer expressly stated in
+      a closed-form answer or confirmed when asked; the system's own reading of
+      their prose is not sufficient and account_contradicts_allegation is not
+      set from one.
+    prohibited_claims: [the bay was not reserved, inventing entitlement, pasting customer free text, asserting legal entitlement solely from child presence, asserting a material fact the customer did not expressly state or confirm]
     building_blocks: [PP-BAY-002]
     strength: 65
     status: ACTIVE
-    version: "1.0"
+    version: "1.1"
     effective_from: null
     effective_to: null
     last_legal_review: null
     source_reference: null
-    change_notes: Split from KB-BAY-01 so account rebuttal survives when observation timing is wide, missing, or independently unsupported.
+    change_notes: >-
+      Split from KB-BAY-01 so account rebuttal survives when observation timing
+      is wide, missing, or independently unsupported. 1.1 (2026-10-02) - client
+      approved the professional-restatement mechanism and the existing
+      guardrails, and directed one tightening: a material customer fact used
+      this way must have been explicitly provided or confirmed by the customer,
+      not inferred. account_contradicts_allegation and the headline
+      material_account_proposition now require extraction provenance STATED (a
+      closed-form answer) or CONFIRMED (an affirmed hypothesis); INFERRED prose
+      reads still become facts and still support other grounds but can no
+      longer supply this assertion. CLIENT APPROVED with tightening.
 
   - module_id: KB-TIME-01
     route: ANPR_EVIDENCE
@@ -1250,21 +1281,22 @@ modules:
     # cautious records request when validation is unconfirmed.
     route: RECORDS
     topic: Proportionate records request
+    # The allegation's wording identifies this module as POTENTIALLY relevant
+    # (validation_mechanism_alleged, EX-20); it does not activate it. A case
+    # fact must establish that the mechanism is genuinely in issue
+    # (validation_mechanism_material), so the request enters an appeal because
+    # the facts make it relevant and not because a keyword appeared.
     use_when:
-      any:
-        - {contains: [alleged_breach, "validat"]}
-        - {contains: [alleged_breach, "voucher"]}
-        - {contains: [alleged_breach, "kiosk"]}
-        - {contains: [alleged_breach, "ticket machine"]}
-        - {contains: [alleged_breach, "pay and display"]}
-        - {contains: [alleged_breach, "permit"]}
+      all:
+        - {is: validation_mechanism_alleged}
+        - {is: validation_mechanism_material}
     do_not_use_when: {always: false}
     core_proposition: >
       Where the allegation turns on a site validation, voucher, kiosk or similar
       step and the keeper's materials do not prove that step either way, request
       the operator's relevant system records without asserting that compliance
       occurred or that a defect is already proven.
-    required_facts: [alleged_breach]
+    required_facts: [alleged_breach, validation_mechanism_material]
     evidence_helpful: [RECEIPT, PHOTO, CORRESPONDENCE, APP_SCREENSHOT]
     legal_basis: [SCOP-evidence]
     legal_basis_origin: NOT_IN_SOURCE
@@ -1277,17 +1309,29 @@ modules:
       - validation failed
       - the charge is automatically invalid
       - shopping receipt proves parking validation
+      - requesting records merely because the allegation mentions a validation or permit mechanism
     building_blocks: [PP-REC-001]
     strength: 55
-    # Activated so validation / kiosk / permit-shaped notices have a leading
-    # ground and auto-release a letter instead of landing on landowner-only hold.
     status: ACTIVE
-    version: "1.1"
+    version: "1.2"
     effective_from: null
     effective_to: null
     last_legal_review: null
     source_reference: null  # not in source document
-    change_notes: Activated with PP-REC-001 for automatic records-request letters on validation-shaped allegations.
+    change_notes: >-
+      Activated with PP-REC-001 for automatic records-request letters on
+      validation-shaped allegations. 1.2 (2026-10-02) - client did not approve
+      keyword-only activation: the appearance of "permit", "validation",
+      "voucher", "kiosk" or "pay and display" in an allegation must not by
+      itself produce a generic records request. The allegation now only
+      identifies the module as potentially relevant
+      (validation_mechanism_alleged); activation additionally requires
+      validation_mechanism_material (EX-20), a fact established from the case -
+      validation status unresolved, a purchase confirmed with validation
+      unresolved, a payment or permit asserted but not recorded on the notice,
+      a failed payment attempt, or customer-supplied transaction evidence. The
+      basis is audited on every case so the reason the request entered the
+      appeal is traceable. CLIENT DIRECTED amendment.
 
   - module_id: KB-LAND-02
     route: LANDOWNER

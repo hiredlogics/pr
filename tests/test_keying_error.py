@@ -242,8 +242,16 @@ class RestrictedBayGround(unittest.TestCase):
         # No material occupancy account → do not invent one.
         self.assertNotRegex(out.letter, r"(?i)\ba child (was|had been|remained)\b")
 
-    def test_material_account_contradicting_bay_allegation_reaches_the_letter(self):
-        """System-wide rule: free-text that contradicts the allegation is drafted professionally."""
+    def test_an_inferred_bay_account_is_not_asserted_in_the_customers_name(self):
+        """KB-BAY-02 v1.1 (client-directed): the system may restate a material
+        customer fact to the operator and put them to proof, but only where the
+        customer explicitly provided or confirmed it. Here the occupancy fact is
+        the system's own reading of prose, so the restatement is withheld.
+
+        The fact itself is still extracted and still supports other grounds -
+        what it may not do is supply an assertion in the customer's name. The
+        evidential ground (KB-BAY-01) is unaffected and still argued.
+        """
         analysis = {
             "grounds": [
                 {"module_id": "KB-BAY-01"},
@@ -252,28 +260,27 @@ class RestrictedBayGround(unittest.TestCase):
             "questions": [], "not_supported": [],
         }
         case, pipe = make_case(BAY, case_analysis=[analysis] * 6)
-        out = run(case, pipe, "Left Kidd in car with their brother and ran into Sainsbury's.", {})
-        # The account is still read and normalised - that is extraction's job and
-        # does not depend on any ground - but with KB-BAY-01 under review there is
-        # no approved ground for it to support, so nothing may be argued from it.
-        self.assertTrue(case.get("account_contradicts_allegation"))
+        out = run(case, pipe, "Left Kidd in car with their brother and ran into Sainsbury's.",
+                  {})
+        # Extracted, but as the system's reading - not the customer's assertion.
+        self.assertTrue(case.get("child_occupant_present"))
+        self.assertFalse(case.get("account_contradicts_allegation"))
+        self.assertIsNone(case.get("material_account_proposition"))
         # Customer free text must never be pasted, whichever branch runs.
         self.assertNotRegex(out.letter or "", r"(?i)left kidd")
         self.assertNotRegex(out.letter or "", r"(?i)ran into sainsbury")
-        if not is_approved("KB-BAY-01", pipe.kg) and not is_approved("KB-BAY-02", pipe.kg):
+        # The inferred read must not become an occupancy assertion either.
+        self.assertNotRegex(out.letter or "",
+                            r"(?i)(child remained in the vehicle|presence of children)")
+        self.assertNotRegex(out.letter or "", r"(?i)inconsistent with the factual premise")
+        if not is_approved("KB-BAY-01", pipe.kg):
             assert_absent_while_under_review(
                 self, "KB-BAY-01", module_ids=out.pack.module_ids,
                 draft=out.draft, letter=out.letter)
-            self.assertNotRegex(out.letter or "",
-                                r"(?i)(child remained in the vehicle|presence of children)")
             return
         self.assertEqual(out.state, CaseState.RELEASED, out.validation.issues)
-        self.assertTrue(
-            {"KB-BAY-01", "KB-BAY-02"} & set(out.pack.module_ids or []),
-            out.pack.module_ids,
-        )
-        self.assertRegex(out.letter, r"(?i)(child remained in the vehicle|presence of children)")
-        self.assertRegex(out.letter, r"(?i)inconsistent with the factual premise")
+        self.assertIn("KB-BAY-01", out.pack.module_ids or [])
+        self.assertNotIn("KB-BAY-02", out.pack.module_ids or [])
 
     def test_bay_case_does_not_ask_ata_or_postcode_when_irrelevant(self):
         from pcn_appeal.engines.analysis import AnalysisEngine, CaseAnalysis

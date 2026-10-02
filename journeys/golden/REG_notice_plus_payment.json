@@ -5,13 +5,12 @@
       "KB-POFA-04",
       "KB-POFA-05",
       "KB-POFA-02",
-      "KB-PAY-01",
-      "KB-REC-01"
+      "KB-PAY-01"
     ],
-    "plan_digest": "f95457cace8bc1f01366e7e5282fb13bf2a0ca04e75dc68987911915001d51fd"
+    "plan_digest": "4c15719f24dd34ee97b238a8209f2e762487431f88144b7de81990d1476e7893"
   },
   "draft": {
-    "content_hash": "704532cf6469c3d6d772bfe6214083bef7644e60feb35e3db0bfcd281625a6ed",
+    "content_hash": "c52b7f9d105b026a80014a9a40fb4f0646d32b407bcc241037a051d1e3698242",
     "judge": null,
     "structure": [
       [
@@ -42,25 +41,7 @@
       ],
       [
         [
-          "KB-POFA-04"
-        ],
-        "GROUNDED"
-      ],
-      [
-        [
           "KB-POFA-05"
-        ],
-        "GROUNDED"
-      ],
-      [
-        [
-          "KB-POFA-05"
-        ],
-        "GROUNDED"
-      ],
-      [
-        [
-          "KB-POFA-02"
         ],
         "GROUNDED"
       ],
@@ -85,12 +66,6 @@
       [
         [
           "KB-PAY-01"
-        ],
-        "GROUNDED"
-      ],
-      [
-        [
-          "KB-REC-01"
         ],
         "GROUNDED"
       ],
@@ -99,7 +74,7 @@
         "STRUCTURAL"
       ]
     ],
-    "versions": 1
+    "versions": 2
   },
   "facts": {
     "account_contradicts_allegation": "60a33e6cf515",
@@ -112,8 +87,8 @@
     "jurisdiction": "3d8b1b9f8f1d",
     "lease_has_regulations_clause": "60a33e6cf515",
     "lease_parking_clause_found": "60a33e6cf515",
-    "material_account_proposition": "1e0497235af5",
-    "material_account_propositions": "b1d0936bbef6",
+    "material_account_proposition": "24cde2d6ad2d",
+    "material_account_propositions": "06795763988f",
     "notice_issue_date": "9896cbc5690b",
     "notice_route": "3b314d5ff8c4",
     "notice_sides_complete": "3cbc87c7681f",
@@ -126,7 +101,6 @@
     "parking_event_date": "b60518d70930",
     "parking_location": "e33339a37fb8",
     "parking_validation_status": "23759997b3c5",
-    "payment_attempt_failed": "3cbc87c7681f",
     "payment_made": "3cbc87c7681f",
     "pcn_number": "e18ed3ade1e1",
     "pofa_9_2_e_status": "80bf2e217f0b",
@@ -150,12 +124,9 @@
   },
   "validation": {
     "integrity": [],
-    "issues": [
-      "VAL-REPEAT",
-      "VAL-SUBSTANCE"
-    ],
-    "outcome": "PROCESSING_ERROR",
-    "state": "MANUAL_REVIEW",
-    "status": "FAILED"
+    "issues": [],
+    "outcome": null,
+    "state": "RELEASED",
+    "status": "PASSED"
   }
 }

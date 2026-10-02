@@ -4,13 +4,12 @@
       "KB-POFA-01",
       "KB-POFA-04",
       "KB-POFA-05",
-      "KB-POFA-02",
-      "KB-REC-01"
+      "KB-POFA-02"
     ],
-    "plan_digest": "d93be5caef9e49a7028ef21ec9c65e822d90e74f37e23b77320f52d2ded88c2f"
+    "plan_digest": "ac707c754c5ee8731afb1d93832c48dde4a933cce6dd2c291a3e2b5e6652b601"
   },
   "draft": {
-    "content_hash": "e9a4104d74783f01d29af151655582650b7278e2d60815b7da68603eedc0d066",
+    "content_hash": "24d298b1982ab4effa062c84a3814d854fbb2c0ed6393d689526461bb55c8cf0",
     "judge": null,
     "structure": [
       [
@@ -54,12 +53,6 @@
       [
         [
           "KB-POFA-02"
-        ],
-        "GROUNDED"
-      ],
-      [
-        [
-          "KB-REC-01"
         ],
         "GROUNDED"
       ],

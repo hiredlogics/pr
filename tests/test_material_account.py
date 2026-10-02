@@ -23,6 +23,22 @@ def _case(breach: str, narrative: str) -> CaseFile:
     return case
 
 
+def _confirmed(case: CaseFile, *fact_names: str) -> dict:
+    """Record facts as the customer's own answers and re-assess.
+
+    Since KB-BAY-02 v1.1 (client-directed) `account_contradicts_allegation` is
+    only set from a fact the customer expressly stated or confirmed, not from
+    the system's reading of their prose. Extraction from the narrative is
+    unchanged - these scenarios still prove the words normalise correctly - so
+    the suite adds the confirmation the UI would collect before the assertion
+    is made to the operator.
+    """
+    for name in fact_names:
+        case.put(Fact(f"F-{name}", name, True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, f"q:{name}")))
+    return assess_material_account(case)
+
+
 class FreeTextExtractionScenarios(unittest.TestCase):
     def test_kids_and_seeking_space(self):
         case = _case(
@@ -32,6 +48,7 @@ class FreeTextExtractionScenarios(unittest.TestCase):
         dig = assess_material_account(case)
         self.assertTrue(case.get("child_occupant_present"))
         self.assertTrue(case.get("seeking_parking_space"))
+        dig = _confirmed(case, "child_occupant_present")
         self.assertTrue(dig["contradicts"])
         props = " ".join(dig["propositions"]).lower()
         self.assertIn("presence of children", props)
@@ -111,6 +128,7 @@ class FreeTextExtractionScenarios(unittest.TestCase):
         dig = assess_material_account(case)
         self.assertTrue(case.get("blue_badge_displayed"))
         self.assertTrue(case.get("disability_extra_time"))
+        dig = _confirmed(case, "blue_badge_displayed")
         self.assertTrue(dig["contradicts"])
 
     def test_does_not_invent_from_unrelated_text(self):

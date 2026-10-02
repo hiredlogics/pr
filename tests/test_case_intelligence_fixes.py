@@ -76,14 +76,31 @@ def _pack(**kw) -> RetrievalPack:
 
 
 class ContainsPredicateTests(unittest.TestCase):
-    def test_allegation_text_matches_validation_module(self):
-        kg = KnowledgeGraph()
-        rec = kg.modules["KB-REC-01"]
-        self.assertTrue(evaluate(rec.use_when, {
+    def test_contains_reads_a_substring_of_a_fact(self):
+        # The DSL operator itself. KB-REC-01 used to gate on `contains` over
+        # the allegation text; since v1.2 (client-directed) the allegation only
+        # flags the module as potentially relevant and a case fact must
+        # establish materiality, so the operator is pinned on its own.
+        self.assertTrue(evaluate({"contains": ["alleged_breach", "kiosk"]}, {
             "alleged_breach": "Voucher or receipt not validated at the kiosk",
         }))
-        self.assertFalse(evaluate(rec.use_when, {
+        self.assertFalse(evaluate({"contains": ["alleged_breach", "kiosk"]}, {
             "alleged_breach": "Parked outside of a marked bay",
+        }))
+
+    def test_the_records_request_is_no_longer_keyword_gated(self):
+        kg = KnowledgeGraph()
+        rec = kg.modules["KB-REC-01"]
+        # A validation-shaped allegation on its own must not activate it.
+        self.assertFalse(evaluate(rec.use_when, {
+            "alleged_breach": "Voucher or receipt not validated at the kiosk",
+            "validation_mechanism_alleged": True,
+        }))
+        # A case fact establishing materiality does.
+        self.assertTrue(evaluate(rec.use_when, {
+            "alleged_breach": "Voucher or receipt not validated at the kiosk",
+            "validation_mechanism_alleged": True,
+            "validation_mechanism_material": True,
         }))
 
 

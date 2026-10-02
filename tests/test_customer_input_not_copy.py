@@ -99,8 +99,16 @@ class ExtractionPreservesMeaning(unittest.TestCase):
             "Parent and Child bay without child",
             "Left kids in the car. Child remained in the vehicle.")
         self.assertTrue(case.get("child_occupant_present"))
-        self.assertTrue(dig["contradicts"])
         self.assertNotIn("left kids", " ".join(dig["propositions"]).lower())
+        # KB-BAY-02 v1.1 (client-directed): the contradiction is only set from
+        # a fact the customer stated or confirmed, not from the system's
+        # reading of their prose. Normalising the words is extraction's job and
+        # is what this test is about; the assertion needs their confirmation.
+        from pcn_appeal.engines.account import assess_material_account
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+        case.put(Fact("F-child", "child_occupant_present", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "q:child_occupant_present")))
+        self.assertTrue(assess_material_account(case)["contradicts"])
 
     def test_children_absent_negation(self):
         case, dig = self._digest(

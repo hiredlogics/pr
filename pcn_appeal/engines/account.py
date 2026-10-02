@@ -47,6 +47,39 @@ class CircumstanceRule:
     allegation_families: tuple[str, ...] = ()
 
 
+def _gap(n: int) -> str:
+    """A gap of up to `n` characters that cannot run past the end of a sentence.
+
+    These rules pair a subject word with a qualifier across a short gap. A bare
+    `.{0,n}` also spans a full stop, so two unrelated statements combine into a
+    fact the customer never stated:
+
+        "I used the machine to pay. My phone battery failed ..."
+            machine ... failed -> payment_attempt_failed
+
+    Sentence-ending punctuation and newlines are therefore excluded from the
+    gap. Commas, semicolons, colons and dashes are kept: a single statement
+    legitimately runs through them ("I tried the app three times, and it would
+    not accept my card"), and precision there costs real recall.
+
+    Callers use this helper rather than writing `.{0,n}` inline so the
+    constraint lives in one place; tests/test_sentence_boundaries.py pins that.
+    """
+    return rf"[^.!?\n]{{0,{n}}}"
+
+
+# The gap token as it appears in a compiled pattern, for the test that asserts
+# no rule reintroduces a raw `.{0,N}`. Written as a raw string so it matches
+# the escape sequence in the pattern source, not a literal newline.
+_GAP = r"[^.!?\n]"
+
+
+def _gap_re(n: int = 40) -> re.Pattern[str]:
+    """`_gap` compiled and fully anchored, so a test can assert exactly what a
+    gap may and may not swallow."""
+    return re.compile(rf"\A{_gap(n)}\Z")
+
+
 _RULES: tuple[CircumstanceRule, ...] = (
     # Children / family occupancy
     CircumstanceRule(
@@ -54,9 +87,9 @@ _RULES: tuple[CircumstanceRule, ...] = (
         re.compile(
             r"\b("
             r"(kids?|kidd|children|child|toddler|baby|infant|son|daughter)"
-            r".{0,40}\b(in (the )?(car|vehicle)|with me|with us|remained)|"
-            r"left .{0,60}\b(kids?|kidd|children|child|toddler|baby|infant)|"
-            r"(brother|sister).{0,30}\b(in (the )?(car|vehicle))"
+            + _gap(40) + r"\b(in (the )?(car|vehicle)|with me|with us|remained)|"
+            r"left " + _gap(60) + r"\b(kids?|kidd|children|child|toddler|baby|infant)|"
+            r"(brother|sister)" + _gap(30) + r"\b(in (the )?(car|vehicle))"
             r")",
             re.I,
         ),
@@ -101,7 +134,7 @@ _RULES: tuple[CircumstanceRule, ...] = (
             r"couldn'?t (leave|exit|depart|move)|"
             r"unable to (leave|exit|depart|move)|"
             r"stuck (on site|in the car park|there)|"
-            r"prevented .{0,20}(leaving|departing|exiting)"
+            r"prevented " + _gap(20) + r"(leaving|departing|exiting)"
             r")",
             re.I,
         ),
@@ -125,9 +158,9 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "payment_attempt_failed", True,
         re.compile(
             r"\b("
-            r"(machine|app|meter|kiosk|pay.?station).{0,40}"
-            r"(did not|didn'?t|would not|wouldn'?t|failed|fault|error|broken|out of order)|"
-            r"(could not|couldn'?t|unable to) (pay|complete|make).{0,20}payment|"
+            r"(machine|app|meter|kiosk|pay.?station)" + _gap(40)
+            + r"(did not|didn'?t|would not|wouldn'?t|failed|fault|error|broken|out of order)|"
+            r"(could not|couldn'?t|unable to) (pay|complete|make)" + _gap(20) + r"payment|"
             r"payment (failed|was (unsuccessful|declined)|did not go through)"
             r")",
             re.I,
@@ -142,10 +175,39 @@ _RULES: tuple[CircumstanceRule, ...] = (
     CircumstanceRule(
         "disability_extra_time", True,
         re.compile(
+            # The proposition asserts that EXTRA TIME WAS REQUIRED, and it is
+            # asserted in the keeper's own name, so a bare mention of
+            # disability does not establish it. "My father is disabled" is a
+            # third party's condition; "the queue took extra time" is not a
+            # disability need. One of two things must appear in the same
+            # sentence: the customer's own condition (first person, or a
+            # badge/wheelchair/mobility need they state), or a disability
+            # reason given for the time taken.
+            # A first-person pronoun near the condition is not enough: "my
+            # father is disabled" and "I was visiting my disabled neighbour"
+            # both put a third party between the pronoun and the condition.
+            # The pronoun must attach to the condition directly, so the gap
+            # here is short and must not contain another person.
             r"\b("
-            r"disability|disabled|blue\s*badge|accessibility|accessible|"
-            r"mobility (need|issue|impairment)|wheelchair|"
-            r"extra time .{0,30}(disability|disabled|badge)"
+            # the customer's own stated condition or need
+            r"(i|i'?m|i am|we|we'?re|we are)\s+(am\s+|are\s+|m\s+)?"
+            r"(a\s+|an\s+|registered\s+|severely\s+|partially\s+)*"
+            r"(disabled|disabilit(y|ies)|wheelchair\s+user|"
+            r"mobility[- ]impaired)|"
+            r"\b(my|our)\s+(own\s+)?"
+            r"(disabilit(y|ies)|blue\s*badge|wheelchair|"
+            r"mobility (need|issue|impairment|problem))|"
+            r"\b(i|we)\s+(use|used|need|needed|require[d]?|have|had)\s+"
+            r"(a\s+|an\s+|the\s+|my\s+|our\s+)?"
+            r"(wheelchair|blue\s*badge|disabled\s+bay|accessible\s+(bay|space)|"
+            r"mobility (aid|scooter|frame))|"
+            # a disability reason attached to the time taken
+            r"(extra|more|additional|longer) time " + _gap(40)
+            + r"(disabilit(y|ies)|disabled|badge|wheelchair|mobility)|"
+            r"(disabilit(y|ies)|disabled|wheelchair|mobility (need|issue|impairment))"
+            + _gap(40) + r"(extra|more|additional|longer) time|"
+            # unambiguous first-person phrasings that the gap above can miss
+            r"i (am|'m) disabled|my disabilit(y|ies)|my blue\s*badge"
             r")",
             re.I,
         ),
@@ -156,8 +218,8 @@ _RULES: tuple[CircumstanceRule, ...] = (
         "blue_badge_displayed", True,
         re.compile(
             r"\b("
-            r"blue\s*badge.{0,30}(displayed|shown|on (display|show))|"
-            r"(displayed|showing|showed).{0,20}blue\s*badge"
+            r"blue\s*badge" + _gap(30) + r"(displayed|shown|on (display|show))|"
+            r"(displayed|showing|showed)" + _gap(20) + r"blue\s*badge"
             r")",
             re.I,
         ),
@@ -252,6 +314,18 @@ class FreeTextExtraction:
     normalized_value: Any = None
     drafting_proposition: str = ""
     relevant_to_allegation: bool = False
+    # How the customer put this fact forward, which decides whether it may be
+    # restated TO THE OPERATOR as the keeper's own material assertion
+    # (KB-BAY-02). "INFERRED" is the system's reading of prose and is not
+    # enough on its own; "STATED" is a closed-form answer the customer gave;
+    # "CONFIRMED" is a hypothesis the customer was asked about and affirmed.
+    provenance: str = "INFERRED"
+
+    @property
+    def customer_asserted(self) -> bool:
+        """True when the customer themselves put this fact forward, rather than
+        the system inferring it from their prose."""
+        return self.provenance in ("STATED", "CONFIRMED")
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -261,6 +335,10 @@ class FreeTextExtraction:
             "normalized_value": self.normalized_value,
             "drafting_proposition": self.drafting_proposition,
             "relevant_to_allegation": self.relevant_to_allegation,
+            # Whether the customer put this forward themselves, which decides
+            # if it may be restated to the operator as their assertion.
+            "provenance": self.provenance,
+            "customer_asserted": self.customer_asserted,
         }
 
 
@@ -328,12 +406,23 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
             existing = case.facts.get(rule.fact_name)
+            # The customer may already have answered the question this phrase
+            # is about. Their answer is the stronger statement of the same
+            # fact, so the extraction carries their provenance rather than
+            # being treated as the system's own reading (KB-BAY-02 v1.1).
+            answered = bool(
+                existing and existing.usable
+                and existing.source.kind == SourceKind.ANSWER
+                and existing.value == rule.value)
             if existing and existing.usable and existing.source.kind in (
                     SourceKind.DOCUMENT, SourceKind.CALCULATION) \
                     and existing.status in (
                         FactStatus.CONFIRMED, FactStatus.CORRECTED,
                         FactStatus.EXTRACTED, FactStatus.DERIVED):
                 # Still record provenance that free text agreed, but keep doc value.
+                pass
+            elif answered:
+                # Keep the answer exactly as the customer gave it.
                 pass
             else:
                 case.put(Fact(
@@ -352,6 +441,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
                 normalized_value=rule.value,
                 drafting_proposition=rule.proposition,
                 relevant_to_allegation=relevant,
+                provenance="STATED" if answered else "INFERRED",
             ))
             seen_facts.add(rule.fact_name)
 
@@ -390,10 +480,19 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
         propositions, FactStatus.DERIVED,
         FactSource(SourceKind.CALCULATION, "material_account"),
     ))
-    if propositions:
+    # The single headline proposition is the one KB-BAY-02 restates to the
+    # operator, so it must come from a fact the customer actually asserted.
+    # Inferred reads stay in `material_account_propositions` for drafting
+    # support, but they may not become the material assertion itself.
+    asserted = [e.drafting_proposition for e in extractions
+                if e.customer_asserted and e.relevant_to_allegation]
+    asserted += [e.drafting_proposition for e in extractions
+                 if e.customer_asserted and not e.relevant_to_allegation]
+    headline = next((p for p in dict.fromkeys(asserted) if p), None)
+    if headline:
         case.put(Fact(
             "F-material_account_proposition", "material_account_proposition",
-            propositions[0], FactStatus.DERIVED,
+            headline, FactStatus.DERIVED,
             FactSource(SourceKind.CALCULATION, "material_account"),
         ))
 
@@ -461,7 +560,8 @@ def _confirmed_hypotheses(case: CaseFile, breach: str) -> list[FreeTextExtractio
         out.append(FreeTextExtraction(original=h["source_text"], fact_name=h["fact_name"],
                                       normalized_value=h["possible_value"],
                                       drafting_proposition=kind.proposition,
-                                      relevant_to_allegation=True))
+                                      relevant_to_allegation=True,
+                                      provenance="CONFIRMED"))
     return out
 
 
@@ -485,7 +585,8 @@ def _answered_circumstances(case: CaseFile, seen: set[str]) -> list[FreeTextExtr
         seen = seen | {rule.fact_name}
         out.append(FreeTextExtraction(original=f"answer: {rule.fact_name}", fact_name=rule.fact_name,
                                       normalized_value=True, drafting_proposition=rule.proposition,
-                                      relevant_to_allegation=_relevant_to_allegation(rule, breach)))
+                                      relevant_to_allegation=_relevant_to_allegation(rule, breach),
+                                      provenance="STATED"))
     return out
 
 
@@ -498,23 +599,39 @@ def _relevant_to_allegation(rule: CircumstanceRule, breach: str) -> bool:
     return any(tok in breach for tok in rule.allegation_families)
 
 
-def _account_contradicts_allegation(
-        extractions: list[FreeTextExtraction], breach: str) -> bool:
-    if not breach:
-        return False
-    # Restricted-bay style: customer affirms eligibility / child / badge / permit.
-    bayish = any(tok in breach for tok in (
+def _bayish(breach: str) -> bool:
+    """Whether the allegation is the kind whose premise an eligibility fact
+    contradicts (a reserved-bay / eligibility-class allegation)."""
+    return any(tok in (breach or "") for tok in (
         "bay", "space", "parent", "child", "disabled", "blue badge", "permit",
         "family", "reserved", "accompanied",
     ))
-    if not bayish:
+
+
+def _account_contradicts_allegation(
+        extractions: list[FreeTextExtraction], breach: str) -> bool:
+    """Whether the customer's own account contradicts the allegation's premise.
+
+    KB-BAY-02 restates the resulting proposition TO THE OPERATOR in the
+    keeper's name and puts the operator to proof on it. A fact asserted that
+    way must therefore be one the customer actually put forward - a closed-form
+    answer they gave, or a hypothesis they were asked about and affirmed - and
+    not the system's own reading of their prose. An inferred read still becomes
+    a fact and can still support other grounds; what it may not do is supply
+    the material assertion for this one.
+    """
+    if not breach:
+        return False
+    # Restricted-bay style: customer affirms eligibility / child / badge / permit.
+    if not _bayish(breach):
         return False
     eligibility = {
         "child_occupant_present", "blue_badge_displayed", "permit_held",
         "bay_conditions_met_accounted", "disability_extra_time", "ev_charging_session",
         "loading_activity",
     }
-    return any(e.fact_name in eligibility for e in extractions)
+    return any(e.fact_name in eligibility and e.customer_asserted
+               for e in extractions)
 
 
 def _clear_material(case: CaseFile) -> None:

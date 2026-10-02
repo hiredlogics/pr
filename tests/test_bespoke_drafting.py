@@ -62,6 +62,12 @@ class A_ParentChildWithChildren(unittest.TestCase):
                                 if f.status == FactStatus.EXTRACTED],
                      "Left kids in the car. Child remained in the vehicle during the visit.")
         self.assertTrue(case.get("child_occupant_present"), case.facts.keys())
+        # The customer confirms the occupancy their account describes. Since
+        # KB-BAY-02 v1.1 the restated assertion may only rest on a fact they
+        # stated or confirmed, so the suite answers as the UI does.
+        case.put(Fact("F-child", "child_occupant_present", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "q:child_occupant_present")))
+        assess_material_account(case)
         self.assertTrue(case.get("account_contradicts_allegation"))
         self.assertTrue(case.get("material_account_proposition"))
 
@@ -179,6 +185,12 @@ class E_FreeTextNormalized(unittest.TestCase):
                                 if f.status == FactStatus.EXTRACTED], raw)
         assess_material_account(case)
         self.assertTrue(case.get("child_occupant_present"))
+        # Confirmed by the customer, so it may be restated (KB-BAY-02 v1.1).
+        # What this test is about - the customer's own spelling never reaches
+        # the letter - is unchanged either way.
+        case.put(Fact("F-child", "child_occupant_present", True, FactStatus.ANSWERED,
+                      FactSource(SourceKind.ANSWER, "q:child_occupant_present")))
+        assess_material_account(case)
         prop = str(case.get("material_account_proposition") or "").lower()
         self.assertIn("child", prop)
         self.assertNotIn("kidd", prop)

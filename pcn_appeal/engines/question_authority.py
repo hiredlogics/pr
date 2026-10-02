@@ -51,7 +51,7 @@ from typing import Any, Iterable, Optional
 from ..fact_graph import canonical
 from ..fact_ownership import DOCUMENT_OWNED, EVIDENCE_OWNED
 from ..kg.graph import KnowledgeGraph
-from ..models import CaseFile
+from ..models import CaseFile, SourceKind
 from ..rules.dsl import PredicateError, evaluate
 
 APPROVED, REJECTED = "APPROVED", "REJECTED"
@@ -344,9 +344,19 @@ class QuestionAuthority:
     def _module_materiality(self, case, cand, facts):
         fact = cand["fact"]
         named = cand.get("related_module")
+        # A fact is related to a module when the module reads it directly, or
+        # when it reads something DERIVED from it. The indirect case is real:
+        # `child_occupant_present` gates nothing by name, it feeds
+        # `account_contradicts_allegation`, which is what KB-BAY-02 reads.
+        # Judged on direct gates alone, the confirming question is rejected as
+        # immaterial - and under the KB-BAY-02 v1.1 amendment, which requires
+        # the customer's own statement rather than an inferred one, that left
+        # the ground unargued instead of asked about. The derivation edges are
+        # authored in kb_relations.yaml, so this follows them.
+        names = self._with_derived(fact)
         related = [m for m in self.kg.active_modules()
-                   if fact in self.kg.gating_facts(m.module_id)
-                   or fact in (m.required_facts or [])]
+                   if names & (self.kg.gating_facts(m.module_id)
+                               | set(m.required_facts or []))]
         if named:
             related = [m for m in related if m.module_id == named]
         if not related:
@@ -382,6 +392,27 @@ class QuestionAuthority:
             or f"needed to decide whether {best.module_id} ({best.topic}) applies",
             "impact_if_yes": best_impact["yes"], "impact_if_no": best_impact["no"],
             "_rank": best_rank}
+
+    def _with_derived(self, fact: str) -> set[str]:
+        """`fact` plus every fact the KB declares is computed from it.
+
+        Depth-limited and cycle-safe: the edges are authored, so a bad one must
+        degrade to "no indirect relation" rather than hang question review.
+        """
+        depends = getattr(self.kg.relations, "depends_on", {}) or {}
+        derived_from: dict[str, list[str]] = {}
+        for derived, sources in depends.items():
+            for src in sources or []:
+                derived_from.setdefault(src, []).append(derived)
+        names, frontier = {fact}, [fact]
+        for _ in range(4):
+            nxt = [d for name in frontier for d in derived_from.get(name, [])
+                   if d not in names]
+            if not nxt:
+                break
+            names.update(nxt)
+            frontier = nxt
+        return names
 
     def _flip(self, module, fact, cand, facts, selected=frozenset()) -> Optional[dict]:
         """R5. The module's gate now, and under each possible answer.
