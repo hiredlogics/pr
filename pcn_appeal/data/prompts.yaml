@@ -233,7 +233,7 @@ prompts:
   # unproven defects are never argued - put the operator to proof instead. Enforced by
   # VAL-LEGAL-FINDING in engines/draft_validation_engine.py.
   drafting:
-    version: 12
+    version: 13
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -288,6 +288,19 @@ prompts:
         delivery, days) for any dates you state. If a defect is not listed there it is unproven:
         do not state it, do not hint it "appears" non-compliant - put the operator to proof on the
         point instead.
+      - PARTICULARISE a verified timing defect; never argue it only as "not delivered within the
+        applicable statutory period". The paragraph for that claim must state, from the finding's
+        calculation: the parking event date; the notice issue date; the statutory deadline for
+        delivery; the calculated or deemed delivery date; exactly how many days outside the period
+        that is; then the conclusion that keeper liability does not transfer. Cite the date facts in
+        fact_refs. Write dates in full ("31 July 2026").
+      - COVER every approved claim: each module_id in the plan gets at least one substantive
+        sentence tagged to it. Established grounds are cumulative - adding an account-based ground
+        never waters down or replaces a calculated statutory ground.
+      - For a claim resting on the keeper's account of the visit (e.g. separate visits between the
+        recorded entry and exit), set out the account's sequence in the keeper's words as reported
+        facts, explain why the operator's captured images do not establish the single continuous
+        stay alleged, and request the complete capture records for the vehicle for that day.
       - Do not state Code values unless code_version is set.
       - Do not call ANPR entry-to-exit time 'parking time'. Do not merge consideration and grace.
       - No universal 10-minute rule. Nothing 'automatically' cancels. No penalty / pre-estimate argument.

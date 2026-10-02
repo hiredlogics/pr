@@ -17,7 +17,8 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from pcn_appeal import api, manifest, prompts, version
-from pcn_appeal.engines.claim_plan_authority import (EVIDENCE_REQUIRED, LOCKED, NOT_SELECTED,
+from pcn_appeal.engines.claim_plan_authority import (CARRIED_FORWARD, EVIDENCE_REQUIRED, LOCKED,
+                                                     NOT_SELECTED,
                                                      REJECTED, SUPERSEDED, SUPPORTED, UNRESOLVED,
                                                      ClaimPlanIntegrityError,
                                                      ClaimPlanItem, ClaimPlanLockedError,
@@ -520,13 +521,27 @@ class ClientTrust(unittest.TestCase):
 # ---------------------------------------------------------------- authority
 class OnlyThePlanDecides(unittest.TestCase):
 
-    def test_the_plan_never_adds_a_ground_case_intelligence_did_not_select(self):
+    def test_the_plan_never_adds_an_unlicensed_ground(self):
+        # No model selection, no verified legal finding, no previous locked
+        # plan: nothing reaches SUPPORTED.
         case, pipe = anpr()
-        pipe.generate(case)
         case.analysis_module_ids = []
         plan = pipe.claim_authority.build(case, version=9)
         self.assertEqual(plan.supported_ids, [])
         self.assertEqual(plan.item("KB-ANPR-01").decision, NOT_SELECTED)
+
+    def test_an_established_ground_survives_losing_the_selection(self):
+        # P6.2: supported grounds are cumulative. A ground the locked plan
+        # already argued does not disappear because a later analysis run
+        # stopped proposing it, as long as its gate and facts still hold.
+        case, pipe = anpr()
+        pipe.generate(case)
+        case.analysis_module_ids = []
+        plan = pipe.claim_authority.build(case, version=9)
+        self.assertIn("KB-ANPR-01", plan.supported_ids)
+        item = plan.item("KB-ANPR-01")
+        self.assertEqual(item.decision, CARRIED_FORWARD)
+        self.assertIn("supported in plan v", item.reason)
 
     def test_drafting_refuses_a_plan_that_is_not_locked(self):
         case, pipe = anpr()

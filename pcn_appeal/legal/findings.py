@@ -55,6 +55,10 @@ class FindingSpec:
     assertion: re.Pattern
     # Fact Graph facts the calculation reads.
     facts: tuple[str, ...]
+    # True when the date calculation itself is the proof: a letter arguing the
+    # defect must then set out the calculated dates and the day count
+    # (VAL-PARTICULARS), never a generic "outside the statutory period".
+    timed: bool = False
 
 
 # Sentence-level assertion patterns. Lookaheads, so word order does not matter
@@ -69,21 +73,24 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
            r"fail\w*\s+to\s+meet)\b)"
            r"(?=.*\b(statutory|applicable|required|relevant|prescribed|14[-\s]?days?|"
            r"time\s*limit|period|deadline)\b)"),
-        ("parking_event_date", "notice_issue_date", "notice_route")),
+        ("parking_event_date", "notice_issue_date", "notice_route"),
+        timed=True),
     FindingSpec(
         "POFA_NTD_NTK_LATE",
         "Notice to Keeper after the Schedule 4 para 8 window following a Notice to Driver",
         _R(r"^(?=.*\b(notice|ntk)\b)(?=.*\b(notice to driver|windscreen|ntd)\b)"
            r"(?=.*\b(after|late\w*|outside|beyond|exceed\w*)\b)"
            r"(?=.*\b(56|window|permitted|allowed|prescribed)\b)"),
-        ("ntd_date", "notice_issue_date", "notice_route")),
+        ("ntd_date", "notice_issue_date", "notice_route"),
+        timed=True),
     FindingSpec(
         "POFA_NTD_NTK_TOO_EARLY",
         "Notice to Keeper before the Schedule 4 para 8 window opened",
         _R(r"^(?=.*\b(notice|ntk)\b)"
            r"(?=.*\b(too early|prematurely|before|earlier than)\b)"
            r"(?=.*\b(28|window|permitted|allowed|prescribed)\b)"),
-        ("ntd_date", "notice_issue_date", "notice_route")),
+        ("ntd_date", "notice_issue_date", "notice_route"),
+        timed=True),
     FindingSpec(
         "POFA_NTK_INVITATION_DEFECT",
         "missing mandatory Schedule 4 invitation wording in the Notice to Keeper",
@@ -338,7 +345,56 @@ def for_pack(case) -> list[dict]:
                     "description": REGISTRY[r["finding_type"]].description
                     if r.get("finding_type") in REGISTRY else "",
                     "supporting_facts": [e.get("fact") for e in r.get("supporting_facts") or []],
+                    "legal_module_id": r.get("legal_module_id"),
                     "calculation": dict(r.get("calculation_result") or {})})
+    return out
+
+
+# ------------------------------------------------------------- particulars
+MONTHS = ("January", "February", "March", "April", "May", "June", "July",
+          "August", "September", "October", "November", "December")
+SMALL = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
+         8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve", 13: "thirteen",
+         14: "fourteen"}
+
+
+def date_stated(iso: str, text: str) -> bool:
+    """Whether the letter states this ISO date in any customary rendering:
+    '3 August 2026', '3rd August 2026', '03/08/2026', 'August 3, 2026', ISO."""
+    try:
+        y, m, d = (int(x) for x in str(iso)[:10].split("-"))
+    except ValueError:
+        return False
+    month = MONTHS[m - 1]
+    pats = (rf"\b0?{d}(?:st|nd|rd|th)?\s+(?:of\s+)?{month}\s+{y}\b",
+            rf"\b{month}\s+0?{d}(?:st|nd|rd|th)?,?\s+{y}\b",
+            rf"\b0?{d}[/.]0?{m}[/.]{y}\b",
+            rf"\b{y}-{m:02d}-{d:02d}\b")
+    return any(re.search(p, text, re.I) for p in pats)
+
+
+def days_stated(n: int, text: str) -> bool:
+    """Whether the letter states this day count ('3 days', 'three days')."""
+    n = abs(int(n))
+    words = SMALL.get(n)
+    pat = rf"\b(?:{n}{f'|{words}' if words else ''})\s+(?:calendar\s+|working\s+)?days?\b"
+    return bool(re.search(pat, text, re.I))
+
+
+def particulars(finding: dict) -> dict:
+    """The calculated values a letter stating this defect must set out: the
+    dates in the calculation, and the day count when one exists. Generic: it
+    reads the calculation, not a defect-specific template. Empty for a defect
+    the calculation does not prove by dates (content defects)."""
+    spec = REGISTRY.get(str(finding.get("finding_type")))
+    if spec is None or not spec.timed:
+        return {}
+    calc = dict(finding.get("calculation") or finding.get("calculation_result") or {})
+    dates = {k: v for k, v in calc.items()
+             if isinstance(v, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", v)}
+    out: dict[str, Any] = {"dates": dates}
+    if isinstance(calc.get("days_between"), int) and calc["days_between"] > 0:
+        out["days"] = calc["days_between"]
     return out
 
 
@@ -346,3 +402,39 @@ __all__ = ["VERIFIED", "NOT_SUPPORTED", "UNRESOLVED", "STATUSES", "REGISTRY", "F
            "VAGUE_DEFECT", "PUT_TO_PROOF", "asserted_types", "describe", "verified_types",
            "referenced_findings", "gate_depends_on_finding", "rejection", "REJECTION_REASON",
            "evaluate", "for_pack", "finding_id"]
+
+
+def render_date(iso: str) -> str:
+    """'2026-06-15' -> '15 June 2026' (the rendering `date_stated` accepts)."""
+    y, m, d = (int(x) for x in str(iso)[:10].split("-"))
+    return f"{d} {MONTHS[m - 1]} {y}"
+
+
+def particularised_sentence(finding: dict) -> str:
+    """One sentence arguing a timed defect on its own calculation, stating
+    every particular VAL-PARTICULARS requires: the dates the calculation read,
+    the deadline, the deemed delivery date, the day count, and the
+    transfer-failure conclusion. Used by the demo drafters; a real model gets
+    the same calculation and the same rule in the drafting prompt."""
+    p = particulars(finding)
+    dates = dict(p.get("dates") or {})
+    if not dates:
+        return ""
+    lead = []
+    if dates.get("parking_event_date"):
+        lead.append(f"the parking event took place on {render_date(dates['parking_event_date'])}")
+    if dates.get("ntd_date"):
+        lead.append(f"a Notice to Driver was given on {render_date(dates['ntd_date'])}")
+    if dates.get("notice_issue_date"):
+        lead.append(f"the Notice to Keeper was issued on {render_date(dates['notice_issue_date'])}")
+    tail = []
+    if dates.get("deadline"):
+        tail.append("the statutory period for delivery of the notice ended on "
+                    f"{render_date(dates['deadline'])}")
+    if dates.get("presumed_delivery"):
+        tail.append(f"it is deemed delivered on {render_date(dates['presumed_delivery'])}")
+    days = p.get("days")
+    daytxt = f", {days} day{'s' if days != 1 else ''} outside that period" if days else ""
+    return (f"On the operator's own documents {', '.join(lead)}; "
+            f"{' and '.join(tail)}{daytxt}, so the notice was not delivered within the "
+            "statutory period and keeper liability does not transfer.")

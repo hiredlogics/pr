@@ -11,7 +11,7 @@
     "plan_digest": "2b1b9de9c83b046d6d895f286a77cf3f9587aef6d5b4535b07703cefa745f9d6"
   },
   "draft": {
-    "content_hash": "f591708a27e375316ec2cbd8b95d15e8f81f9db1b7166da5ee889f4a6df797fa",
+    "content_hash": "704532cf6469c3d6d772bfe6214083bef7644e60feb35e3db0bfcd281625a6ed",
     "judge": null,
     "structure": [
       [
@@ -55,6 +55,12 @@
       [
         [
           "KB-POFA-05"
+        ],
+        "GROUNDED"
+      ],
+      [
+        [
+          "KB-POFA-02"
         ],
         "GROUNDED"
       ],
