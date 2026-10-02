@@ -116,8 +116,13 @@ class RunAudit(list):
         self._case = case
 
     def _stamp(self, entry):
-        if isinstance(entry, dict) and "run_id" not in entry:
-            entry["run_id"] = getattr(self._case, "run_id", 0)
+        if isinstance(entry, dict):
+            if "run_id" not in entry:
+                entry["run_id"] = getattr(self._case, "run_id", 0)
+            # P5.5: when it happened, so the execution trace can time each
+            # stage. Entries loaded from the store already carry their own.
+            if "at" not in entry:
+                entry["at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         return entry
 
     def append(self, entry) -> None:
@@ -294,6 +299,12 @@ class CaseFile:
     # only authority over what a letter argues; earlier ones are SUPERSEDED and
     # never change.
     claim_plans: list = field(default_factory=list)
+    # P5.5: every state transition {from, to, run_id, at} (integrity/trace.py
+    # attaches the reason from the audit), and every model call made for this
+    # case as integrity/ai_log.py records it - task, model, prompt version,
+    # input/output digests, never the text itself.
+    state_history: list[dict] = field(default_factory=list)
+    ai_calls: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -330,7 +341,11 @@ class CaseFile:
         return self.run_id
 
     def ensure_run(self, trigger: str) -> int:
-        """The open run, or a new one when none is open (the last completed)."""
+        """The open run, or a new one when none is open (the last completed).
+        Also binds this case as the one model calls are logged against
+        (integrity/ai_log.py): every pipeline entry point passes through here."""
+        from .integrity import ai_log
+        ai_log.bind(self)
         if self.run_status != "OPEN":
             return self.begin_run(trigger)
         return self.run_id
@@ -356,6 +371,20 @@ class CaseFile:
         # constructor or a test fixture is the graph's starting state).
         if name == "facts" and not isinstance(value, FactGraph):
             value = FactGraph(value or {})
+        # P5.5: the case state machine is observable. Every change of state is
+        # recorded, however it was made; the constructor's first value is the
+        # starting state, not a transition.
+        if name == "state" and "state" in self.__dict__ and value != self.__dict__["state"]:
+            history = self.__dict__.get("state_history")
+            if history is not None:
+                history.append({
+                    "from": getattr(self.__dict__["state"], "value", self.__dict__["state"]),
+                    "to": getattr(value, "value", value),
+                    "run_id": self.__dict__.get("run_id", 0),
+                    # where in the audit this happened: the entry recorded next
+                    # (or just before) is the reason for the transition
+                    "audit_index": len(self.__dict__.get("audit") or ()),
+                    "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds")})
         object.__setattr__(self, name, value)
 
     def fact_view(self) -> dict[str, Any]:

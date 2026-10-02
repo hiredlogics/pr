@@ -1,0 +1,37 @@
+# Notice plus a payment receipt that covers part of the stay. The receipt is
+# evidence, not a claim: the plan decides whether it supports anything.
+case_id: REG_notice_plus_payment
+documents:
+  - evidence_id: E1
+    filename: notice.txt
+    text: |
+      PARKING CHARGE NOTICE
+      Operator Name: Acme Parking Ltd
+      PCN Number: PCN778899
+      Vehicle Registration: KX19 PLT
+      Location: Riverside Retail Park
+      Postcode: M1 4BT
+      Date of Contravention: 12/06/2026
+      Date of Issue: 02/07/2026
+      Entry Time: 14:05
+      Exit Time: 16:58
+      Charge: 100
+      Alleged Breach: Overstayed the maximum permitted period
+      Trade Association: BPA
+      --- page 2 ---
+      HOW TO APPEAL
+      If you were not the driver, you may pass this notice to the driver or
+      name them. We are seeking recovery from the keeper under Schedule 4 of
+      the Protection of Freedoms Act 2012 if the driver is not identified.
+      If your appeal to us is rejected you may appeal to the independent
+      appeals service (POPLA) within 28 days using the code we will give you.
+      Pay or appeal within 28 days of the date of issue.
+  - evidence_id: E2
+    filename: receipt.txt
+    text: |
+      Riverside Retail Park - Pay and Display
+      Ticket 00412  12/06/2026 14:10
+      Paid: 2.00  Expires: 16:10
+customer:
+  narrative: "I paid at the machine when I arrived. I did not realise the time had run out."
+answer_policy: no

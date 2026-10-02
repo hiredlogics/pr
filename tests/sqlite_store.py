@@ -95,6 +95,15 @@ CREATE TABLE claim_plan_items (item_id PRIMARY KEY,
   knowledge_id NOT NULL, module_id NOT NULL, claim_type, status NOT NULL, decision NOT NULL,
   reason NOT NULL, supporting_facts, evidence_refs, relationships, priority, topic,
   UNIQUE (claim_plan_id, module_id));
+CREATE TABLE case_state_history (id INTEGER PRIMARY KEY, case_id NOT NULL, run_id,
+  from_state NOT NULL, to_state NOT NULL, reason, at NOT NULL, recorded_at);
+CREATE TABLE ai_execution_logs (id INTEGER PRIMARY KEY, case_id NOT NULL, run_id, task NOT NULL,
+  provider, model, prompt_version, prompt_sha256, input_sha256 NOT NULL, input_chars,
+  input_sources, images, output_sha256, output_chars, output_keys, duration_ms,
+  status NOT NULL, error, at NOT NULL, recorded_at);
+CREATE TABLE case_execution_trace (case_id NOT NULL, run_id NOT NULL, execution_id NOT NULL,
+  passed NOT NULL, failed_checks, checks NOT NULL, trace NOT NULL, report, created_at,
+  PRIMARY KEY (case_id, run_id));
 -- The lock, as 0006_claim_plan_authority.sql enforces it in Postgres.
 CREATE TRIGGER claim_plan_items_no_update BEFORE UPDATE ON claim_plan_items
   BEGIN SELECT RAISE(ABORT, 'claim plan items are immutable'); END;

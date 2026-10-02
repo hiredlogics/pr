@@ -17,6 +17,7 @@ from .drafting.drafter import LLMDrafter, TemplateDrafter
 from .engines.account import assess_material_account
 from .engines.analysis import AnalysisEngine
 from .engines.claim_plan_authority import ClaimPlanBuilder
+from .integrity import ai_log
 from .engines.extraction import ExtractionEngine
 from .engines.outcome import analysis_failed, classify_hold
 from .engines.question_authority import (CONFIRMATION, CONFLICT, HYPOTHESIS, POSTCODE,
@@ -78,6 +79,9 @@ class AppealOutput:
     can_continue: bool = True
     # P0.5: what produced this result (manifest.py). Admin only.
     manifest: Optional[dict] = None
+    # P5.5: integrity checks and the execution trace for this run
+    # (integrity/). Admin only.
+    integrity: Optional[dict] = None
 
 
 
@@ -106,6 +110,9 @@ class AutoAppealResult:
 class AppealPipeline:
     def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None):
         self.kg = kg or KnowledgeGraph()
+        # P5.5: every model call is logged against the case it serves
+        # (integrity/ai_log.py) - task, model, prompt version, digests, timing.
+        llm = ai_log.audited(llm)
         self.extraction = ExtractionEngine(llm)
         self.questions = QuestionEngine(self.kg)
         self.reasoning = ReasoningEngine(self.kg)
@@ -390,7 +397,11 @@ class AppealPipeline:
         case.ensure_run("generate")
         out = self._generate(case)
         from . import manifest
+        from .integrity import record
         manifest.attach(case, out, self)
+        # P5.5: the run's integrity checks and execution trace, on the output
+        # and in the audit. Never fails the run.
+        record(case, out, self)
         return out
 
     def _generate(self, case: CaseFile) -> AppealOutput:

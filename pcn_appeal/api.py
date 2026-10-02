@@ -385,6 +385,7 @@ def _persist(case: CaseFile, out=None) -> None:
     case_store.save(case)
     if out is not None:
         case_store.save_output(case, out)
+        case_store.save_execution_trace(case, out)
 
 
 def _new_case() -> tuple[str, dict[str, Any]]:
@@ -1171,7 +1172,11 @@ def get_trace(case_id: str, authorization: Optional[str] = Header(None),
             # P4: facts -> relationships -> knowledge, and every rejection.
             "knowledge": _knowledge_trace(rec),
             # P5: the locked claim plan - what is argued, what is not, and why.
-            "claim_plan": _claim_plan_trace(rec["case"])}
+            "claim_plan": _claim_plan_trace(rec["case"]),
+            # P5.5: the run's execution trace (stages, versions, state history,
+            # AI calls) and the integrity check results.
+            "execution_trace": _integrity_of(rec).get("trace"),
+            "integrity": [(c["check"], c["status"]) for c in _integrity_of(rec).get("checks") or []]}
 
 
 
@@ -1403,3 +1408,72 @@ def upsert_module(module_id: str, body: dict):
 @app.post("/admin/kb/releases")
 def publish_release():
     raise HTTPException(501, "not implemented: must run the scenario suite and publish only if green")
+
+
+# ---------------------------------------------------------------- P5.5 integrity
+def _integrity_of(rec: dict) -> dict:
+    """The current run's integrity result: from the output when this process
+    generated it, else recomputed from the case (a reloaded case has its audit,
+    facts, plans, state history and AI calls back)."""
+    from . import integrity
+    out = rec.get("output")
+    if out is not None and getattr(out, "integrity", None):
+        return out.integrity
+    case: CaseFile = rec["case"]
+    kg = getattr(rec.get("pipe"), "kg", None) or KG
+    checks = integrity.check_case(case, out, kg)
+    return {"passed": integrity.passed(checks), "checks": checks,
+            "trace": integrity.execution_trace(case),
+            "report": integrity.case_report(case, out, kg, checks)}
+
+
+@app.get("/admin/cases/{case_id}/audit")
+def case_audit(case_id: str, authorization: Optional[str] = Header(None),
+               x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """The AI audit of the case's current run: integrity checks, execution
+    trace, claim plan and the CASE_REPORT.md text. What the journey harness
+    reads."""
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    integ = _integrity_of(rec)
+    from .engines.claim_plan_authority import latest_locked
+    plan = latest_locked(case)
+    return {"case_id": case.case_id, "state": case.state.value, "run_id": case.run_id,
+            "integrity": {"passed": integ.get("passed"), "checks": integ.get("checks")},
+            "trace": integ.get("trace"),
+            "claim_plan": None if plan is None else {
+                "version": plan.version, "status": plan.status, "approved": plan.supported_ids,
+                "plan_digest": plan.plan_digest, "trace": plan.trace()},
+            "report": integ.get("report")}
+
+
+@app.get("/admin/cases/{case_id}/audit/report.md")
+def case_audit_report(case_id: str, authorization: Optional[str] = Header(None),
+                      x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    _require_admin(authorization, x_admin_token)
+    return Response(_integrity_of(_case(case_id)).get("report") or "", media_type="text/markdown")
+
+
+@app.get("/admin/cases/{case_id}/execution-trace")
+def case_execution_trace(case_id: str, run_id: Optional[int] = None,
+                         authorization: Optional[str] = Header(None),
+                         x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """One run's execution trace (the current run unless `run_id` is given)."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return integrity.execution_trace(case, run_id)
+
+
+@app.get("/admin/integrity/db-checks")
+def db_integrity_checks(case_id: Optional[str] = None,
+                        authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """The database invariants (integrity.checks.DB_CHECKS) over every case, or one."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    if not db.enabled():
+        raise HTTPException(503, "no database configured")
+    from .store.cases import connect
+    return {"checks": integrity.check_store(connect, case_id)}

@@ -97,6 +97,7 @@ def save(case: CaseFile) -> None:
 
             _save_fact_graph(cur, case)
             _save_claim_plans(cur, case)
+            _save_integrity(cur, case)
 
             latest = _latest_raw_answers(cur, case.case_id)
             for question, raw in case.raw_answers.items():
@@ -306,6 +307,97 @@ def _save_claim_plans(cur, case: CaseFile) -> None:
             lock(d)
 
 
+def _save_integrity(cur, case: CaseFile) -> None:
+    """P5.5: state transitions and model calls, append-only."""
+    from ..integrity.trace import transition_reason
+    audit = list(case.audit)
+    for t in case.state_history:
+        if t.get("_persisted"):
+            continue
+        # the reason is resolved against the audit as it stands at save time
+        t["reason"] = t.get("reason") or transition_reason(t, audit)
+        cur.execute("INSERT INTO case_state_history (case_id, run_id, from_state, to_state, "
+                    "reason, at) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (case.case_id, t.get("run_id"), t["from"], t["to"], t.get("reason"), t["at"]))
+        t["_persisted"] = True
+    for c in case.ai_calls:
+        if c.get("_persisted"):
+            continue
+        cur.execute("""
+            INSERT INTO ai_execution_logs (case_id, run_id, task, provider, model, prompt_version,
+                                           prompt_sha256, input_sha256, input_chars, input_sources,
+                                           images, output_sha256, output_chars, output_keys,
+                                           duration_ms, status, error, at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (case.case_id, c.get("run_id"), c["task"], c.get("provider"), c.get("model"),
+              c.get("prompt_version"), c.get("prompt_sha256"), c["input_sha256"],
+              c.get("input_chars"), _json(c.get("input_sources") or []), c.get("images") or 0,
+              c.get("output_sha256"), c.get("output_chars"), _json(c.get("output_keys") or []),
+              c.get("duration_ms"), c.get("status") or "SUCCESS", c.get("error"), c["at"]))
+        c["_persisted"] = True
+
+
+def _load_integrity(conn, case: CaseFile) -> None:
+    for (run, frm, to, reason, at) in conn.execute(
+            "SELECT run_id, from_state, to_state, reason, at FROM case_state_history "
+            "WHERE case_id = %s ORDER BY id", (case.case_id,)).fetchall():
+        case.state_history.append({"from": frm, "to": to, "run_id": run, "reason": reason,
+                                   "at": _stamp(at), "_persisted": True})
+    for (run, task, provider, model, pv, psha, isha, ichars, sources, images, osha, ochars,
+         okeys, dur, status, error, at) in conn.execute("""
+            SELECT run_id, task, provider, model, prompt_version, prompt_sha256, input_sha256,
+                   input_chars, input_sources, images, output_sha256, output_chars, output_keys,
+                   duration_ms, status, error, at
+            FROM ai_execution_logs WHERE case_id = %s ORDER BY id""", (case.case_id,)).fetchall():
+        case.ai_calls.append({
+            "case_id": case.case_id, "run_id": run, "task": task, "provider": provider,
+            "model": model, "prompt_version": pv, "prompt_sha256": psha, "input_sha256": isha,
+            "input_chars": ichars, "input_sources": _loaded(sources) or [], "images": images,
+            "output_sha256": osha, "output_chars": ochars, "output_keys": _loaded(okeys) or [],
+            "duration_ms": dur, "status": status, "error": error, "at": _stamp(at),
+            "_persisted": True})
+
+
+def save_execution_trace(case: CaseFile, out) -> None:
+    """P5.5: the run's integrity result (checks, trace, report), one row per run."""
+    integrity = getattr(out, "integrity", None)
+    if not integrity:
+        return
+    trace = integrity.get("trace") or {}
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM case_execution_trace WHERE case_id = %s AND run_id = %s",
+                        (case.case_id, case.run_id))
+            cur.execute("""
+                INSERT INTO case_execution_trace (case_id, run_id, execution_id, passed,
+                                                  failed_checks, checks, trace, report)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (case.case_id, case.run_id, trace.get("execution_id"),
+                  bool(integrity.get("passed")),
+                  _json([c["check"] for c in integrity.get("checks") or []
+                         if c["status"] != "PASS"]),
+                  _json(_jsonable(integrity.get("checks") or [])), _json(_jsonable(trace)),
+                  integrity.get("report")))
+        conn.commit()
+
+
+def load_execution_trace(case_id: str, run_id: Optional[int] = None) -> Optional[dict]:
+    with connect() as conn:
+        if run_id is None:
+            row = conn.execute("SELECT run_id, execution_id, passed, checks, trace, report "
+                               "FROM case_execution_trace WHERE case_id = %s "
+                               "ORDER BY run_id DESC LIMIT 1", (case_id,)).fetchone()
+        else:
+            row = conn.execute("SELECT run_id, execution_id, passed, checks, trace, report "
+                               "FROM case_execution_trace WHERE case_id = %s AND run_id = %s",
+                               (case_id, run_id)).fetchone()
+    if row is None:
+        return None
+    run, execution_id, passed, checks, trace, report = row
+    return {"run_id": run, "execution_id": str(execution_id), "passed": bool(passed),
+            "checks": _loaded(checks), "trace": _loaded(trace), "report": report}
+
+
 def _load_claim_plans(conn, case: CaseFile) -> None:
     from ..engines.claim_plan_authority import FinalClaimPlan
     for (plan_id, run_uuid, run_number, version, status, created, confirmed, locked,
@@ -496,6 +588,7 @@ def load(case_id: str) -> CaseFile:
 
         _load_hypotheses(conn, case)
         _load_claim_plans(conn, case)
+        _load_integrity(conn, case)
     return case
 
 

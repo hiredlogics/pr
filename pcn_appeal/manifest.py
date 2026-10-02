@@ -60,6 +60,7 @@ def kb_digest(kg) -> str:
 
 
 def provider_of(llm) -> str:
+    llm = getattr(llm, "inner", llm)         # P5.5: through the audit wrapper
     name = type(llm).__name__
     return {"OpenAIClient": "openai", "DemoLLM": "demo"}.get(name, name)
 
