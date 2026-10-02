@@ -34,6 +34,7 @@ INTERNAL_KEYS = frozenset({
     "confidence", "reasoning", "trace", "audit", "claim_plan", "pack",
     "related_claim", "unlocks", "kb_version", "kb_release", "prompt_versions",
     "manifest", "execution_manifest", "facts", "pofa_findings", "pofa_route",
+    "legal_findings", "finding_id", "finding_type", "calculation_result", "supporting_facts",
     "primary_route", "secondary_routes", "code_version", "missing_facts",
     "prohibited_claims", "policy", "differed", "run_id", "analysis_run_id",
     "possible_impact", "hypothesis_id", "hypotheses", "fact_hypotheses", "hypothesis_trace",

@@ -49,7 +49,7 @@ _EVENT_STAGE = {
     "question_review": "QUESTIONS", "question_round": "QUESTIONS",
     "hypothesis_question_asked": "QUESTIONS", "auto_appeal_paused": "QUESTIONS",
     "claim_plan_locked": "CLAIM_PLAN", "claim_plan_reused": "CLAIM_PLAN",
-    "retrieval_pack": "RETRIEVAL",
+    "retrieval_pack": "RETRIEVAL", "legal_findings": "CASE_ANALYSIS",
     "draft_error": "DRAFTING", "no_ground": "DRAFTING", "no_ground_after_widen": "DRAFTING",
     "closing_added": "DRAFTING", "auto_appeal_generating": "DRAFTING",
     "validation": "VALIDATION", "dropped_failing_sentences": "VALIDATION",
@@ -244,6 +244,12 @@ def execution_trace(case, run_id: Optional[int] = None) -> dict:
         "claim_plan": None if plan is None else {
             "claim_plan_id": plan.claim_plan_id, "version": plan.version,
             "status": plan.status, "approved": plan.supported_ids, "trace": plan.trace()},
+        # P6.1: every legal defect assessment for the case - the evidence a
+        # defect claim or defect sentence stands on.
+        "legal_findings": [{k: r.get(k) for k in (
+            "finding_id", "finding_type", "status", "supporting_facts",
+            "calculation_result", "legal_module_id")}
+            for r in getattr(case, "legal_findings", []) or []],
         "audit_events": len(audit),
     }
 

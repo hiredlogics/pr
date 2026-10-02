@@ -41,6 +41,7 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Any, Iterable, Optional
 
+from ..legal import findings as legal_findings
 from ..models import CaseFile
 from ..rules.dsl import PredicateError, evaluate, referenced_facts
 
@@ -61,6 +62,7 @@ NO_SUPPORTING_FACTS = "NO_SUPPORTING_FACTS"
 EVIDENCE_REQUIRED = "EVIDENCE_REQUIRED"
 NOT_SELECTED = "NOT_SELECTED"               # offered / gate holds, CI did not choose it
 MISSING_FACTS = "MISSING_FACTS"             # could apply; facts still unknown
+NO_VERIFIED_FINDING = "NO_VERIFIED_FINDING"  # P6.1: legal defect not verified
 
 _NS = uuid.UUID("6b1f4c1e-5f0a-4d8e-9c55-0d7a5c1a9e05")
 _MUTABLE_WHEN_LOCKED = frozenset({"status", "superseded_at", "superseded_by"})
@@ -469,6 +471,9 @@ class ClaimPlanBuilder:
         code, _pofa = self.reasoning.applicability(case)
         code_version = getattr(code, "version_id", None)
         facts = case.fact_view()
+        # P6.1: the VERIFIED legal findings the applicability run just recorded.
+        verified_findings = legal_findings.verified_types(
+            case.legal_findings, getattr(_pofa, "findings", []) or [])
         proposals = proposals if proposals is not None else self.proposals(case)
         match = KnowledgeMatcher(self.kg).match(case, facts)
         kept, gate_why = self.reasoning.eligibility(facts, code)
@@ -501,8 +506,18 @@ class ClaimPlanBuilder:
             if cand is not None and cand.status == "BLOCKED":
                 put(mid, REJECTED, BLOCKED, cand.reason or "blocked by relationship")
                 continue
+            # P6.1: a defect ground stands or falls with its VERIFIED finding.
+            finding_refusal = legal_findings.rejection(m, facts, verified_findings)
+            if finding_refusal:
+                put(mid, REJECTED, NO_VERIFIED_FINDING, finding_refusal)
+                continue
             if mid not in kept_ids:
-                put(mid, REJECTED, GATE, gate_why.get(mid, "reasoning gate does not keep it"))
+                why = gate_why.get(mid, "reasoning gate does not keep it")
+                if legal_findings.referenced_findings(m) and not (
+                        legal_findings.referenced_findings(m) & verified_findings):
+                    why = (f"{legal_findings.REJECTION_REASON}: no verified legal finding "
+                           "licenses this ground")
+                put(mid, REJECTED, GATE, why)
                 continue
             support = self._support(m, cand, facts)
             if not support:

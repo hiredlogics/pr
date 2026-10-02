@@ -16,6 +16,7 @@ the architecture promises, so a regression anywhere upstream shows up here:
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, Optional
 
@@ -171,6 +172,21 @@ def check_case(case, out=None, kg=None) -> list[dict]:
         results.append(_check("DRAFT_VERSION_RECORDED", ok,
                               None if ok else {"versions": len(versions_this_run),
                                                "content_hash": digest[:12]}))
+    # 9c. a legal defect in the letter maps to a VERIFIED legal finding (P6.1)
+    from ..legal import findings as legal_findings
+    letter_text = getattr(out, "letter", None) or ""
+    verified = legal_findings.verified_types(getattr(case, "legal_findings", []) or [])
+    unproven = []
+    for sentence in re.split(r"(?<=[.!?])\s+", letter_text):
+        asserted = legal_findings.asserted_types(sentence)
+        if asserted and not legal_findings.PUT_TO_PROOF.search(sentence) \
+                and not (asserted & verified):
+            unproven.append({"asserted": sorted(asserted), "sentence_sha":
+                             hashlib.sha256(sentence.encode()).hexdigest()[:12]})
+    results.append(_check("LEGAL_DEFECTS_VERIFIED", not unproven,
+                          {"unproven": unproven, "verified": sorted(verified)}
+                          if unproven else None))
+
     # 9b. driver never identified
     letter = getattr(out, "letter", None) or ""
     unidentified = getattr(case.driver_status, "value", str(case.driver_status)) == "UNIDENTIFIED"

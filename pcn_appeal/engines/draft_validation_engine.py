@@ -35,6 +35,12 @@ CHECKS (rule ids DV-*; all BLOCK)
     ACCOUNT    what only the keeper says is attributed to the keeper
                ("The keeper's account is that ..."), never stated as proven
 
+plus VAL-LEGAL-FINDING (P6.1): a sentence that states a specific legal defect
+(late Notice to Keeper, missing mandatory wording or content ...) must map to
+a VERIFIED legal finding (legal/findings.py); a vague "appears non-compliant"
+is refused when nothing is verified. Putting the operator to proof asserts no
+defect and stays allowed.
+
 Generic by construction: no check names an operator, a PCN or a module. What
 a claim may say comes from the plan and the approved wording it carries.
 """
@@ -47,6 +53,7 @@ from typing import Optional
 
 from ..customer_safe import internal_ids
 from ..drafting.context import ACCOUNT_DERIVED_FACTS
+from ..legal import findings as legal
 from ..models import Draft, RetrievalPack, ValidationIssue
 
 VERSION = "DV-1"
@@ -191,6 +198,7 @@ class DraftValidationEngine:
         all_approved_text = "\n".join(text_by_module.values())
         identified = str(pack.driver_status) == "FORMALLY_IDENTIFIED"
         fragments = self.prompt_fragments()
+        verified_findings = legal.verified_types(pack.legal_findings, pack.pofa_findings)
 
         def add(rule, message, sentence):
             result.issues.append(ValidationIssue(rule, "BLOCK", message, sentence))
@@ -249,6 +257,22 @@ class DraftValidationEngine:
                 add("DV-LEGAL", "Legal conclusion that the approved wording and the verified "
                     "findings do not support; state the facts and put the operator to proof", t)
                 reasons.append("legal_conclusion")
+
+            # ---- LEGAL FINDING (P6.1): a specific defect needs its VERIFIED finding
+            asserted = legal.asserted_types(t)
+            if asserted and not legal.PUT_TO_PROOF.search(t) and \
+                    not (asserted & verified_findings):
+                add("VAL-LEGAL-FINDING",
+                    f"States that a legal defect exists ({legal.describe(asserted)}) "
+                    "but no verified legal finding supports it; a defect may only be "
+                    "stated when the deterministic calculation proved it", t)
+                reasons.append("unverified_legal_defect")
+            elif not asserted and legal.VAGUE_DEFECT.search(t) and not REPORTED.search(t) \
+                    and not verified_findings:
+                add("VAL-LEGAL-FINDING",
+                    "Suggests the notice is non-compliant, but no legal defect has been "
+                    "verified for this case", t)
+                reasons.append("unverified_legal_defect")
             if CASE_LAW.search(t) and not CASE_LAW.search(all_approved_text):
                 add("DV-LEGAL", "Names or cites case law", t)
                 reasons.append("case_law")
@@ -313,8 +337,15 @@ class DraftValidationEngine:
             return True
         if said in "\n".join(cited).lower():
             return True
-        if pack.pofa_findings and re.search(r"pofa|schedule 4|protection of freedoms", said):
-            return True
+        if re.search(r"pofa|schedule 4|protection of freedoms", said):
+            # P6.1: a conclusion that asserts a specific defect stands only on
+            # that defect's VERIFIED finding; a generic Schedule 4 conclusion
+            # needs at least one verified finding.
+            verified = legal.verified_types(pack.legal_findings, pack.pofa_findings)
+            asserted = legal.asserted_types(sentence)
+            if asserted:
+                return bool(asserted & verified)
+            return bool(verified)
         return False
 
 

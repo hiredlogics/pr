@@ -81,6 +81,23 @@ def _fact_supports_module(fact_name: str, module: KBModule, facts: dict[str, Any
     return "neutral"
 
 
+def _finding_refusal(module: KBModule, facts: dict[str, Any], verified,
+                     needs_pofa_finding) -> Optional[str]:
+    """P6.1 Legal Claim Evidence Gate: a ground whose gate stands on a legal
+    defect is only kept when that defect is a VERIFIED legal finding.
+
+    `verified` is the set of VERIFIED finding types (legacy callers passing
+    the plain defect-code list get the same behaviour: those codes are the
+    verified types)."""
+    from ..legal import findings as legal_findings
+    refusal = legal_findings.rejection(module, facts, set(verified or ()))
+    if refusal:
+        return refusal
+    if needs_pofa_finding and needs_pofa_finding(module) and not verified:
+        return legal_findings.REJECTION_REASON
+    return None
+
+
 def _module_gate_satisfied(module: KBModule, facts: dict[str, Any]) -> bool:
     if _is_always_on(module):
         return False
@@ -146,10 +163,11 @@ def build_claim_plan(
                 "reason": "use_when not satisfied",
             })
             continue
-        if needs_pofa_finding and needs_pofa_finding(module) and not findings:
+        finding_refusal = _finding_refusal(module, facts, findings, needs_pofa_finding)
+        if finding_refusal:
             plan.claims.append({
                 "module_id": mid, "status": "excluded",
-                "reason": "PoFA finding required",
+                "reason": finding_refusal,
             })
             continue
         if mid == "KB-POFA-04" and facts.get("notice_sides_complete") is False:
@@ -181,7 +199,7 @@ def build_claim_plan(
             continue
         if not _module_gate_satisfied(module, facts):
             continue
-        if needs_pofa_finding and needs_pofa_finding(module) and not findings:
+        if _finding_refusal(module, facts, findings, needs_pofa_finding):
             continue
         if mid == "KB-POFA-04" and facts.get("notice_sides_complete") is False:
             continue
