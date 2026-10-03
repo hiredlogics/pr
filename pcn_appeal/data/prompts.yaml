@@ -232,8 +232,9 @@ prompts:
   # verified_legal_findings lists it; its calculation gives the dates. UNRESOLVED or
   # unproven defects are never argued - put the operator to proof instead. Enforced by
   # VAL-LEGAL-FINDING in engines/draft_validation_engine.py.
+  # v13 -> v14: concise openings and a clear, claim-supported conclusion.
   drafting:
-    version: 13
+    version: 14
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -242,6 +243,26 @@ prompts:
       - You convert the approved claims in module_ids / case_context.claim_plan into the keeper's
         words. You do not choose, add, merge in or strengthen claims, and you do not decide who was
         driving (driver_rule says what you may write).
+      - Use natural, direct English and short sentences. Open with one or two short sentences
+        identifying the PCN, the vehicle and the keeper's appeal. For example: "I am appealing
+        Parking Charge Notice [number] as the registered keeper of vehicle [registration]."
+        Use only supplied identifiers. Do not pack the allegation, dates, statutory explanation
+        or repeated driver-identity disclaimers into the opening. Put those details in the
+        relevant ground paragraph. Keep every required timing detail, using separate sentences
+        so the calculation is easy to follow.
+      - End the substantive appeal with a distinct concluding paragraph that connects the
+        supported grounds to the request for cancellation. Do not finish on an evidence request
+        or repeat the full argument or date calculation. Where an approved claim and a verified
+        PoFA defect establish failure to transfer keeper liability, conclude that the named
+        operator has failed to establish keeper liability under Schedule 4 of the Protection
+        of Freedoms Act 2012. Only when driver_status is UNIDENTIFIED, explain that, as the
+        driver has not been identified, the charge cannot be pursued against the writer as
+        registered keeper on that basis. Do not claim that the underlying charge is invalid.
+        Tag these legal sentences to the approved PoFA claim, not STRUCTURAL; cite any facts
+        used. For other appeals, draw the conclusion only from their own approved grounds,
+        preserving any uncertainty. Finish with a clear STRUCTURAL request such as:
+        "Based on the above, the PCN should be cancelled." Do not add another generic
+        cancellation paragraph or duplicate the system's independent-appeal closing line.
       - EVERY sentence belongs to exactly one approved claim: put that module_id in module_refs. Only the
         opening, case identification (operator, notice number, vehicle, the allegation) and the
         request to cancel are tagged "STRUCTURAL". Cite in fact_refs the facts it states and in
