@@ -694,16 +694,95 @@ input::placeholder {
   margin-bottom: 12px;
 }
 
+/* On-screen document preview — paper sheet, close to the PDF letter look. */
+.letter-sheet {
+  --letter-ink: #1a1a1a;
+  background:
+    linear-gradient(180deg, #fffefb 0%, #ffffff 40%, #faf8f4 100%);
+  border: 1px solid #e4dfd6;
+  border-radius: 4px;
+  box-shadow:
+    0 1px 2px rgb(20 22 28 / 6%),
+    0 18px 40px -24px rgb(20 22 28 / 35%);
+  padding: 22px 20px 18px;
+  max-height: 36rem;
+  overflow-y: auto;
+  color: var(--letter-ink);
+}
+
+.letter-sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 2px solid var(--brand);
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.letter-brand {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin: 0;
+  color: #14161c;
+}
+
+.letter-brand .accent {
+  color: var(--brand);
+}
+
+.letter-brand-sub {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: #777;
+}
+
+.letter-meta {
+  text-align: right;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.letter-sheet-body {
+  font-family: "Helvetica Neue", Arial, var(--font-body), sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.letter-sheet-body p {
+  margin: 0 0 0.85em;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.letter-sheet-body p:last-child {
+  margin-bottom: 0;
+}
+
+.letter-sheet-note {
+  margin: 18px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  font-size: 0.7rem;
+  color: #999;
+}
+
+/* Legacy class kept for any residual markup. */
 .letter {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.8125rem;
-  line-height: 1.8;
+  font-family: "Helvetica Neue", Arial, var(--font-body), sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
   text-align: left;
-  background: var(--surface-sunk);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: #fffefb;
+  border: 1px solid #e4dfd6;
+  border-radius: 4px;
   padding: 20px 18px;
   max-height: 27rem;
   overflow-y: auto;
@@ -1200,9 +1279,18 @@ details.why[open] > summary::after {
   }
 
   /* A wide letter is harder to read, not easier. */
-  .letter {
-    font-size: 0.875rem;
-    max-height: 34rem;
+  .letter,
+  .letter-sheet {
+    font-size: 0.9375rem;
+  }
+
+  .letter-sheet {
+    padding: 28px 32px 22px;
+    max-height: 42rem;
+  }
+
+  .letter-brand {
+    font-size: 1.05rem;
   }
 
   .btn-primary {

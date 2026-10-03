@@ -204,7 +204,7 @@ class LettersEndWithARequest(unittest.TestCase):
         from pcn_appeal.models import Draft, DraftSentence
         pipe, pack, kg = self._pipe_and_pack()
         draft = Draft("C", [[DraftSentence("The operator is put to proof of the breach.", [], ["KB-BAY-01"], [])]], 1)
-        self.assertTrue(pipe._with_closing(draft, pack))
+        self.assertEqual(pipe._with_closing(draft, pack), ["PP-END-001", "PP-END-002"])
         closing = " ".join(s.text for s in draft.paragraphs[-1])
         self.assertIn("requested to cancel Parking Charge Notice 1000200030", closing)
         self.assertEqual({m for s in draft.paragraphs[-1] for m in s.module_refs}, {"STRUCTURAL"})
@@ -216,9 +216,42 @@ class LettersEndWithARequest(unittest.TestCase):
         for text in ("I request that the operator cancels this charge.",
                      "The charge should therefore be cancelled."):
             draft = Draft("C", [[DraftSentence(text, [], ["KB-LAND-01"], [])]], 1)
-            self.assertFalse(pipe._with_closing(draft, pack))
+            self.assertEqual(pipe._with_closing(draft, pack), [])
             self.assertEqual(len(draft.paragraphs), 1)
-        self.assertFalse(pipe._with_closing(Draft("C", [], 1), pack))
+        self.assertEqual(pipe._with_closing(Draft("C", [], 1), pack), [])
+
+    def test_pofa_letters_get_a_schedule_4_conclusion(self):
+        """A timing-ground letter that never wraps up still gets PP-POFA-006/007."""
+        from types import SimpleNamespace
+        from pcn_appeal.models import Draft, DraftSentence
+        pipe, pack, kg = self._pipe_and_pack()
+        pack = SimpleNamespace(verified_facts={"pcn_number": "1000200030"},
+                               fact_refs={"pcn_number": "F-pcn_number"},
+                               pofa_findings=["NTK_LATE"])
+        draft = Draft("C", [[DraftSentence(
+            "The Notice to Keeper was delivered three days outside the statutory period.",
+            [], ["KB-POFA-02"], [])]], 1)
+        self.assertEqual(pipe._with_closing(draft, pack),
+                         ["PP-POFA-006", "PP-POFA-007", "PP-END-002"])
+        closing = " ".join(s.text for s in draft.paragraphs[-1])
+        self.assertIn("keeper liability under Schedule 4", closing)
+        self.assertIn("identity of the driver", closing)
+        self.assertIn("cancelled as against the registered keeper", closing)
+        self.assertEqual(kg.blocks["PP-POFA-007"].status, "ACTIVE")
+
+    def test_pofa_conclusion_is_not_duplicated(self):
+        from types import SimpleNamespace
+        from pcn_appeal.models import Draft, DraftSentence
+        pipe, pack, _ = self._pipe_and_pack()
+        pack = SimpleNamespace(verified_facts={"pcn_number": "1000200030"},
+                               fact_refs={"pcn_number": "F-pcn_number"},
+                               pofa_findings=["NTK_LATE"])
+        draft = Draft("C", [[DraftSentence(
+            "Accordingly the operator has failed to establish keeper liability under Schedule 4 "
+            "of the Protection of Freedoms Act 2012 and the charge should be cancelled.",
+            [], ["STRUCTURAL"], [])]], 1)
+        self.assertEqual(pipe._with_closing(draft, pack), [])
+        self.assertEqual(len(draft.paragraphs), 1)
 
 
 WITH_WARNING = (

@@ -20,10 +20,12 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # number the audit log has already attributed to the old ones. Updating this map
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
-    "extraction": 8,
+    "extraction": 10,
     "case_analysis": 8,
-    "drafting": 14,
+    "drafting": 16,
     "validation": 3,
+    "classification": 2,
+    "page_references": 2,
 }
 
 # Each rule as the terms that show it is still stated, not the sentence that
