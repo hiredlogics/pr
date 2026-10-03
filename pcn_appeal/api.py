@@ -1492,6 +1492,50 @@ def case_execution_trace(case_id: str, run_id: Optional[int] = None,
     return integrity.execution_trace(case, run_id)
 
 
+@app.get("/admin/cases/{case_id}/console")
+def case_console(case_id: str, raw: bool = False,
+                 authorization: Optional[str] = Header(None),
+                 x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """P7.5 in-page Case Intelligence Trace. Admin/test only.
+
+    Aggregates existing pipeline artefacts (facts, findings, claim plan, draft
+    context losses, validation, events). Does not re-run reasoning. Works even
+    when generate() has not produced an AppealOutput (held / blocked cases).
+    """
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    kg = getattr(rec.get("pipe"), "kg", None) or KG
+    return integrity.build_console(
+        case, rec.get("output"), kg, include_raw_narrative=bool(raw),
+    )
+
+
+@app.get("/admin/cases/{case_id}/console/compare")
+def case_console_compare(case_id: str, a: Optional[int] = None, b: Optional[int] = None,
+                         authorization: Optional[str] = Header(None),
+                         x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """A/B run comparison for the same notice (e.g. no narrative vs narrative)."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    case: CaseFile = _case(case_id)["case"]
+    return integrity.compare_runs(case, a, b)
+
+
+@app.get("/admin/cases/{case_id}/console/report.txt")
+def case_console_report(case_id: str, authorization: Optional[str] = Header(None),
+                        x_admin_token: Optional[str] = Header(None, alias="X-Admin-Token")):
+    """PII-safe pasteable diagnostic summary for Cursor/ChatGPT."""
+    from . import integrity
+    _require_admin(authorization, x_admin_token)
+    rec = _case(case_id)
+    case: CaseFile = rec["case"]
+    kg = getattr(rec.get("pipe"), "kg", None) or KG
+    console = integrity.build_console(case, rec.get("output"), kg)
+    return Response(integrity.copy_report(console), media_type="text/plain")
+
+
 @app.get("/admin/integrity/db-checks")
 def db_integrity_checks(case_id: Optional[str] = None,
                         authorization: Optional[str] = Header(None),

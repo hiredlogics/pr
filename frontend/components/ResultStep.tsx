@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AppealResponse } from "@/lib/types";
 import { FlagNotes, ReadAsNotes, RejectedNotes } from "./Notices";
+import TraceGate from "./trace/TraceGate";
 
 /**
  * Downloads the branded PDF the API renders.
@@ -323,6 +324,10 @@ export default function ResultStep({
       <button type="button" className="btn btn-secondary" onClick={onRestart}>
         Start another appeal
       </button>
+
+      {/* P7.5: admin/test Case Intelligence Trace — only when ?trace=1 and authorised.
+          Customer outcome wording above is unchanged. Trace load failures stay local. */}
+      <TraceGate caseId={data.case_id} />
     </div>
   );
 }

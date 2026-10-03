@@ -1,4 +1,5 @@
-/* ---------------------------------------------------------------- tokens
+<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>A — Successful appeal trace</title><style>/* ---------------------------------------------------------------- tokens
    Parking Appeals Group: crimson on white, generous rounding, soft shadows.
    Crimson is the brand AND the primary action; amber/red are reserved for
    "something needs your attention" so a warning never reads as a button.
@@ -1810,3 +1811,31 @@ details.why[open] > summary::after {
     display: block;
   }
 }
+
+body{background:#fff;font-family:system-ui,sans-serif}
+.shell{max-width:34rem;margin:0 auto;padding:16px}
+.stack{display:grid;gap:16px}
+.card{border:1px solid #ece7e9;border-radius:12px;padding:16px}
+.lede{color:#5d6270}
+</style></head><body>
+      <div class="shell"><div class="stack">
+        <div class="card stack"><h1>Your appeal letter</h1><p class="lede">Check the letter below…</p></div>
+        <div class="trace-console" data-testid="case-trace-console">
+          <header class="trace-sticky">
+            <div class="trace-sticky-row"><h2>Case Intelligence Trace</h2><span class="trace-chip trace-chip-pass">RELEASED</span></div>
+            <p class="trace-synthetic">TEST CASE / SYNTHETIC DATA</p>
+          </header>
+          <section class="trace-card stack">
+            <h3>Summary</h3>
+            <ul class="trace-health">
+              <li><span>Extraction</span><span class="trace-chip trace-chip-pass">PASS</span></li>
+              <li><span>Ground merge</span><span class="trace-chip trace-chip-pass">PASS</span></li>
+              <li><span>Claim Plan</span><span class="trace-chip trace-chip-pass">PASS</span></li>
+              <li><span>Validation</span><span class="trace-chip trace-chip-pass">PASS</span></li>
+            </ul>
+          </section>
+          <ol class="trace-pipeline">
+            <li><div class="trace-pipeline-row"><span class="trace-chip trace-chip-pass">PASS</span><span class="trace-pipeline-name">POFA + ANPR MERGED</span></div></li>
+          </ol>
+        </div>
+      </div></div></body></html>

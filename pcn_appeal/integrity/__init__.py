@@ -17,6 +17,7 @@ checks and the trace on the output, in the audit and (through the store) in
 from __future__ import annotations
 
 from .checks import check_case, check_store, passed
+from .console import build_console, compare_runs, copy_report
 from .report import case_report
 from .trace import execution_trace
 
@@ -37,4 +38,7 @@ def record(case, out, pipeline) -> None:
                            "error": f"{type(exc).__name__}: {exc}"[:200]})
 
 
-__all__ = ["record", "check_case", "check_store", "passed", "case_report", "execution_trace"]
+__all__ = [
+    "record", "check_case", "check_store", "passed", "case_report", "execution_trace",
+    "build_console", "compare_runs", "copy_report",
+]

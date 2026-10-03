@@ -1,4 +1,5 @@
-/* ---------------------------------------------------------------- tokens
+<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>C — Validation-blocked trace</title><style>/* ---------------------------------------------------------------- tokens
    Parking Appeals Group: crimson on white, generous rounding, soft shadows.
    Crimson is the brand AND the primary action; amber/red are reserved for
    "something needs your attention" so a warning never reads as a button.
@@ -1810,3 +1811,21 @@ details.why[open] > summary::after {
     display: block;
   }
 }
+
+body{background:#fff;font-family:system-ui,sans-serif}
+.shell{max-width:34rem;margin:0 auto;padding:16px}
+.stack{display:grid;gap:16px}
+.card{border:1px solid #ece7e9;border-radius:12px;padding:16px}
+.lede{color:#5d6270}
+</style></head><body>
+      <div class="shell"><div class="stack">
+        <div class="card stack"><h1>Something went wrong while preparing your appeal</h1></div>
+        <div class="trace-console">
+          <h2>Case Intelligence Trace</h2>
+          <ul class="trace-health">
+            <li><span>VAL-PARTICULARS</span><span class="trace-chip trace-chip-fail">FAIL</span></li>
+            <li><span>VAL-PLACEHOLDER</span><span class="trace-chip trace-chip-fail">FAIL</span></li>
+            <li><span>VAL-COVERAGE</span><span class="trace-chip trace-chip-warn">WARNING</span></li>
+          </ul>
+        </div>
+      </div></div></body></html>
