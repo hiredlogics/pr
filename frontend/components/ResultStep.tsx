@@ -61,6 +61,49 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Split the API's plain letter into paragraphs for an on-screen document preview. */
+function letterParagraphs(letter: string): string[] {
+  return letter
+    .replace(/\r\n/g, "\n")
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\n/g, " ").trim())
+    .filter(Boolean);
+}
+
+function LetterPreview({ caseId, letter }: { caseId: string; letter: string }) {
+  const paragraphs = letterParagraphs(letter);
+  const today = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  return (
+    <article className="letter-sheet" aria-label="Appeal letter preview">
+      <header className="letter-sheet-head">
+        <div>
+          <p className="letter-brand">
+            Parking Appeals <span className="accent">Group</span>
+          </p>
+          <p className="letter-brand-sub">Formal appeal — private parking charge</p>
+        </div>
+        <div className="letter-meta">
+          <div>Case reference: {caseId}</div>
+          <div>{today}</div>
+        </div>
+      </header>
+      <div className="letter-sheet-body">
+        {paragraphs.map((p, i) => (
+          <p key={i}>{p}</p>
+        ))}
+      </div>
+      <p className="letter-sheet-note">
+        Preview of your letter. Download the PDF to send to the operator.
+      </p>
+    </article>
+  );
+}
+
 /**
  * Where each routing stop sends the customer.
  *
@@ -229,21 +272,20 @@ export default function ResultStep({
           <div>
             <h1>Your appeal letter</h1>
             <p className="lede">
-              Copy this and send it to the operator using the appeal method on your notice, before
-              the deadline the notice gives.
+              Check the letter below, then download the PDF and send it to the operator using the
+              appeal method on your notice, before the deadline the notice gives.
             </p>
           </div>
 
-          <div>
-            <div className="letterhead">
-              <p className="qcount">Case {data.case_id}</p>
-              <span className="letter-actions">
-                <DownloadPdfButton caseId={data.case_id} />
-                <CopyButton text={data.letter as string} />
-              </span>
-            </div>
-            <pre className="letter">{data.letter}</pre>
+          <div className="letterhead">
+            <p className="qcount">Ready to send</p>
+            <span className="letter-actions">
+              <DownloadPdfButton caseId={data.case_id} />
+              <CopyButton text={data.letter as string} />
+            </span>
           </div>
+
+          <LetterPreview caseId={data.case_id} letter={data.letter as string} />
         </div>
       ) : (
         <div className="card stack">
