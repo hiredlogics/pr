@@ -26,10 +26,14 @@ export async function POST(req: NextRequest) {
     body = {};
   }
   const offered = String(body.token || "").trim();
+  const isProd =
+    process.env.APP_ENV === "production" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NODE_ENV === "production";
 
   // Dev with no token configured: allow unlock so local testing works.
   if (!expected) {
-    if (process.env.NODE_ENV === "production" || process.env.APP_ENV === "production") {
+    if (isProd) {
       return Response.json(
         { detail: "admin endpoints are disabled: no admin token configured" },
         { status: 403 },
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
     jar.set(COOKIE, "dev-open", {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: isProd,
       path: "/",
       maxAge: MAX_AGE,
     });
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
   jar.set(COOKIE, "ok", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isProd,
     path: "/",
     maxAge: MAX_AGE,
   });
