@@ -27,7 +27,7 @@ EXPECTED_VERSIONS = {
     # and page_references (per-document reference isolation) are new tasks.
     "extraction": 10,
     "case_analysis": 8,
-    "drafting": 14,
+    "drafting": 15,
     "validation": 3,
     "classification": 2,
     "page_references": 2,

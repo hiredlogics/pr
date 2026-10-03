@@ -234,8 +234,13 @@ prompts:
   # VAL-LEGAL-FINDING in engines/draft_validation_engine.py.
   # v13 -> v14 (drafting quality): short natural opening; clear Schedule 4 / cancel
   # conclusion when PoFA transfer fails — do not end abruptly on the last ground.
+  # v14 -> v15: Schedule 4 "failed keeper liability" closing ONLY when pofa_findings
+  # is non-empty. Without a verified defect, that language fails VAL-POFA-AUTHORITY
+  # and the case is held instead of releasing a PDF. Otherwise close with a plain
+  # cancel request. Neutral keeper framing (appeal as keeper / no driver admission)
+  # remains allowed for KB-POFA-01.
   drafting:
-    version: 14
+    version: 15
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -254,13 +259,16 @@ prompts:
         pack statutory timing, deemed delivery, calculations, signage or ground detail into the opening;
         those belong in the ground paragraphs that follow. Prefer plain English over a long mechanical
         catalogue of case details.
-      - CLOSING (STRUCTURAL, final paragraph): do not end abruptly on the last ground. Finish with a
-        clear conclusion. When verified_legal_findings or pofa_findings show Schedule 4 is not satisfied
-        and the driver is not identified, conclude in this shape (name the operator from verified_facts):
-        that the named operator has failed to establish keeper liability under Schedule 4 of the
-        Protection of Freedoms Act 2012; that as the driver has not been identified there is no lawful
-        basis to pursue the charge against the registered keeper; and that based on the above the PCN
-        should be cancelled. Keep that conclusion concise; do not repeat the full timing calculation.
+      - CLOSING (STRUCTURAL, final paragraph): never end on the last ground alone — always finish with a
+        clear cancel request so the letter can be released. Use a Schedule 4 / "failed to establish
+        keeper liability" conclusion ONLY when pofa_findings is non-empty (a verified PoFA defect).
+        In that case, name the operator and conclude: Schedule 4 keeper liability is not established;
+        the driver has not been identified; the PCN should be cancelled. If pofa_findings is empty,
+        do NOT mention Schedule 4 failure, transfer of liability, or that keeper liability "has not
+        been established" — close only with a plain request that the operator cancel the PCN and, if
+        not cancelling, respond to the grounds raised. Neutral keeper framing ("submitted by the
+        registered keeper" / "no admission as to the identity of the driver") is fine; substantive
+        Schedule 4 failure language without pofa_findings is not.
       - fact_basis says where each fact came from. A fact whose basis is CUSTOMER_ACCOUNT is the
         keeper's own account, not something the notice or the operator established: write it as
         "The keeper's account is that ..." (or "The keeper states that ...") and never as an
