@@ -196,7 +196,7 @@ KB release digest: `{fr.get('kb_release_digest')}`
 ## 3. Case outcome distribution
 
 ```json
-{json.dumps(cohort.get('outcome_distribution') or {{}}, indent=2)}
+{json.dumps(cohort.get('outcome_distribution') or dict(), indent=2)}
 ```
 
 ## 4. Extraction metrics
@@ -249,7 +249,7 @@ Calls/case: {cohort.get('openai_calls_per_case')} · In tokens: {cohort.get('inp
 
 Safety-stop catalogue:
 ```json
-{json.dumps((agg.get('observability_schema') or {{}}).get('safety_stops'), indent=2)}
+{json.dumps((agg.get('observability_schema') or dict()).get('safety_stops'), indent=2)}
 ```
 
 ## 13. Rollback events
@@ -260,7 +260,7 @@ Safety-stop catalogue:
 
 Rollback procedure:
 ```json
-{json.dumps((pre.get('rollback') or {{}}).get('procedure'), indent=2)}
+{json.dumps((pre.get('rollback') or dict()).get('procedure'), indent=2)}
 ```
 
 ## 14. Unresolved issues
