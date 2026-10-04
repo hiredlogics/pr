@@ -16,7 +16,10 @@ def _client():
     config.load()
     from pcn_appeal.llm import DemoLLM, default_client, probe
     info = probe()
-    client = default_client()
+    try:
+        client = default_client()
+    except Exception as exc:  # noqa: BLE001
+        return None, {**info, "reason": f"{type(exc).__name__}: {exc}"[:200]}, True
     return client, info, isinstance(client, DemoLLM)
 
 
@@ -30,7 +33,7 @@ def probe_semantic() -> dict[str, Any]:
         "prompt_version": prompts.version("semantic_extraction"),
         "is_demo": is_demo,
     }
-    if is_demo or info.get("provider") != "openai":
+    if client is None or is_demo or info.get("provider") != "openai":
         out["reason"] = info.get("reason") or "live OpenAI required"
         out["passed"] = False
         return out
@@ -89,7 +92,7 @@ def probe_drafting() -> dict[str, Any]:
         "draft_plan_version": DRAFT_PLAN_VERSION,
         "is_demo": is_demo,
     }
-    if is_demo or info.get("provider") != "openai":
+    if client is None or is_demo or info.get("provider") != "openai":
         out["reason"] = info.get("reason") or "live OpenAI required"
         out["passed"] = False
         return out
