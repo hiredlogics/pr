@@ -67,6 +67,10 @@ class Propagation(unittest.TestCase):
 
     def test_support_bundle_carries_departure_reason(self):
         case = CaseFile("p113-2")
+        # Ontology facts (left_site) via semantic → FactManager; narrative atom
+        # (departure_reason) via understand. Both must reach the support bundle.
+        from pcn_appeal.semantics import extract_and_promote
+        extract_and_promote(case, [NARRATIVES[0]])
         understand(case, [NARRATIVES[0]])
         case.put(Fact(
             "F-mv", "multiple_visits", True, FactStatus.ANSWERED,

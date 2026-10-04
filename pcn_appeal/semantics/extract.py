@@ -61,7 +61,8 @@ _PATTERNS: tuple[tuple[str, re.Pattern], ...] = (
     ("RETURNED", re.compile(
         r"\b(came back|returned (to|later)|went back (to|in))\b", re.I)),
     ("MULTIPLE_VISITS", re.compile(
-        r"\b(two visits|more than one visit|visited twice|second (visit|entry)|"
+        r"\b(two(\s+\w+)?\s+visits|more than one visit|visited twice|"
+        r"second (visit|entry)|separate visits|"
         r"left and (then )?returned|came back later)\b", re.I)),
     ("SHOPPING", re.compile(r"\b(shopping|bought|purchases?|supermarket)\b", re.I)),
     ("DROP_OFF", re.compile(r"\b(drop[ -]?off|dropped (off|someone))\b", re.I)),
@@ -318,10 +319,38 @@ def extract_concepts(texts: list[str], llm=None,
     return _merge_concepts(llm_concepts, helpers)
 
 
-def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None) -> dict:
-    """Run extraction and write affirmed concepts into FactManager before questions."""
+def derive_multiple_visits_concept(concepts: list[SemanticConcept]) -> list[SemanticConcept]:
+    """If LEFT_SITE + RETURNED are AFFIRMED, affirm MULTIPLE_VISITS when absent.
+
+    Does not override an explicit NEGATED MULTIPLE_VISITS (conflict path).
+    """
+    by = {c.concept: c for c in concepts}
+    left, ret, multi = by.get("LEFT_SITE"), by.get("RETURNED"), by.get("MULTIPLE_VISITS")
+    if not (left and left.polarity == "AFFIRMED" and ret and ret.polarity == "AFFIRMED"):
+        return concepts
+    if multi is not None and multi.polarity in ("NEGATED", "AFFIRMED"):
+        return concepts
+    return list(concepts) + [SemanticConcept(
+        concept="MULTIPLE_VISITS", polarity="AFFIRMED", attribution="DERIVED",
+        source_text=(left.source_text or ret.source_text or "")[:240],
+        confidence=min(float(left.confidence or 0.8), float(ret.confidence or 0.8)),
+        provenance="derived_from_left_and_returned",
+    )]
+
+
+def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
+                        narrative_atoms: Optional[list[dict]] = None) -> dict:
+    """Run extraction and write affirmed concepts into FactManager before questions.
+
+    Sole free-text → fact promotion path for ontology-owned facts. Builds
+    SemanticCaseState, runs material consistency, stamps the fact revision for
+    knowledge / Claim Plan handoff.
+    """
     from ..engines.account import apply_fact_delta
     from ..models import Fact, FactSource, FactStatus, SourceKind
+    from .state import (
+        attach_semantic_state, build_semantic_case_state, record_material_conflicts,
+    )
 
     if texts is None:
         from ..engines.account import _collect_customer_texts
@@ -330,33 +359,67 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None) -> di
     for name, node in (getattr(case, "facts", None) or {}).items():
         if getattr(node, "usable", False):
             confirmed[name] = node.value
+    from .state import SEMANTIC_OWNED_FACTS
+
     concepts = extract_concepts(list(texts or []), llm=llm, confirmed_facts=confirmed)
+    concepts = derive_multiple_visits_concept(concepts)
     intended = concepts_to_intended_facts(concepts)
-    delta = {}
-    if intended:
-        delta = apply_fact_delta(case, intended)
-        for name, value in intended.items():
-            existing = case.facts.get(name)
-            if existing and existing.usable and existing.source.kind in (
-                    SourceKind.DOCUMENT, SourceKind.CALCULATION):
-                continue
-            case.put(Fact(
-                f"F-{name}", name, value, FactStatus.ANSWERED,
-                FactSource(SourceKind.CUSTOMER_FREE_TEXT,
-                           f"semantic:{name}",
-                           excerpt=next(
-                               (c.source_text for c in concepts
-                                if CONCEPT_TO_FACTS.get(c.concept, (None,))[0] == name),
-                               "")[:240]),
-            ), reason="semantic_concept")
+    # Preserve non-ontology free-text facts (e.g. departure_reason) across delta.
+    delta_intended = dict(intended)
+    for name, node in list((getattr(case, "facts", None) or {}).items()):
+        if name in SEMANTIC_OWNED_FACTS:
+            continue
+        if getattr(node, "value", None) in (None, "", []):
+            continue
+        src = getattr(getattr(node, "source", None), "kind", None)
+        if src in (SourceKind.CUSTOMER_FREE_TEXT, SourceKind.ANSWER):
+            delta_intended.setdefault(name, node.value)
+    delta = apply_fact_delta(case, delta_intended) if delta_intended else {}
+    for name, value in intended.items():
+        existing = case.facts.get(name)
+        if existing and existing.usable and existing.source.kind in (
+                SourceKind.DOCUMENT, SourceKind.CALCULATION):
+            continue
+        case.put(Fact(
+            f"F-{name}", name, value, FactStatus.ANSWERED,
+            FactSource(SourceKind.CUSTOMER_FREE_TEXT,
+                       f"semantic:{name}",
+                       excerpt=next(
+                           (c.source_text for c in concepts
+                            if CONCEPT_TO_FACTS.get(c.concept, (None,))[0] == name),
+                           "")[:240]),
+        ), reason="semantic_concept")
+    # Material consistency after FactManager writes (no last-write-wins).
+    conflicts = record_material_conflicts(case)
+    revision = int((case.raw_answers or {}).get("_semantic_revision") or 0) + 1
+    state = build_semantic_case_state(
+        case, concepts, texts=list(texts or []),
+        narrative_atoms=list(narrative_atoms or []),
+        revision=revision, ontology_version=ONTOLOGY_VERSION,
+    )
+    # Refresh contradictions after conflict recording.
+    state.contradictions = [
+        {"code": c.get("code"), "facts": c.get("facts"), "detail": c.get("detail"),
+         "status": c.get("status")}
+        for c in (case.fact_conflicts or [])
+        if c.get("rule") == "material_consistency" and c.get("status") != "RESOLVED"
+    ] or state.contradictions
+    attach_semantic_state(case, state)
     case.raw_answers["_semantic_concepts"] = json.dumps(
         [c.as_dict() for c in concepts])[:8000]
+    case.raw_answers["_semantic_fact_revision"] = str(
+        len(getattr(case, "fact_history", None) or []))
     case.audit.append({
         "event": "semantic_concepts",
         "ontology_version": ONTOLOGY_VERSION,
         "concepts": [c.as_dict() for c in concepts],
         "promoted_facts": sorted(intended),
         "delta": delta,
+        "material_conflicts": conflicts,
+        "semantic_revision": revision,
         "llm_passed": llm is not None,
     })
-    return {"concepts": concepts, "intended": intended, "delta": delta}
+    return {
+        "concepts": concepts, "intended": intended, "delta": delta,
+        "state": state, "conflicts": conflicts,
+    }

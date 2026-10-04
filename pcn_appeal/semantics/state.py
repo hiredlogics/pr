@@ -1,0 +1,487 @@
+"""Normalized SemanticCaseState between understanding and FactManager (handoff).
+
+Document / narrative / answer → LLM (or helper) concepts → SemanticCaseState
+→ FactManager (sole fact authority) → conflict check → knowledge matching.
+
+This module does not change KB modules, Claim Plan builders, or drafting.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass, field
+from typing import Any, Optional
+
+from .ontology import CONCEPT_TO_FACTS
+
+# Material consistency conflicts block Claim Plan lock (not last-write-wins).
+FACT_CONFLICT = "FACT_CONFLICT"
+
+# Facts promoted only via semantic → FactManager (not CircumstanceRule / narrative).
+SEMANTIC_OWNED_FACTS = frozenset(name for name, _ in CONCEPT_TO_FACTS.values())
+
+# Visit-sequence facts used for consistency and timeline.
+_VISIT_FACTS = frozenset({"left_site", "returned_same_day", "multiple_visits"})
+
+# Allegation-family → material fact names (relevance tagging only).
+_MATERIAL_BY_ALLEGATION: dict[str, frozenset[str]] = {
+    "overstay": frozenset({
+        "entry_time", "exit_time", "total_recorded_duration_min",
+        "permitted_duration_min", "left_site", "returned_same_day",
+        "multiple_visits", "payment_made", "purpose_of_visit",
+        "departure_reason", "anpr_sequence_incomplete", "grace_period_min",
+    }),
+    "payment": frozenset({
+        "payment_made", "payment_attempt_failed", "keying_error_type",
+        "payment_recorded_in_document", "entry_time", "exit_time",
+    }),
+    "bay": frozenset({
+        "child_occupant_present", "permit_held", "blue_badge_displayed",
+        "disability_extra_time", "loading_activity", "restricted_bay_alleged",
+    }),
+}
+
+
+@dataclass
+class SemanticCaseState:
+    document_entities: list[dict] = field(default_factory=list)
+    facts: list[dict] = field(default_factory=list)
+    concepts: list[dict] = field(default_factory=list)
+    narrative_atoms: list[dict] = field(default_factory=list)
+    events: list[dict] = field(default_factory=list)
+    timeline: list[dict] = field(default_factory=list)
+    relationships: list[dict] = field(default_factory=list)
+    contradictions: list[dict] = field(default_factory=list)
+    missing_information: list[dict] = field(default_factory=list)
+    evidence_links: list[dict] = field(default_factory=list)
+    provenance: list[dict] = field(default_factory=list)
+    confidence: list[dict] = field(default_factory=list)
+    revision: int = 0
+    ontology_version: str = ""
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+def _allegation_family(breach: str) -> str:
+    b = (breach or "").lower()
+    if any(t in b for t in ("pay", "payment", "ticket", "permit", "vrm", "reg")):
+        return "payment"
+    if any(t in b for t in ("bay", "child", "disabled", "blue badge", "parent")):
+        return "bay"
+    return "overstay"
+
+
+def material_tags_for(fact_name: str, allegation: str) -> list[str]:
+    """Which reasoning slices this fact is material to (not a legal conclusion)."""
+    tags: list[str] = []
+    family = _allegation_family(allegation)
+    material = _MATERIAL_BY_ALLEGATION.get(family, frozenset())
+    if fact_name in material or fact_name in _VISIT_FACTS:
+        tags.append("allegation")
+    if fact_name in _VISIT_FACTS or fact_name in (
+            "entry_time", "exit_time", "parking_event_date", "departure_reason"):
+        tags.append("timeline")
+    if fact_name in ("pcn_number", "vrm", "operator_name", "notice_route"):
+        tags.append("document_identity")
+    if fact_name in material:
+        tags.append("legal_analysis")
+    if fact_name in ("payment_made", "keying_error_type", "departure_reason",
+                     "purpose_of_visit"):
+        tags.append("evidence")
+    if not tags:
+        tags.append("supporting_context")
+    return tags
+
+
+def _doc_entities(case) -> list[dict]:
+    names = (
+        "pcn_number", "vrm", "operator_name", "parking_location",
+        "parking_event_date", "entry_time", "exit_time", "alleged_breach",
+        "notice_route", "charge_amount",
+    )
+    out = []
+    for name in names:
+        node = (getattr(case, "facts", None) or {}).get(name)
+        if node is None or getattr(node, "value", None) in (None, "", []):
+            continue
+        out.append({
+            "name": name,
+            "value": node.value,
+            "source": "DOCUMENT",
+            "source_type": getattr(getattr(node, "source", None), "kind", None)
+            and node.source.kind.value,
+            "attribution": "OPERATOR" if name in (
+                "entry_time", "exit_time", "alleged_breach") else "DOCUMENT",
+            "confidence": float(getattr(node, "confidence", 0.9) or 0.9),
+            "material_to": material_tags_for(name, str(case.get("alleged_breach") or "")),
+        })
+    return out
+
+
+def _concept_events(concepts: list[Any], texts: list[str]) -> list[dict]:
+    """Operator vs customer event frames from concepts (not legal conclusions)."""
+    events: list[dict] = []
+    by = {getattr(c, "concept", None): c for c in concepts}
+    excerpt = (texts[0][:240] if texts else "")
+
+    def _ev(eid: str, kind: str, concept: str, *, attribution: str,
+            polarity: str = "AFFIRMED") -> None:
+        c = by.get(concept)
+        events.append({
+            "event_id": eid,
+            "kind": kind,
+            "concept": concept,
+            "polarity": polarity if c is None else c.polarity,
+            "attribution": attribution,
+            "source": "CUSTOMER_FREE_TEXT" if attribution == "CUSTOMER" else attribution,
+            "source_type": "CUSTOMER_FREE_TEXT",
+            "source_excerpt": (c.source_text if c is not None else excerpt)[:240],
+            "confidence": float(c.confidence) if c is not None else 0.7,
+        })
+
+    if by.get("SHOPPING") and by["SHOPPING"].polarity == "AFFIRMED":
+        _ev("E-visit-1", "VISIT", "SHOPPING", attribution="CUSTOMER")
+    if by.get("LEFT_SITE") and by["LEFT_SITE"].polarity == "AFFIRMED":
+        _ev("E-depart", "DEPARTURE", "LEFT_SITE", attribution="CUSTOMER")
+    if by.get("RETURNED") and by["RETURNED"].polarity == "AFFIRMED":
+        _ev("E-return", "RETURN", "RETURNED", attribution="CUSTOMER")
+    if by.get("MULTIPLE_VISITS") and by["MULTIPLE_VISITS"].polarity == "AFFIRMED":
+        _ev("E-visit-2", "VISIT", "MULTIPLE_VISITS", attribution="CUSTOMER")
+    return events
+
+
+def _timeline_from_events(events: list[dict], case) -> list[dict]:
+    """Ordered customer visit sequence + operator observation anchors."""
+    # visit → departure → return → second visit (not kind-alphabet order).
+    preferred = ("E-visit-1", "E-depart", "E-return", "E-visit-2")
+    rank = {eid: i for i, eid in enumerate(preferred)}
+    cust = sorted(
+        [e for e in events if e.get("attribution") == "CUSTOMER"],
+        key=lambda e: (rank.get(e.get("event_id"), 50), e.get("event_id") or ""),
+    )
+    timeline: list[dict] = []
+    seq = 0
+    for e in cust:
+        seq += 1
+        label = {
+            "E-visit-1": "visit",
+            "E-depart": "departure",
+            "E-return": "return",
+            "E-visit-2": "second_visit",
+        }.get(e["event_id"], {
+            "VISIT": "visit", "DEPARTURE": "departure", "RETURN": "return",
+        }.get(e["kind"], e["kind"].lower()))
+        timeline.append({
+            "seq": seq,
+            "event_id": e["event_id"],
+            "kind": e["kind"],
+            "label": label,
+            "attribution": "CUSTOMER_ACCOUNT",
+            "source_excerpt": e.get("source_excerpt"),
+            "polarity": e.get("polarity"),
+            "confidence": e.get("confidence"),
+        })
+    # Operator-observed span (allegation), distinct from continuous parking.
+    entry = case.get("entry_time")
+    exit_t = case.get("exit_time")
+    event_date = case.get("parking_event_date")
+    if entry or exit_t:
+        timeline.append({
+            "seq": 0,
+            "event_id": "E-operator-span",
+            "kind": "OPERATOR_OBSERVED_SPAN",
+            "label": "operator_observed_entry_exit",
+            "attribution": "OPERATOR_ALLEGATION",
+            "operator_observed_entry": entry,
+            "operator_observed_exit": exit_t,
+            "event_date": event_date,
+            "note": "Not interpreted as one continuous customer visit without review",
+        })
+    return timeline
+
+
+def _relationships(concepts: list[Any], atoms: list[dict]) -> list[dict]:
+    """Causal / temporal links — never legal conclusions."""
+    by = {c.concept: c for c in concepts}
+    rel: list[dict] = []
+    affirmed = {c.concept for c in concepts if c.polarity == "AFFIRMED"}
+
+    dep = next((a for a in atoms if a.get("fact_name") == "departure_reason"
+                or a.get("name") == "departure_reason"
+                or a.get("kind") == "departure_reason"
+                or a.get("atom_id") == "NA-departure_reason"), None)
+    if dep and "LEFT_SITE" in affirmed:
+        rel.append({
+            "subject": "forgotten_item_or_departure_reason",
+            "predicate": "CAUSES",
+            "object": "departure_from_site",
+            "source_excerpt": (dep.get("source_text") or dep.get("source_excerpt") or "")[:240],
+            "confidence": float(dep.get("confidence") or 0.8),
+        })
+    if "LEFT_SITE" in affirmed and "RETURNED" in affirmed:
+        rel.append({
+            "subject": "departure_from_site",
+            "predicate": "PRECEDES",
+            "object": "return_to_site",
+            "confidence": 0.85,
+        })
+        rel.append({
+            "subject": "left_site+returned_same_day",
+            "predicate": "SUPPORTS",
+            "object": "multiple_visits",
+            "confidence": 0.85,
+        })
+    if "MULTIPLE_VISITS" in affirmed:
+        rel.append({
+            "subject": "customer_account",
+            "predicate": "SUPPORTS",
+            "object": "multiple_visits",
+            "confidence": float(by["MULTIPLE_VISITS"].confidence),
+        })
+    return rel
+
+
+def _missing(concepts: list[Any], case) -> list[dict]:
+    out = []
+    by = {c.concept: c for c in concepts}
+    if by.get("LEFT_SITE") and by["LEFT_SITE"].polarity == "AFFIRMED":
+        if "RETURNED" not in by and case.get("returned_same_day") is None:
+            out.append({"topic": "return_timing", "detail": "left_site affirmed; return not stated"})
+        if case.get("departure_reason") in (None, ""):
+            out.append({"topic": "departure_reason",
+                        "detail": "left site without stated reason"})
+    if case.get("entry_time") and case.get("exit_time") and case.get("multiple_visits") is None:
+        if by.get("LEFT_SITE") and by["LEFT_SITE"].polarity == "AFFIRMED":
+            out.append({"topic": "visit_count",
+                        "detail": "operator span present; visit count not confirmed"})
+    return out
+
+
+def build_semantic_case_state(
+    case,
+    concepts: list[Any],
+    *,
+    texts: Optional[list[str]] = None,
+    narrative_atoms: Optional[list[dict]] = None,
+    revision: int = 0,
+    ontology_version: str = "",
+) -> SemanticCaseState:
+    texts = list(texts or [])
+    atoms = list(narrative_atoms or [])
+    allegation = str(case.get("alleged_breach") or "")
+    events = _concept_events(concepts, texts)
+    timeline = _timeline_from_events(events, case)
+
+    fact_rows = []
+    for c in concepts:
+        mapping = CONCEPT_TO_FACTS.get(c.concept)
+        if not mapping:
+            continue
+        name, value = mapping
+        fact_rows.append({
+            "name": name,
+            "intended_value": value if c.polarity == "AFFIRMED" else None,
+            "polarity": c.polarity,
+            "attribution": c.attribution,
+            "source": "CUSTOMER_FREE_TEXT",
+            "source_type": "CUSTOMER_FREE_TEXT",
+            "source_excerpt": (c.source_text or "")[:240],
+            "confidence": float(c.confidence or 0),
+            "concept": c.concept,
+            "material_to": material_tags_for(name, allegation),
+        })
+
+    provenance = [{
+        "kind": "semantic_concept",
+        "concept": c.concept,
+        "polarity": c.polarity,
+        "provenance": c.provenance,
+        "source_excerpt": (c.source_text or "")[:240],
+        "confidence": float(c.confidence or 0),
+    } for c in concepts]
+    for a in atoms:
+        provenance.append({
+            "kind": "narrative_atom",
+            "fact_name": a.get("fact_name") or "departure_reason",
+            "source_excerpt": (a.get("source_excerpt") or a.get("source_text") or "")[:240],
+            "proposition": a.get("proposition"),
+            "confidence": float(a.get("confidence") or 0.8),
+        })
+
+    conf = [{
+        "concept": c.concept,
+        "confidence": float(c.confidence or 0),
+        "polarity": c.polarity,
+    } for c in concepts]
+
+    evidence_links = []
+    for eid, item in (getattr(case, "evidence", None) or {}).items():
+        evidence_links.append({
+            "evidence_id": eid,
+            "kind": getattr(item, "kind", None),
+            "material_to": ["evidence"],
+        })
+
+    contradictions = list_material_contradictions(case)
+
+    return SemanticCaseState(
+        document_entities=_doc_entities(case),
+        facts=fact_rows,
+        concepts=[c.as_dict() if hasattr(c, "as_dict") else dict(c) for c in concepts],
+        narrative_atoms=atoms,
+        events=events,
+        timeline=timeline,
+        relationships=_relationships(concepts, atoms),
+        contradictions=contradictions,
+        missing_information=_missing(concepts, case),
+        evidence_links=evidence_links,
+        provenance=provenance,
+        confidence=conf,
+        revision=revision,
+        ontology_version=ontology_version,
+    )
+
+
+def list_material_contradictions(case) -> list[dict]:
+    """Detect material visit-sequence inconsistencies (no silent overwrite)."""
+    left = case.get("left_site") is True
+    returned = case.get("returned_same_day") is True
+    multi = case.get("multiple_visits")
+    out = []
+    if left and returned and multi is False:
+        out.append({
+            "code": "VISIT_SEQUENCE_CONFLICT",
+            "facts": ["left_site", "returned_same_day", "multiple_visits"],
+            "detail": (
+                "left_site and returned_same_day are affirmed but "
+                "multiple_visits is false"
+            ),
+            "status": FACT_CONFLICT,
+        })
+    return out
+
+
+def record_material_conflicts(case) -> list[dict]:
+    """Write FACT_CONFLICT rows onto the case; do not last-write-wins."""
+    from ..fact_graph import now
+
+    found = list_material_contradictions(case)
+    recorded = []
+    for row in found:
+        # Idempotent: skip if an open FACT_CONFLICT already covers these facts.
+        key = tuple(sorted(row["facts"]))
+        already = any(
+            c.get("status") == FACT_CONFLICT
+            and c.get("rule") == "material_consistency"
+            and tuple(sorted(c.get("facts") or [])) == key
+            for c in (case.fact_conflicts or [])
+        )
+        if already:
+            continue
+        conflict = {
+            "conflict_id": f"fc-material-{'-'.join(key)}",
+            "fact": "multiple_visits",
+            "fact_name": "multiple_visits",
+            "facts": list(row["facts"]),
+            "held_value": False,
+            "proposed_value": True,
+            "rule": "material_consistency",
+            "status": FACT_CONFLICT,
+            "resolution_status": FACT_CONFLICT,
+            "resolution": None,
+            "detail": row["detail"],
+            "code": row["code"],
+            "at": now(),
+            "run_id": getattr(case, "run_id", 0),
+        }
+        case.fact_conflicts.append(conflict)
+        case.audit.append({"event": "fact_conflict", **conflict})
+        recorded.append(conflict)
+    return recorded
+
+
+def _json_safe(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    if hasattr(obj, "value") and not isinstance(obj, (str, int, float, bool)):
+        try:
+            return obj.value
+        except Exception:
+            return str(obj)
+    return obj
+
+
+def attach_semantic_state(case, state: SemanticCaseState) -> None:
+    """Persist SemanticCaseState for knowledge handoff + claim-plan gate."""
+    payload = _json_safe(state.as_dict())
+    case.raw_answers["_semantic_case_state"] = json.dumps(payload)[:12000]
+    case.raw_answers["_semantic_revision"] = str(state.revision)
+    # Lightweight attribute for in-process consumers (not a redesign of CaseFile).
+    setattr(case, "semantic_case_state", payload)
+    case.audit.append({
+        "event": "semantic_case_state",
+        "revision": state.revision,
+        "concepts": len(state.concepts),
+        "events": len(state.events),
+        "timeline": len(state.timeline),
+        "relationships": len(state.relationships),
+        "contradictions": len(state.contradictions),
+    })
+
+
+def open_material_fact_conflicts(case) -> list[dict]:
+    return [
+        c for c in (case.fact_conflicts or [])
+        if c.get("status") == FACT_CONFLICT
+        and c.get("rule") == "material_consistency"
+    ]
+
+
+def handoff_ready(case, *, texts: Optional[list[str]] = None) -> tuple[bool, list[str]]:
+    """Pre-Claim-Plan checks for the semantic → fact → knowledge handoff."""
+    reasons: list[str] = []
+    if open_material_fact_conflicts(case):
+        reasons.append("unresolved_material_fact_conflict")
+    has_text = bool(texts)
+    if texts is None:
+        from ..engines.account import _collect_customer_texts
+        has_text = bool(_collect_customer_texts(case))
+    if has_text:
+        if not (case.raw_answers or {}).get("_semantic_case_state"):
+            reasons.append("semantic_state_missing")
+        if not (case.raw_answers or {}).get("_semantic_concepts"):
+            reasons.append("semantic_concepts_missing")
+        # Material visit facts that concepts intended must have reached FactManager.
+        try:
+            concepts = json.loads((case.raw_answers or {}).get("_semantic_concepts") or "[]")
+        except (TypeError, ValueError):
+            concepts = []
+        for c in concepts:
+            if c.get("polarity") != "AFFIRMED":
+                continue
+            mapping = CONCEPT_TO_FACTS.get(c.get("concept") or "")
+            if not mapping:
+                continue
+            name, value = mapping
+            if name in SEMANTIC_OWNED_FACTS and case.get(name) != value:
+                # May be blocked by document conflict — still material if visit facts.
+                if name in _VISIT_FACTS:
+                    reasons.append(f"material_fact_not_in_factmanager:{name}")
+    stamp = (case.raw_answers or {}).get("_semantic_fact_revision")
+    if stamp is not None:
+        current = str(len(getattr(case, "fact_history", None) or []))
+        # Allow growth after semantic (derived props); block if semantic stamp absent after texts.
+        if has_text and not stamp:
+            reasons.append("semantic_fact_revision_missing")
+    return (not reasons), reasons
+
+
+def handoff_blocks_claim_plan(case) -> Optional[str]:
+    ok, reasons = handoff_ready(case)
+    if ok:
+        return None
+    return ";".join(reasons)

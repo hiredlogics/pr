@@ -436,6 +436,30 @@ class AppealPipeline:
                 AppealOutput(case.state, None, empty,
                              Draft(case.case_id, []), ValidationResult(False, []), []),
                 case)
+        # Semantic → FactManager handoff must be current before Claim Plan lock.
+        from .semantics.state import handoff_blocks_claim_plan, open_material_fact_conflicts
+        handoff_block = handoff_blocks_claim_plan(case)
+        if handoff_block:
+            case.state = CaseState.MANUAL_REVIEW
+            case.audit.append({
+                "event": "held_semantic_handoff",
+                "reasons": handoff_block.split(";"),
+                "material_conflicts": open_material_fact_conflicts(case),
+            })
+            empty = RetrievalPack(
+                primary_route=None, secondary_routes=[], module_ids=[],
+                verified_facts=case.fact_view(), fact_refs={},
+                missing_facts=[c.get("fact") for c in open_material_fact_conflicts(case)],
+                evidence_refs=[], prohibited_claims=[], code_version=None,
+                pofa_route="UNRESOLVED", pofa_findings=[],
+                driver_status=case.driver_status.value,
+                jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
+                context_chunks=[], lease_clauses=[],
+                trace=[f"held: semantic handoff incomplete ({handoff_block})"])
+            return _with_outcome(
+                AppealOutput(case.state, None, empty, Draft(case.case_id, []),
+                             ValidationResult(False, []), []),
+                case)
         # P1: a document-owned fact the customer contradicted is not confirmed,
         # so nothing may be drafted from it, and the customer is asked rather
         # than the case being held without a route forward.

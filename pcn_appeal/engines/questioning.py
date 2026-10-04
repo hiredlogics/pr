@@ -138,19 +138,15 @@ class QuestionEngine:
                 case.state = CaseState.QUESTIONING
                 return
             if _is_prose_answer(text):
-                # The answer's own opening decides the value: "No, the children
-                # were not in the car" is False. Without a stated yes/no it
-                # records that an account was given; engines.account reads the
-                # specifics with its own guards.
-                polarity = answer_polarity(text)
-                case.put(Fact(
-                    f"F-{fact}", fact, polarity is not False, FactStatus.ANSWERED,
-                    FactSource(
-                        SourceKind.CUSTOMER_FREE_TEXT,
-                        f"answer:{fact}",
-                        excerpt=text[:240],
-                    ),
-                ))
+                # Prose is INPUT only. Do not map UI/raw polarity onto an
+                # authoritative fact — semantic understanding → FactManager
+                # (assess_material_account) promotes meaning. Unanswered /
+                # default UI state must never become False here.
+                case.audit.append({
+                    "event": "prose_answer_deferred_to_semantic",
+                    "fact": fact,
+                    "excerpt": text[:240],
+                })
                 case.state = CaseState.QUESTIONING
                 return
             value = keeper_safe_text(text)

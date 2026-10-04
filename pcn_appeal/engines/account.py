@@ -337,18 +337,27 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     Safe to call repeatedly. P8.4: differential clear — only retract material
     facts that will not be re-asserted with the same value; keep lineage.
 
-    P10.5 order: narrative → LLM-primary semantic concepts → FactManager →
-    (then questions elsewhere). Semantic promotion runs before CircumstanceRule
-    writes so an already-stated fact is not re-asked into existence.
+    Handoff order: free text → semantic concepts → FactManager (sole authority
+    for ontology-owned facts) → narrative atoms (non-ontology) → CircumstanceRule
+    only for facts not owned by the semantic ontology → consistency → knowledge.
     """
     texts = _collect_customer_texts(case)
     from ..semantics import extract_and_promote
-    semantic = extract_and_promote(case, texts, llm=llm)
+    from ..semantics.state import SEMANTIC_OWNED_FACTS, record_material_conflicts
+
+    # Narrative atoms first (departure_reason); ontology facts deferred to semantic.
+    narr = narrative.understand(case, texts, write_ontology_facts=False)
+    semantic = extract_and_promote(
+        case, texts, llm=llm,
+        narrative_atoms=list(narr.get("narrative_atoms") or []),
+    )
     intended = dict(_intended_facts(texts))
-    intended.update(_intended_narrative(texts))
+    # Keep ontology facts from being retracted by delta; do not re-write them here.
+    intended.update({k: v for k, v in _intended_narrative(texts).items()
+                     if k not in SEMANTIC_OWNED_FACTS})
     intended.update(semantic.get("intended") or {})
     apply_fact_delta(case, intended)
-    narrative.understand(case, texts)
+    record_material_conflicts(case)
     if not texts:
         return {"extractions": [], "propositions": [], "contradicts": False,
                 "semantic": semantic}
@@ -369,6 +378,22 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
                 continue
             # Negated wording must not invent affirmative occupancy/eligibility facts.
             if rule.fact_name in NEGATABLE and rule.value is True and _match_negated(text, m):
+                continue
+            # Ontology-owned facts: semantic → FactManager only. Still record
+            # drafting propositions when the fact is already usable.
+            if rule.fact_name in SEMANTIC_OWNED_FACTS:
+                existing = case.facts.get(rule.fact_name)
+                if not (existing and existing.usable):
+                    continue
+                relevant = _relevant_to_allegation(rule, breach)
+                extractions.append(FreeTextExtraction(
+                    original=text,
+                    fact_name=rule.fact_name,
+                    normalized_value=existing.value,
+                    drafting_proposition=rule.proposition,
+                    relevant_to_allegation=relevant,
+                ))
+                seen_facts.add(rule.fact_name)
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
             existing = case.facts.get(rule.fact_name)
@@ -404,14 +429,33 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     extractions += _answered_circumstances(case, {e.fact_name for e in extractions})
 
     if not extractions:
+        # Semantic may have promoted ontology facts with no CircumstanceRule hit.
+        propositions: list[str] = []
+        dep = case.get("departure_reason")
+        if dep:
+            propositions.append(str(dep))
+        if propositions:
+            case.put(Fact(
+                "F-material_account_propositions", "material_account_propositions",
+                propositions, FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "material_account"),
+            ))
+            case.put(Fact(
+                "F-material_account_proposition", "material_account_proposition",
+                propositions[0], FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "material_account"),
+            ))
         fact_lifecycle.protect_derived_facts(case)
         case.audit.append({
             "event": "material_account",
             "extractions": [],
-            "note": "no extractable structured circumstances in free text",
+            "propositions": propositions,
+            "note": "semantic facts present without circumstance-rule extractions",
+            "semantic_promoted": sorted((semantic.get("intended") or {}).keys()),
         })
         fact_lifecycle.persist_versions(case)
-        return {"extractions": [], "propositions": [], "contradicts": False}
+        return {"extractions": [], "propositions": propositions, "contradicts": False,
+                "semantic": semantic}
 
     # Prefer propositions that address the allegation; keep others for drafting
     # when they support available grounds (do not drop merely for being free text).

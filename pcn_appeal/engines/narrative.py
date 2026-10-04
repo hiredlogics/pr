@@ -290,13 +290,33 @@ def read(text: str) -> Reading:
     return Reading(facts, hypothesis, fs)
 
 
-def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
+# Ontology-owned facts are promoted only via semantics → FactManager.
+_ONTOLOGY_FACT_NAMES: Optional[frozenset] = None
+
+
+def _ontology_fact_names() -> frozenset:
+    global _ONTOLOGY_FACT_NAMES
+    if _ONTOLOGY_FACT_NAMES is None:
+        from ..semantics.ontology import CONCEPT_TO_FACTS
+        _ONTOLOGY_FACT_NAMES = frozenset(name for name, _ in CONCEPT_TO_FACTS.values())
+    return _ONTOLOGY_FACT_NAMES
+
+
+def understand(case: CaseFile, texts: list[str], *,
+               write_ontology_facts: bool = False) -> dict[str, Any]:
     """Read every customer text: write atomic facts, propose hypotheses,
-    withdraw hypotheses the account no longer supports. Facts go through
-    FactManager (case.put); hypotheses through Hypotheses."""
+    withdraw hypotheses the account no longer supports.
+
+    Ontology-mapped facts (left_site, returned_same_day, purpose_of_visit, …)
+    default to *not* writing here — they must pass semantic → FactManager.
+    Non-ontology narrative atoms (departure_reason, possible_vehicle_departure)
+    still write through FactManager.
+    """
     written: dict[str, Any] = {}
+    skipped_ontology: dict[str, Any] = {}
     supported: set[str] = set()
     atoms: list[dict[str, Any]] = []
+    owned = _ontology_fact_names()
     for raw in texts:
         text = str(raw or "").strip()
         if len(text) < 4:
@@ -304,13 +324,16 @@ def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
         r = read(text)
         atom = extract_departure_reason(text)
         for name, value in r.facts.items():
-            if name in written:
+            if name in written or name in skipped_ontology:
                 continue
-            written[name] = value
             excerpt = text[:240]
             if name == "departure_reason" and atom:
                 excerpt = atom.get("source_text") or excerpt
                 atoms.append(atom)
+            if not write_ontology_facts and name in owned:
+                skipped_ontology[name] = value
+                continue
+            written[name] = value
             case.put(Fact(f"F-{name}", name, value, FactStatus.DERIVED,
                           FactSource(SourceKind.CUSTOMER_FREE_TEXT, f"free_text:narrative:{name}",
                                      excerpt=excerpt)),
@@ -343,6 +366,8 @@ def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
             })
         case.free_text_provenance = prov
     case.audit.append({"event": "narrative_understanding", "facts": written,
+                       "skipped_ontology_facts": skipped_ontology,
                        "hypotheses": sorted(supported),
                        "narrative_atoms": atoms})
-    return {"facts": written, "hypotheses": sorted(supported), "narrative_atoms": atoms}
+    return {"facts": written, "skipped_ontology_facts": skipped_ontology,
+            "hypotheses": sorted(supported), "narrative_atoms": atoms}
