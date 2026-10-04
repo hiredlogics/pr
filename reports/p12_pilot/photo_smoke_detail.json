@@ -5,9 +5,9 @@
   "provider": "openai",
   "model": "gpt-5.1",
   "n_rows": 15,
-  "n_passed": 13,
+  "n_passed": 12,
   "n_base_photos": 3,
-  "legal_critical_accuracy_mean": 0.6797619047619048,
+  "legal_critical_accuracy_mean": 0.6952380952380952,
   "normal_all_passed": true,
   "modes": [
     "normal",
@@ -21,7 +21,7 @@
     {
       "image": "00347261100014_cpplus_reminder.png",
       "mode": "normal",
-      "latency_ms": 12152,
+      "latency_ms": 11019,
       "legal_critical_accuracy": 0.8571428571428571,
       "field_hits": {
         "operator_name": true,
@@ -46,7 +46,7 @@
     {
       "image": "00347261100014_cpplus_reminder.png",
       "mode": "angled",
-      "latency_ms": 9536,
+      "latency_ms": 9328,
       "legal_critical_accuracy": 0.14285714285714285,
       "field_hits": {
         "operator_name": true,
@@ -59,12 +59,11 @@
       },
       "extracted_sample": {
         "operator_name": "CP Plus",
-        "pcn_number": "0317010018",
-        "vrm": "EX16LCT",
-        "parking_event_date": "2016-05-20",
+        "pcn_number": "5521760114",
+        "vrm": "EX16XLT",
+        "parking_event_date": "2016-06-20",
         "notice_issue_date": "2016-07-11",
-        "parking_location": "Canada Water Retail Park, London",
-        "alleged_breach": "Failure to validate parking (overstayed free parking period)",
+        "parking_location": "Canada Water Retail Park",
         "notice_route": "UNKNOWN"
       },
       "passed": false
@@ -72,12 +71,12 @@
     {
       "image": "00347261100014_cpplus_reminder.png",
       "mode": "low_light",
-      "latency_ms": 7720,
-      "legal_critical_accuracy": 0.8571428571428571,
+      "latency_ms": 7471,
+      "legal_critical_accuracy": 0.7142857142857143,
       "field_hits": {
         "operator_name": true,
         "pcn_number": true,
-        "vrm": true,
+        "vrm": false,
         "parking_event_date": true,
         "notice_issue_date": true,
         "parking_location": true,
@@ -86,7 +85,7 @@
       "extracted_sample": {
         "operator_name": "CP Plus",
         "pcn_number": "00347261100014",
-        "vrm": "EX15CZT",
+        "vrm": "EX15ZCT",
         "parking_event_date": "2026-04-20",
         "notice_issue_date": "2026-05-13",
         "parking_location": "Canada Water Estate, SE16 7LL",
@@ -97,8 +96,8 @@
     {
       "image": "00347261100014_cpplus_reminder.png",
       "mode": "glare",
-      "latency_ms": 7152,
-      "legal_critical_accuracy": 0.5714285714285714,
+      "latency_ms": 7639,
+      "legal_critical_accuracy": 0.42857142857142855,
       "field_hits": {
         "operator_name": true,
         "pcn_number": true,
@@ -106,21 +105,21 @@
         "parking_event_date": false,
         "notice_issue_date": false,
         "parking_location": true,
-        "notice_route": true
+        "notice_route": false
       },
       "extracted_sample": {
-        "notice_route": "POSTAL"
+        "notice_route": "UNKNOWN"
       },
-      "passed": true
+      "passed": false
     },
     {
       "image": "00347261100014_cpplus_reminder.png",
       "mode": "blur",
-      "latency_ms": 6688,
-      "legal_critical_accuracy": 0.14285714285714285,
+      "latency_ms": 9171,
+      "legal_critical_accuracy": 0.2857142857142857,
       "field_hits": {
         "operator_name": true,
-        "pcn_number": false,
+        "pcn_number": true,
         "vrm": false,
         "parking_event_date": false,
         "notice_issue_date": false,
@@ -129,11 +128,8 @@
       },
       "extracted_sample": {
         "operator_name": "CP Plus",
-        "pcn_number": "05047261100014",
-        "vrm": "EX16CZT",
-        "parking_event_date": "2020-09-20",
-        "notice_issue_date": "2021-01-13",
-        "parking_location": "Cawley Water Estate",
+        "notice_issue_date": "2023-01-13",
+        "parking_location": "Canalside Water Estate",
         "notice_route": "UNKNOWN"
       },
       "passed": false
@@ -141,7 +137,7 @@
     {
       "image": "00347261120013_cpplus.png",
       "mode": "normal",
-      "latency_ms": 8473,
+      "latency_ms": 10797,
       "legal_critical_accuracy": 0.875,
       "field_hits": {
         "operator_name": true,
@@ -160,7 +156,7 @@
         "parking_event_date": "2026-04-22",
         "notice_issue_date": "2026-05-11",
         "parking_location": "Canada Water Estate, SE16 7LL",
-        "alleged_breach": "Vehicle exceeded the maximum stay prominently displayed on the signage at the site",
+        "alleged_breach": "Exceeded the maximum stay prominently displayed on the signage at the site",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -168,14 +164,14 @@
     {
       "image": "00347261120013_cpplus.png",
       "mode": "angled",
-      "latency_ms": 13071,
-      "legal_critical_accuracy": 0.5,
+      "latency_ms": 7684,
+      "legal_critical_accuracy": 0.75,
       "field_hits": {
         "operator_name": true,
         "pcn_number": true,
         "vrm": false,
-        "parking_event_date": false,
-        "notice_issue_date": false,
+        "parking_event_date": true,
+        "notice_issue_date": true,
         "parking_location": true,
         "alleged_breach": false,
         "notice_route": true
@@ -184,10 +180,9 @@
         "operator_name": "CP Plus",
         "pcn_number": "00347261120013",
         "vrm": "EX15CXT",
-        "parking_event_date": "2021-04-22",
-        "notice_issue_date": "2021-05-11",
-        "parking_location": "Canada Water Estate, SE16 7LL",
-        "alleged_breach": "Vehicle exceeded the maximum stay period",
+        "parking_event_date": "2026-04-22",
+        "notice_issue_date": "2026-05-11",
+        "parking_location": "Canada Water Estate",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -195,8 +190,8 @@
     {
       "image": "00347261120013_cpplus.png",
       "mode": "low_light",
-      "latency_ms": 8896,
-      "legal_critical_accuracy": 0.875,
+      "latency_ms": 6854,
+      "legal_critical_accuracy": 1.0,
       "field_hits": {
         "operator_name": true,
         "pcn_number": true,
@@ -204,7 +199,7 @@
         "parking_event_date": true,
         "notice_issue_date": true,
         "parking_location": true,
-        "alleged_breach": false,
+        "alleged_breach": true,
         "notice_route": true
       },
       "extracted_sample": {
@@ -214,7 +209,7 @@
         "parking_event_date": "2026-04-22",
         "notice_issue_date": "2026-05-11",
         "parking_location": "Canada Water Estate, SE16 7LL",
-        "alleged_breach": "Vehicle exceeded the maximum stay prominently displayed on the signage at the site",
+        "alleged_breach": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -222,7 +217,7 @@
     {
       "image": "00347261120013_cpplus.png",
       "mode": "glare",
-      "latency_ms": 7091,
+      "latency_ms": 22364,
       "legal_critical_accuracy": 0.5,
       "field_hits": {
         "operator_name": true,
@@ -242,7 +237,7 @@
     {
       "image": "00347261120013_cpplus.png",
       "mode": "blur",
-      "latency_ms": 6985,
+      "latency_ms": 20757,
       "legal_critical_accuracy": 0.5,
       "field_hits": {
         "operator_name": true,
@@ -258,10 +253,10 @@
         "operator_name": "CP Plus",
         "pcn_number": "00347261120013",
         "vrm": "EX16ZZT",
-        "parking_event_date": "2020-04-22",
-        "notice_issue_date": "2020-05-11",
+        "parking_event_date": "2023-04-22",
+        "notice_issue_date": "2023-05-11",
         "parking_location": "Canada Water Estate, SE16 7LL",
-        "alleged_breach": "Vehicle exceeded the maximum stay period",
+        "alleged_breach": "Exceeded the maximum stay permitted",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -269,7 +264,7 @@
     {
       "image": "70377302_cpm_barking.png",
       "mode": "normal",
-      "latency_ms": 19812,
+      "latency_ms": 21892,
       "legal_critical_accuracy": 1.0,
       "field_hits": {
         "operator_name": true,
@@ -296,7 +291,7 @@
     {
       "image": "70377302_cpm_barking.png",
       "mode": "angled",
-      "latency_ms": 7940,
+      "latency_ms": 18974,
       "legal_critical_accuracy": 0.75,
       "field_hits": {
         "operator_name": true,
@@ -315,7 +310,7 @@
         "parking_event_date": "2026-05-13",
         "notice_issue_date": "2026-05-15",
         "parking_location": "Chamberlain Mansions, 10 Fielders Crescent, Barking",
-        "alleged_breach": "Excessive Parking Duration",
+        "alleged_breach": "Parked without displaying a valid permit",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -323,7 +318,7 @@
     {
       "image": "70377302_cpm_barking.png",
       "mode": "low_light",
-      "latency_ms": 7016,
+      "latency_ms": 7602,
       "legal_critical_accuracy": 1.0,
       "field_hits": {
         "operator_name": true,
@@ -350,7 +345,7 @@
     {
       "image": "70377302_cpm_barking.png",
       "mode": "glare",
-      "latency_ms": 8620,
+      "latency_ms": 27530,
       "legal_critical_accuracy": 0.75,
       "field_hits": {
         "operator_name": true,
@@ -369,7 +364,7 @@
         "parking_event_date": "2026-05-15",
         "notice_issue_date": "2026-05-15",
         "parking_location": "Weavers Quarter, Barking",
-        "alleged_breach": "Failure to display a valid permit / Not Registered Or Exceeded Allowed Time (as described in signage)",
+        "alleged_breach": "Not Parked Within A Bay Or Registered Or Exceeded Allowed Time",
         "notice_route": "POSTAL"
       },
       "passed": true
@@ -377,7 +372,7 @@
     {
       "image": "70377302_cpm_barking.png",
       "mode": "blur",
-      "latency_ms": 7153,
+      "latency_ms": 11742,
       "legal_critical_accuracy": 0.875,
       "field_hits": {
         "operator_name": true,
@@ -395,7 +390,7 @@
         "vrm": "LX26ZSE",
         "parking_event_date": "2026-05-13",
         "notice_issue_date": "2026-05-15",
-        "parking_location": "Waterside Court, Barking",
+        "parking_location": "Waterside Quarter, Barking, IG11 7??",
         "alleged_breach": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
         "notice_route": "POSTAL"
       },
