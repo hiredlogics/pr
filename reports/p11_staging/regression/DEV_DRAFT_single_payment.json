@@ -1,0 +1,39 @@
+{
+  "case_id": "DEV_DRAFT_single_payment",
+  "family": "single_ground",
+  "state": "RELEASED",
+  "outcome_code": null,
+  "result_class": "RELEASED",
+  "e2e_ok": true,
+  "latency_ms": 1973,
+  "drafting": {
+    "status": "SCORED",
+    "clean_upstream": true,
+    "draft_ground_coverage": 1.0,
+    "material_fact_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validation_passed": true,
+    "draft_plan_sections": 1,
+    "passed": true
+  },
+  "supported_grounds": [
+    "KB-PAY-01"
+  ],
+  "coverage_trace": [
+    {
+      "ground_ids": [
+        "KB-PAY-01"
+      ],
+      "section_id": "S01",
+      "support_bundle_complete": true,
+      "draft_requirement_particulars": [
+        "payment_made"
+      ],
+      "rendered_text_present": true,
+      "semantic_expression": true,
+      "missing_particulars": [],
+      "verdict": "OK"
+    }
+  ]
+}

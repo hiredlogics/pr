@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -145,13 +146,27 @@ def probe_drafting() -> dict[str, Any]:
         )
         latency = int((time.time() - t0) * 1000)
         sections = result.get("sections") or []
+        opening = (result.get("opening") or "").strip()
+        closing = (result.get("closing") or "").strip()
         if sections:
-            text = " ".join(s.get("text") or "" for s in sections)
+            text = " ".join(
+                [opening]
+                + [s.get("text") or "" for s in sections]
+                + [closing]
+            )
             structured_ok = True
         else:
             paras = result.get("paragraphs") or []
             text = " ".join(s.get("text") or "" for p in paras for s in p)
             structured_ok = bool(paras)
+        # Accept clear cancel / withdraw request in body or closing
+        cancel_ok = bool(
+            re.search(
+                r"\b(cancel|withdraw|set aside|rescind)\b",
+                text,
+                re.I,
+            )
+        )
         class _S:
             ground_ids = ["KB-PAY-01", "KB-KEY-01"]
             particular_values = {"payment_made": True, "keying_error_type": "MINOR"}
@@ -161,7 +176,6 @@ def probe_drafting() -> dict[str, Any]:
             particular_expressed(text, n, plan_payload["draft_plan"]["sections"][0]["particular_values"][n])
             for n in ("payment_made", "keying_error_type")
         )
-        cancel_ok = "cancel" in text.lower()
         out.update({
             "ran": True,
             "latency_ms": latency,

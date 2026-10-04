@@ -1,0 +1,52 @@
+{
+  "case_id": "DEV_DRAFT_permit",
+  "family": "permit",
+  "state": "RELEASED",
+  "outcome_code": null,
+  "result_class": "RELEASED",
+  "e2e_ok": true,
+  "latency_ms": 1962,
+  "drafting": {
+    "status": "SCORED",
+    "clean_upstream": true,
+    "draft_ground_coverage": 1.0,
+    "material_fact_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validation_passed": true,
+    "draft_plan_sections": 2,
+    "passed": true
+  },
+  "supported_grounds": [
+    "KB-AUTH-02",
+    "KB-REC-01"
+  ],
+  "coverage_trace": [
+    {
+      "ground_ids": [
+        "KB-AUTH-02"
+      ],
+      "section_id": "S01",
+      "support_bundle_complete": true,
+      "draft_requirement_particulars": [
+        "permit_held"
+      ],
+      "rendered_text_present": true,
+      "semantic_expression": true,
+      "missing_particulars": [],
+      "verdict": "OK"
+    },
+    {
+      "ground_ids": [
+        "KB-REC-01"
+      ],
+      "section_id": "S02",
+      "support_bundle_complete": true,
+      "draft_requirement_particulars": [],
+      "rendered_text_present": true,
+      "semantic_expression": true,
+      "missing_particulars": [],
+      "verdict": "OK"
+    }
+  ]
+}

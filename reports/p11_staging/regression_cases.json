@@ -1,0 +1,358 @@
+[
+  {
+    "case_id": "DEV_DRAFT_legal_finding_rebuttal",
+    "family": "legal_finding_factual",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 1790,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": "N/A",
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 1,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-POFA-02"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-POFA-02"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "parking_event_date",
+          "notice_issue_date",
+          "days_late",
+          "deadline",
+          "presumed_delivery"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_loading_delivery",
+    "family": "loading_delivery",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 1814,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": 1.0,
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 2,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-ACT-01",
+      "KB-BAY-02"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-ACT-01"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "loading_activity"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      },
+      {
+        "ground_ids": [
+          "KB-BAY-02"
+        ],
+        "section_id": "S02",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "loading_activity",
+          "material_account_proposition",
+          "account_contradicts_allegation"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_mechanical",
+    "family": "mechanical",
+    "state": "MANUAL_REVIEW",
+    "outcome_code": null,
+    "result_class": "CLAIM_PLAN_EMPTY",
+    "e2e_ok": true,
+    "latency_ms": 2011,
+    "drafting": {
+      "status": "N/A",
+      "reason": "upstream incomplete or not released",
+      "clean_upstream": false,
+      "passed": null
+    },
+    "supported_grounds": [],
+    "coverage_trace": []
+  },
+  {
+    "case_id": "DEV_DRAFT_multiple_visits",
+    "family": "multiple_visits",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 1768,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": 1.0,
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 1,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-ANPR-01"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-ANPR-01"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "multiple_visits"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_no_ground",
+    "family": "no_supported_ground",
+    "state": "MANUAL_REVIEW",
+    "outcome_code": null,
+    "result_class": "HOLD",
+    "e2e_ok": true,
+    "latency_ms": 2024,
+    "drafting": {
+      "status": "N/A",
+      "reason": "upstream incomplete or not released",
+      "clean_upstream": false,
+      "passed": null
+    },
+    "supported_grounds": [],
+    "coverage_trace": []
+  },
+  {
+    "case_id": "DEV_DRAFT_pay_key_merge",
+    "family": "merged_compatible",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 2038,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": 1.0,
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 1,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-PAY-01",
+      "KB-KEY-01"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-PAY-01",
+          "KB-KEY-01"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "payment_made",
+          "keying_error_type"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_permit",
+    "family": "permit",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 1962,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": 1.0,
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 2,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-AUTH-02",
+      "KB-REC-01"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-AUTH-02"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "permit_held"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      },
+      {
+        "ground_ids": [
+          "KB-REC-01"
+        ],
+        "section_id": "S02",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_single_payment",
+    "family": "single_ground",
+    "state": "RELEASED",
+    "outcome_code": null,
+    "result_class": "RELEASED",
+    "e2e_ok": true,
+    "latency_ms": 1973,
+    "drafting": {
+      "status": "SCORED",
+      "clean_upstream": true,
+      "draft_ground_coverage": 1.0,
+      "material_fact_coverage": 1.0,
+      "required_particular_coverage": 1.0,
+      "unsupported_assertion_rate": 0.0,
+      "validation_passed": true,
+      "draft_plan_sections": 1,
+      "passed": true
+    },
+    "supported_grounds": [
+      "KB-PAY-01"
+    ],
+    "coverage_trace": [
+      {
+        "ground_ids": [
+          "KB-PAY-01"
+        ],
+        "section_id": "S01",
+        "support_bundle_complete": true,
+        "draft_requirement_particulars": [
+          "payment_made"
+        ],
+        "rendered_text_present": true,
+        "semantic_expression": true,
+        "missing_particulars": [],
+        "verdict": "OK"
+      }
+    ]
+  },
+  {
+    "case_id": "DEV_DRAFT_support_only",
+    "family": "support_only",
+    "state": "MANUAL_REVIEW",
+    "outcome_code": null,
+    "result_class": "HOLD",
+    "e2e_ok": true,
+    "latency_ms": 1950,
+    "drafting": {
+      "status": "N/A",
+      "reason": "upstream incomplete or not released",
+      "clean_upstream": false,
+      "passed": null
+    },
+    "supported_grounds": [],
+    "coverage_trace": []
+  },
+  {
+    "case_id": "HOLDOUT_DRAFT_A",
+    "family": "pay_key_unseen",
+    "state": "MANUAL_REVIEW",
+    "outcome_code": null,
+    "result_class": "CLAIM_PLAN_EMPTY",
+    "e2e_ok": true,
+    "latency_ms": 2095,
+    "drafting": {
+      "status": "N/A",
+      "reason": "upstream incomplete or not released",
+      "clean_upstream": false,
+      "passed": null
+    },
+    "supported_grounds": [],
+    "coverage_trace": []
+  },
+  {
+    "case_id": "HOLDOUT_DRAFT_D",
+    "family": "no_ground_unseen",
+    "state": "MANUAL_REVIEW",
+    "outcome_code": null,
+    "result_class": "HOLD",
+    "e2e_ok": true,
+    "latency_ms": 1961,
+    "drafting": {
+      "status": "N/A",
+      "reason": "upstream incomplete or not released",
+      "clean_upstream": false,
+      "passed": null
+    },
+    "supported_grounds": [],
+    "coverage_trace": []
+  }
+]

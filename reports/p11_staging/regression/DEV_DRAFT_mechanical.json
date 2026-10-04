@@ -1,0 +1,17 @@
+{
+  "case_id": "DEV_DRAFT_mechanical",
+  "family": "mechanical",
+  "state": "MANUAL_REVIEW",
+  "outcome_code": null,
+  "result_class": "CLAIM_PLAN_EMPTY",
+  "e2e_ok": true,
+  "latency_ms": 2011,
+  "drafting": {
+    "status": "N/A",
+    "reason": "upstream incomplete or not released",
+    "clean_upstream": false,
+    "passed": null
+  },
+  "supported_grounds": [],
+  "coverage_trace": []
+}

@@ -1,0 +1,420 @@
+{
+  "phase": "P11-STAGING",
+  "freeze": {
+    "evaluation_release": "P11_STAGING_2026-10-04",
+    "git_commit": "6766e2ee024dc6fb14cacfe5205a231081a00f00",
+    "git_branch": "feature/p8-architecture-hardening",
+    "working_tree_clean": true,
+    "working_tree_dirty": false,
+    "working_tree_ignored_for_freeze": [
+      "reports/p11_staging/**",
+      "P11_STAGING_REPORT.md"
+    ],
+    "kb_release": null,
+    "module_count": 55,
+    "ontology_version": "p10_5_ontology_v1",
+    "ontology_digest": "a23fb0172da385d5",
+    "module_role_version": "p10_5_roles_v1",
+    "module_role_digest": "b777ffd2a9758a44",
+    "claim_plan_builder_version": "3",
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "master_case_schema_version": 1,
+    "validation_engine_version": "VAL-5",
+    "draft_validation_version": "DV-1",
+    "prompt_versions": {
+      "classification": 2,
+      "extraction": 10,
+      "case_analysis": 8,
+      "drafting": 17,
+      "validation": 3
+    },
+    "model_provider_probe": {
+      "provider": "openai",
+      "models": {
+        "classification": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1",
+        "case_analysis": "gpt-5.1",
+        "drafting": "gpt-5.1",
+        "validation": "gpt-5-mini"
+      },
+      "reason": ""
+    }
+  },
+  "migrations_static": {
+    "passed": true,
+    "migration_count": 11,
+    "numbers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "duplicates": [],
+    "missing_numbers": [],
+    "ordered": true,
+    "files": [
+      {
+        "file": "0001_p0_system_integrity.sql",
+        "number": 1,
+        "bytes": 2586,
+        "has_rollback_comment": true,
+        "append_only_markers": 0,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": false
+      },
+      {
+        "file": "0002_fact_graph.sql",
+        "number": 2,
+        "bytes": 6279,
+        "has_rollback_comment": false,
+        "append_only_markers": 1,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": false
+      },
+      {
+        "file": "0003_fact_hypotheses.sql",
+        "number": 3,
+        "bytes": 1748,
+        "has_rollback_comment": true,
+        "append_only_markers": 0,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": false
+      },
+      {
+        "file": "0004_knowledge_graph.sql",
+        "number": 4,
+        "bytes": 3598,
+        "has_rollback_comment": true,
+        "append_only_markers": 1,
+        "creates_index": true,
+        "foreign_key": false,
+        "trigger": false
+      },
+      {
+        "file": "0005_knowledge_graph.sql",
+        "number": 5,
+        "bytes": 7580,
+        "has_rollback_comment": true,
+        "append_only_markers": 0,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": false
+      },
+      {
+        "file": "0006_claim_plan_authority.sql",
+        "number": 6,
+        "bytes": 5140,
+        "has_rollback_comment": true,
+        "append_only_markers": 3,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": true
+      },
+      {
+        "file": "0007_system_integrity_audit.sql",
+        "number": 7,
+        "bytes": 3097,
+        "has_rollback_comment": true,
+        "append_only_markers": 1,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": false
+      },
+      {
+        "file": "0008_draft_versions.sql",
+        "number": 8,
+        "bytes": 2854,
+        "has_rollback_comment": true,
+        "append_only_markers": 3,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": true
+      },
+      {
+        "file": "0009_legal_findings.sql",
+        "number": 9,
+        "bytes": 2066,
+        "has_rollback_comment": true,
+        "append_only_markers": 3,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": true
+      },
+      {
+        "file": "0010_master_case_state.sql",
+        "number": 10,
+        "bytes": 1896,
+        "has_rollback_comment": true,
+        "append_only_markers": 3,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": true
+      },
+      {
+        "file": "0011_document_baseline.sql",
+        "number": 11,
+        "bytes": 2570,
+        "has_rollback_comment": true,
+        "append_only_markers": 3,
+        "creates_index": true,
+        "foreign_key": true,
+        "trigger": true
+      }
+    ],
+    "rollback_docs": "Each migration file documents a Rollback: section. Greenfield: python -m pcn_appeal.store init (postgres_schema.sql). Existing DB: apply infra/migrations/0001..0011 in order via psql. Recovery: restore from staging backup / point-in-time recovery; do not UPDATE/DELETE append-only audit tables (triggers block)."
+  },
+  "migrations_live": {
+    "passed": false,
+    "ran": false,
+    "reason": "DATABASE_URL / STAGING_DATABASE_URL not set (Postgres-only gate)"
+  },
+  "postgresql": {
+    "passed": false,
+    "ran": false,
+    "reason": "DATABASE_URL not set \u2014 refusing SQLite substitute for P11"
+  },
+  "security": {
+    "passed": true,
+    "ran": true,
+    "files_scanned": 557,
+    "critical_count": 0,
+    "findings": [],
+    "note": "Rotate/revoke any historically exposed live key before staging sign-off. No secret values are printed."
+  },
+  "front_back": {
+    "passed": true,
+    "ran": true,
+    "cases": [
+      {
+        "name": "front_only",
+        "ok": false,
+        "reason": "front_only_or_single_page",
+        "passed": true
+      },
+      {
+        "name": "duplicate_page",
+        "ok": false,
+        "reason": "duplicate_front_images",
+        "passed": true
+      },
+      {
+        "name": "two_correct_pages",
+        "ok": true,
+        "reason": "distinct_pages_or_multipage",
+        "passed": true
+      },
+      {
+        "name": "multipage_pdf_text",
+        "ok": true,
+        "reason": "distinct_pages_or_multipage",
+        "passed": true
+      }
+    ],
+    "note": "Does not invent reverse-page content; gate blocks incomplete uploads"
+  },
+  "outcomes": {
+    "passed": true,
+    "ran": true,
+    "cases": [
+      {
+        "case": "no_ground",
+        "state": "MANUAL_REVIEW",
+        "outcome_code": null,
+        "passed": true,
+        "class": "HOLD",
+        "trace_ui_agree": true
+      }
+    ],
+    "expected_hold_classes": [
+      "RELEASED",
+      "NO_SUPPORTED_GROUNDS",
+      "NEEDS_CUSTOMER_INPUT",
+      "NEEDS_DOCUMENTS",
+      "NEEDS_FACTS",
+      "STOP_UNSUPPORTED_ROUTE",
+      "PROCESSING_ERROR"
+    ]
+  },
+  "idempotency": {
+    "passed": true,
+    "ran": true,
+    "plan_id_1": "5d818ef5-70ea-526a-901e-05057b64350d",
+    "plan_id_2": "5d818ef5-70ea-526a-901e-05057b64350d",
+    "digest_match": true,
+    "state_1": "RELEASED",
+    "state_2": "RELEASED",
+    "claim_plan_objects": 1
+  },
+  "provider_failures": {
+    "passed": true,
+    "ran": true,
+    "released_count": 0
+  },
+  "provider_failure_cases": [
+    {
+      "mode": "timeout",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "http_429",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "http_500",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "invalid_json",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "empty",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "partial",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    },
+    {
+      "mode": "unavailable",
+      "state": "MANUAL_REVIEW",
+      "outcome_code": null,
+      "released": false,
+      "letter_empty": true,
+      "passed": true
+    }
+  ],
+  "live_semantic": {
+    "ran": true,
+    "provider": "openai",
+    "models": {
+      "classification": "gpt-5.1",
+      "extraction": "gpt-5.1",
+      "page_references": "gpt-5.1",
+      "semantic_extraction": "gpt-5.1",
+      "case_analysis": "gpt-5.1",
+      "drafting": "gpt-5.1",
+      "validation": "gpt-5-mini"
+    },
+    "prompt_version": 1,
+    "is_demo": false,
+    "latency_ms": 6129,
+    "structured_output_valid": true,
+    "concept_count": 3,
+    "affirmed_count": 3,
+    "forbidden_kb_authority": false,
+    "model": "gpt-5.1",
+    "passed": true
+  },
+  "live_drafting": {
+    "ran": true,
+    "provider": "openai",
+    "models": {
+      "classification": "gpt-5.1",
+      "extraction": "gpt-5.1",
+      "page_references": "gpt-5.1",
+      "semantic_extraction": "gpt-5.1",
+      "case_analysis": "gpt-5.1",
+      "drafting": "gpt-5.1",
+      "validation": "gpt-5-mini"
+    },
+    "prompt_version": 17,
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "is_demo": false,
+    "latency_ms": 4128,
+    "structured_output_valid": true,
+    "used_sections_shape": true,
+    "ground_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "material_fact_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "cancel_request_present": true,
+    "model": "gpt-5.1",
+    "passed": true
+  },
+  "live_extraction": {
+    "ran": false,
+    "passed": false,
+    "reason": "No representative PDF/photo corpus wired for automated P11 extraction in this environment. Set STAGING_EXTRACTION=1 and provide sample paths to enable. Golden field injection is forbidden."
+  },
+  "regression": {
+    "passed": true,
+    "ran": true,
+    "n_cases": 11,
+    "n_e2e_ok": 11,
+    "n_clean_upstream": 6,
+    "clean_ground_coverage": 1.0,
+    "latency_p50_ms": 1962,
+    "latency_p95_ms": 2095
+  },
+  "invariants": {
+    "passed": true,
+    "tests_run": 112,
+    "checks": {
+      "Master Case": true,
+      "FactManager / P8 architecture": true,
+      "P10.3 semantic + roles": true,
+      "P10 remediation": true
+    }
+  },
+  "latency": {
+    "regression_p50_ms": 1962,
+    "regression_p95_ms": 2095,
+    "semantic_latency_ms": 6129,
+    "drafting_latency_ms": 15582
+  },
+  "release_gates": {
+    "p8_p10_invariants": true,
+    "postgresql": false,
+    "migrations_static": true,
+    "migrations_live": false,
+    "live_extraction": false,
+    "live_semantic": true,
+    "live_drafting": true,
+    "draft_coverage_100": true,
+    "provider_failures": true,
+    "idempotency": true,
+    "outcome_consistency": true,
+    "front_back": true,
+    "security_no_critical": true,
+    "working_tree_clean_at_freeze": true,
+    "all_required": false
+  },
+  "recommendation": "STAGING_FIXES_REQUIRED"
+}
