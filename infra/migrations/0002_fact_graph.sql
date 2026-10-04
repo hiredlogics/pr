@@ -18,7 +18,7 @@ ALTER TABLE fact_history ADD COLUMN IF NOT EXISTS changed_by text;
 ALTER TABLE fact_history ADD COLUMN IF NOT EXISTS source_type text;
 ALTER TABLE fact_history DROP CONSTRAINT IF EXISTS fact_history_outcome_check;
 ALTER TABLE fact_history ADD CONSTRAINT fact_history_outcome_check
-  CHECK (outcome IN ('APPLIED', 'CONFLICT', 'IGNORED', 'RETRACTED'));
+  CHECK (outcome IN ('APPLIED', 'CONFLICT', 'IGNORED', 'IGNORED_DUPLICATE', 'RETRACTED'));
 
 DO $$
 BEGIN

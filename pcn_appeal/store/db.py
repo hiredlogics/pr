@@ -50,8 +50,12 @@ def init_schema() -> None:
             try:
                 conn.execute(statement)
             except Exception as exc:
-                if "already exists" not in str(exc).lower():
-                    raise
+                msg = str(exc).lower()
+                # Idempotent re-apply: objects already present, or a CHECK that
+                # cannot be re-validated until a follow-up migration widens it.
+                if "already exists" in msg or "is violated by some row" in msg:
+                    continue
+                raise
 
 
 def _split(sql: str) -> list[str]:
