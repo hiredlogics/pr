@@ -40,6 +40,15 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 COPY pcn_appeal/ ./pcn_appeal/
 COPY infra/postgres_schema.sql ./infra/postgres_schema.sql
 
+# Bake the git SHA into the image so /health never reports commit=unknown for a
+# release candidate. Railway injects RAILWAY_GIT_COMMIT_SHA at build time when
+# the service is linked to a GitHub repo; GIT_COMMIT is an explicit override.
+ARG RAILWAY_GIT_COMMIT_SHA=
+ARG GIT_COMMIT=
+ARG SOURCE_COMMIT=
+RUN SHA="${GIT_COMMIT:-${SOURCE_COMMIT:-${RAILWAY_GIT_COMMIT_SHA:-}}}"; \
+    printf '%s' "${SHA:-unknown}" > /app/COMMIT_SHA
+
 # Non-root. The service writes nothing to disk; uploads are held in memory and
 # evidence lives in blob storage.
 RUN useradd --create-home --uid 10001 appeal

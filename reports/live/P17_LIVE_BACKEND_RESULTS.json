@@ -1,0 +1,826 @@
+{
+  "meta": {
+    "base": "https://api-p7-production.up.railway.app",
+    "started_at": "2026-10-04T17:11:56Z",
+    "admin_token_configured_locally": false,
+    "env_keys_present": {
+      "ADMIN_TOKEN": false,
+      "ADMIN_TRACE_TOKEN": false,
+      "PCN_ADMIN_TOKEN": false,
+      "OPENAI_API_KEY": true,
+      "DATABASE_URL": true,
+      "PCN_API_URL": false
+    },
+    "health": {
+      "status": "ok",
+      "modules": 55,
+      "blocks": 74,
+      "app_version": "p7-staging",
+      "environment": "staging",
+      "build_id": "df006b99-a85f-4dca-b624-38d415b12e7e",
+      "commit": "unknown",
+      "kb_release": "kb-20261003T172126Z",
+      "kb_release_digest": "320dccd14a5ff93b6bf2971a9bc514f367ab98bb701424906ff281331ab8e226",
+      "kb_source": "postgres-release",
+      "kb_source_note": "",
+      "kb_drift": [
+        "module KB-BAY-01: release serves 1.5, YAML has 1.4",
+        "module KB-BAY-02: release serves 1.1, YAML has 1.0",
+        "module KB-POFA-01: release serves 1.1, YAML has 1.0",
+        "module KB-REC-01: release serves 1.2, YAML has 1.1",
+        "prompt drafting: release serves 15, YAML has 17",
+        "prompt semantic_extraction: release serves None, YAML has 1"
+      ],
+      "prompt_versions": {
+        "drafting": 15,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2
+      },
+      "validator_version": "VAL-5",
+      "store": "postgres",
+      "provider": "openai",
+      "models": {
+        "classification": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1",
+        "case_analysis": "gpt-5.1",
+        "drafting": "gpt-5.1",
+        "validation": "gpt-5-mini"
+      },
+      "provider_note": "",
+      "vision": true,
+      "max_upload_bytes": 10485760
+    },
+    "openapi_paths": [
+      "/admin/api/db/cases",
+      "/admin/api/db/cases/{case_id}",
+      "/admin/api/db/diagnostics",
+      "/admin/api/db/diagnostics/select",
+      "/admin/api/db/diagnostics/{query_id}",
+      "/admin/api/db/knowledge",
+      "/admin/api/db/status",
+      "/admin/api/db/tables",
+      "/admin/api/db/tables/{schema}/{table}",
+      "/admin/api/db/tables/{schema}/{table}/rows",
+      "/admin/api/db/vector/columns",
+      "/admin/api/db/vector/embeddings",
+      "/admin/api/db/vector/health",
+      "/admin/api/db/vector/indexes",
+      "/admin/api/db/vector/search",
+      "/admin/api/db/vector/status",
+      "/admin/cases/{case_id}/audit",
+      "/admin/cases/{case_id}/audit/report.md",
+      "/admin/cases/{case_id}/claim-plans",
+      "/admin/cases/{case_id}/claim-plans/compare",
+      "/admin/cases/{case_id}/claim-plans/explain",
+      "/admin/cases/{case_id}/console",
+      "/admin/cases/{case_id}/console/compare",
+      "/admin/cases/{case_id}/console/report.txt",
+      "/admin/cases/{case_id}/execution-trace",
+      "/admin/integrity/db-checks",
+      "/admin/kb/modules/{module_id}",
+      "/admin/kb/releases",
+      "/admin/knowledge/changes",
+      "/admin/knowledge/edges",
+      "/admin/knowledge/edges/{edge_id}/remove",
+      "/admin/knowledge/graph/facts",
+      "/admin/knowledge/import",
+      "/admin/knowledge/modules",
+      "/admin/knowledge/modules/{module_id}",
+      "/admin/knowledge/modules/{module_id}/activate",
+      "/admin/knowledge/modules/{module_id}/disable",
+      "/admin/knowledge/relationship-changes",
+      "/admin/knowledge/releases",
+      "/admin/knowledge/releases/compare",
+      "/appeal",
+      "/appeal/files",
+      "/appeal/{case_id}",
+      "/cases",
+      "/cases/{case_id}",
+      "/cases/{case_id}/answers",
+      "/cases/{case_id}/appeal",
+      "/cases/{case_id}/blobs",
+      "/cases/{case_id}/confirm",
+      "/cases/{case_id}/confirmation",
+      "/cases/{case_id}/disclosure",
+      "/cases/{case_id}/documents",
+      "/cases/{case_id}/facts",
+      "/cases/{case_id}/files",
+      "/cases/{case_id}/generate",
+      "/cases/{case_id}/letter.pdf",
+      "/cases/{case_id}/trace",
+      "/facts/{fact_id}/history",
+      "/health"
+    ],
+    "openapi_n_paths": 59,
+    "endpoint_probes": {
+      "/": {
+        "status": 200,
+        "ms": 1363,
+        "content_type": "text/html; charset=utf-8",
+        "ok": true
+      },
+      "/health": {
+        "status": 200,
+        "ms": 1459,
+        "content_type": "application/json",
+        "ok": true
+      },
+      "/healthz": {
+        "status": 404,
+        "ms": 881,
+        "content_type": "application/json",
+        "ok": false
+      },
+      "/ready": {
+        "status": 404,
+        "ms": 912,
+        "content_type": "application/json",
+        "ok": false
+      },
+      "/docs": {
+        "status": 200,
+        "ms": 1126,
+        "content_type": "text/html; charset=utf-8",
+        "ok": true
+      },
+      "/openapi.json": {
+        "status": 200,
+        "ms": 1359,
+        "content_type": "application/json",
+        "ok": true
+      }
+    },
+    "cp_plus": {
+      "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+      "state": "MANUAL_REVIEW",
+      "coverage": {
+        "shopping": false,
+        "reason": false,
+        "left": false,
+        "returned": false,
+        "cancel": false,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "letter_excerpt": ""
+    },
+    "security_headers_sample": {
+      "access-control-allow-origin": null,
+      "x-content-type-options": null,
+      "x-frame-options": null,
+      "strict-transport-security": null,
+      "content-security-policy": null
+    }
+  },
+  "latency": {
+    "api_p50_ms": 29909,
+    "api_p95_ms": 56866,
+    "n_requests": 47
+  },
+  "summary": {
+    "pass": 39,
+    "fail": 1,
+    "skip": 13,
+    "n_tests": 53
+  },
+  "results": [
+    {
+      "id": "HEALTH",
+      "result": "PASS",
+      "detail": {
+        "status": "ok",
+        "modules": 55,
+        "blocks": 74,
+        "app_version": "p7-staging",
+        "environment": "staging",
+        "build_id": "df006b99-a85f-4dca-b624-38d415b12e7e",
+        "commit": "unknown",
+        "kb_release": "kb-20261003T172126Z",
+        "kb_release_digest": "320dccd14a5ff93b6bf2971a9bc514f367ab98bb701424906ff281331ab8e226",
+        "kb_source": "postgres-release",
+        "kb_source_note": "",
+        "kb_drift": [
+          "module KB-BAY-01: release serves 1.5, YAML has 1.4",
+          "module KB-BAY-02: release serves 1.1, YAML has 1.0",
+          "module KB-POFA-01: release serves 1.1, YAML has 1.0",
+          "module KB-REC-01: release serves 1.2, YAML has 1.1",
+          "prompt drafting: release serves 15, YAML has 17",
+          "prompt semantic_extraction: release serves None, YAML has 1"
+        ],
+        "prompt_versions": {
+          "drafting": 15,
+          "extraction": 10,
+          "validation": 3,
+          "case_analysis": 8,
+          "classification": 2,
+          "page_references": 2
+        },
+        "validator_version": "VAL-5",
+        "store": "postgres",
+        "provider": "openai",
+        "models": {
+          "classification": "gpt-5.1",
+          "extraction": "gpt-5.1",
+          "page_references": "gpt-5.1",
+          "semantic_extraction": "gpt-5.1",
+          "case_analysis": "gpt-5.1",
+          "drafting": "gpt-5.1",
+          "validation": "gpt-5-mini"
+        },
+        "provider_note": "",
+        "vision": true,
+        "max_upload_bytes": 10485760
+      }
+    },
+    {
+      "id": "OPENAPI_DISCOVERY",
+      "result": "PASS",
+      "detail": {
+        "n_paths": 59
+      }
+    },
+    {
+      "id": "PROBE_healthz",
+      "result": "SKIP",
+      "detail": "not implemented (404)"
+    },
+    {
+      "id": "PROBE_ready",
+      "result": "SKIP",
+      "detail": "not implemented (404)"
+    },
+    {
+      "id": "BACKEND_AVAILABLE",
+      "result": "PASS",
+      "detail": null
+    },
+    {
+      "id": "AUTH_ADMIN_UNAUTH",
+      "result": "PASS",
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "id": "AUTH_ADMIN_INVALID",
+      "result": "PASS",
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "id": "AUTH_ADMIN_VALID",
+      "result": "SKIP",
+      "detail": "no local ADMIN_TOKEN/ADMIN_TRACE_TOKEN"
+    },
+    {
+      "id": "AUTH_CUSTOMER_CREATE",
+      "result": "PASS",
+      "detail": {
+        "case_id": "d68fb369-8bb0-4a18-9dea-7c8be1d2ff6d"
+      }
+    },
+    {
+      "id": "T02_FRONT_ONLY",
+      "result": "PASS",
+      "detail": {
+        "case_id": "dd7399ff-ba36-4237-a552-91e3d33a7b07",
+        "state": "EXTRACTED",
+        "incomplete_signal": true
+      }
+    },
+    {
+      "id": "T01_COMPLETE_CLEAN",
+      "result": "PASS",
+      "detail": {
+        "case_id": "6aca33d3-f779-447a-9dc7-3cb6332723ef",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "questions": false
+      }
+    },
+    {
+      "id": "T03_DUPLICATE_FRONT",
+      "result": "PASS",
+      "detail": {
+        "case_id": "5ef359e6-4cfc-4d8b-965d-ec8a8df892ec",
+        "state": "EXTRACTED",
+        "released": false
+      }
+    },
+    {
+      "id": "T_IMG_ROTATED",
+      "result": "PASS",
+      "detail": {
+        "case_id": null,
+        "state": null,
+        "rejected": null
+      }
+    },
+    {
+      "id": "T_IMG_LOW_LIGHT",
+      "result": "PASS",
+      "detail": {
+        "case_id": null,
+        "state": null,
+        "rejected": null
+      }
+    },
+    {
+      "id": "T_IMG_BLUR",
+      "result": "PASS",
+      "detail": {
+        "case_id": "085c4bed-bfe8-4a9a-84ea-2d971146afc2",
+        "state": "NO_APPEAL_RIGHT",
+        "rejected": []
+      }
+    },
+    {
+      "id": "T_IMG_UNREADABLE",
+      "result": "PASS",
+      "detail": {
+        "detail": {
+          "message": "nothing readable was uploaded",
+          "rejected": [
+            {
+              "filename": "LIVE_TEST_unreadable.bin",
+              "reason": "LIVE_TEST_unreadable.bin: unsupported type 'application/octet-stream'. Upload a photo, a PDF or a text file."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEM_S1",
+      "result": "PASS",
+      "detail": {
+        "case_id": "bba32f82-d3a8-4955-9d8d-abcb286b20bd",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S2",
+      "result": "PASS",
+      "detail": {
+        "case_id": "37e2c3ed-cc55-40e4-9dd1-8bf338cd3459",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S3",
+      "result": "PASS",
+      "detail": {
+        "case_id": "df134565-4002-44e0-b43a-d085f2d8f21c",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S4",
+      "result": "PASS",
+      "detail": {
+        "case_id": "12fbd913-689d-4142-b5b4-0a42de3d424f",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S5",
+      "result": "PASS",
+      "detail": {
+        "case_id": "131de356-1811-48d8-82ba-65670d905574",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S6",
+      "result": "PASS",
+      "detail": {
+        "case_id": "959e44dc-8901-4bf1-a9b9-eeab0b5f93c3",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S7",
+      "result": "PASS",
+      "detail": {
+        "case_id": "8b0805ea-62bc-4dde-a9a6-ce206ddd5ab0",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S8",
+      "result": "PASS",
+      "detail": {
+        "case_id": "f88c74b6-4a3a-44b5-91fe-ab261cde9d19",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S9",
+      "result": "PASS",
+      "detail": {
+        "case_id": "98013c0f-c541-4917-adba-1313dd72b29f",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S10",
+      "result": "PASS",
+      "detail": {
+        "case_id": "3b00107c-9c61-44eb-bada-d91ded89178a",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "SEM_S11",
+      "result": "PASS",
+      "detail": {
+        "case_id": "17fd0802-ac3d-4efd-aabe-5a5d90b6216b",
+        "state": "MANUAL_REVIEW",
+        "has_letter": false,
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T07_CP_PLUS_ACCEPTANCE",
+      "result": "FAIL",
+      "detail": {
+        "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR",
+        "coverage": {
+          "shopping": false,
+          "reason": false,
+          "left": false,
+          "returned": false,
+          "cancel": false,
+          "driver_id": false,
+          "placeholder": false
+        },
+        "note": "not RELEASED \u2014 material propagation cannot be fully scored"
+      },
+      "first_defective_layer": "DRAFT_RENDERING_ERROR"
+    },
+    {
+      "id": "T07_CLAIM_PLAN",
+      "result": "SKIP",
+      "detail": "admin token not available locally"
+    },
+    {
+      "id": "T04_LATE_NTK",
+      "result": "PASS",
+      "detail": {
+        "case_id": "b422bba3-59af-4a03-9290-21fb9ac2fa7c",
+        "state": "MANUAL_REVIEW"
+      }
+    },
+    {
+      "id": "T05_TIMELY_NTK",
+      "result": "PASS",
+      "detail": {
+        "case_id": "42e1bb10-ebc7-4474-a48f-09640e6ea85c",
+        "state": "NO_SUPPORTED_GROUNDS"
+      }
+    },
+    {
+      "id": "T06_CONTENT_DEFECT",
+      "result": "PASS",
+      "detail": {
+        "case_id": "7847481d-46a9-4589-8472-1aec57e24a59",
+        "state": "EXTRACTED"
+      }
+    },
+    {
+      "id": "T08_PAYMENT",
+      "result": "PASS",
+      "detail": {
+        "case_id": "f56b6094-e3ba-4d9c-a809-c8424cb8658e",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T09_KEYING",
+      "result": "PASS",
+      "detail": {
+        "case_id": "8f4a5131-b9c5-4741-afe1-21668ebfc8f2",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T10_PAY_KEY",
+      "result": "PASS",
+      "detail": {
+        "case_id": "97544477-742b-4f76-8a2e-32ca2031a4b3",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T11_BREAKDOWN",
+      "result": "PASS",
+      "detail": {
+        "case_id": "308d891c-710e-4435-baca-0772bbff71ae",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T12_LOADING",
+      "result": "PASS",
+      "detail": {
+        "case_id": "d4231c59-5b4c-4f72-b21e-57c46fb01d66",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T13_PERMIT",
+      "result": "PASS",
+      "detail": {
+        "case_id": "764847bb-b59c-48ec-9ad6-41379fe339bd",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR"
+      }
+    },
+    {
+      "id": "T17_NO_SUPPORTED_GROUND",
+      "result": "PASS",
+      "detail": {
+        "case_id": "c02529a0-1b74-487b-bb31-00564d188951",
+        "state": "NO_SUPPORTED_GROUNDS"
+      }
+    },
+    {
+      "id": "T23_DRIVER_DISCLOSURE",
+      "result": "PASS",
+      "detail": {
+        "case_id": "f829cc33-3bee-4ad2-879e-8f412feb58ab",
+        "state": "MANUAL_REVIEW",
+        "driver_id": false
+      }
+    },
+    {
+      "id": "T20_IDEMPOTENCY",
+      "result": "PASS",
+      "detail": {
+        "case_id": "2a8dbfda-251d-426e-8964-dd9530b3fb37",
+        "upload": 200,
+        "confirm1": 200,
+        "confirm2": 200,
+        "state1": "MANUAL_REVIEW",
+        "state2": "MANUAL_REVIEW"
+      }
+    },
+    {
+      "id": "T22_PERSIST_RELOAD",
+      "result": "PASS",
+      "detail": {
+        "case_id": "2a8dbfda-251d-426e-8964-dd9530b3fb37",
+        "state": "MANUAL_REVIEW"
+      }
+    },
+    {
+      "id": "T25_ADMIN_DB_STATUS",
+      "result": "SKIP",
+      "detail": "no local admin token \u2014 cannot call admin routes safely"
+    },
+    {
+      "id": "T25_PGVECTOR_STATUS",
+      "result": "SKIP",
+      "detail": "no local admin token \u2014 cannot call admin routes safely"
+    },
+    {
+      "id": "T25_PGVECTOR_SEARCH",
+      "result": "SKIP",
+      "detail": "no local admin token \u2014 cannot call admin routes safely"
+    },
+    {
+      "id": "T25_DB_CHECKS",
+      "result": "SKIP",
+      "detail": "no local admin token \u2014 cannot call admin routes safely"
+    },
+    {
+      "id": "T21_RELEASE_METADATA",
+      "result": "SKIP",
+      "detail": "no local admin token \u2014 cannot call admin routes safely"
+    },
+    {
+      "id": "SECURITY_ERROR_LEAKAGE",
+      "result": "PASS",
+      "detail": {
+        "status": 404
+      }
+    },
+    {
+      "id": "SECURITY_BASICS",
+      "result": "PASS",
+      "detail": {
+        "findings": [
+          "missing_hsts_header_on_health"
+        ]
+      }
+    },
+    {
+      "id": "T24_PLACEHOLDER_VALIDATION",
+      "result": "SKIP",
+      "detail": "no non-destructive draft-mutation API for controlled validator PoCs on live"
+    },
+    {
+      "id": "T25_INVENTED_FACT_VALIDATION",
+      "result": "SKIP",
+      "detail": "no non-destructive draft-mutation API for controlled validator PoCs on live"
+    },
+    {
+      "id": "T18_SUPPORT_ONLY",
+      "result": "SKIP",
+      "detail": "no non-destructive draft-mutation API for controlled validator PoCs on live"
+    },
+    {
+      "id": "T19_ADDITIVE_POFA",
+      "result": "SKIP",
+      "detail": "no non-destructive draft-mutation API for controlled validator PoCs on live"
+    }
+  ],
+  "cases": [
+    {
+      "tag": "empty_create",
+      "case_id": "d68fb369-8bb0-4a18-9dea-7c8be1d2ff6d"
+    },
+    {
+      "tag": "T02",
+      "case_id": "dd7399ff-ba36-4237-a552-91e3d33a7b07",
+      "state": "EXTRACTED"
+    },
+    {
+      "tag": "T01",
+      "case_id": "6aca33d3-f779-447a-9dc7-3cb6332723ef"
+    },
+    {
+      "tag": "S1",
+      "case_id": "bba32f82-d3a8-4955-9d8d-abcb286b20bd",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S2",
+      "case_id": "37e2c3ed-cc55-40e4-9dd1-8bf338cd3459",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S3",
+      "case_id": "df134565-4002-44e0-b43a-d085f2d8f21c",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S4",
+      "case_id": "12fbd913-689d-4142-b5b4-0a42de3d424f",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S5",
+      "case_id": "131de356-1811-48d8-82ba-65670d905574",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S6",
+      "case_id": "959e44dc-8901-4bf1-a9b9-eeab0b5f93c3",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S7",
+      "case_id": "8b0805ea-62bc-4dde-a9a6-ce206ddd5ab0",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S8",
+      "case_id": "f88c74b6-4a3a-44b5-91fe-ab261cde9d19",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S9",
+      "case_id": "98013c0f-c541-4917-adba-1313dd72b29f",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S10",
+      "case_id": "3b00107c-9c61-44eb-bada-d91ded89178a",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "S11",
+      "case_id": "17fd0802-ac3d-4efd-aabe-5a5d90b6216b",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T07_CP_PLUS",
+      "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T04",
+      "case_id": "b422bba3-59af-4a03-9290-21fb9ac2fa7c",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T08_PAYMENT",
+      "case_id": "f56b6094-e3ba-4d9c-a809-c8424cb8658e",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T09_KEYING",
+      "case_id": "8f4a5131-b9c5-4741-afe1-21668ebfc8f2",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T10_PAY_KEY",
+      "case_id": "97544477-742b-4f76-8a2e-32ca2031a4b3",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T11_BREAKDOWN",
+      "case_id": "308d891c-710e-4435-baca-0772bbff71ae",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T12_LOADING",
+      "case_id": "d4231c59-5b4c-4f72-b21e-57c46fb01d66",
+      "state": "MANUAL_REVIEW"
+    },
+    {
+      "tag": "T13_PERMIT",
+      "case_id": "764847bb-b59c-48ec-9ad6-41379fe339bd",
+      "state": "MANUAL_REVIEW"
+    }
+  ],
+  "failures": [
+    {
+      "id": "T07_CP_PLUS_ACCEPTANCE",
+      "result": "FAIL",
+      "detail": {
+        "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR",
+        "coverage": {
+          "shopping": false,
+          "reason": false,
+          "left": false,
+          "returned": false,
+          "cancel": false,
+          "driver_id": false,
+          "placeholder": false
+        },
+        "note": "not RELEASED \u2014 material propagation cannot be fully scored"
+      },
+      "first_defective_layer": "DRAFT_RENDERING_ERROR"
+    }
+  ],
+  "critical_blockers": [
+    {
+      "id": "T07_CP_PLUS_ACCEPTANCE",
+      "result": "FAIL",
+      "detail": {
+        "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+        "state": "MANUAL_REVIEW",
+        "outcome": "PROCESSING_ERROR",
+        "coverage": {
+          "shopping": false,
+          "reason": false,
+          "left": false,
+          "returned": false,
+          "cancel": false,
+          "driver_id": false,
+          "placeholder": false
+        },
+        "note": "not RELEASED \u2014 material propagation cannot be fully scored"
+      },
+      "first_defective_layer": "DRAFT_RENDERING_ERROR"
+    }
+  ],
+  "recommendation": "LIVE_FIXES_REQUIRED",
+  "finished_at": "2026-10-04T17:31:09Z"
+}

@@ -690,11 +690,16 @@ class AppealPipeline:
             self._record_version(case, plan, trimmed, checked, dv, pack,
                                  released=False, parent=(version or {}).get("draft_id"))
 
-        case.state = CaseState.MANUAL_REVIEW
         if result is None:
+            # Drafter never produced a usable letter — processing failure, not merits.
+            case.state = CaseState.MANUAL_REVIEW
             result = ValidationResult(False, [ValidationIssue(
                 "VAL-DRAFT", "BLOCK",
                 "AI drafting failed or declined; substantive template fallback is disabled")])
+        else:
+            # Exhausted validation retries: keep VALIDATION_FAILED. Collapsing into
+            # MANUAL_REVIEW made technical holds look like a merits judgment.
+            case.state = CaseState.VALIDATION_FAILED
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)

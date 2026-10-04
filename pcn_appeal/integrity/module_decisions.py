@@ -24,9 +24,13 @@ USED = "USED"
 DECISIONS = (MATCHED, SUPPORTED, SELECTED, REJECTED, BLOCKED, UNRESOLVED, INVALIDATED, USED)
 
 # Claim-plan / CI decisions that are expected, not corruption.
+# ROLE_INELIGIBLE: LEGAL_CONCLUSION / SUPPORTING_PROPOSITION correctly kept out
+# of the Claim Plan while a companion claim-ground (e.g. KB-POFA-02) carries the
+# verified finding. That is role policy, not a ground disappearing silently.
 EXPECTED_REJECTION = frozenset({
     "GATE", "NO_SUPPORTING_FACTS", "NO_VERIFIED_FINDING", "BLOCKED",
     "NOT_ACTIVE", "EVIDENCE_REQUIRED", "MISSING_FACTS", "NOT_SELECTED",
+    "ROLE_INELIGIBLE",
 })
 
 _MISSING_TOKENS = (

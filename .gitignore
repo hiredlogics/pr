@@ -18,3 +18,4 @@ doc/*.key
 
 # Real NTK photos + keeper PII — keep local for fine-tune; do not push public
 datasets/pcn_finetune_v1/
+.env.p17.local

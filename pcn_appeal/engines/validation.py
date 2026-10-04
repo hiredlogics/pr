@@ -146,17 +146,30 @@ ONE_ASSERTION = {
 
 
 def _ident(value) -> str:
-    """An identifier as compared: upper case, no spaces."""
-    return re.sub(r"\s+", "", str(value or "")).upper()
+    """An identifier as compared: upper case, alphanumerics only.
+
+    Operators and fixtures use hyphens/underscores in PCN references
+    (`LIVE_TEST_PCN_…`, `ABC-123`). Those separators are not part of the
+    identity for matching — only letter/digit content is.
+    """
+    return re.sub(r"[^A-Za-z0-9]+", "", str(value or "")).upper()
 
 
 def _contains_token(text: str, ident: str) -> bool:
-    """`ident` appears as a whole token (spaces inside it ignored), not as part
-    of a longer reference: "1234567" is not in "12345678"."""
+    """`ident` appears as a whole token (separators inside it ignored), not as
+    part of a longer reference: "1234567" is not in "12345678"."""
+    if not ident:
+        return False
+    # Spaced two-word tokens (legacy PCN / plate printing). Check the joined
+    # form and each half so "PCN 1234567890" still matches the number alone.
     for tok in re.findall(r"[A-Za-z0-9]+(?: [A-Za-z0-9]+)?", text):
         for cand in (tok, *tok.split(" ")):
-            if cand.replace(" ", "").upper() == ident:
+            if _ident(cand) == ident:
                 return True
+    # Hyphen/underscore-joined references (fixture and some operator formats).
+    for tok in re.findall(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)+", text):
+        if _ident(tok) == ident:
+            return True
     return False
 
 
@@ -181,15 +194,17 @@ def _near_variants(text: str, ident: str, *, min_len: int, max_len: int = 20,
     tokens = list(words)
     if spaced:                             # "RX7 V5FP" is printed as two words
         tokens += [f"{a} {b}" for a, b in zip(words, words[1:])]
+    # Also consider hyphen/underscore-joined references as one token.
+    tokens += re.findall(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)+", text)
     needs_alpha = any(c.isalpha() for c in ident)
     found: list[str] = []
     for tok in tokens:
-        norm = tok.replace(" ", "").upper()
+        norm = _ident(tok)
         if norm == ident or not (min_len <= len(norm) <= max_len):
             continue
         if not any(c.isdigit() for c in norm) or (needs_alpha and not any(c.isalpha() for c in norm)):
             continue
-        if spaced and tok != tok.upper():
+        if spaced and tok != tok.upper() and not any(c in tok for c in "_-"):
             continue                       # registrations are printed in capitals
         if _edit_distance(norm, ident) <= 2 and tok not in found:
             found.append(tok)
@@ -459,7 +474,22 @@ class ValidationEngine:
             tokens = [t for t in re.findall(r"[A-Za-z]{4,}", allegation.lower()) if t not in {
                 "that", "with", "from", "this", "have", "been", "were", "their", "parking",
             }]
-            if tokens and not any(tok in full.lower() for tok in tokens[:6]):
+            low_full = full.lower()
+            token_hit = bool(tokens) and any(tok in low_full for tok in tokens[:6])
+            # Statutory / verified-finding appeals argue notice defects; they are
+            # case-specific via PCN/location/date without restating the operator's
+            # breach label ("Overstayed paid time"). Engagement is still required
+            # via allegation language or notice particulars already in the letter.
+            verified_pack = any(
+                (isinstance(r, dict) and r.get("status") == "VERIFIED")
+                for r in (pack.legal_findings or [])
+            )
+            engages_allegation = (
+                token_hit
+                or any(w in low_full for w in ("alleged", "allegation", "contravention"))
+                or (verified_pack and bool(substantive))
+            )
+            if tokens and not engages_allegation:
                 block("VAL-SUBSTANCE",
                       "Draft does not address the alleged contravention on the notice")
         if substantive and operator and len(operator) > 3:

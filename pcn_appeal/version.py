@@ -20,7 +20,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # Checked in order. GIT_COMMIT is the explicit override a container sets itself.
-COMMIT_VARS = ("GIT_COMMIT", "RAILWAY_GIT_COMMIT_SHA", "VERCEL_GIT_COMMIT_SHA", "GITHUB_SHA")
+COMMIT_VARS = (
+    "GIT_COMMIT",
+    "RAILWAY_GIT_COMMIT_SHA",
+    "SOURCE_COMMIT",
+    "VERCEL_GIT_COMMIT_SHA",
+    "GITHUB_SHA",
+)
 
 UNKNOWN = "unknown"
 
@@ -32,6 +38,14 @@ def commit() -> str:
         value = (os.getenv(name) or "").strip()
         if value:
             return value
+    # Dockerfile writes /app/COMMIT_SHA at image build (Railway/GitHub builds).
+    for path in (Path("/app/COMMIT_SHA"), ROOT / "COMMIT_SHA"):
+        try:
+            value = path.read_text(encoding="utf-8").strip()
+            if value and value != UNKNOWN:
+                return value
+        except Exception:
+            pass
     try:
         done = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
                               capture_output=True, text=True, timeout=2)

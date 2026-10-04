@@ -1,0 +1,1805 @@
+{
+  "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+  "admin_configured": true,
+  "env_keys_present": {
+    "ADMIN_TOKEN": true,
+    "ADMIN_TRACE_TOKEN": true,
+    "PCN_ADMIN_TOKEN": false,
+    "OPENAI_API_KEY": true,
+    "DATABASE_URL": true,
+    "PCN_API_URL": false
+  },
+  "started_at": "2026-10-04T17:37:58Z",
+  "stages": {
+    "extraction": "NOT_REACHED",
+    "customer_narrative": "NOT_REACHED",
+    "semantic_concepts": "NOT_REACHED",
+    "narrative_atoms": "NOT_REACHED",
+    "facts": "COMPLETED",
+    "legal_findings": "NOT_REACHED",
+    "kb_eligibility": "NOT_REACHED",
+    "claim_plan": "NOT_REACHED",
+    "draft_plan": "NOT_REACHED",
+    "drafting": "NOT_REACHED",
+    "validation": "NOT_REACHED",
+    "release_gate": "NOT_REACHED",
+    "outcome": "NOT_REACHED"
+  },
+  "facts_api": {
+    "purpose_of_visit": null,
+    "left_site": null,
+    "returned_same_day": null,
+    "multiple_visits": null,
+    "departure_reason": null,
+    "notice_sides_complete": null,
+    "pcn_number": null,
+    "operator_name": null
+  },
+  "narrative_atoms_audit": [],
+  "draft_related_audit": [],
+  "validations": [],
+  "claim_plans": {
+    "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+    "plans": [
+      {
+        "claim_plan_id": "779b0ca2-1b3e-570a-82d4-6872b4bb2d03",
+        "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+        "analysis_run_id": "0d38b409-b529-5d00-8057-6fb816f39956",
+        "run_number": 1,
+        "version": 1,
+        "status": "LOCKED",
+        "created_at": "2026-10-04T17:22:46+00:00",
+        "confirmed_at": "2026-10-04T17:22:46+00:00",
+        "locked_at": "2026-10-04T17:22:46+00:00",
+        "superseded_at": null,
+        "superseded_by": null,
+        "inputs_digest": "254cb89e212d5449e753f398a1b4a12a206795e83cd7038c4bdef1e013094b5f",
+        "plan_digest": "3cd360006539306a17ceb6de7f2da8f5530676365cda6742bcecc6b9c89fbb2f",
+        "trust": {
+          "code_version": "unknown",
+          "prompt_versions": {
+            "drafting": 15,
+            "extraction": 10,
+            "validation": 3,
+            "case_analysis": 8,
+            "classification": 2,
+            "page_references": 2
+          },
+          "model_versions": {
+            "classification": "gpt-5.1",
+            "extraction": "gpt-5.1",
+            "page_references": "gpt-5.1",
+            "semantic_extraction": "gpt-5.1",
+            "case_analysis": "gpt-5.1",
+            "drafting": "gpt-5.1",
+            "validation": "gpt-5-mini"
+          },
+          "provider": "openai",
+          "kb_version": {
+            "release_id": "kb-20261003T172126Z",
+            "digest": "320dccd14a5ff93b6bf2971a9bc514f367ab98bb701424906ff281331ab8e226",
+            "relations_version": "1.0"
+          },
+          "practice_code_version": "SCOP-1.1",
+          "builder_version": "3",
+          "invalidations": [
+            {
+              "ground_id": "KB-POFA-05",
+              "reason": "module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+              "invalidated_by_fact_id": null,
+              "invalidated_by_finding_id": "POFA_POSTAL_LATE",
+              "timestamp": "2026-10-04T17:22:46+00:00",
+              "previous_plan_version": null,
+              "new_plan_version": 1,
+              "decision": "ROLE_INELIGIBLE"
+            },
+            {
+              "ground_id": "KB-POFA-01",
+              "reason": "module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+              "invalidated_by_fact_id": null,
+              "invalidated_by_finding_id": "POFA_POSTAL_LATE",
+              "timestamp": "2026-10-04T17:22:46+00:00",
+              "previous_plan_version": null,
+              "new_plan_version": 1,
+              "decision": "ROLE_INELIGIBLE"
+            }
+          ],
+          "refused_invalidations": [],
+          "facts_used": {
+            "departure_reason": {
+              "value": "a necessary item was realised to have been left elsewhere, prompting the departure",
+              "status": "DERIVED",
+              "source_kind": "CUSTOMER_FREE_TEXT",
+              "source_ref": "free_text:narrative:departure_reason",
+              "fact_id": "86013925-ccec-4294-a052-afc663a80745"
+            },
+            "jurisdiction": {
+              "value": "ENGLAND_WALES",
+              "status": "DERIVED",
+              "source_kind": "CALCULATION",
+              "source_ref": "postcode_jurisdiction",
+              "fact_id": "b59f1f2d-2049-403a-92c4-cc5c92d8da5b"
+            },
+            "left_site": {
+              "value": "yes",
+              "status": "ANSWERED",
+              "source_kind": "ANSWER",
+              "source_ref": "answer:left_site",
+              "fact_id": "ffcef549-4b77-40a3-a40d-f1014aac3da3"
+            },
+            "multiple_visits": {
+              "value": true,
+              "status": "ANSWERED",
+              "source_kind": "ANSWER",
+              "source_ref": "answer:multiple_visits",
+              "fact_id": "3d1735cc-2672-453e-b6f6-27aaff6333f9"
+            },
+            "notice_issue_date": {
+              "value": "2026-06-20",
+              "status": "CONFIRMED",
+              "source_kind": "DOCUMENT",
+              "source_ref": "E1#p1",
+              "fact_id": "9fb9e50f-9bbd-4821-bcc8-d917ac79782b"
+            },
+            "notice_route": {
+              "value": "POSTAL",
+              "status": "DERIVED",
+              "source_kind": "CALCULATION",
+              "source_ref": "notice_route_rule",
+              "fact_id": "631600fe-b289-42ce-915a-b369dc0c10a3"
+            },
+            "parking_event_date": {
+              "value": "2026-06-01",
+              "status": "CONFIRMED",
+              "source_kind": "DOCUMENT",
+              "source_ref": "E1#p1",
+              "fact_id": "a705169e-c2bb-4fae-bab0-dd352acb93ad"
+            },
+            "pofa_finding": {
+              "value": "POFA_POSTAL_LATE",
+              "status": "DERIVED",
+              "source_kind": "CALCULATION",
+              "source_ref": "pofa.assess",
+              "fact_id": "92f6baab-7e1f-469a-8703-6a5a571e3404"
+            },
+            "pofa_route": {
+              "value": "POSTAL",
+              "status": "DERIVED",
+              "source_kind": "CALCULATION",
+              "source_ref": "pofa.assess",
+              "fact_id": "eaec885f-1d7a-4655-a26d-a4769b95a8fc"
+            },
+            "purpose_of_visit": {
+              "value": "shopping",
+              "status": "ANSWERED",
+              "source_kind": "CUSTOMER_FREE_TEXT",
+              "source_ref": "semantic:purpose_of_visit",
+              "fact_id": "1546aaff-2f01-496f-b604-8aefa37149c5"
+            },
+            "returned_same_day": {
+              "value": "yes",
+              "status": "ANSWERED",
+              "source_kind": "ANSWER",
+              "source_ref": "answer:returned_same_day",
+              "fact_id": "1608d003-1c73-4b3d-b97e-5a8e5e8fccca"
+            },
+            "visited_premises": {
+              "value": true,
+              "status": "DERIVED",
+              "source_kind": "CUSTOMER_FREE_TEXT",
+              "source_ref": "free_text:narrative:visited_premises",
+              "fact_id": "1f5b430b-1036-4889-96b3-717a79d4359c"
+            }
+          },
+          "relationships_used": [
+            {
+              "edge_id": "232aeb86-384d-5b58-aa57-873b303d0cb3",
+              "relationship": "SUPPORTS",
+              "source": "FACT:pofa_route",
+              "module_id": "KB-POFA-02"
+            },
+            {
+              "edge_id": "b49e5838-4ed4-5f13-8f69-0649893b7b63",
+              "relationship": "SUPPORTS",
+              "source": "FACT:pofa_finding",
+              "module_id": "KB-POFA-02"
+            },
+            {
+              "edge_id": "e5a5ebef-7dbb-5e9c-a0a2-cd55e6e6da40",
+              "relationship": "SUPPORTS",
+              "source": "FACT:multiple_visits",
+              "module_id": "KB-ANPR-01"
+            },
+            {
+              "edge_id": "6ee734da-9336-593d-89b8-943b7f6a99df",
+              "relationship": "SUPPORTS",
+              "source": "FACT:alleged_breach",
+              "module_id": "KB-ACT-01"
+            },
+            {
+              "edge_id": "3f81044e-40d9-55e2-8bb5-a950c5c9aa27",
+              "relationship": "SUPPORTS",
+              "source": "FACT:authorisation_source",
+              "module_id": "KB-ACT-03"
+            },
+            {
+              "edge_id": "ff005cf3-e373-54dc-b98b-a3908eddd061",
+              "relationship": "SUPPORTS",
+              "source": "FACT:authorisation_source",
+              "module_id": "KB-AUTH-01"
+            },
+            {
+              "edge_id": "654de041-dbc2-5cb4-8e58-8d0632535bd5",
+              "relationship": "SUPPORTS",
+              "source": "FACT:alleged_breach",
+              "module_id": "KB-EVCH-01"
+            },
+            {
+              "edge_id": "cd945a3e-1803-52a3-8a93-e4cde11ab37c",
+              "relationship": "SUPPORTS",
+              "source": "FACT:driver_status",
+              "module_id": "KB-POFA-04"
+            },
+            {
+              "edge_id": "72c7c206-0a46-58e4-bcaf-4cc2f5dd397b",
+              "relationship": "SUPPORTS",
+              "source": "FACT:exit_time",
+              "module_id": "KB-TIME-01"
+            },
+            {
+              "edge_id": "e04925a5-7d9d-5361-abf9-46f39fdf7e0f",
+              "relationship": "SUPPORTS",
+              "source": "FACT:entry_time",
+              "module_id": "KB-TIME-01"
+            },
+            {
+              "edge_id": null,
+              "relationship": "BLOCKS",
+              "source": "do_not_use_when",
+              "reason": "blocked condition holds: payment_method!=MACHINE",
+              "module_id": "KB-PAY-02"
+            },
+            {
+              "edge_id": null,
+              "relationship": "BLOCKS",
+              "source": "do_not_use_when",
+              "reason": "blocked condition holds: do_not_use_when",
+              "module_id": "KB-PAY-03"
+            },
+            {
+              "edge_id": "12d69722-c66b-54ae-8f04-bdd8cf7174b5",
+              "relationship": "SUPPORTS",
+              "source": "FACT:pofa_finding",
+              "module_id": "KB-POFA-01"
+            },
+            {
+              "edge_id": "35bff223-2156-5a95-875d-ac2ad35f8a92",
+              "relationship": "SUPPORTS",
+              "source": "FACT:jurisdiction",
+              "module_id": "KB-POFA-01"
+            },
+            {
+              "edge_id": "91e9c149-5fc3-5072-a9bb-5945ee8c6ab2",
+              "relationship": "SUPPORTS",
+              "source": "FACT:driver_status",
+              "module_id": "KB-POFA-01"
+            },
+            {
+              "edge_id": "6a5ded59-0a64-57de-bc42-995def86d998",
+              "relationship": "SUPPORTS",
+              "source": "FACT:driver_status",
+              "module_id": "KB-POFA-05"
+            },
+            {
+              "edge_id": "d4414b5b-b89f-5a9f-800b-d93a60b9446c",
+              "relationship": "SUPPORTS",
+              "source": "FACT:pofa_finding",
+              "module_id": "KB-POFA-05"
+            }
+          ],
+          "signals": {
+            "allegation_class": "OVERSTAY",
+            "evidence_method": "ANPR"
+          },
+          "proposals": {
+            "selected": [
+              "KB-ANPR-01",
+              "KB-POFA-01",
+              "KB-POFA-02",
+              "KB-POFA-05"
+            ],
+            "proposed": [
+              "KB-ANPR-01",
+              "KB-POFA-01",
+              "KB-POFA-02",
+              "KB-POFA-05"
+            ],
+            "vetoed": {},
+            "omitted": [],
+            "candidates": [
+              "KB-ACT-01",
+              "KB-ACT-03",
+              "KB-ANPR-01",
+              "KB-ANPR-02",
+              "KB-ANPR-03",
+              "KB-AUTH-01",
+              "KB-BAY-01",
+              "KB-BREAK-01",
+              "KB-BREAK-02",
+              "KB-BREAK-03",
+              "KB-CON-01",
+              "KB-EQ-01",
+              "KB-EVCH-01",
+              "KB-GRACE-01",
+              "KB-GRACE-02",
+              "KB-HOSP-01",
+              "KB-LAND-01",
+              "KB-POFA-01",
+              "KB-POFA-02",
+              "KB-POFA-04",
+              "KB-POFA-05",
+              "KB-REC-01",
+              "KB-SIGN-04",
+              "KB-TIME-01"
+            ],
+            "add_ground_candidates": [
+              "KB-ANPR-01",
+              "KB-POFA-01",
+              "KB-POFA-02",
+              "KB-POFA-05"
+            ],
+            "support_existing_ground": [],
+            "proposed_invalidations": []
+          }
+        },
+        "material_fact_accounting": [
+          {
+            "fact_name": "multiple_visits",
+            "disposition": "used",
+            "reason": "supports KB-ANPR-01",
+            "relations": [
+              {
+                "module_id": "KB-ANPR-01",
+                "relation": "supports"
+              },
+              {
+                "module_id": "KB-POFA-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-02",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-05",
+                "relation": "neutral"
+              }
+            ],
+            "value_present": true
+          },
+          {
+            "fact_name": "account_contradicts_allegation",
+            "disposition": "irrelevant",
+            "reason": "no selected claim engages this fact",
+            "relations": [
+              {
+                "module_id": "KB-ANPR-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-02",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-05",
+                "relation": "neutral"
+              }
+            ],
+            "value_present": true
+          },
+          {
+            "fact_name": "material_account_proposition",
+            "disposition": "irrelevant",
+            "reason": "no selected claim engages this fact",
+            "relations": [
+              {
+                "module_id": "KB-ANPR-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-02",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-05",
+                "relation": "neutral"
+              }
+            ],
+            "value_present": true
+          },
+          {
+            "fact_name": "material_account_propositions",
+            "disposition": "irrelevant",
+            "reason": "no selected claim engages this fact",
+            "relations": [
+              {
+                "module_id": "KB-ANPR-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-01",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-02",
+                "relation": "neutral"
+              },
+              {
+                "module_id": "KB-POFA-05",
+                "relation": "neutral"
+              }
+            ],
+            "value_present": true
+          }
+        ],
+        "items": [
+          {
+            "item_id": "d01b5aa8-fced-5827-951f-37ad39430b14",
+            "knowledge_id": "c8fd9d41-75e2-5654-90e1-c80c4a6260f4",
+            "module_id": "KB-POFA-02",
+            "claim_type": "POFA",
+            "status": "SUPPORTED",
+            "decision": "VERIFIED_FINDING",
+            "reason": "licensed by verified legal finding POFA_POSTAL_LATE; a calculated statutory defect is argued independently of selection",
+            "supporting_facts": [
+              {
+                "condition": "pofa_route=POSTAL",
+                "fact": "pofa_route",
+                "value": "POSTAL",
+                "source": "pofa.assess",
+                "source_kind": "CALCULATION",
+                "fact_id": "eaec885f-1d7a-4655-a26d-a4769b95a8fc",
+                "because_of": [
+                  {
+                    "fact": "notice_route",
+                    "value": "POSTAL",
+                    "source": "notice_route_rule"
+                  },
+                  {
+                    "fact": "jurisdiction",
+                    "value": "ENGLAND_WALES",
+                    "fact_id": "b59f1f2d-2049-403a-92c4-cc5c92d8da5b",
+                    "source": "postcode_jurisdiction"
+                  },
+                  {
+                    "fact": "relevant_land"
+                  },
+                  {
+                    "fact": "parking_event_date",
+                    "value": "2026-06-01",
+                    "fact_id": "a705169e-c2bb-4fae-bab0-dd352acb93ad",
+                    "source": "E1#p1"
+                  },
+                  {
+                    "fact": "notice_issue_date",
+                    "value": "2026-06-20",
+                    "fact_id": "9fb9e50f-9bbd-4821-bcc8-d917ac79782b",
+                    "source": "E1#p1"
+                  },
+                  {
+                    "fact": "ntd_date"
+                  },
+                  {
+                    "fact": "notice_received_date"
+                  },
+                  {
+                    "fact": "delivery_date_proven"
+                  }
+                ]
+              },
+              {
+                "condition": "pofa_finding in [\"POFA_POSTAL_LATE\"]",
+                "fact": "pofa_finding",
+                "value": "POFA_POSTAL_LATE",
+                "source": "pofa.assess",
+                "source_kind": "CALCULATION",
+                "fact_id": "92f6baab-7e1f-469a-8703-6a5a571e3404",
+                "because_of": [
+                  {
+                    "fact": "parking_event_date",
+                    "value": "2026-06-01",
+                    "source": "E1#p1"
+                  },
+                  {
+                    "fact": "notice_issue_date",
+                    "value": "2026-06-20",
+                    "source": "E1#p1"
+                  },
+                  {
+                    "fact": "notice_route",
+                    "value": "POSTAL",
+                    "source": "notice_route_rule"
+                  },
+                  {
+                    "fact": "jurisdiction",
+                    "value": "ENGLAND_WALES",
+                    "source": "postcode_jurisdiction"
+                  },
+                  {
+                    "fact": "relevant_land"
+                  },
+                  {
+                    "fact": "ntd_date"
+                  },
+                  {
+                    "fact": "notice_received_date"
+                  },
+                  {
+                    "fact": "delivery_date_proven"
+                  }
+                ]
+              },
+              {
+                "condition": "notice_issue_date",
+                "fact": "notice_issue_date",
+                "value": "2026-06-20",
+                "fact_id": "9fb9e50f-9bbd-4821-bcc8-d917ac79782b"
+              },
+              {
+                "condition": "parking_event_date",
+                "fact": "parking_event_date",
+                "value": "2026-06-01",
+                "fact_id": "a705169e-c2bb-4fae-bab0-dd352acb93ad"
+              },
+              {
+                "condition": "POFA_POSTAL_LATE",
+                "finding_id": "9ab6f9be-9cd9-5da0-86d7-34173b630268",
+                "finding_type": "POFA_POSTAL_LATE"
+              }
+            ],
+            "evidence_refs": [
+              {
+                "kind": "NTK",
+                "evidence_id": "E2",
+                "uploaded": true
+              }
+            ],
+            "relationships": [
+              {
+                "edge_id": "232aeb86-384d-5b58-aa57-873b303d0cb3",
+                "relationship": "SUPPORTS",
+                "source": "FACT:pofa_route"
+              },
+              {
+                "edge_id": "b49e5838-4ed4-5f13-8f69-0649893b7b63",
+                "relationship": "SUPPORTS",
+                "source": "FACT:pofa_finding"
+              }
+            ],
+            "priority": 1,
+            "topic": "Postal NTK timing",
+            "support_bundle": {
+              "source_fact_ids": [
+                "notice_route",
+                "b59f1f2d-2049-403a-92c4-cc5c92d8da5b",
+                "relevant_land",
+                "a705169e-c2bb-4fae-bab0-dd352acb93ad",
+                "9fb9e50f-9bbd-4821-bcc8-d917ac79782b",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven",
+                "parking_event_date",
+                "notice_issue_date",
+                "jurisdiction"
+              ],
+              "derived_fact_ids": [
+                "eaec885f-1d7a-4655-a26d-a4769b95a8fc",
+                "92f6baab-7e1f-469a-8703-6a5a571e3404"
+              ],
+              "evidence_ids": [
+                "E2"
+              ],
+              "legal_finding_ids": [
+                "9ab6f9be-9cd9-5da0-86d7-34173b630268"
+              ],
+              "relationship_ids": [
+                "232aeb86-384d-5b58-aa57-873b303d0cb3",
+                "b49e5838-4ed4-5f13-8f69-0649893b7b63"
+              ],
+              "source_fact_names": [
+                "notice_route",
+                "jurisdiction",
+                "relevant_land",
+                "parking_event_date",
+                "notice_issue_date",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven"
+              ],
+              "derived_fact_names": [
+                "pofa_route",
+                "pofa_finding"
+              ],
+              "values": {
+                "pofa_route": "POSTAL",
+                "notice_route": "POSTAL",
+                "jurisdiction": "ENGLAND_WALES",
+                "parking_event_date": "2026-06-01",
+                "notice_issue_date": "2026-06-20",
+                "pofa_finding": "POFA_POSTAL_LATE"
+              }
+            },
+            "draft_requirement": {
+              "required_particulars": [
+                "notice_route",
+                "jurisdiction",
+                "relevant_land",
+                "parking_event_date",
+                "notice_issue_date",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven",
+                "pofa_route",
+                "pofa_finding",
+                "deadline",
+                "presumed_delivery",
+                "days_late"
+              ],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the source sequence that produces the derived conclusion",
+                "state each calculated date and the day count"
+              ]
+            }
+          },
+          {
+            "item_id": "f62d5a09-810b-50b5-8aef-e37580b66770",
+            "knowledge_id": "e6b25472-a169-5703-9b21-b3f129f490f7",
+            "module_id": "KB-ANPR-01",
+            "claim_type": "ANPR",
+            "status": "SUPPORTED",
+            "decision": "SELECTED",
+            "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts",
+            "supporting_facts": [
+              {
+                "condition": "multiple_visits=true",
+                "fact": "multiple_visits",
+                "value": true,
+                "source": "answer:multiple_visits",
+                "source_kind": "ANSWER",
+                "fact_id": "3d1735cc-2672-453e-b6f6-27aaff6333f9",
+                "because_of": [
+                  {
+                    "fact": "left_site",
+                    "value": "yes",
+                    "fact_id": "ffcef549-4b77-40a3-a40d-f1014aac3da3",
+                    "source": "answer:left_site"
+                  },
+                  {
+                    "fact": "returned_same_day",
+                    "value": "yes",
+                    "fact_id": "1608d003-1c73-4b3d-b97e-5a8e5e8fccca",
+                    "source": "answer:returned_same_day"
+                  },
+                  {
+                    "fact": "visited_premises",
+                    "value": true,
+                    "fact_id": "1f5b430b-1036-4889-96b3-717a79d4359c",
+                    "source": "free_text:narrative:visited_premises"
+                  },
+                  {
+                    "fact": "purpose_of_visit",
+                    "value": "shopping",
+                    "fact_id": "1546aaff-2f01-496f-b604-8aefa37149c5",
+                    "source": "semantic:purpose_of_visit"
+                  },
+                  {
+                    "fact": "departure_reason",
+                    "value": "a necessary item was realised to have been left elsewhere, prompting the departure",
+                    "fact_id": "86013925-ccec-4294-a052-afc663a80745",
+                    "source": "free_text:narrative:departure_reason"
+                  }
+                ]
+              }
+            ],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "e5a5ebef-7dbb-5e9c-a0a2-cd55e6e6da40",
+                "relationship": "SUPPORTS",
+                "source": "FACT:multiple_visits"
+              }
+            ],
+            "priority": 2,
+            "topic": "Multiple visits / double visit",
+            "support_bundle": {
+              "source_fact_ids": [
+                "ffcef549-4b77-40a3-a40d-f1014aac3da3",
+                "1608d003-1c73-4b3d-b97e-5a8e5e8fccca",
+                "1f5b430b-1036-4889-96b3-717a79d4359c",
+                "1546aaff-2f01-496f-b604-8aefa37149c5",
+                "86013925-ccec-4294-a052-afc663a80745"
+              ],
+              "derived_fact_ids": [
+                "3d1735cc-2672-453e-b6f6-27aaff6333f9"
+              ],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "e5a5ebef-7dbb-5e9c-a0a2-cd55e6e6da40"
+              ],
+              "source_fact_names": [
+                "left_site",
+                "returned_same_day",
+                "visited_premises",
+                "purpose_of_visit",
+                "departure_reason"
+              ],
+              "derived_fact_names": [
+                "multiple_visits"
+              ],
+              "values": {
+                "multiple_visits": true,
+                "left_site": "yes",
+                "returned_same_day": "yes",
+                "visited_premises": true,
+                "purpose_of_visit": "shopping",
+                "departure_reason": "a necessary item was realised to have been left elsewhere, prompting the departure"
+              }
+            },
+            "draft_requirement": {
+              "required_particulars": [
+                "left_site",
+                "returned_same_day",
+                "visited_premises",
+                "purpose_of_visit",
+                "departure_reason",
+                "multiple_visits"
+              ],
+              "prohibited_content": [
+                "calibration",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the source sequence that produces the derived conclusion"
+              ]
+            }
+          },
+          {
+            "item_id": "a1cb726f-81fd-5252-814e-7922a443da79",
+            "knowledge_id": "ec2a6b5c-fe5c-5515-812b-8116472489b0",
+            "module_id": "KB-ACT-01",
+            "claim_type": "ACTIVITY",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: loading_activity",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "6ee734da-9336-593d-89b8-943b7f6a99df",
+                "relationship": "SUPPORTS",
+                "source": "FACT:alleged_breach"
+              }
+            ],
+            "priority": null,
+            "topic": "Loading / unloading",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "6ee734da-9336-593d-89b8-943b7f6a99df"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "loading is always exempt",
+                "automatic exemption",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "b3949bdc-0fd0-5657-b990-45ed74dc8985",
+            "knowledge_id": "d162942a-8718-549a-b7a6-81625e01efee",
+            "module_id": "KB-ACT-03",
+            "claim_type": "ACTIVITY",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "3f81044e-40d9-55e2-8bb5-a950c5c9aa27",
+                "relationship": "SUPPORTS",
+                "source": "FACT:authorisation_source"
+              }
+            ],
+            "priority": null,
+            "topic": "Hotel / restaurant / collection delay",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "3f81044e-40d9-55e2-8bb5-a950c5c9aa27"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "waiting is automatically exempt",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "c9b53040-b0a8-5a52-9745-7c88e701c8c0",
+            "knowledge_id": "ffeab414-4dfc-5a20-bba1-680757ea90bc",
+            "module_id": "KB-ANPR-02",
+            "claim_type": "ANPR_EVIDENCE",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: anpr_sequence_incomplete",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Missing capture / incorrect pairing",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "calibration",
+                "camera maintenance",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "de1548f0-f141-5ad9-beb0-80c068721d04",
+            "knowledge_id": "3d469ca8-27e6-58a4-9c6f-e60c46d26a24",
+            "module_id": "KB-ANPR-03",
+            "claim_type": "ANPR_EVIDENCE",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: anpr_discrepancy",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Timestamp / VRM discrepancy",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "calibration",
+                "camera maintenance",
+                "cameras are unreliable",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "28b6f122-87b2-5b6a-b757-ba6aa034875e",
+            "knowledge_id": "2311b8c1-4882-5d67-b511-6bf3aecb342b",
+            "module_id": "KB-AUTH-01",
+            "claim_type": "AUTHORISATION",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: authorisation_source",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "ff005cf3-e373-54dc-b98b-a3908eddd061",
+                "relationship": "SUPPORTS",
+                "source": "FACT:authorisation_source"
+              }
+            ],
+            "priority": null,
+            "topic": "Underlying authorisation",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "ff005cf3-e373-54dc-b98b-a3908eddd061"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "automatically cancels",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "0acd788e-8977-5ed7-b6c7-1e6a1d95373d",
+            "knowledge_id": "6bfd573e-49dc-51a5-832e-c752e4cc5836",
+            "module_id": "KB-CON-01",
+            "claim_type": "CONSIDERATION",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: short_presence_before_acceptance",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Consideration period",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "free allowance",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "e7a91b09-5833-5f68-9876-d5a46ec9a721",
+            "knowledge_id": "105560bf-fa92-5903-bcb1-11b747d5e83b",
+            "module_id": "KB-EVCH-01",
+            "claim_type": "EV_CHARGING",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: ev_charging_session",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "654de041-dbc2-5cb4-8e58-8d0632535bd5",
+                "relationship": "SUPPORTS",
+                "source": "FACT:alleged_breach"
+              }
+            ],
+            "priority": null,
+            "topic": "EV charging",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "654de041-dbc2-5cb4-8e58-8d0632535bd5"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "charging bays are not parking bays",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "87a8a183-397b-5c1d-be80-33d1014645da",
+            "knowledge_id": "65964e95-e8e7-54ae-97a4-e6120508e226",
+            "module_id": "KB-GRACE-01",
+            "claim_type": "GRACE",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: exit_delay_min, permitted_period_ended",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "End grace period",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "10 minutes always",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "f70e462e-7bfe-5350-a2a4-8886aacdd83d",
+            "knowledge_id": "e0b70c23-2722-5b83-9af5-a3992677c42d",
+            "module_id": "KB-GRACE-02",
+            "claim_type": "GRACE",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: exit_congestion, exit_delay_min",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Exit congestion / barrier delay",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "10 minutes always",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "359f8cb1-97cb-5e5c-9312-94dcbac6cd1e",
+            "knowledge_id": "db351bde-80ca-52ec-95b7-f3eb15ce8152",
+            "module_id": "KB-POFA-04",
+            "claim_type": "POFA",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "cd945a3e-1803-52a3-8a93-e4cde11ab37c",
+                "relationship": "SUPPORTS",
+                "source": "FACT:driver_status"
+              }
+            ],
+            "priority": null,
+            "topic": "Mandatory notice content",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "cd945a3e-1803-52a3-8a93-e4cde11ab37c"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "generic checklist of defects",
+                "defect inferred from unclear text",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "ef5b4e69-cd64-55e3-bf3d-c604f1af1b8e",
+            "knowledge_id": "2320a295-f745-50d1-b28d-5c04f9726a92",
+            "module_id": "KB-TIME-01",
+            "claim_type": "ANPR_EVIDENCE",
+            "status": "UNRESOLVED",
+            "decision": "MISSING_FACTS",
+            "reason": "could apply; not established: anpr_duration_disputed",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "72c7c206-0a46-58e4-bcaf-4cc2f5dd397b",
+                "relationship": "SUPPORTS",
+                "source": "FACT:exit_time"
+              },
+              {
+                "edge_id": "e04925a5-7d9d-5361-abf9-46f39fdf7e0f",
+                "relationship": "SUPPORTS",
+                "source": "FACT:entry_time"
+              }
+            ],
+            "priority": null,
+            "topic": "ANPR presence is not necessarily parking time",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "72c7c206-0a46-58e4-bcaf-4cc2f5dd397b",
+                "e04925a5-7d9d-5361-abf9-46f39fdf7e0f"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "679f4329-7a90-59b6-9e44-0ed34b47136a",
+            "knowledge_id": "d423ddaa-f4a5-595e-a886-da0dfabaee6e",
+            "module_id": "KB-BAY-01",
+            "claim_type": "BAY",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed restricted_bay_alleged=true; no confirmed bay_eligibility_unevidenced=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Recorded observation does not establish the bay-eligibility element",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "the bay was not reserved",
+                "the restriction is unenforceable",
+                "inventing that an eligible occupant was present",
+                "pasting customer free text",
+                "asserting the observation period was too short to be lawful",
+                "treating any particular observation duration as legally insufficient",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "308fd6ad-8665-5b7c-a23c-ece2dac63dc7",
+            "knowledge_id": "3a0e9ce0-8186-5dd1-bcd6-f7ab1d0e63f6",
+            "module_id": "KB-BREAK-01",
+            "claim_type": "BREAKDOWN",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Mechanical breakdown",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "automatically frustrated",
+                "automatically void",
+                "invented fault",
+                "invented recovery attendance",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "94864881-08e7-511e-9d88-573a635d68e3",
+            "knowledge_id": "146a44a2-e3d0-5e57-add0-6b36e2907a11",
+            "module_id": "KB-BREAK-02",
+            "claim_type": "BREAKDOWN",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true; no confirmed immobilisation_cause present",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Puncture / battery / immobilisation",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "automatically frustrated",
+                "automatically void",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "06010b85-fbfa-5b69-960e-0a83f522626a",
+            "knowledge_id": "68103b6d-d6f4-5a4f-ba91-70fc20c004b3",
+            "module_id": "KB-BREAK-03",
+            "claim_type": "BREAKDOWN",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed recovery_attended=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Recovery vehicle / assistance time",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "a84b8ab3-2626-5683-9872-3eef070f1845",
+            "knowledge_id": "ef486ae1-9dfb-5b12-be4a-84ac5a42f2d0",
+            "module_id": "KB-EQ-01",
+            "claim_type": "EQUALITY",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Reasonable adjustments",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "b90d791a-31db-5068-998c-6703662fc4ad",
+            "knowledge_id": "8b4ce0aa-db43-5e7b-abc7-24b1429db230",
+            "module_id": "KB-HOSP-01",
+            "claim_type": "HOSPITAL",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed hospital_attendance=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Hospital attendance",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "hospital parking is always exempt",
+                "invented medical facts",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "df87a67f-b45f-5d03-b0b6-e7b5e37059e4",
+            "knowledge_id": "23ee01d4-b720-5eb3-9f81-915858860a26",
+            "module_id": "KB-LAND-01",
+            "claim_type": "LANDOWNER",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed authority_challenge_proportionate=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Authority to operate",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "no authority exists",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "4ea02a5d-e00b-5f75-87e6-4b0af77d7c91",
+            "knowledge_id": "30a9e015-f80e-5545-9664-e71f4f6ef665",
+            "module_id": "KB-PAY-02",
+            "claim_type": "PAYMENT",
+            "status": "REJECTED",
+            "decision": "BLOCKED",
+            "reason": "blocked condition holds: payment_method!=MACHINE",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": null,
+                "relationship": "BLOCKS",
+                "source": "do_not_use_when",
+                "reason": "blocked condition holds: payment_method!=MACHINE"
+              }
+            ],
+            "priority": null,
+            "topic": "Machine failure",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "BLOCKS"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "the machine was broken all day",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "ad3f57aa-8668-5c87-98ea-a033b3fe237b",
+            "knowledge_id": "e1d6b190-97f9-59a2-9f60-90686ae3c8f2",
+            "module_id": "KB-PAY-03",
+            "claim_type": "PAYMENT",
+            "status": "REJECTED",
+            "decision": "BLOCKED",
+            "reason": "blocked condition holds: do_not_use_when",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": null,
+                "relationship": "BLOCKS",
+                "source": "do_not_use_when",
+                "reason": "blocked condition holds: do_not_use_when"
+              }
+            ],
+            "priority": null,
+            "topic": "App / digital payment failure",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "BLOCKS"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "0572cc72-e4f6-5652-aa4b-71bb73bccaac",
+            "knowledge_id": "1341c3ee-2e61-5eac-a820-da035d866f27",
+            "module_id": "KB-POFA-01",
+            "claim_type": "POFA",
+            "status": "REJECTED",
+            "decision": "ROLE_INELIGIBLE",
+            "reason": "module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "12d69722-c66b-54ae-8f04-bdd8cf7174b5",
+                "relationship": "SUPPORTS",
+                "source": "FACT:pofa_finding"
+              },
+              {
+                "edge_id": "35bff223-2156-5a95-875d-ac2ad35f8a92",
+                "relationship": "SUPPORTS",
+                "source": "FACT:jurisdiction"
+              },
+              {
+                "edge_id": "91e9c149-5fc3-5072-a9bb-5945ee8c6ab2",
+                "relationship": "SUPPORTS",
+                "source": "FACT:driver_status"
+              }
+            ],
+            "priority": null,
+            "topic": "Keeper liability threshold",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "12d69722-c66b-54ae-8f04-bdd8cf7174b5",
+                "35bff223-2156-5a95-875d-ac2ad35f8a92",
+                "91e9c149-5fc3-5072-a9bb-5945ee8c6ab2"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [
+                "parking_event_date",
+                "notice_issue_date",
+                "deadline",
+                "presumed_delivery",
+                "days_late"
+              ],
+              "prohibited_content": [
+                "charge automatically invalid",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state each calculated date and the day count"
+              ]
+            }
+          },
+          {
+            "item_id": "4dbd14fd-c12a-5ce0-8d29-838a88aa6750",
+            "knowledge_id": "d6cc296a-8e77-54b0-bd1e-9cc6b5c3784e",
+            "module_id": "KB-POFA-05",
+            "claim_type": "POFA",
+            "status": "REJECTED",
+            "decision": "ROLE_INELIGIBLE",
+            "reason": "module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [
+              {
+                "edge_id": "6a5ded59-0a64-57de-bc42-995def86d998",
+                "relationship": "SUPPORTS",
+                "source": "FACT:driver_status"
+              },
+              {
+                "edge_id": "d4414b5b-b89f-5a9f-800b-d93a60b9446c",
+                "relationship": "SUPPORTS",
+                "source": "FACT:pofa_finding"
+              }
+            ],
+            "priority": null,
+            "topic": "Driver not established",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "6a5ded59-0a64-57de-bc42-995def86d998",
+                "d4414b5b-b89f-5a9f-800b-d93a60b9446c"
+              ],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "the driver was",
+                "identity of the driver",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "fd9c74d8-cd92-5da7-9574-e47e6c4abef8",
+            "knowledge_id": "a24cdfb8-726a-5b71-aac5-32df1a821bc2",
+            "module_id": "KB-REC-01",
+            "claim_type": "RECORDS",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed validation_mechanism_alleged=true; no confirmed validation_mechanism_material=true",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Proportionate records request",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "validation occurred",
+                "validation failed",
+                "the charge is automatically invalid",
+                "shopping receipt proves parking validation",
+                "requesting records merely because the allegation mentions a validation or permit mechanism",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          },
+          {
+            "item_id": "5a6b807c-392b-587f-9199-24ba631e2ae7",
+            "knowledge_id": "9a812c43-ea35-57a2-a32d-eb11998f279e",
+            "module_id": "KB-SIGN-04",
+            "claim_type": "SIGNAGE",
+            "status": "REJECTED",
+            "decision": "GATE",
+            "reason": "offered, not argued: use_when not yet met: no confirmed signage_issue_raised=true; no confirmed signage_issue_type=CHANGED_OR_DAMAGED",
+            "supporting_facts": [],
+            "evidence_refs": [],
+            "relationships": [],
+            "priority": null,
+            "topic": "Contemporaneous signage proof",
+            "support_bundle": {
+              "source_fact_ids": [],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [],
+              "source_fact_names": [],
+              "derived_fact_names": [],
+              "values": {}
+            },
+            "draft_requirement": {
+              "required_particulars": [],
+              "prohibited_content": [
+                "there were no signs",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "particularise the ground from the support bundle"
+              ]
+            }
+          }
+        ],
+        "trace": [
+          "Selected KB-POFA-02 (priority 1), because fact pofa_route=POSTAL (from notice_route=\"POSTAL\", jurisdiction=\"ENGLAND_WALES\", relevant_land=null, parking_event_date=\"2026-06-01\", notice_issue_date=\"2026-06-20\", ntd_date=null, notice_received_date=null, delivery_date_proven=null), fact pofa_finding in [\"POFA_POSTAL_LATE\"] (from parking_event_date=\"2026-06-01\", notice_issue_date=\"2026-06-20\", notice_route=\"POSTAL\", jurisdiction=\"ENGLAND_WALES\", relevant_land=null, ntd_date=null, notice_received_date=null, delivery_date_proven=null), fact notice_issue_date, fact parking_event_date, fact POFA_POSTAL_LATE, relationship SUPPORTS",
+          "Selected KB-ANPR-01 (priority 2), because fact multiple_visits=true (from left_site=\"yes\", returned_same_day=\"yes\", visited_premises=true, purpose_of_visit=\"shopping\", departure_reason=\"a necessary item was realised to have been left elsewhere, prompting the departure\"), relationship SUPPORTS",
+          "Unresolved KB-ACT-01, reason: could apply; not established: loading_activity",
+          "Unresolved KB-ACT-03, reason: could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer",
+          "Unresolved KB-ANPR-02, reason: could apply; not established: anpr_sequence_incomplete",
+          "Unresolved KB-ANPR-03, reason: could apply; not established: anpr_discrepancy",
+          "Unresolved KB-AUTH-01, reason: could apply; not established: authorisation_source",
+          "Unresolved KB-CON-01, reason: could apply; not established: short_presence_before_acceptance",
+          "Unresolved KB-EVCH-01, reason: could apply; not established: ev_charging_session",
+          "Unresolved KB-GRACE-01, reason: could apply; not established: exit_delay_min, permitted_period_ended",
+          "Unresolved KB-GRACE-02, reason: could apply; not established: exit_congestion, exit_delay_min",
+          "Unresolved KB-POFA-04, reason: could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation",
+          "Unresolved KB-TIME-01, reason: could apply; not established: anpr_duration_disputed",
+          "Rejected KB-BAY-01, reason: offered, not argued: use_when not yet met: no confirmed restricted_bay_alleged=true; no confirmed bay_eligibility_unevidenced=true",
+          "Rejected KB-BREAK-01, reason: offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true",
+          "Rejected KB-BREAK-02, reason: offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true; no confirmed immobilisation_cause present",
+          "Rejected KB-BREAK-03, reason: offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed recovery_attended=true",
+          "Rejected KB-EQ-01, reason: offered, not argued: use_when not yet met: no confirmed disability_extra_time=true",
+          "Rejected KB-HOSP-01, reason: offered, not argued: use_when not yet met: no confirmed hospital_attendance=true",
+          "Rejected KB-LAND-01, reason: offered, not argued: use_when not yet met: no confirmed authority_challenge_proportionate=true",
+          "Blocked KB-PAY-02, reason: blocked condition holds: payment_method!=MACHINE",
+          "Blocked KB-PAY-03, reason: blocked condition holds: do_not_use_when",
+          "Rejected KB-POFA-01, reason: module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+          "Rejected KB-POFA-05, reason: module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)",
+          "Rejected KB-REC-01, reason: offered, not argued: use_when not yet met: no confirmed validation_mechanism_alleged=true; no confirmed validation_mechanism_material=true",
+          "Rejected KB-SIGN-04, reason: offered, not argued: use_when not yet met: no confirmed signage_issue_raised=true; no confirmed signage_issue_type=CHANGED_OR_DAMAGED"
+        ]
+      }
+    ]
+  },
+  "claim_explain": {
+    "detail": [
+      {
+        "type": "missing",
+        "loc": [
+          "query",
+          "module_id"
+        ],
+        "msg": "Field required",
+        "input": null
+      }
+    ]
+  },
+  "console_keys": [
+    "allegations",
+    "claim_plan",
+    "document_baseline",
+    "draft",
+    "draft_context",
+    "events",
+    "extraction",
+    "fact_lifecycle",
+    "fact_write_trace",
+    "facts",
+    "ground_sources",
+    "grounds",
+    "health",
+    "identity_issues",
+    "integrity",
+    "knowledge",
+    "legal_findings",
+    "module_decisions",
+    "module_journey",
+    "module_trace_checks",
+    "narrative",
+    "pipeline",
+    "plan_versions",
+    "relationships",
+    "schema",
+    "summary",
+    "validation",
+    "why_stopped"
+  ],
+  "db": {
+    "ran": false,
+    "error": "OperationalError: failed to resolve host 'postgres.railway.internal': [Errno 11001] getaddrinfo failed"
+  },
+  "first_defective_layer": "INFRASTRUCTURE_ERROR",
+  "internal_error": null,
+  "audit_event_counts": {},
+  "audit_tail": []
+}

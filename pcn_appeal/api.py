@@ -177,6 +177,39 @@ async def frontend_version_header(request, call_next):
 
 
 @app.middleware("http")
+async def security_headers(request, call_next):
+    """Baseline browser hardening for staging/production API responses.
+
+    Does not alter appeal reasoning — headers only. CSP is restrictive for
+    JSON APIs; HTML console pages keep a slightly wider script/style policy.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    path = request.url.path or ""
+    if path.startswith("/console") or path.endswith(".html"):
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'",
+        )
+    else:
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        )
+    # HSTS only when the request is already TLS (or behind a TLS-terminating proxy).
+    forwarded = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    if request.url.scheme == "https" or forwarded == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
+@app.middleware("http")
 async def customer_safe_responses(request, call_next):
     response = await call_next(request)
     if not is_customer_route(request.method, request.url.path):
