@@ -226,9 +226,21 @@ class ClaimPlanItem:
 
     def as_dict(self) -> dict:
         from ..drafting.support_contract import build_bundle, build_requirement
-        # Always recompute from the persisted rows so a reloaded item matches.
-        bundle = build_bundle(self.supporting_facts, self.evidence_refs, self.relationships)
-        req = build_requirement(bundle)
+        # Prefer the locked SupportBundle / DraftRequirement stamped at plan
+        # time so material source particulars survive reload without a live case.
+        if self.support_bundle is not None:
+            bundle_dict = _thaw(self.support_bundle)
+        else:
+            bundle_dict = build_bundle(
+                self.supporting_facts, self.evidence_refs, self.relationships,
+            ).as_dict()
+        if self.draft_requirement is not None:
+            req_dict = _thaw(self.draft_requirement)
+        else:
+            req_dict = build_requirement(
+                build_bundle(self.supporting_facts, self.evidence_refs,
+                             self.relationships),
+            ).as_dict()
         return {"item_id": self.item_id, "knowledge_id": self.knowledge_id,
                 "module_id": self.module_id, "claim_type": self.claim_type,
                 "status": self.status, "decision": self.decision, "reason": self.reason,
@@ -236,7 +248,7 @@ class ClaimPlanItem:
                 "evidence_refs": _thaw(self.evidence_refs),
                 "relationships": _thaw(self.relationships),
                 "priority": self.priority, "topic": self.topic,
-                "support_bundle": bundle.as_dict(), "draft_requirement": req.as_dict()}
+                "support_bundle": bundle_dict, "draft_requirement": req_dict}
 
     @classmethod
     def from_dict(cls, d: dict) -> "ClaimPlanItem":
@@ -1024,7 +1036,9 @@ class ClaimPlanBuilder:
                 if f.get("fact"):
                     used_facts.add(f["fact"])
                 for dep in f.get("because_of") or []:
-                    used_facts.add(dep["fact"])
+                    dname = dep.get("fact") if isinstance(dep, dict) else None
+                    if dname:
+                        used_facts.add(dname)
             from ..drafting.support_contract import build_bundle, build_requirement
             findings = [r for r in d["support"] if r.get("finding_id") or r.get("finding_type")]
             bundle = build_bundle(d["support"], d["evidence"], rels,

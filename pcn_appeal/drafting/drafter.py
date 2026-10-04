@@ -151,11 +151,65 @@ def _clone_draft(draft: Draft, paragraphs) -> Draft:
                  section_ownership=draft.section_ownership)
 
 
+def _jaccard_words(a: str, b: str) -> float:
+    x, y = set((a or "").lower().split()), set((b or "").lower().split())
+    return len(x & y) / max(len(x | y), 1)
+
+
+_KEEPER_ATTR = re.compile(
+    r"\b(?:the\s+)?(?:registered\s+)?keeper(?:'s|’s)\s+"
+    r"(?:account|case|position|understanding|recollection|evidence|information|"
+    r"instructions)\b"
+    r"|\b(?:the\s+)?(?:registered\s+)?keeper\s+"
+    r"(?:states?|says|reports?|has reported|has told|has explained|explains|"
+    r"understands|believes|recalls|contends|maintains|advises|asserts)\b"
+    r"|\baccording to (?:the\s+)?(?:registered\s+)?keeper\b"
+    r"|\bthe account (?:given|provided) by (?:the\s+)?(?:registered\s+)?keeper\b"
+    r"|\bthe account is (?:therefore )?that\b",
+    re.I,
+)
+
+
+def sanitize_draft_citations(draft: Draft, pack: RetrievalPack) -> Draft:
+    """Drop invented fact refs and unattributed customer-account citations.
+
+    The LLM sometimes invents ids such as F-driver_status (a pack field, not a
+    Fact Graph row). Section assembly also copies one fact_ids_used list onto
+    every sentence in a section, which falsely marks operational ANPR sentences
+    as stating unattributed account facts (DV-ACCOUNT).
+    """
+    known_ids = set((pack.fact_refs or {}).values())
+    by_id = {fid: name for name, fid in (pack.fact_refs or {}).items()}
+    customer = set((pack.case_context or {}).get("customer_reported_facts") or [])
+    seen: list[str] = []
+    paras: list[list[DraftSentence]] = []
+    for para in draft.paragraphs or []:
+        kept: list[DraftSentence] = []
+        for s in para:
+            text = (s.text or "").strip()
+            if not text:
+                continue
+            if any(_jaccard_words(prev, text) > 0.8 for prev in seen):
+                continue
+            refs = [r for r in (s.fact_refs or []) if r in known_ids]
+            if customer and not _KEEPER_ATTR.search(text):
+                refs = [r for r in refs if by_id.get(r) not in customer]
+            kept.append(DraftSentence(
+                text, refs, list(s.module_refs or []),
+                list(s.evidence_refs or []), s.quote_of,
+            ))
+            seen.append(text)
+        if kept:
+            paras.append(kept)
+    return _clone_draft(draft, paras)
+
+
 def apply_locked_plan_particulars(draft: Draft, pack: RetrievalPack) -> Draft:
     """Render particulars the LOCKED plan already holds (lease text, one-theory merge).
 
     Does not retrieve narrative, Case Intelligence, or extra modules.
     """
+    draft = sanitize_draft_citations(draft, pack)
     draft = apply_one_argument_rules(draft)
     letter = (draft.plain_text() or "")
     extra: list[list[DraftSentence]] = []

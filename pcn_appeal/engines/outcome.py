@@ -113,6 +113,10 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if "draft_error" in events:
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="draft_error")
 
+    # P11.1: release identity incomplete — internal gate; customer sees processing hold.
+    if "release_metadata_incomplete" in events:
+        return _pack(OUTCOME_PROCESSING_ERROR, case, detail="release_metadata_incomplete")
+
     # Ground recovery wiped a prior selection to empty — technical, not merits.
     for a in audit:
         if a.get("event") == "ground_recovery":

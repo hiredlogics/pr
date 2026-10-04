@@ -1,0 +1,682 @@
+{
+  "started_at": "2026-10-04T14:01:37Z",
+  "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+  "hnsw_indexes": "KNOWN_DB_MAINTENANCE_ITEM",
+  "llm_probe": {
+    "provider": "openai",
+    "models": {
+      "classification": "gpt-5.1",
+      "extraction": "gpt-5.1",
+      "page_references": "gpt-5.1",
+      "semantic_extraction": "gpt-5.1",
+      "case_analysis": "gpt-5.1",
+      "drafting": "gpt-5.1",
+      "validation": "gpt-5-mini"
+    },
+    "reason": ""
+  },
+  "legacy_untouched_ids": [
+    "56f8ae52-b6fd-4776-8b94-70681e0a801b",
+    "7c4488c4-3278-4aac-803a-096156d87819",
+    "f86e5100-8998-43aa-a1ff-7d6c6a894229"
+  ],
+  "kb_pin": {
+    "release_id": "kb-20261004T113657Z",
+    "release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+    "module_count": 55,
+    "forced_pin": "kb-20261004T113657Z"
+  },
+  "case_id": "df024181-eb88-4dc3-84fa-be574010d5fc",
+  "intake": {
+    "proceed": true,
+    "route": "PRIVATE_PARKING",
+    "document_type": "PRIVATE_PARKING_NOTICE",
+    "stage": "INITIAL_NOTICE",
+    "stop": null
+  },
+  "notice_completeness": {
+    "applicable": true,
+    "complete": true,
+    "reason": "classifier_labelled_reverse_page",
+    "unique_page_images": 2,
+    "total_page_images": 3,
+    "duplicate_pages": false,
+    "same_notice": true,
+    "page_sides": [
+      "FRONT",
+      "FRONT",
+      "REVERSE"
+    ],
+    "notice_sides_complete_fact": true
+  },
+  "customer_material_facts_pre_plan": {
+    "notice_sides_complete": {
+      "value": true,
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "multiple_visits": {
+      "value": true,
+      "status": "ANSWERED",
+      "source_kind": "ANSWER",
+      "excerpt": null
+    },
+    "left_site": {
+      "value": true,
+      "status": "ANSWERED",
+      "source_kind": "CUSTOMER_FREE_TEXT",
+      "excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+    },
+    "returned_same_day": {
+      "value": true,
+      "status": "ANSWERED",
+      "source_kind": "CUSTOMER_FREE_TEXT",
+      "excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+    },
+    "purpose_of_visit": {
+      "value": "shopping",
+      "status": "ANSWERED",
+      "source_kind": "CUSTOMER_FREE_TEXT",
+      "excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+    },
+    "visited_premises": {
+      "value": true,
+      "status": "DERIVED",
+      "source_kind": "CUSTOMER_FREE_TEXT",
+      "excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+    },
+    "operator_name": {
+      "value": "CP Plus",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "pcn_number": {
+      "value": "00347261120013",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "vrm": {
+      "value": "EX15CZT",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "site_postcode": {
+      "value": "SE16 7LL",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "parking_event_date": {
+      "value": "2026-04-22",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "notice_issue_date": {
+      "value": "2026-05-11",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    },
+    "alleged_breach": {
+      "value": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+      "status": "CONFIRMED",
+      "source_kind": "DOCUMENT",
+      "excerpt": null
+    }
+  },
+  "semantic": {
+    "raw_narrative": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+    "concepts": {
+      "LEFT_SITE": {
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "confidence": 0.9,
+        "span": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+      },
+      "RETURNED": {
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "confidence": 0.9,
+        "span": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+      },
+      "SHOPPING": {
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "confidence": 0.9,
+        "span": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit."
+      }
+    },
+    "fact_inferred": {
+      "SHOPPING": true,
+      "LEFT_SITE": true,
+      "RETURNED": true,
+      "MULTIPLE_VISITS": true
+    },
+    "free_text_provenance": [
+      {
+        "source": "CUSTOMER_FREE_TEXT",
+        "original": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "fact_name": "multiple_visits",
+        "normalized_value": true,
+        "drafting_proposition": "the vehicle attended the site more than once on the material date",
+        "relevant_to_allegation": true,
+        "answer_id": "free_text:multiple_visits",
+        "text_span": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "extractor_version": "v2"
+      }
+    ],
+    "material_propositions": [
+      "the vehicle attended the site more than once on the material date"
+    ]
+  },
+  "generate_ms": 55920,
+  "final_state": "RELEASED",
+  "outcome": null,
+  "claim_plan": {
+    "locked": true,
+    "claim_plan_id": "271b876f-3c65-59e2-a35d-a0aad2b669bb",
+    "grounds": [
+      "KB-POFA-04",
+      "KB-POFA-02",
+      "KB-ANPR-01"
+    ],
+    "particulars": {
+      "KB-POFA-04": {
+        "supporting_facts": [
+          "{'condition': 'ntk_defect_document_confirmed=true', 'fact': 'ntk_defect_document_confirmed', 'value': True, 'source': 'pofa.keeper_warning', 'source_kind': 'CALCULATION', 'fact_id': '92f3cb89-adc8-46bd-9d71-3313aa1cd246', 'because_of': (mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'fact_id': 'd625c5f2-0e40-4675-b316-59054742b396', 'source': 'notice_route_rule'}), mappingproxy({'fact': 'notice_sides_complete', 'value': True, 'fact_id': '5a3aa770-019d-49e2-b1b4-bb4d4970c51a', 'source': 'E2#p1'}))}",
+          "{'condition': 'ntk_defect_keeper_warning=true', 'fact': 'ntk_defect_keeper_warning', 'value': True, 'source': 'pofa.keeper_warning', 'source_kind': 'CALCULATION', 'fact_id': '8dd2a7bf-3198-4d1c-b7ea-57115abe3a50', 'because_of': (mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'fact_id': 'd625c5f2-0e40-4675-b316-59054742b396', 'source': 'notice_route_rule'}), mappingproxy({'fact': 'notice_sides_complete', 'value': True, 'fact_id': '5a3aa770-019d-49e2-b1b4-bb4d4970c51a', 'source': 'E2#p1'}))}",
+          "{'condition': 'driver_status=UNIDENTIFIED', 'fact': 'driver_status'}",
+          "{'condition': 'notice_route', 'fact': 'notice_route', 'value': 'POSTAL', 'fact_id': 'd625c5f2-0e40-4675-b316-59054742b396'}"
+        ],
+        "support_bundle": {},
+        "draft_requirement": {},
+        "status": "SUPPORTED"
+      },
+      "KB-POFA-02": {
+        "supporting_facts": [
+          "{'condition': 'pofa_route=POSTAL', 'fact': 'pofa_route', 'value': 'POSTAL', 'source': 'pofa.assess', 'source_kind': 'CALCULATION', 'fact_id': '9213db95-8fda-44bc-b186-2c73e9fbd39f', 'because_of': (mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'source': 'notice_route_rule'}), mappingproxy({'fact': 'jurisdiction', 'value': 'ENGLAND_WALES', 'fact_id': '578114c1-8f1c-4ed4-9430-8458fb8658f1', 'source': 'postcode_jurisdiction'}), mappingproxy({'fact': 'relevant_land'}), mappingproxy({'fact': 'parking_event_date', 'value': datetime.date(2026, 4, 22), 'fact_id': '2b0abae5-cfd6-45b2-b303-aa02cdfbd5b5', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_issue_date', 'value': datetime.date(2026, 5, 11), 'fact_id': 'a4f658e7-75f8-429e-825d-6d40f9a2578d', 'source': 'E1#p1'}), mappingproxy({'fact': 'ntd_date'}), mappingproxy({'fact': 'notice_received_date'}), mappingproxy({'fact': 'delivery_date_proven'}))}",
+          "{'condition': 'pofa_finding in [\"POFA_POSTAL_LATE\"]', 'fact': 'pofa_finding', 'value': 'POFA_POSTAL_LATE', 'source': 'pofa.assess', 'source_kind': 'CALCULATION', 'fact_id': '266cb86f-c082-40c6-813d-0245f45bec8f', 'because_of': (mappingproxy({'fact': 'parking_event_date', 'value': '2026-04-22', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_issue_date', 'value': '2026-05-11', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'source': 'notice_route_rule'}), mappingproxy({'fact': 'jurisdiction', 'value': 'ENGLAND_WALES', 'source': 'postcode_jurisdiction'}), mappingproxy({'fact': 'relevant_land'}), mappingproxy({'fact': 'ntd_date'}), mappingproxy({'fact': 'notice_received_date'}), mappingproxy({'fact': 'delivery_date_proven'}))}",
+          "{'condition': 'notice_issue_date', 'fact': 'notice_issue_date', 'value': datetime.date(2026, 5, 11), 'fact_id': 'a4f658e7-75f8-429e-825d-6d40f9a2578d'}",
+          "{'condition': 'parking_event_date', 'fact': 'parking_event_date', 'value': datetime.date(2026, 4, 22), 'fact_id': '2b0abae5-cfd6-45b2-b303-aa02cdfbd5b5'}",
+          "{'condition': 'POFA_POSTAL_LATE', 'finding_id': '351bf56c-57e8-537d-a5a7-e14340d0cceb', 'finding_type': 'POFA_POSTAL_LATE'}"
+        ],
+        "support_bundle": {},
+        "draft_requirement": {},
+        "status": "SUPPORTED"
+      },
+      "KB-ANPR-01": {
+        "supporting_facts": [
+          "{'condition': 'multiple_visits=true', 'fact': 'multiple_visits', 'value': True, 'source': 'answer:multiple_visits', 'source_kind': 'ANSWER', 'fact_id': '0c191248-5b6e-41f0-bb27-744f5aa4c860', 'because_of': (mappingproxy({'fact': 'left_site', 'value': True, 'fact_id': 'edb0e447-a972-4eb2-a917-ba766b3fc49f', 'source': 'semantic:left_site'}), mappingproxy({'fact': 'returned_same_day', 'value': True, 'fact_id': '9ceb9e4f-65f5-4cb1-b836-ec04d32fd5b1', 'source': 'semantic:returned_same_day'}), mappingproxy({'fact': 'visited_premises', 'value': True, 'fact_id': 'dc7e259e-b81f-47ba-9a90-6c5a4d87b36e', 'source': 'free_text:narrative:visited_premises'}), mappingproxy({'fact': 'purpose_of_visit', 'value': 'shopping', 'fact_id': '50077dbc-453b-4c90-a3d4-03f0b216cb3a', 'source': 'semantic:purpose_of_visit'}))}"
+        ],
+        "support_bundle": {},
+        "draft_requirement": {},
+        "status": "SUPPORTED"
+      }
+    },
+    "status": "LOCKED"
+  },
+  "draft_plan": {
+    "version": "p10_6_draft_plan_v1",
+    "expected_version": "p10_6_draft_plan_v1",
+    "sections": [
+      {
+        "section_id": "S01",
+        "ground_id": "KB-POFA-04",
+        "ground_ids": [
+          "KB-POFA-04"
+        ],
+        "purpose": "Express supported ground(s) KB-POFA-04: POFA. Include required particulars; do not invent facts.",
+        "role": "SUBSTANTIVE_GROUND",
+        "supporting_fact_ids": [],
+        "supporting_fact_names": [],
+        "derived_fact_ids": [
+          "92f3cb89-adc8-46bd-9d71-3313aa1cd246",
+          "8dd2a7bf-3198-4d1c-b7ea-57115abe3a50"
+        ],
+        "evidence_ids": [
+          "E2"
+        ],
+        "legal_finding_ids": [],
+        "required_particulars": [],
+        "particular_values": {
+          "ntk_defect_document_confirmed": true,
+          "notice_route": "POSTAL",
+          "notice_sides_complete": true,
+          "ntk_defect_keeper_warning": true
+        },
+        "prohibited_claims": [
+          "10 minutes always cancels",
+          "breakdown automatically frustrates",
+          "calibration",
+          "defect inferred from unclear text",
+          "generic checklist of defects",
+          "genuine pre-estimate of loss",
+          "unlawful penalty",
+          "who was driving"
+        ],
+        "required_outcome": "express_ground",
+        "support_module_ids": [],
+        "context_chunk_ids": [
+          "KB-POFA-04",
+          "PP-POFA-006",
+          "PP-POFA-007",
+          "PP-POFA-005B"
+        ],
+        "merged": false
+      },
+      {
+        "section_id": "S02",
+        "ground_id": "KB-POFA-02",
+        "ground_ids": [
+          "KB-POFA-02"
+        ],
+        "purpose": "Express supported ground(s) KB-POFA-02: POFA. Include required particulars; do not invent facts.",
+        "role": "SUBSTANTIVE_GROUND",
+        "supporting_fact_ids": [
+          "2b0abae5-cfd6-45b2-b303-aa02cdfbd5b5",
+          "a4f658e7-75f8-429e-825d-6d40f9a2578d",
+          "parking_event_date",
+          "notice_issue_date"
+        ],
+        "supporting_fact_names": [
+          "parking_event_date",
+          "notice_issue_date"
+        ],
+        "derived_fact_ids": [
+          "9213db95-8fda-44bc-b186-2c73e9fbd39f",
+          "266cb86f-c082-40c6-813d-0245f45bec8f"
+        ],
+        "evidence_ids": [
+          "E2"
+        ],
+        "legal_finding_ids": [
+          "351bf56c-57e8-537d-a5a7-e14340d0cceb"
+        ],
+        "required_particulars": [
+          "parking_event_date",
+          "notice_issue_date",
+          "days_late",
+          "deadline",
+          "presumed_delivery"
+        ],
+        "particular_values": {
+          "pofa_route": "POSTAL",
+          "notice_route": "POSTAL",
+          "jurisdiction": "ENGLAND_WALES",
+          "parking_event_date": "2026-04-22",
+          "notice_issue_date": "2026-05-11",
+          "pofa_finding": "POFA_POSTAL_LATE",
+          "deadline": "2026-05-06",
+          "presumed_delivery": "2026-05-13",
+          "days_late": 7
+        },
+        "prohibited_claims": [
+          "10 minutes always cancels",
+          "breakdown automatically frustrates",
+          "calibration",
+          "defect inferred from unclear text",
+          "generic checklist of defects",
+          "genuine pre-estimate of loss",
+          "unlawful penalty",
+          "who was driving"
+        ],
+        "required_outcome": "express_ground",
+        "support_module_ids": [],
+        "context_chunk_ids": [
+          "KB-POFA-02",
+          "PP-POFA-003",
+          "PP-POFA-006",
+          "PP-POFA-007"
+        ],
+        "merged": false
+      },
+      {
+        "section_id": "S03",
+        "ground_id": "KB-ANPR-01",
+        "ground_ids": [
+          "KB-ANPR-01"
+        ],
+        "purpose": "Express supported ground(s) KB-ANPR-01: ANPR. Include required particulars; do not invent facts.",
+        "role": "SUBSTANTIVE_GROUND",
+        "supporting_fact_ids": [
+          "edb0e447-a972-4eb2-a917-ba766b3fc49f",
+          "9ceb9e4f-65f5-4cb1-b836-ec04d32fd5b1",
+          "dc7e259e-b81f-47ba-9a90-6c5a4d87b36e",
+          "50077dbc-453b-4c90-a3d4-03f0b216cb3a"
+        ],
+        "supporting_fact_names": [
+          "left_site",
+          "returned_same_day",
+          "visited_premises",
+          "purpose_of_visit"
+        ],
+        "derived_fact_ids": [
+          "0c191248-5b6e-41f0-bb27-744f5aa4c860"
+        ],
+        "evidence_ids": [],
+        "legal_finding_ids": [],
+        "required_particulars": [
+          "left_site",
+          "returned_same_day",
+          "visited_premises",
+          "purpose_of_visit",
+          "multiple_visits"
+        ],
+        "particular_values": {
+          "multiple_visits": true,
+          "left_site": true,
+          "returned_same_day": true,
+          "visited_premises": true,
+          "purpose_of_visit": "shopping"
+        },
+        "prohibited_claims": [
+          "10 minutes always cancels",
+          "breakdown automatically frustrates",
+          "calibration",
+          "defect inferred from unclear text",
+          "generic checklist of defects",
+          "genuine pre-estimate of loss",
+          "unlawful penalty",
+          "who was driving"
+        ],
+        "required_outcome": "express_ground",
+        "support_module_ids": [],
+        "context_chunk_ids": [
+          "KB-ANPR-01",
+          "PP-ANPR-005",
+          "PP-ANPR-003"
+        ],
+        "merged": false
+      }
+    ]
+  },
+  "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle EX15CZT. The driver has not been identified and will not be named.\n\nThe Notice to Keeper for PCN 00347261120013 has been issued by post and both sides of the document have been reviewed. From that review, the keeper notes that the notice is intended to rely on the postal route to transfer liability to the registered keeper, and that both sides of the notice have been supplied. The keeper further notes that there is a confirmed defect in the mandatory keeper-liability warning required for this postal route. Accordingly, the Notice to Keeper does not contain a compliant route-specific keeper-liability warning for a postal notice. As the applicable Schedule 4 requirements have not been satisfied, the operator cannot rely upon Schedule 4 to transfer liability to the registered keeper. For these reasons, the operator has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012 and the charge should be cancelled as against the registered keeper.\n\nAccording to the Notice to Keeper, the parking event for vehicle EX15CZT at Canada Water Estate, SE16 7LL is alleged to have occurr",
+  "letter_coverage": {
+    "shopping": true,
+    "forgotten_purse": false,
+    "left_site": true,
+    "returned": true,
+    "multiple_visits_only_shallow": false
+  },
+  "validation": {
+    "passed": true,
+    "issues": []
+  },
+  "pofa_grounds": [
+    "KB-POFA-04",
+    "KB-POFA-02"
+  ],
+  "appeal_grounds": [
+    "KB-POFA-04",
+    "KB-POFA-02",
+    "KB-ANPR-01"
+  ],
+  "release_metadata": {
+    "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+    "kb_release_id": "kb-20261004T113657Z",
+    "ontology_version": "p10_5_ontology_v1",
+    "module_role_version": "p10_5_roles_v1",
+    "claim_plan_builder_version": "3",
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "validation_version": "VAL-5",
+    "prompt_versions": {
+      "semantic_extraction": 1,
+      "extraction": 10,
+      "drafting": 17,
+      "case_analysis": 8,
+      "validation": 3,
+      "page_references": 2,
+      "classification": 2
+    },
+    "llm_provider": "openai",
+    "model_versions": {
+      "classification": "gpt-5.1",
+      "extraction": "gpt-5.1",
+      "page_references": "gpt-5.1",
+      "semantic_extraction": "gpt-5.1",
+      "case_analysis": "gpt-5.1",
+      "drafting": "gpt-5.1",
+      "validation": "gpt-5-mini"
+    }
+  },
+  "kb_release_id": "kb-20261004T113657Z",
+  "db_case_stamp": {
+    "kb_release_id": "kb-20261004T113657Z",
+    "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+    "release_metadata": {
+      "route": "PRIVATE_PARKING",
+      "stage": "INITIAL_NOTICE",
+      "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+      "llm_provider": "openai",
+      "document_type": "PRIVATE_PARKING_NOTICE",
+      "kb_release_id": "kb-20261004T113657Z",
+      "model_versions": {
+        "drafting": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "validation": "gpt-5-mini",
+        "case_analysis": "gpt-5.1",
+        "classification": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1"
+      },
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "frontend_version": null,
+      "ontology_version": "p10_5_ontology_v1",
+      "kb_release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+      "draft_plan_version": "p10_6_draft_plan_v1",
+      "validation_version": "VAL-5",
+      "module_role_version": "p10_5_roles_v1",
+      "draft_validation_version": "DV-1",
+      "claim_plan_builder_version": "3"
+    },
+    "state": "RELEASED",
+    "route": "PRIVATE_PARKING",
+    "document_type": "PRIVATE_PARKING_NOTICE"
+  },
+  "reload": {
+    "state": "RELEASED",
+    "kb_matches": true,
+    "facts_n": 40,
+    "claim_plans_n": 1,
+    "draft_versions_n": 6,
+    "release_metadata": {
+      "route": "PRIVATE_PARKING",
+      "stage": "INITIAL_NOTICE",
+      "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+      "llm_provider": "openai",
+      "document_type": "PRIVATE_PARKING_NOTICE",
+      "kb_release_id": "kb-20261004T113657Z",
+      "model_versions": {
+        "drafting": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "validation": "gpt-5-mini",
+        "case_analysis": "gpt-5.1",
+        "classification": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1"
+      },
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "frontend_version": null,
+      "ontology_version": "p10_5_ontology_v1",
+      "kb_release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+      "draft_plan_version": "p10_6_draft_plan_v1",
+      "validation_version": "VAL-5",
+      "module_role_version": "p10_5_roles_v1",
+      "draft_validation_version": "DV-1",
+      "claim_plan_builder_version": "3"
+    },
+    "route": "PRIVATE_PARKING",
+    "document_type": "PRIVATE_PARKING_NOTICE",
+    "notice_sides_complete": true,
+    "multiple_visits": true,
+    "left_site": true,
+    "returned_same_day": true,
+    "purpose_of_visit": "shopping",
+    "locked_plan_id": "271b876f-3c65-59e2-a35d-a0aad2b669bb"
+  },
+  "release_trace": {
+    "checks": {
+      "code_version": true,
+      "kb_release": true,
+      "ontology": true,
+      "module_roles": true,
+      "facts": true,
+      "legal_findings": true,
+      "claim_plan": true,
+      "draft_plan": true,
+      "draft": true,
+      "validation": true,
+      "final_outcome": true
+    },
+    "missing": [],
+    "legacy": {
+      "class": "VERSIONED",
+      "kb_release_id": "kb-20261004T113657Z"
+    },
+    "release_metadata": {
+      "commit_sha": "ba41e052df09659f9b073b04774be53e65390da5",
+      "kb_release_id": "kb-20261004T113657Z",
+      "ontology_version": "p10_5_ontology_v1",
+      "module_role_version": "p10_5_roles_v1",
+      "claim_plan_builder_version": "3",
+      "draft_plan_version": "p10_6_draft_plan_v1",
+      "validation_version": "VAL-5",
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "llm_provider": "openai",
+      "model_versions": {
+        "drafting": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "validation": "gpt-5-mini",
+        "case_analysis": "gpt-5.1",
+        "classification": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1"
+      }
+    },
+    "case_field_class": {
+      "route": "REQUIRED_FOR_RELEASE",
+      "document_type": "REQUIRED_FOR_RELEASE",
+      "stage": "OPTIONAL",
+      "appeal_deadline": "OPTIONAL",
+      "frontend_version": "OPTIONAL",
+      "kb_release_id": "REQUIRED_FOR_RELEASE",
+      "commit_sha": "REQUIRED_FOR_RELEASE",
+      "llm_provider": "REQUIRED_FOR_RELEASE"
+    },
+    "complete": true
+  },
+  "legacy_class": {
+    "class": "VERSIONED",
+    "kb_release_id": "kb-20261004T113657Z"
+  },
+  "legacy_still_present": true,
+  "legacy_classification_ok": true,
+  "negative_gate_tests": {
+    "missing_kb_release_id": {
+      "allowed": false,
+      "missing": [
+        "kb_release_id"
+      ],
+      "blocked": true
+    },
+    "missing_model_versions": {
+      "allowed": false,
+      "missing": [
+        "model_versions"
+      ],
+      "blocked": true
+    },
+    "missing_prompt_versions": {
+      "allowed": false,
+      "missing": [
+        "prompt_versions"
+      ],
+      "blocked": true
+    },
+    "missing_DraftPlan_or_claim_plan": {
+      "blocked": true,
+      "missing": [
+        "claim_plan_missing",
+        "draft_plan_missing"
+      ],
+      "outcome": "RELEASE_METADATA_INCOMPLETE"
+    },
+    "orchestrator_missing_kb": {
+      "blocked": true,
+      "state": "MANUAL_REVIEW",
+      "internal_events": [
+        "release_metadata_incomplete",
+        "release_blocked"
+      ],
+      "outcome_code": "RELEASE_METADATA_INCOMPLETE"
+    },
+    "missing_validation": {
+      "blocked_invariant": true,
+      "failures": [
+        "missing_validation_pass"
+      ],
+      "trace_missing": [
+        "validation"
+      ]
+    },
+    "all_blocked": true
+  },
+  "material_particulars_ok": true,
+  "letter_material_ok": true,
+  "purse_provenance_ok": true,
+  "notice_complete_ok": true,
+  "anpr_supporting_particulars": [
+    "left_site",
+    "returned_same_day",
+    "purpose_of_visit",
+    "visited_premises",
+    "multiple_visits"
+  ],
+  "support_bundle_richer_than_multiple_visits_only": true,
+  "release_trace_pass": true,
+  "verdict": "READY_FOR_PRODUCTION_PILOT",
+  "ready_checks": {
+    "released": true,
+    "meta_ok": true,
+    "kb_ok": true,
+    "sides_ok": true,
+    "material_ok": true,
+    "letter_ok": true,
+    "purse_ok": true,
+    "bundle_rich": true,
+    "reload_ok": true,
+    "neg_gates": true,
+    "legacy_untouched": true,
+    "trace_pass": true,
+    "validation_pass": true
+  }
+}

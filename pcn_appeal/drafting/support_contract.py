@@ -180,6 +180,21 @@ def _lineage_map(case) -> dict[str, list[str]]:
         srcs = [s for s in (row.get("source_facts") or []) if s]
         if srcs:
             out[name] = srcs
+    # Multiple-visits is often set by answer / semantic promotion without a
+    # derives() frame. Narrative atoms that hold on the case are still the
+    # material source particulars the letter must express (P11.2).
+    if case.get("multiple_visits") is True:
+        atoms = []
+        for src in ("left_site", "returned_same_day", "visited_premises",
+                    "purpose_of_visit", "departure_reason"):
+            if case.has(src) and case.get(src) not in (None, "", [], False):
+                atoms.append(src)
+        if atoms:
+            existing = list(out.get("multiple_visits") or [])
+            for src in atoms:
+                if src not in existing:
+                    existing.append(src)
+            out["multiple_visits"] = existing
     return out
 
 

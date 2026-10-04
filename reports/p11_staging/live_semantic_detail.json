@@ -12,13 +12,20 @@
   },
   "prompt_version": 1,
   "is_demo": false,
-  "latency_ms": 6129,
+  "latency_ms": 4812,
   "structured_output_valid": true,
-  "concept_count": 3,
+  "concept_count": 4,
   "affirmed_count": 3,
   "forbidden_kb_authority": false,
   "model": "gpt-5.1",
   "sample_concepts": [
+    {
+      "concept": "ONT::PAID_APP",
+      "polarity": "AFFIRMED",
+      "attribution": "CUSTOMER",
+      "source_text": "I paid on the app",
+      "confidence": 0.97
+    },
     {
       "concept": "ONT::VRM_MISTYPED",
       "polarity": "AFFIRMED",
@@ -27,18 +34,18 @@
       "confidence": 0.98
     },
     {
-      "concept": "ONT::VEHICLE_IMMOBILISED",
+      "concept": "ONT::BROKEN_DOWN",
       "polarity": "AFFIRMED",
       "attribution": "CUSTOMER",
-      "source_text": "car would not restart and was immobilised on site",
-      "confidence": 0.97
+      "source_text": "The car would not restart and was immobilised on site.",
+      "confidence": 0.96
     },
     {
-      "concept": "ONT::PERMIT_UNCLEAR_IF_DISPLAYED",
-      "polarity": "AFFIRMED",
+      "concept": "ONT::PERMIT_DISPLAYED",
+      "polarity": "UNCERTAIN",
       "attribution": "CUSTOMER",
-      "source_text": "I am not sure whether a permit was displayed",
-      "confidence": 0.96
+      "source_text": "I am not sure whether a permit was displayed.",
+      "confidence": 0.99
     }
   ],
   "passed": true

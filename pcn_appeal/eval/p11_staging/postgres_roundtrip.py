@@ -63,12 +63,13 @@ def run() -> dict[str, Any]:
                 "doc_types": {"E1": "PCN"},
             }],
         })
-        case = case_store.new_case()
+        pipe = AppealPipeline(llm)
+        kb_id = getattr(getattr(pipe, "kg", None), "release_id", None)
+        case = case_store.new_case(kb_release_id=kb_id)
         case.evidence["E1"] = EvidenceItem(
             "E1", "PCN", "notice.txt",
             text="PARKING CHARGE NOTICE\nPCN: ST900001\nVRM: ST11AAA",
         )
-        pipe = AppealPipeline(llm)
         pipe.ingest(case)
         steps["create_ingest"] = case.state.value if hasattr(case.state, "value") else str(case.state)
         case_store.save(case)

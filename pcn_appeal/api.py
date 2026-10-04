@@ -142,6 +142,10 @@ def _verify_provider_at_startup() -> None:
 
 app = FastAPI(title="PCN Appeal AI", version="2.0", lifespan=lifespan)
 
+# Admin-only read-only PostgreSQL / pgvector explorer (no customer access).
+from .admin_db import router as admin_db_router  # noqa: E402
+app.include_router(admin_db_router)
+
 
 # The customer journey, as the public proxy allows it (frontend/app/api/[...path]/route.ts),
 # plus GET /cases/{id}. Every JSON body on these routes - results, holds,

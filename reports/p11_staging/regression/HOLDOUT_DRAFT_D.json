@@ -5,7 +5,7 @@
   "outcome_code": null,
   "result_class": "HOLD",
   "e2e_ok": true,
-  "latency_ms": 1961,
+  "latency_ms": 2577,
   "drafting": {
     "status": "N/A",
     "reason": "upstream incomplete or not released",

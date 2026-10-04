@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "blockers": {
+    "nsg_state_consistent": true,
+    "kb_release_pinned": true,
+    "secrets_scan_clean": true,
+    "photo_smoke_safe": true,
+    "rollback_documented": true
+  },
+  "nsg": {
+    "passed": true,
+    "enum_present": true,
+    "pipeline_state": "NO_SUPPORTED_GROUNDS",
+    "case_state": "NO_SUPPORTED_GROUNDS",
+    "outcome": "NO_SUPPORTED_GROUNDS",
+    "not_manual_review": true
+  },
+  "kb_pin": {
+    "passed": true,
+    "kb_release_id": "yaml-feabf179f9097464",
+    "kb_release_digest": "feabf179f90974644404262d1a637f47f8fe68acbe20463150690183dc7d5ef5",
+    "null_forbidden": true
+  },
+  "secrets": {
+    "passed": true,
+    "files_scanned": 176,
+    "critical_count": 0,
+    "findings": [],
+    "note": "Rotate/revoke any historically exposed production/provider credentials before pilot traffic. This scan only covers the repo.",
+    "operator_action_required": true
+  },
+  "rollback": {
+    "passed": true,
+    "migration_count": 12,
+    "with_rollback_section": 12,
+    "procedure": "1) Redeploy previous git commit / deployment_version. 2) Keep DATABASE_URL pointing at compatible schema (migrations append-only; do not DROP history tables). 3) Pin previous prompts via published KB release or prior yaml-{digest} pin. 4) Do not UPDATE/DELETE append-only fact_history / claim_plans / draft_versions (triggers block). 5) Verify /health commit + kb_release match the prior freeze."
+  },
+  "photo_smoke": {
+    "passed": true,
+    "ran": true,
+    "legal_critical_accuracy_mean": 0.6797619047619048,
+    "n_passed": 13,
+    "n_rows": 15
+  }
+}

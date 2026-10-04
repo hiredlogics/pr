@@ -292,6 +292,8 @@ class CaseFile:
     run_status: str = "NONE"                 # NONE / OPEN / COMPLETED
     # P0.5: the frontend build the case was opened from (X-Frontend-Version).
     frontend_version: Optional[str] = None
+    # P11.1: immutable release identity stamped at RELEASED (or gate check).
+    release_metadata: Optional[dict] = None
     # P0.4: every fact write and removal, and the writes that were refused.
     fact_history: list[dict] = field(default_factory=list)
     fact_conflicts: list[dict] = field(default_factory=list)

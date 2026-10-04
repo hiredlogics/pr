@@ -5,7 +5,7 @@
   "outcome_code": null,
   "result_class": "RELEASED",
   "e2e_ok": true,
-  "latency_ms": 1962,
+  "latency_ms": 2644,
   "drafting": {
     "status": "SCORED",
     "clean_upstream": true,

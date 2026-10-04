@@ -1,0 +1,66 @@
+{
+  "evaluation_release": "P12_PILOT_2026-10-04",
+  "git_commit": "ba41e052df09659f9b073b04774be53e65390da5",
+  "git_branch": "feature/p8-architecture-hardening",
+  "working_tree_clean": true,
+  "deployment_version": "version_2",
+  "build_id": "unknown",
+  "environment": "development",
+  "kb_release_id": "yaml-feabf179f9097464",
+  "kb_release_digest": "feabf179f90974644404262d1a637f47f8fe68acbe20463150690183dc7d5ef5",
+  "kb_release_null_forbidden": true,
+  "module_count": 55,
+  "ontology_version": "p10_5_ontology_v1",
+  "ontology_digest": "a23fb0172da385d5",
+  "module_role_version": "p10_5_roles_v1",
+  "module_role_digest": "b777ffd2a9758a44",
+  "claim_plan_builder_version": "3",
+  "draft_plan_version": "p10_6_draft_plan_v1",
+  "master_case_schema_version": 1,
+  "validation_engine_version": "VAL-5",
+  "draft_validation_version": "DV-1",
+  "prompt_versions": {
+    "classification": 2,
+    "extraction": 10,
+    "case_analysis": 8,
+    "drafting": 17,
+    "validation": 3
+  },
+  "model_provider_probe": {
+    "provider": "openai",
+    "models": {
+      "classification": "gpt-5.1",
+      "extraction": "gpt-5.1",
+      "page_references": "gpt-5.1",
+      "semantic_extraction": "gpt-5.1",
+      "case_analysis": "gpt-5.1",
+      "drafting": "gpt-5.1",
+      "validation": "gpt-5-mini"
+    },
+    "reason": ""
+  },
+  "database_migration_version": 12,
+  "database_migration_numbers": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "commit_short": "ba41e052df09",
+  "change_control": {
+    "prompt_edits_during_pilot": "FORBIDDEN",
+    "kb_edits_during_pilot": "FORBIDDEN",
+    "ontology_edits_during_pilot": "FORBIDDEN",
+    "module_role_edits_during_pilot": "FORBIDDEN",
+    "claim_plan_rule_edits_during_pilot": "FORBIDDEN",
+    "requires_new_release_for_behavioural_change": true
+  }
+}

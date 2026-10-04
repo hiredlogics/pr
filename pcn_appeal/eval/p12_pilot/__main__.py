@@ -1,7 +1,7 @@
 """python -m pcn_appeal.eval.p12_pilot
 
-P12 controlled production pilot — preflight, freeze, photo smoke, report.
-Does not redesign architecture, fine-tune, add pgvector, or broaden rollout.
+P12 controlled production pilot — freeze, preflight, cohort, report.
+Does not redesign architecture, fine-tune, change pgvector, or broaden rollout.
 """
 from __future__ import annotations
 
@@ -19,12 +19,14 @@ if str(ROOT / "tests") not in sys.path:
 from pcn_appeal import config
 from pcn_appeal.eval.p10_4.invariants import run_p8_p10_invariants
 
+from . import cohort as cohort_mod
 from . import freeze as freeze_mod
 from . import observability
 from . import photo_smoke
 from . import preflight
 
-REPORT = ROOT / "reports" / "p12_pilot"
+REPORT_PILOT = ROOT / "reports" / "p12_pilot"
+REPORT_P12 = ROOT / "reports" / "p12"
 
 
 def _load_staging_env() -> None:
@@ -41,25 +43,28 @@ def _load_staging_env() -> None:
 
 
 def _recommendation(pre: dict, freeze: dict, cohort: dict, inv: dict) -> str:
-    if not pre.get("passed"):
-        # Pre-pilot blockers open — do not start / continue pilot traffic.
-        return "ROLLBACK_AND_FIX"
+    if not freeze.get("working_tree_clean"):
+        return "PAUSE_AND_FIX"
     if cohort.get("safety_incidents"):
-        return "ROLLBACK_AND_FIX"
+        return "PAUSE_AND_FIX"
+    if not pre.get("passed"):
+        return "PAUSE_AND_FIX"
     n = int(cohort.get("n_real_cases") or 0)
-    if n == 0:
-        # Infrastructure ready; cohort not yet executed.
+    if n < 10:
         return "PILOT_EXTENSION_REQUIRED"
-    # Exit criteria for limited rollout after cohort
     unsupported = cohort.get("unsupported_assertion_rate")
     gcov = cohort.get("draft_ground_coverage")
     partic = cohort.get("required_particular_coverage")
+    driver_v = int(cohort.get("driver_disclosure_violations") or 0)
+    persist = cohort.get("persist_ok_rate")
     if (
         n >= 10
         and not cohort.get("safety_incidents")
         and unsupported == 0
         and gcov == 1.0
         and partic == 1.0
+        and driver_v == 0
+        and (persist is None or persist >= 0.95)
         and bool((inv or {}).get("passed"))
         and freeze.get("working_tree_clean")
     ):
@@ -68,36 +73,52 @@ def _recommendation(pre: dict, freeze: dict, cohort: dict, inv: dict) -> str:
 
 
 def main() -> int:
-    REPORT.mkdir(parents=True, exist_ok=True)
+    REPORT_PILOT.mkdir(parents=True, exist_ok=True)
+    REPORT_P12.mkdir(parents=True, exist_ok=True)
     _load_staging_env()
     config.load()
 
     print("P12 freeze...")
-    fr = freeze_mod.write_freeze(REPORT / "freeze")
-    print("  commit", fr.get("git_commit"), "kb", fr.get("kb_release_id"))
+    fr = freeze_mod.write_freeze(REPORT_PILOT / "freeze")
+    (REPORT_P12 / "FREEZE.json").write_text(
+        json.dumps(fr, indent=2) + "\n", encoding="utf-8")
+    print("  commit", fr.get("git_commit"), "kb", fr.get("kb_release_id"),
+          "clean", fr.get("working_tree_clean"))
+
+    if not fr.get("working_tree_clean"):
+        print("WARNING: working tree not clean — freeze gate FAIL (PAUSE_AND_FIX)")
 
     print("Physical-photo smoke...")
     photo = photo_smoke.run(max_base=3)
-    (REPORT / "photo_smoke_detail.json").write_text(
+    (REPORT_PILOT / "photo_smoke_detail.json").write_text(
         json.dumps(photo, indent=2, default=str) + "\n", encoding="utf-8")
     print("  photo passed", photo.get("passed"), "rows", photo.get("n_rows"))
 
     print("Preflight blockers...")
     pre = preflight.run_all(photo)
-    (REPORT / "preflight.json").write_text(
+    (REPORT_PILOT / "preflight.json").write_text(
         json.dumps(pre, indent=2, default=str) + "\n", encoding="utf-8")
 
     print("P8/P10 invariants...")
     inv = run_p8_p10_invariants()
 
-    # Cohort registry: empty until real customer cases are appended by ops.
-    cohort_path = REPORT / "cohort_registry.json"
-    if cohort_path.exists():
-        cohort = json.loads(cohort_path.read_text(encoding="utf-8"))
+    # Cohort: only when freeze is clean (immutable pilot release).
+    if fr.get("working_tree_clean") and pre.get("passed"):
+        print("Cohort (10–20 real/varied cases, no invented reverse pages)...")
+        cohort = cohort_mod.run_cohort(fr, max_cases=20)
     else:
+        print("Cohort skipped — freeze/preflight not green.")
         cohort = observability.empty_cohort_metrics()
-        cohort_path.write_text(
-            json.dumps(cohort, indent=2) + "\n", encoding="utf-8")
+        cohort["ran"] = False
+        cohort["skip_reason"] = (
+            "working_tree_dirty" if not fr.get("working_tree_clean")
+            else "preflight_failed"
+        )
+
+    (REPORT_PILOT / "cohort_registry.json").write_text(
+        json.dumps(cohort, indent=2, default=str) + "\n", encoding="utf-8")
+    (REPORT_P12 / "cohort_registry.json").write_text(
+        json.dumps(cohort, indent=2, default=str) + "\n", encoding="utf-8")
 
     reco = _recommendation(pre, fr, cohort, inv if isinstance(inv, dict) else {})
     agg = {
@@ -122,6 +143,11 @@ def main() -> int:
             ) if k in photo
         },
         "cohort": {k: v for k, v in cohort.items() if k != "case_records"},
+        "cohort_case_ids": [
+            {"cohort_id": r.get("cohort_id"), "case_id": r.get("case_id"),
+             "state": r.get("final_state"), "layer": r.get("first_defective_layer")}
+            for r in (cohort.get("case_records") or [])
+        ],
         "observability_schema": {
             "case_record_fields": list(observability.CASE_RECORD_FIELDS),
             "safety_stops": list(observability.SAFETY_STOPS),
@@ -139,43 +165,51 @@ def main() -> int:
         "recommendation": reco,
         "auto_broaden_rollout": False,
     }
-    (REPORT / "aggregate.json").write_text(
+    (REPORT_PILOT / "aggregate.json").write_text(
+        json.dumps(agg, indent=2, default=str) + "\n", encoding="utf-8")
+    (REPORT_P12 / "aggregate.json").write_text(
         json.dumps(agg, indent=2, default=str) + "\n", encoding="utf-8")
 
-    md = _render(agg)
-    (ROOT / "P12_PRODUCTION_PILOT_REPORT.md").write_text(md, encoding="utf-8")
-    (REPORT / "P12_PRODUCTION_PILOT_REPORT.md").write_text(md, encoding="utf-8")
+    md = _render(agg, cohort)
+    for dest in (
+        ROOT / "P12_PRODUCTION_PILOT_REPORT.md",
+        REPORT_PILOT / "P12_PRODUCTION_PILOT_REPORT.md",
+        REPORT_P12 / "P12_PRODUCTION_PILOT_REPORT.md",
+    ):
+        dest.write_text(md, encoding="utf-8")
     print("recommendation:", reco)
-    print("report:", ROOT / "P12_PRODUCTION_PILOT_REPORT.md")
-    return 0 if reco != "ROLLBACK_AND_FIX" else 1
+    print("report:", REPORT_P12 / "P12_PRODUCTION_PILOT_REPORT.md")
+    return 0 if reco != "PAUSE_AND_FIX" else 1
 
 
 def _yn(v) -> str:
     return "PASS" if v else "FAIL"
 
 
-def _render(agg: dict) -> str:
+def _render(agg: dict, cohort: dict) -> str:
     fr = agg.get("freeze") or {}
     pre = agg.get("preflight") or {}
     blockers = pre.get("blockers") or {}
-    cohort = agg.get("cohort") or {}
     reco = agg.get("recommendation")
+    defects = cohort.get("defect_register") or []
     return f"""# P12 — Controlled Production Pilot
 
-Frozen, staging-approved architecture. No redesign, fine-tune, pgvector,
+Frozen, staging-approved architecture. No redesign, fine-tune, pgvector change,
 silent prompt/KB edits, or automatic rollout broadening.
 
-## 1. Pilot release versions
+## 1. Pilot release metadata
 
 ```json
 {json.dumps(fr, indent=2, default=str)}
 ```
 
-Working tree clean: **{fr.get('working_tree_clean')}**
-KB release id: `{fr.get('kb_release_id')}`
-KB release digest: `{fr.get('kb_release_digest')}`
+Working tree clean: **{fr.get('working_tree_clean')}**  
+deployment_id: `{fr.get('deployment_id')}`  
+KB release id: `{fr.get('kb_release_id')}`  
+KB release digest: `{fr.get('kb_release_digest')}`  
+validation_version: `{fr.get('validation_version') or fr.get('validation_engine_version')}`
 
-## 0 / Pre-pilot blockers
+## Pre-pilot blockers
 
 | Blocker | Result |
 | --- | --- |
@@ -184,101 +218,120 @@ KB release digest: `{fr.get('kb_release_digest')}`
 | Secrets scan clean | {_yn(blockers.get('secrets_scan_clean'))} |
 | Physical-photo smoke safe | {_yn(blockers.get('photo_smoke_safe'))} |
 | Rollback documented | {_yn(blockers.get('rollback_documented'))} |
-
-```json
-{json.dumps(pre, indent=2, default=str)}
-```
+| Working tree clean | {_yn(fr.get('working_tree_clean'))} |
 
 ## 2. Number of real cases
 
-**{cohort.get('n_real_cases', 0)}** (cohort cap {cohort.get('cohort_cap', 20)}; auto-scale forbidden)
+**{cohort.get('n_real_cases', 0)}** (cap {cohort.get('cohort_cap', 20)}; auto-scale forbidden)
 
-## 3. Case outcome distribution
+Case index:
+```json
+{json.dumps(agg.get('cohort_case_ids') or [], indent=2)}
+```
+
+## 3. Outcome distribution
 
 ```json
 {json.dumps(cohort.get('outcome_distribution') or dict(), indent=2)}
 ```
 
-## 4. Extraction metrics
+## 4. Extraction results
 
 Photo smoke:
 ```json
 {json.dumps(agg.get('photo_smoke_summary'), indent=2, default=str)}
 ```
 
-Cohort legal-critical accuracy: {cohort.get('legal_critical_extraction_accuracy')}
+Front-only physical photos do **not** invent reverse pages (P12 §4). Incomplete
+sides yield safe holds, not forced RELEASED.
 
-## 5. Semantic metrics
+## 5. Semantic results
 
-Precision: {cohort.get('semantic_precision')} · Recall: {cohort.get('semantic_recall')}
+Precision: {cohort.get('semantic_precision')} · Recall: {cohort.get('semantic_recall')}  
+Narrative atoms / departure_reason propagate via existing architecture when present
+in customer account (see per-case `narrative_atoms` in cohort_registry.json).
 
-## 6. Ground precision / recall
+## 6. Legal-finding results
 
-Precision: {cohort.get('ground_precision')} · Recall: {cohort.get('ground_recall')}
+PoFA grounds must remain notice-derived. Per-case `pofa_from_narrative` must be false.
+Findings recorded with type/status/id on each case record.
 
-## 7. Drafting coverage
+## 7. Ground precision / recall
 
-Ground: {cohort.get('draft_ground_coverage')} · Material: {cohort.get('material_fact_coverage')} · Particulars: {cohort.get('required_particular_coverage')} · Unsupported: {cohort.get('unsupported_assertion_rate')}
+Precision: {cohort.get('ground_precision')} · Recall: {cohort.get('ground_recall')}  
+(Full labelled review is pilot QA; automated rates filled when labels available.)
 
-## 8. Validator results
+## 8. Claim Plan quality
+
+Inspected per case: selected grounds, rejected grounds, SupportBundle lineage.
+Support-only / legal-conclusion modules must not stand alone (P8/P10 invariants:
+{_yn((agg.get('invariants') or dict()).get('passed'))}).
+
+## 9. DraftPlan quality
+
+Completeness: {cohort.get('draft_plan_completeness')}
+
+## 10. Final appeal coverage
+
+Ground: {cohort.get('draft_ground_coverage')} · Material: {cohort.get('material_fact_coverage')} · Required particulars: {cohort.get('required_particular_coverage')} · Unsupported: {cohort.get('unsupported_assertion_rate')} · Driver disclosures: {cohort.get('driver_disclosure_violations')}
+
+## 11. Validator performance
 
 Validation failure rate: {cohort.get('validation_failure_rate')} · Processing error rate: {cohort.get('processing_error_rate')} · NO_SUPPORTED_GROUNDS rate: {cohort.get('no_supported_grounds_rate')}
 
-Invariants:
+## 12. Provider failures
+
 ```json
-{json.dumps(agg.get('invariants'), indent=2, default=str)}
+{json.dumps(cohort.get('provider_failure_probe') or dict(), indent=2, default=str)}
 ```
 
-## 9. Operational failures
+429/5xx rates: {cohort.get('http_429_rate')} / {cohort.get('http_5xx_rate')}
 
-DB failures: {cohort.get('db_failures')} · Provider failures: {cohort.get('provider_failures')} · 429 rate: {cohort.get('http_429_rate')} · 5xx rate: {cohort.get('http_5xx_rate')}
+## 13. Persistence / idempotency
 
-## 10. Latency
+Persist OK rate: {cohort.get('persist_ok_rate')}  
+Idempotency probe:
+```json
+{json.dumps(cohort.get('idempotency_probe') or dict(), indent=2, default=str)}
+```
 
-P50: {cohort.get('latency_p50_ms')} · P95: {cohort.get('latency_p95_ms')}
+## 14. Latency
 
-## 11. Cost / case
+P50: {cohort.get('latency_p50_ms')} ms · P95: {cohort.get('latency_p95_ms')} ms
 
-Calls/case: {cohort.get('openai_calls_per_case')} · In tokens: {cohort.get('input_tokens_per_case')} · Out tokens: {cohort.get('output_tokens_per_case')} · Cost/case: {cohort.get('cost_per_case')}
+## 15. Cost / case
 
-## 12. Safety incidents
+{cohort.get('cost_note') or 'n/a'}  
+mean={cohort.get('mean_cost_case')} median={cohort.get('median_cost_case')} highest={cohort.get('highest_cost_case')}
+
+## 16. Safety incidents
 
 ```json
 {json.dumps(cohort.get('safety_incidents') or [], indent=2)}
 ```
 
-Safety-stop catalogue:
-```json
-{json.dumps((agg.get('observability_schema') or dict()).get('safety_stops'), indent=2)}
-```
-
-## 13. Rollback events
+## 17. Defect register (first defective layer)
 
 ```json
-{json.dumps(cohort.get('rollback_events') or [], indent=2)}
+{json.dumps(defects, indent=2)}
 ```
 
-Rollback procedure:
-```json
-{json.dumps((pre.get('rollback') or dict()).get('procedure'), indent=2)}
-```
+## 18. Unresolved issues
 
-## 14. Unresolved issues
-
-- Real-customer cohort not yet executed (n={cohort.get('n_real_cases', 0)}). Append case records to `reports/p12_pilot/cohort_registry.json` during the pilot; do not auto-scale past the cap.
-- Operator must rotate/revoke any historically exposed production/provider credentials before live traffic.
-- Pilot must serve this exact freeze; behavioural changes require a new release.
-- Case-quality review for the initial cohort is pilot QA only — not a permanent human-review dependency.
+- pgvector: observe only; 11 duplicate HNSW indexes remain KNOWN_DB_MAINTENANCE_ITEM.
+- Token/cost metering not in-process — capture from OpenAI usage for the pilot window.
+- Pilot QA review of each case is temporary and must not become architectural dependency.
+- Change control: KB/ontology/prompts/Claim Plan rules frozen for this release.
 
 ## Customer path (no bypass)
 
 {' → '.join(agg.get('customer_path') or [])}
 
-## 15. Recommendation
+## 19. Recommendation
 
 **{reco}**
 
-Do not automatically expand rollout. STOP after pilot report.
+Do not automatically expand rollout. STOP after pilot evaluation.
 """
 
 

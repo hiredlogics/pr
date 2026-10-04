@@ -1,0 +1,24 @@
+"""python -m pcn_appeal.eval.p11_3"""
+from __future__ import annotations
+
+import json
+import sys
+
+from .proof import run, write_report
+
+
+def main() -> int:
+    report = run()
+    path = write_report(report)
+    print(json.dumps({
+        "verdict": report.get("verdict"),
+        "case_id": report.get("case_id"),
+        "final_state": report.get("final_state"),
+        "acceptance": report.get("acceptance"),
+        "report": str(path),
+    }, indent=2, default=str))
+    return 0 if report.get("verdict") == "CP_PLUS_ACCEPTANCE_CLOSED" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

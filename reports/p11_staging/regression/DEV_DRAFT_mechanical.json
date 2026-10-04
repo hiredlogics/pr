@@ -5,7 +5,7 @@
   "outcome_code": null,
   "result_class": "CLAIM_PLAN_EMPTY",
   "e2e_ok": true,
-  "latency_ms": 2011,
+  "latency_ms": 2441,
   "drafting": {
     "status": "N/A",
     "reason": "upstream incomplete or not released",

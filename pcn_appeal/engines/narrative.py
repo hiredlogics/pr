@@ -27,17 +27,26 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from ..hypotheses import Hypotheses, _key
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 
 # Atomic facts this module writes. Provenance only: withheld from the drafter
 # (reasoning.withheld_from_drafter) and never asked (analysis.INTERNAL_FACTS).
+# Narrative atoms written by this module.
 NARRATIVE_FACTS = frozenset({
     "visited_premises", "purpose_of_visit", "left_site", "returned_same_day",
     "possible_vehicle_departure", "returned_to_vehicle",
+    # Generic professional reason for leaving (not a semantic ontology concept).
+    "departure_reason",
 })
+# Internal-only atoms: never letter content / never citable fact_refs.
+NARRATIVE_INTERNAL = frozenset({
+    "possible_vehicle_departure", "returned_to_vehicle",
+})
+# Letter-facing narrative particulars (SupportBundle → DraftPlan → letter).
+NARRATIVE_LETTER_FACTS = frozenset(NARRATIVE_FACTS - NARRATIVE_INTERNAL)
 
 _CLAUSES = re.compile(
     r"[.;!?\n]+|,\s*|\s+-\s+|"
@@ -84,6 +93,56 @@ _PURPOSES = (
     ("leisure", re.compile(r"\b(?:gym|cinema|swim(?:ming)?|leisure)\b", re.I)),
     ("work", re.compile(r"\b(?:work|shift|my job|office)\b", re.I)),
 )
+
+# Generic departure-reason cues (item forgotten / collect item / realised at home).
+# Not phrase-specific and not an ontology concept — yields one professional
+# proposition with customer-source provenance.
+_DEPARTURE_REASON = re.compile(
+    r"(?P<span>"
+    r"(?:forgot(?:ten)?|left behind)\s+(?:my |the |our |his |her |a |an )?\w[\w-]{1,24}"
+    r"|"
+    r"(?:left|went|drove)\b[^.]{0,40}\b(?:to |in order to )?(?:collect|get|fetch|retrieve|pick up)\s+"
+    r"(?:my |the |our |a |an )?\w[\w-]{1,24}"
+    r"|"
+    r"realis(?:e|ed|ing)\b[^.]{0,60}\b(?:forgot(?:ten)?|at home|left (?:behind|at home)|"
+    r"necessary (?:item|thing)|had been forgotten)"
+    r")",
+    re.I,
+)
+
+
+def departure_reason_proposition(span: str) -> str:
+    """Professional proposition for a generic departure-reason span."""
+    low = (span or "").lower()
+    if re.search(r"\b(collect|fetch|retrieve|pick up)\b", low):
+        return "the departure was to collect a necessary item"
+    if re.search(r"\brealis", low):
+        return (
+            "a necessary item was realised to have been left elsewhere, "
+            "prompting the departure"
+        )
+    return "a necessary item had been forgotten, prompting the departure"
+
+
+def extract_departure_reason(text: str) -> Optional[dict[str, Any]]:
+    """Return narrative atom for the reason for leaving, or None."""
+    m = _DEPARTURE_REASON.search(text or "")
+    if not m:
+        return None
+    span = (m.group("span") or m.group(0) or "").strip()
+    if len(span) < 4:
+        return None
+    proposition = departure_reason_proposition(span)
+    return {
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": proposition,
+        "source_text": span,
+        "source_excerpt": (text or "")[:240],
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85,
+    }
 
 
 @dataclass
@@ -196,6 +255,17 @@ def read(text: str) -> Reading:
     if departure_at is not None:
         facts["left_site"] = True
 
+    # Material reason for leaving — narrative atom, not a semantic ontology concept.
+    atom = extract_departure_reason(text or "")
+    if atom and (
+        departure_at is not None
+        or facts.get("left_site")
+        or returned
+        or any(f.positive("LEAVE") for f in fs)
+        or any(f.positive("RETURN") for f in fs)
+    ):
+        facts["departure_reason"] = atom["proposition"]
+
     hypothesis = None
     # A return on another day is a separate event, not a second visit within
     # the period the charge is about.
@@ -226,18 +296,24 @@ def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
     FactManager (case.put); hypotheses through Hypotheses."""
     written: dict[str, Any] = {}
     supported: set[str] = set()
+    atoms: list[dict[str, Any]] = []
     for raw in texts:
         text = str(raw or "").strip()
         if len(text) < 4:
             continue
         r = read(text)
+        atom = extract_departure_reason(text)
         for name, value in r.facts.items():
             if name in written:
                 continue
             written[name] = value
+            excerpt = text[:240]
+            if name == "departure_reason" and atom:
+                excerpt = atom.get("source_text") or excerpt
+                atoms.append(atom)
             case.put(Fact(f"F-{name}", name, value, FactStatus.DERIVED,
                           FactSource(SourceKind.CUSTOMER_FREE_TEXT, f"free_text:narrative:{name}",
-                                     excerpt=text[:240])),
+                                     excerpt=excerpt)),
                      reason="narrative_understanding")
         if r.hypothesis is not None:
             Hypotheses.propose(case, "multiple_visits", r.hypothesis["value"],
@@ -245,6 +321,28 @@ def understand(case: CaseFile, texts: list[str]) -> dict[str, Any]:
                                    signals=r.hypothesis["signals"], rule="narrative.read")
             supported.add(_key("multiple_visits", r.hypothesis["value"]))
     Hypotheses.withdraw_unsupported(case, supported)
+    if atoms:
+        case.audit.append({"event": "narrative_atom", "atoms": atoms})
+        # Provenance rows for traceability (source text ↔ proposition).
+        # material_account_propositions are merged later in assess_material_account.
+        prov = list(getattr(case, "free_text_provenance", None) or [])
+        for a in atoms:
+            prov.append({
+                "source": "CUSTOMER_FREE_TEXT",
+                "original": a.get("source_excerpt") or a.get("source_text"),
+                "fact_name": "departure_reason",
+                "normalized_value": a.get("proposition"),
+                "drafting_proposition": a.get("proposition"),
+                "relevant_to_allegation": True,
+                "answer_id": "narrative_atom:departure_reason",
+                "text_span": a.get("source_text"),
+                "attribution": a.get("attribution"),
+                "polarity": a.get("polarity"),
+                "confidence": a.get("confidence"),
+                "extractor_version": "narrative_v1",
+            })
+        case.free_text_provenance = prov
     case.audit.append({"event": "narrative_understanding", "facts": written,
-                       "hypotheses": sorted(supported)})
-    return {"facts": written, "hypotheses": sorted(supported)}
+                       "hypotheses": sorted(supported),
+                       "narrative_atoms": atoms})
+    return {"facts": written, "hypotheses": sorted(supported), "narrative_atoms": atoms}

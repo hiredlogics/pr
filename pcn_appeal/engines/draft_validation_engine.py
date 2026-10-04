@@ -112,6 +112,7 @@ ATTRIBUTED = _R(
     rf"|\b{_KEEPER}\s+(states?|says|reports?|has reported|has told|has explained|"
     r"explains|understands|believes|recalls|contends|maintains|advises|asserts)\b"
     rf"|\baccording to {_KEEPER}\b|\bthe account (given|provided) by {_KEEPER}\b"
+    r"|\bthe account is (therefore )?that\b"
     rf"|\bit is {_KEEPER}(?:'s|’s)\b"
     r"|\b(information|account|instructions|evidence|details)\b[^.]{0,40}\b(available to|"
     rf"given by|provided by|received from|supplied by|reported by)\s+{_KEEPER}\b"

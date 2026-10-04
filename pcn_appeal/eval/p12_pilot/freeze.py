@@ -30,7 +30,14 @@ def freeze_block() -> dict:
     from pcn_appeal.module_roles import MODULE_ROLE_VERSION, ROLE_BY_MODULE
     from pcn_appeal.semantics.ontology import CONCEPTS, ONTOLOGY_VERSION
 
-    kg = KnowledgeGraph()
+    # Prefer the published staging KB pin used by P11.2/P11.3 proofs.
+    pinned_id = "kb-20261004T113657Z"
+    try:
+        from pcn_appeal.store import kb_source
+        rel = kb_source.load_release(pinned_id)
+        kg = KnowledgeGraph.from_release(rel)
+    except Exception:
+        kg = KnowledgeGraph()
     role_blob = json.dumps(ROLE_BY_MODULE, sort_keys=True)
     ont_blob = json.dumps(sorted(CONCEPTS), sort_keys=True)
     porcelain = _git("status", "--porcelain")
@@ -38,9 +45,17 @@ def freeze_block() -> dict:
         line for line in (porcelain or "").splitlines()
         if line.strip()
         and "reports/p12_pilot" not in line
+        and "reports/p12/" not in line
         and "P12_PRODUCTION_PILOT_REPORT.md" not in line
         and "reports/p11_staging" not in line
+        and "reports/p11_1" not in line
+        and "reports/p11_2" not in line
+        and "reports/p11_3" not in line
         and "P11_STAGING_REPORT.md" not in line
+        and "P11_1_RELEASE_TRACEABILITY_REPORT.md" not in line
+        and "P11_2_VERSIONED_RELEASE_PROOF.md" not in line
+        and "P11_3_MATERIAL_PROPAGATION.md" not in line
+        and "frontend/.next" not in line
     ]
     llm = probe()
     mig_nums = sorted(
@@ -53,11 +68,13 @@ def freeze_block() -> dict:
         "git_commit": _git("rev-parse", "HEAD"),
         "git_branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
         "working_tree_clean": not bool(material),
+        "deployment_id": f"p12-pilot-{_git('rev-parse', '--short', 'HEAD')}",
         "deployment_version": runtime.app_version(),
         "build_id": runtime.build_id(),
         "environment": runtime.environment(),
         "kb_release_id": kg.release_id,
         "kb_release_digest": kg.release_digest,
+        "validation_version": VAL,
         "kb_release_null_forbidden": True,
         "module_count": len(kg.modules),
         "ontology_version": ONTOLOGY_VERSION,

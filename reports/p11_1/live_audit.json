@@ -1,0 +1,280 @@
+{
+  "case_columns": [
+    "case_id",
+    "customer_id",
+    "state",
+    "driver_status",
+    "kb_release_id",
+    "commit_sha",
+    "llm_provider",
+    "appeal_deadline",
+    "created_at",
+    "retention_until",
+    "route",
+    "document_type",
+    "stage",
+    "scope_stop",
+    "document_classes",
+    "classifications",
+    "timeline",
+    "asked_questions",
+    "pending_questions",
+    "current_run_id",
+    "run_status",
+    "frontend_version",
+    "release_metadata"
+  ],
+  "released_sample": [
+    {
+      "case_id": "f86e5100-8998-43aa-a1ff-7d6c6a894229",
+      "state": "RELEASED",
+      "kb_release_id": null,
+      "commit_sha": "b7dca214d21eb1f041576b3eb27119035c8edd02",
+      "route": null,
+      "document_type": null,
+      "stage": null,
+      "frontend_version": null,
+      "llm_provider": "openai",
+      "appeal_deadline": null,
+      "created_at": "2026-10-04T12:01:44.017121+00:00"
+    },
+    {
+      "case_id": "7c4488c4-3278-4aac-803a-096156d87819",
+      "state": "RELEASED",
+      "kb_release_id": null,
+      "commit_sha": "b7dca214d21eb1f041576b3eb27119035c8edd02",
+      "route": null,
+      "document_type": null,
+      "stage": null,
+      "frontend_version": null,
+      "llm_provider": "openai",
+      "appeal_deadline": null,
+      "created_at": "2026-10-04T11:55:29.663915+00:00"
+    },
+    {
+      "case_id": "56f8ae52-b6fd-4776-8b94-70681e0a801b",
+      "state": "RELEASED",
+      "kb_release_id": null,
+      "commit_sha": "135d8eb8538c55ac85136c25a9812656c8595d9c",
+      "route": null,
+      "document_type": null,
+      "stage": null,
+      "frontend_version": null,
+      "llm_provider": "openai",
+      "appeal_deadline": null,
+      "created_at": "2026-10-04T11:44:37.017030+00:00"
+    }
+  ],
+  "released_nulls": {
+    "released_n": 3,
+    "kb_null": 3,
+    "commit_null": 0,
+    "route_null": 3,
+    "doc_null": 3,
+    "stage_null": 3,
+    "fe_null": 3,
+    "llm_null": 0,
+    "deadline_null": 3
+  },
+  "trace_case_id": "f86e5100-8998-43aa-a1ff-7d6c6a894229",
+  "hnsw_indexes": [
+    {
+      "name": "kb_embeddings_embedding_idx",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx1",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx1 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx10",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx10 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx2",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx2 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx3",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx3 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx4",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx4 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx5",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx5 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx6",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx6 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx7",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx7 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx8",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx8 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    },
+    {
+      "name": "kb_embeddings_embedding_idx9",
+      "definition": "CREATE INDEX kb_embeddings_embedding_idx9 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    }
+  ],
+  "hnsw_index_analysis": {
+    "count": 11,
+    "distinct_index_bodies": 1,
+    "bodies": [
+      "CREATE INDEX <name> ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+    ],
+    "verdict": "ACCIDENTAL_DUPLICATES",
+    "note": "Do not drop indexes in this audit; cleanup is a later change."
+  },
+  "trace_summary": {
+    "case_id": "f86e5100-8998-43aa-a1ff-7d6c6a894229",
+    "state": "RELEASED",
+    "kb_release_id": null,
+    "commit_sha": "b7dca214d21eb1f041576b3eb27119035c8edd02",
+    "n_facts": 24,
+    "n_sources": 62,
+    "n_derived": 13,
+    "n_findings": 5,
+    "n_plans": 1,
+    "n_plan_items": 28,
+    "n_drafts": 1,
+    "n_validations": 0,
+    "n_baselines": 1,
+    "broken_joins": [
+      "kb_release_id_null"
+    ],
+    "legacy_class": "LEGACY_UNVERSIONED"
+  },
+  "kb_release": {
+    "release_id": "kb-20261004T113657Z",
+    "release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+    "module_count": 55,
+    "module_versions": {
+      "KB-EQ-01": "1.0",
+      "KB-EQ-02": "1.0",
+      "KB-EQ-03": "1.0",
+      "KB-EV-01": "1.1",
+      "KB-ACT-01": "1.0",
+      "KB-ACT-02": "1.0",
+      "KB-ACT-03": "1.0",
+      "KB-BAY-01": "1.4"
+    },
+    "module_versions_n": 55,
+    "created_at": null,
+    "published_by": null,
+    "embedder": null
+  },
+  "vector_health": {
+    "installed": true,
+    "table": "public.kb_embeddings",
+    "total_embedding_rows": 129,
+    "null_embeddings": 0,
+    "dimension_distribution": {
+      "1024": 129
+    },
+    "models_used": [
+      {
+        "model": "hashing-v1",
+        "releases": 1
+      }
+    ],
+    "duplicate_entity_embeddings": [],
+    "orphan_embeddings": [],
+    "flags": [],
+    "indexes": [
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx1",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx1 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx10",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx10 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx2",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx2 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx3",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx3 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx4",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx4 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx5",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx5 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx6",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx6 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx7",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx7 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx8",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx8 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      },
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "index_name": "kb_embeddings_embedding_idx9",
+        "index_type": "HNSW",
+        "definition": "CREATE INDEX kb_embeddings_embedding_idx9 ON public.kb_embeddings USING hnsw (embedding vector_cosine_ops)"
+      }
+    ],
+    "columns": [
+      {
+        "schema": "public",
+        "table": "kb_embeddings",
+        "column": "embedding",
+        "type": "vector(1024)",
+        "dimensions": 1024,
+        "non_null_row_count": 129
+      }
+    ]
+  }
+}

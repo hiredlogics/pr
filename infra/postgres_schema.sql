@@ -166,6 +166,7 @@ ALTER TABLE drafts ADD COLUMN IF NOT EXISTS run_id int;
 CREATE INDEX IF NOT EXISTS audit_log_case_run ON audit_log (case_id, run_id);
 
 ALTER TABLE cases ADD COLUMN IF NOT EXISTS frontend_version text;
+ALTER TABLE cases ADD COLUMN IF NOT EXISTS release_metadata jsonb;
 ALTER TABLE drafts ADD COLUMN IF NOT EXISTS manifest jsonb;
 
 CREATE TABLE IF NOT EXISTS fact_history (

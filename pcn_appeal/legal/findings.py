@@ -94,9 +94,13 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
     FindingSpec(
         "POFA_NTK_INVITATION_DEFECT",
         "missing mandatory Schedule 4 invitation wording in the Notice to Keeper",
+        # "I invite the operator to cancel" must NOT match — only Schedule 4
+        # keeper/driver invitation wording defects.
         _R(r"^(?=.*\b(notice|ntk)\b)"
            r"(?=.*\b(omit\w*|lack\w*|miss\w*|fail\w*|does not|without|absent|no)\b)"
-           r"(?=.*\b(invitation|invite\w*|pass\W+(?:\w+\W+){0,4}driver|"
+           r"(?=.*\b(invitation|"
+           r"invites?\s+(?:the\s+)?(?:keeper|recipient|addressee|driver)|"
+           r"pass\W+(?:\w+\W+){0,4}driver|"
            r"mandatory\s+(wording|information|statement|invitation)|"
            r"prescribed\s+(wording|information|statement))\b)"),
         ("ntk_defect_statutory_invitation", "pofa_9_2_e_status", "notice_sides_complete")),
@@ -106,7 +110,7 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
         _R(r"^(?=.*\b(notice|ntk)\b)"
            r"(?=.*\b(omit\w*|lack\w*|miss\w*|fail\w*\s+to\s+(state|specify|identify|contain|"
            r"include)|does not\s+(state|specify|identify|contain|include)|without)\b)"
-           r"(?=.*\b(keeper\s+(liability\s+)?warning|creditor|period of parking|"
+           r"(?=.*\b(keeper[\s-]+(liability[\s-]+)?warning|creditor|period of parking|"
            r"amount of the\s+(parking\s+)?charge|mandatory|prescribed|"
            r"required\s+(information|content|particulars))\b)"),
         ("ntk_defect_document_confirmed", "notice_sides_complete")),

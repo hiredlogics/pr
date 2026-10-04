@@ -613,13 +613,20 @@ class AppealPipeline:
                 })
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
-            version = self._record_version(case, plan, draft, result, dv, pack,
-                                           released=result.passed)
             if result.passed:
+                hold = self._release_gate(case, result, pack, draft)
+                if hold is not None:
+                    self._record_version(case, plan, draft, hold.validation, dv, pack,
+                                         released=False)
+                    return hold
+                version = self._record_version(case, plan, draft, result, dv, pack,
+                                               released=True)
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
                                  self._evidence_list(case)), case)
+            version = self._record_version(case, plan, draft, result, dv, pack,
+                                           released=False)
             case.state = CaseState.VALIDATION_FAILED
             # P10.6: regenerate only failed DraftSections before whole-letter retry.
             failed_sections = _failed_section_ids(result.issues, dplan, draft)
@@ -666,13 +673,22 @@ class AppealPipeline:
             case.audit.append({"event": "dropped_failing_sentences",
                                "dropped": dropped, "passed": checked.passed,
                                "issues": [i.rule for i in checked.issues]})
-            self._record_version(case, plan, trimmed, checked, dv, pack,
-                                 released=checked.passed, parent=(version or {}).get("draft_id"))
             if checked.passed:
+                hold = self._release_gate(case, checked, pack, trimmed)
+                if hold is not None:
+                    self._record_version(case, plan, trimmed, hold.validation, dv, pack,
+                                         released=False,
+                                         parent=(version or {}).get("draft_id"))
+                    return hold
+                self._record_version(case, plan, trimmed, checked, dv, pack,
+                                     released=True,
+                                     parent=(version or {}).get("draft_id"))
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
                                  self._evidence_list(case)), case)
+            self._record_version(case, plan, trimmed, checked, dv, pack,
+                                 released=False, parent=(version or {}).get("draft_id"))
 
         case.state = CaseState.MANUAL_REVIEW
         if result is None:
@@ -682,6 +698,32 @@ class AppealPipeline:
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
+
+    def _release_gate(self, case: CaseFile, result: ValidationResult, pack, draft):
+        """P11.1: block RELEASED when immutable release identity is incomplete."""
+        from .release_trace import (
+            OUTCOME_RELEASE_METADATA_INCOMPLETE,
+            gate_before_release,
+        )
+        blocked = gate_before_release(case, self)
+        if blocked is None:
+            return None
+        case.state = CaseState.MANUAL_REVIEW
+        issues = list(getattr(result, "issues", None) or [])
+        issues.append(ValidationIssue(
+            "RELEASE_METADATA",
+            "BLOCK",
+            "Release blocked: incomplete release metadata",
+        ))
+        held = ValidationResult(False, issues)
+        out = AppealOutput(case.state, None, pack, draft, held, self._evidence_list(case))
+        # Customer copy stays processing-safe; internal reason is audit-only.
+        case.audit.append({
+            "event": "release_blocked",
+            "reason": OUTCOME_RELEASE_METADATA_INCOMPLETE,
+            "missing": blocked.get("missing"),
+        })
+        return _with_outcome(out, case)
 
     # ------------------------------------------------------------------ P6
     def _validate(self, case: CaseFile, draft: Draft, pack):

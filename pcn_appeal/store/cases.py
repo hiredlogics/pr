@@ -67,11 +67,17 @@ def save(case: CaseFile) -> None:
                                  document_type = %s, stage = %s, scope_stop = %s,
                                  document_classes = %s, classifications = %s, timeline = %s,
                                  asked_questions = %s, pending_questions = %s,
-                                 current_run_id = %s, run_status = %s, frontend_version = %s
+                                 current_run_id = %s, run_status = %s, frontend_version = %s,
+                                 release_metadata = %s,
+                                 kb_release_id = COALESCE(%s, kb_release_id)
                 WHERE case_id = %s
             """, (case.state.value, case.driver_status.value, *routing_columns(case),
                   *question_columns(case), case.run_id, case.run_status,
-                  case.frontend_version, case.case_id))
+                  case.frontend_version,
+                  _json(case.release_metadata) if case.release_metadata is not None else None,
+                  (case.release_metadata or {}).get("kb_release_id")
+                  if isinstance(case.release_metadata, dict) else None,
+                  case.case_id))
 
             for ev in case.evidence.values():
                 cur.execute("""
@@ -689,7 +695,7 @@ def load(case_id: str) -> CaseFile:
     with connect() as conn:
         row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)}, "
                            f"{', '.join(QUESTION_COLUMNS)}, current_run_id, run_status, "
-                           "frontend_version "
+                           "frontend_version, release_metadata "
                            "FROM cases WHERE case_id = %s", (case_id,)).fetchone()
         if row is None:
             raise KeyError(case_id)
@@ -733,7 +739,8 @@ def load(case_id: str) -> CaseFile:
         # in the process that first received it.
         case.raw_answers = _latest_raw_answers(conn, case_id)
         apply_question_columns(case, row[2 + n:2 + n + len(QUESTION_COLUMNS)])
-        run_id, run_status, frontend_version = row[2 + n + len(QUESTION_COLUMNS):]
+        run_id, run_status, frontend_version, release_metadata = (
+            row[2 + n + len(QUESTION_COLUMNS):])
 
         case.audit = [{**(_loaded(detail) or {}), "_persisted": True} for (detail,) in conn.execute(
             "SELECT detail FROM audit_log WHERE case_id = %s ORDER BY id", (case_id,)).fetchall()]
@@ -742,6 +749,7 @@ def load(case_id: str) -> CaseFile:
         case.run_id = int(run_id or 0)
         case.run_status = run_status or "NONE"
         case.frontend_version = frontend_version
+        case.release_metadata = _loaded(release_metadata)
 
         for (run, fact, fact_id, previous, new, previous_status, status, source_kind,
              source_ref, source_type, changed_by, reason, outcome, at) in conn.execute("""

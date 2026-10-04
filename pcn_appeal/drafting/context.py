@@ -101,6 +101,9 @@ CASE_CONTEXT_ALLOWED = (
     "child_occupant_present", "customer_reported_facts", "document_established_facts",
     "customer_quotations", "factual_rebuttal", "timing_argument", "claim_plan",
     "supported_grounds", "support_bundles", "draft_requirements", "particulars",
+    # Professional narrative atoms (propositions + attribution). Source spans are
+    # for lineage; the drafter must rewrite, never paste customer wording.
+    "narrative_atoms",
 )
 
 PACK_KEYS = (

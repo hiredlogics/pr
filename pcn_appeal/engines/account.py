@@ -418,6 +418,15 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     relevant_props = [e.drafting_proposition for e in extractions if e.relevant_to_allegation]
     other_props = [e.drafting_proposition for e in extractions if not e.relevant_to_allegation]
     propositions = list(dict.fromkeys(relevant_props + other_props))
+    # Narrative-atom departure reason (generic; not a semantic ontology concept).
+    dep = case.get("departure_reason")
+    if dep and dep not in propositions:
+        propositions.append(str(dep))
+    for row in getattr(case, "free_text_provenance", None) or []:
+        if row.get("fact_name") == "departure_reason":
+            prop = row.get("drafting_proposition") or row.get("normalized_value")
+            if prop and prop not in propositions:
+                propositions.append(str(prop))
 
     contradicts = _account_contradicts_allegation(extractions, breach)
     case.put(Fact(

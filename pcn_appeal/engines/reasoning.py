@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .narrative import NARRATIVE_FACTS
+from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
 from .. import case_state
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
@@ -42,6 +42,30 @@ GLOBAL_PROHIBITED = [
     "genuine pre-estimate of loss", "unlawful penalty", "who was driving",
     "breakdown automatically frustrates", "10 minutes always cancels",
 ]
+
+
+def _narrative_atoms_for_pack(case: CaseFile) -> list:
+    """Professional narrative atoms for DraftPlan lineage (not raw customer prose)."""
+    atoms = []
+    for ev in case.audit or []:
+        if ev.get("event") == "narrative_atom":
+            atoms.extend(list(ev.get("atoms") or []))
+    if atoms:
+        return atoms
+    dep = case.get("departure_reason")
+    if not dep:
+        return []
+    fact = case.facts.get("departure_reason")
+    excerpt = getattr(getattr(fact, "source", None), "excerpt", None) if fact else None
+    return [{
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": dep,
+        "source_text": excerpt,
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85,
+    }]
 
 
 class ReasoningEngine:
@@ -388,7 +412,10 @@ class ReasoningEngine:
             "lease_clauses", "keeper_name", "keeper_address",
             "material_account_points", "material_account_summary",
             "customer_described_event",          # provenance only (P1), not letter content
-            *NARRATIVE_FACTS,                    # narrative atomic facts (P2), provenance only
+            *NARRATIVE_INTERNAL,                 # internal narrative atoms only
+            # Letter-facing narrative particulars (left_site, purpose_of_visit,
+            # departure_reason, …) remain in verified_facts so VAL-FACT accepts
+            # citable SupportBundle particulars (P11.3).
         )
         verified = {}
         customer_reported: list[str] = []
@@ -406,7 +433,13 @@ class ReasoningEngine:
                     document_established.append(k)
             if fact_obj and fact_obj.source.kind == SourceKind.CUSTOMER_FREE_TEXT \
                     and isinstance(v, str):
-                # Any free-text string value is INPUT — never letter copy.
+                # Professionally authored narrative particulars (purpose enum,
+                # departure_reason proposition) are letter-facing lineage, not
+                # raw customer paste — keep the structured value (P11.3).
+                if k in NARRATIVE_LETTER_FACTS:
+                    verified[k] = v
+                    continue
+                # Other free-text string values are INPUT — never letter copy.
                 # Structured bools/enums from free text remain draftable below.
                 verified[f"{k}_provided"] = True
                 continue
@@ -477,6 +510,9 @@ class ReasoningEngine:
             "account_contradicts_allegation": bool(
                 case.get("account_contradicts_allegation")),
             "child_occupant_present": bool(case.get("child_occupant_present")),
+            # Narrative atoms (departure_reason etc.) for DraftPlan lineage.
+            "narrative_atoms": _narrative_atoms_for_pack(case),
+
             # Customer-reported vs independently established — drafting must not
             # present the former as if proven by the notice alone.
             "customer_reported_facts": sorted(set(customer_reported)),

@@ -6,13 +6,8 @@ import { cookies } from "next/headers";
  * through the customer catch-all at /api/[...path].
  *
  * Allowed paths (relative to /admin/... on FastAPI, or /cases/{id}/trace):
- *   cases/{id}/console
- *   cases/{id}/console/compare
- *   cases/{id}/console/report.txt
- *   cases/{id}/audit
- *   cases/{id}/execution-trace
- *   cases/{id}/claim-plans
- *   cases/{id}/trace          (legacy rich trace; mapped to /cases/...)
+ *   cases/{id}/console|compare|report|audit|execution-trace|claim-plans|trace
+ *   api/db/*  (PostgreSQL + pgvector live explorer — read-only)
  */
 const BACKEND = process.env.PCN_API_URL ?? "http://127.0.0.1:8077";
 export const dynamic = "force-dynamic";
@@ -27,6 +22,23 @@ const ALLOWED: ReadonlyArray<RegExp> = [
   /^cases\/[^/]+\/execution-trace$/,
   /^cases\/[^/]+\/claim-plans$/,
   /^cases\/[^/]+\/trace$/,
+  // Live data explorer (read-only APIs)
+  /^api\/db\/status$/,
+  /^api\/db\/tables$/,
+  /^api\/db\/tables\/[^/]+\/[^/]+$/,
+  /^api\/db\/tables\/[^/]+\/[^/]+\/rows$/,
+  /^api\/db\/cases$/,
+  /^api\/db\/cases\/[^/]+$/,
+  /^api\/db\/knowledge$/,
+  /^api\/db\/vector\/status$/,
+  /^api\/db\/vector\/columns$/,
+  /^api\/db\/vector\/indexes$/,
+  /^api\/db\/vector\/embeddings$/,
+  /^api\/db\/vector\/health$/,
+  /^api\/db\/vector\/search$/,
+  /^api\/db\/diagnostics$/,
+  /^api\/db\/diagnostics\/[^/]+$/,
+  /^api\/db\/diagnostics\/select$/,
 ];
 
 function configuredToken(): string {
@@ -39,7 +51,6 @@ async function authorised(): Promise<boolean> {
   const expected = configuredToken();
   if (cookie === "ok" && expected) return true;
   if (cookie === "dev-open" && !expected) return true;
-  // Dev with no token and no cookie: still allow (mirrors backend _require_admin)
   if (!expected && process.env.NODE_ENV !== "production" && process.env.APP_ENV !== "production") {
     return true;
   }
@@ -73,6 +84,8 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
   const target = `${BACKEND}/${upstreamPath(path).split("/").map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const headers = new Headers();
   headers.set("accept", req.headers.get("accept") || "application/json");
+  const ct = req.headers.get("content-type");
+  if (ct) headers.set("content-type", ct);
   const token = configuredToken();
   if (token) {
     headers.set("authorization", `Bearer ${token}`);
@@ -80,16 +93,18 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
   }
 
   try {
+    const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const upstream = await fetch(target, {
       method: req.method,
       headers,
+      body: hasBody ? await req.arrayBuffer() : undefined,
       redirect: "manual",
       cache: "no-store",
     });
     const payload = await upstream.arrayBuffer();
     const out = new Headers();
-    const ct = upstream.headers.get("content-type");
-    if (ct) out.set("content-type", ct);
+    const outCt = upstream.headers.get("content-type");
+    if (outCt) out.set("content-type", outCt);
     out.set("cache-control", "no-store");
     return new Response(payload, { status: upstream.status, headers: out });
   } catch {
@@ -101,6 +116,11 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  const { path } = await ctx.params;
+  return forward(req, path);
+}
+
+export async function POST(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   return forward(req, path);
 }

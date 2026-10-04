@@ -28,6 +28,11 @@ NON_LETTER_PARTICULARS = frozenset({
     "jurisdiction", "relevant_land", "notice_route", "pofa_route", "pofa_finding",
     "operator_ata", "code_version", "driver_status", "delivery_date_proven",
     "hire_firm", "keeper_liability_asserted", "windshield_notice",
+    # Completeness / defect flags feed the Claim Plan; the letter expresses the
+    # Schedule 4 point via approved modules, not by citing these meta facts.
+    "notice_sides_complete", "ntk_defect_document_confirmed",
+    "ntk_defect_keeper_warning", "ntk_invites_name_driver",
+    "ntk_invites_pass_to_driver", "ntd_date", "notice_received_date",
 })
 
 # Letter-facing particulars the renderer / validator may require when valued.
@@ -39,6 +44,11 @@ LETTER_PARTICULARS = frozenset({
     "notice_received_date", "days_late", "deadline", "presumed_delivery",
     "allocated_bay", "account_contradicts_allegation", "material_account_proposition",
     "children_present", "observation_start", "observation_end",
+    # Purpose of visit (shopping / drop-off / …) is a controlled ontology fact
+    # and must travel through SupportBundle → DraftPlan when valued.
+    "purpose_of_visit", "visited_premises",
+    # Generic narrative-atom particular: professional reason for leaving.
+    "departure_reason",
 })
 
 # Soft semantic cues that a ground's topic was expressed (not exact wording).
@@ -78,6 +88,7 @@ class DraftSection:
     required_outcome: str = "express_ground"
     support_module_ids: list[str] = field(default_factory=list)
     context_chunk_ids: list[str] = field(default_factory=list)
+    narrative_atoms: list[dict] = field(default_factory=list)
     merged: bool = False
 
     def as_dict(self) -> dict:
@@ -251,12 +262,28 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
                 continue
             calc = f.get("calculation") or {}
             for key in ("parking_event_date", "notice_issue_date", "deadline",
-                        "presumed_delivery", "days"):
+                        "presumed_delivery", "days", "days_between", "days_late"):
                 if calc.get(key) is not None:
-                    pname = key if key != "days" else "days_late"
+                    pname = ("days_late" if key in ("days", "days_between", "days_late")
+                             else key)
                     if pname not in kept:
                         kept.append(pname)
                     values.setdefault(pname, calc.get(key))
+            # Particulars helper may expose days separately from calculation blob.
+            try:
+                from ..legal.findings import particulars as finding_particulars
+                p = finding_particulars(f)
+                if p.get("days") is not None:
+                    if "days_late" not in kept:
+                        kept.append("days_late")
+                    values.setdefault("days_late", p.get("days"))
+                for key, val in (p.get("dates") or {}).items():
+                    if val is not None:
+                        if key not in kept and key in LETTER_PARTICULARS:
+                            kept.append(key)
+                        values.setdefault(key, val)
+            except Exception:
+                pass
 
         chunk_ids = [
             c.get("id") for c in chunks
@@ -267,14 +294,57 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
             f"Express supported ground(s) {', '.join(group)}: {topic}. "
             f"Include required particulars; do not invent facts."
         )
+        narrative_atoms: list[dict] = []
+        if any(str(m).startswith("KB-ANPR") for m in group):
+            dep = values.get("departure_reason")
+            ctx = getattr(pack, "case_context", None) or {}
+            if not dep:
+                for a in (ctx.get("narrative_atoms") or []):
+                    if a.get("name") == "departure_reason" and a.get("proposition"):
+                        dep = a["proposition"]
+                        values["departure_reason"] = dep
+                        break
+            if dep:
+                purpose += (
+                    " Explain WHY the vehicle left and returned using the "
+                    f"departure_reason particular ({dep}); professionally rewrite, "
+                    "do not paste customer wording, do not identify the driver."
+                )
+                atoms_src = list(ctx.get("narrative_atoms") or [])
+                matched = [a for a in atoms_src
+                           if (a.get("name") == "departure_reason"
+                               or a.get("proposition") == dep)]
+                narrative_atoms = matched or [{
+                    "atom_id": "NA-departure_reason",
+                    "name": "departure_reason",
+                    "proposition": dep,
+                    "attribution": "CUSTOMER",
+                    "polarity": "AFFIRMED",
+                }]
+                if "departure_reason" not in kept:
+                    kept.append("departure_reason")
+        # Meta / gating facts stay in the SupportBundle for audit but must not
+        # be offered to the drafter as citable fact_refs (VAL-FACT).
+        letter_names = [
+            n for n in bundle.source_fact_names
+            if n and n not in NON_LETTER_PARTICULARS
+        ]
+        name_by_id = {}
+        for fid, name in zip(bundle.source_fact_ids, bundle.source_fact_names):
+            name_by_id[str(fid)] = name
+        letter_ids = [
+            fid for fid in bundle.source_fact_ids
+            if name_by_id.get(str(fid), str(fid)) not in NON_LETTER_PARTICULARS
+            and str(fid) not in NON_LETTER_PARTICULARS
+        ]
         sections.append(DraftSection(
             section_id=f"S{i:02d}",
             ground_id=primary,
             ground_ids=list(group),
             purpose=purpose,
             role=role_of(primary),
-            supporting_fact_ids=list(bundle.source_fact_ids),
-            supporting_fact_names=list(bundle.source_fact_names),
+            supporting_fact_ids=letter_ids,
+            supporting_fact_names=letter_names,
             derived_fact_ids=list(bundle.derived_fact_ids),
             evidence_ids=list(bundle.evidence_ids),
             legal_finding_ids=list(bundle.legal_finding_ids),
@@ -284,6 +354,7 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
             required_outcome="express_ground",
             support_module_ids=list(support_only) if i == 1 else [],
             context_chunk_ids=chunk_ids,
+            narrative_atoms=narrative_atoms,
             merged=len(group) > 1,
         ))
 
@@ -370,6 +441,13 @@ def particular_expressed(text: str, name: str, value: Any = None) -> bool:
         "account_contradicts_allegation": (
             r"\bcontradict", r"\binconsistent with\b", r"\binconsistency\b"),
         "material_account_proposition": (r"\bkeeper'?s account\b", r"\baccount is that\b"),
+        "purpose_of_visit": (r"\bshop", r"\bpurchas", r"\bretail"),
+        "departure_reason": (
+            r"\bforgot", r"\bforgotten\b", r"\bretriev", r"\bcollect",
+            r"\bwallet\b", r"\bpurse\b", r"\bnecessary item\b", r"\bat home\b",
+            r"\bleft elsewhere\b", r"\bprompting the departure\b",
+        ),
+        "visited_premises": (r"\bpremis", r"\bnearby\b", r"\battended\b"),
     }
     for pat in aliases.get(name, ()):
         if re.search(pat, text or "", re.I):
