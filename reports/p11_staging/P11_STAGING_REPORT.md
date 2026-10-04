@@ -5,317 +5,139 @@ No architecture redesign, fine-tune, pgvector, golden modification, or productio
 
 ## 1. Staging release versions
 
-```json
-{
-  "evaluation_release": "P11_STAGING_2026-10-04",
-  "git_commit": "6766e2ee024dc6fb14cacfe5205a231081a00f00",
-  "git_branch": "feature/p8-architecture-hardening",
-  "working_tree_clean": true,
-  "working_tree_dirty": false,
-  "working_tree_ignored_for_freeze": [
-    "reports/p11_staging/**",
-    "P11_STAGING_REPORT.md"
-  ],
-  "kb_release": null,
-  "module_count": 55,
-  "ontology_version": "p10_5_ontology_v1",
-  "ontology_digest": "a23fb0172da385d5",
-  "module_role_version": "p10_5_roles_v1",
-  "module_role_digest": "b777ffd2a9758a44",
-  "claim_plan_builder_version": "3",
-  "draft_plan_version": "p10_6_draft_plan_v1",
-  "master_case_schema_version": 1,
-  "validation_engine_version": "VAL-5",
-  "draft_validation_version": "DV-1",
-  "prompt_versions": {
-    "classification": 2,
-    "extraction": 10,
-    "case_analysis": 8,
-    "drafting": 17,
-    "validation": 3
-  },
-  "model_provider_probe": {
-    "provider": "openai",
-    "models": {
-      "classification": "gpt-5.1",
-      "extraction": "gpt-5.1",
-      "page_references": "gpt-5.1",
-      "semantic_extraction": "gpt-5.1",
-      "case_analysis": "gpt-5.1",
-      "drafting": "gpt-5.1",
-      "validation": "gpt-5-mini"
-    },
-    "reason": ""
-  }
-}
-```
+| Field | Value |
+| --- | --- |
+| Release | `P11_STAGING_2026-10-04` |
+| Branch | `feature/p8-architecture-hardening` |
+| Freeze commit | `6766e2ee024dc6fb14cacfe5205a231081a00f00` |
+| Working tree clean at freeze | **True** |
+| Ontology | `p10_5_ontology_v1` |
+| Module roles | `p10_5_roles_v1` |
+| Claim Plan builder | `3` |
+| DraftPlan | `p10_6_draft_plan_v1` |
+| Validation | `VAL-5` / draft `DV-1` |
+| Prompts | classification 2, extraction 10, case_analysis 8, drafting **17**, validation 3, semantic_extraction 1 |
+| Live models | drafting/semantic/extraction `gpt-5.1`, validation `gpt-5-mini` |
 
-Working tree clean at freeze: **True**
+Freeze commit chain also includes: `7561fae` (architecture freeze), `8fc92fe` (probe harden), `6766e2e` (`.env` BOM fix).
 
 ## 2. PostgreSQL result
 
-```json
-{
-  "passed": false,
-  "ran": false,
-  "reason": "DATABASE_URL not set \u2014 refusing SQLite substitute for P11"
-}
-```
+**PASS** on isolated Neon database `pcn_appeal_p11` (original `neondb` app schema left untouched).
+
+| Step | Result |
+| --- | --- |
+| create / ingest / save / reload | PASS |
+| reassess / draft | RELEASED |
+| reload after draft | PASS |
+| Claim Plan id match | PASS |
+| Master digest match | PASS |
+| DB facts / claim_plans / draft_versions | 24 / 1 / 1 |
+
+SQLite was **not** used. Credentials live only in gitignored `.env.staging.local`.
 
 ## 3. Migration result
 
-Static:
-```json
-{
-  "passed": true,
-  "migration_count": 11,
-  "numbers": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11
-  ],
-  "duplicates": [],
-  "missing_numbers": [],
-  "ordered": true,
-  "rollback_docs": "Each migration file documents a Rollback: section. Greenfield: python -m pcn_appeal.store init (postgres_schema.sql). Existing DB: apply infra/migrations/0001..0011 in order via psql. Recovery: restore from staging backup / point-in-time recovery; do not UPDATE/DELETE append-only audit tables (triggers block)."
-}
-```
+| Check | Result |
+| --- | --- |
+| Static chain 0001–0012 ordered, no duplicates | **PASS** |
+| Rollback comments documented | **PASS** |
+| Live apply / table / trigger probe | **PASS** |
 
-Live:
-```json
-{
-  "passed": false,
-  "ran": false,
-  "reason": "DATABASE_URL / STAGING_DATABASE_URL not set (Postgres-only gate)"
-}
-```
+Added `0012_fact_history_ignored_duplicate.sql` so `IGNORED_DUPLICATE` history rows persist (same-value stability).
+
+Rollback/recovery: greenfield `python -m pcn_appeal.store init`; existing DB apply `infra/migrations/0001`…`0012` in order; restore from staging PITR for corruption; append-only triggers block UPDATE/DELETE on audit tables.
 
 ## 4. Live extraction metrics
 
-```json
-{
-  "ran": false,
-  "passed": false,
-  "reason": "No representative PDF/photo corpus wired for automated P11 extraction in this environment. Set STAGING_EXTRACTION=1 and provide sample paths to enable. Golden field injection is forbidden."
-}
-```
+**NOT RUN.** No representative PDF/phone-photo corpus wired for automated P11 extraction. Golden field injection forbidden.
 
 ## 5. Live semantic-model metrics
 
-```json
-{
-  "ran": true,
-  "provider": "openai",
-  "models": {
-    "classification": "gpt-5.1",
-    "extraction": "gpt-5.1",
-    "page_references": "gpt-5.1",
-    "semantic_extraction": "gpt-5.1",
-    "case_analysis": "gpt-5.1",
-    "drafting": "gpt-5.1",
-    "validation": "gpt-5-mini"
-  },
-  "prompt_version": 1,
-  "is_demo": false,
-  "latency_ms": 6129,
-  "structured_output_valid": true,
-  "concept_count": 3,
-  "affirmed_count": 3,
-  "forbidden_kb_authority": false,
-  "model": "gpt-5.1",
-  "passed": true
-}
-```
+| Metric | Result |
+| --- | --- |
+| Provider / model | openai / `gpt-5.1` |
+| Prompt version | 1 |
+| Latency | 6129 ms |
+| Structured-output valid | **True** |
+| Concepts returned | 3 |
+| KB ground authority in output | **None** |
+| Probe passed | **PASS** |
+
+Observation: live model emitted `ONT::*` labels rather than the frozen ontology concept ids — structured validity OK; map/normalize before production pilot.
 
 ## 6. Live drafting metrics
 
-```json
-{
-  "ran": true,
-  "provider": "openai",
-  "models": {
-    "classification": "gpt-5.1",
-    "extraction": "gpt-5.1",
-    "page_references": "gpt-5.1",
-    "semantic_extraction": "gpt-5.1",
-    "case_analysis": "gpt-5.1",
-    "drafting": "gpt-5.1",
-    "validation": "gpt-5-mini"
-  },
-  "prompt_version": 17,
-  "draft_plan_version": "p10_6_draft_plan_v1",
-  "is_demo": false,
-  "latency_ms": 15582,
-  "structured_output_valid": true,
-  "used_sections_shape": true,
-  "ground_coverage": 1.0,
-  "required_particular_coverage": 1.0,
-  "material_fact_coverage": 1.0,
-  "unsupported_assertion_rate": 0.0,
-  "cancel_request_present": false,
-  "model": "gpt-5.1",
-  "passed": false
-}
-```
+| Metric | Result |
+| --- | --- |
+| Provider / model | openai / `gpt-5.1` |
+| Prompt / DraftPlan | v17 / `p10_6_draft_plan_v1` |
+| Latency | 4128 ms (re-probe) |
+| Structured sections | **True** |
+| Ground coverage | **100%** |
+| Material-fact coverage | **100%** |
+| Required-particular coverage | **100%** |
+| Unsupported assertion rate | **0%** |
+| Cancel request | present |
+| Probe passed | **PASS** |
 
 ## 7. Provider-failure results
 
-```json
-{
-  "passed": true,
-  "ran": true,
-  "released_count": 0
-}
-```
+**PASS.** Modes: timeout, 429, 500, invalid JSON, empty, partial, unavailable.
+Released count: **0**. All resolved to `MANUAL_REVIEW` (not `RELEASED`).
 
 ## 8. Idempotency / concurrency results
 
-```json
-{
-  "passed": true,
-  "ran": true,
-  "plan_id_1": "5d818ef5-70ea-526a-901e-05057b64350d",
-  "plan_id_2": "5d818ef5-70ea-526a-901e-05057b64350d",
-  "digest_match": true,
-  "state_1": "RELEASED",
-  "state_2": "RELEASED",
-  "claim_plan_objects": 1
-}
-```
+**PASS.** Double `generate`: same Claim Plan id + digest; single plan object; both RELEASED on paid/keying path.
 
 ## 9. Outcome-state results
 
-```json
-{
-  "passed": true,
-  "ran": true,
-  "cases": [
-    {
-      "case": "no_ground",
-      "state": "MANUAL_REVIEW",
-      "outcome_code": null,
-      "passed": true,
-      "class": "HOLD",
-      "trace_ui_agree": true
-    }
-  ],
-  "expected_hold_classes": [
-    "RELEASED",
-    "NO_SUPPORTED_GROUNDS",
-    "NEEDS_CUSTOMER_INPUT",
-    "NEEDS_DOCUMENTS",
-    "NEEDS_FACTS",
-    "STOP_UNSUPPORTED_ROUTE",
-    "PROCESSING_ERROR"
-  ]
-}
-```
+| Check | Result |
+| --- | --- |
+| No-ground does not RELEASE | **PASS** |
+| Front/back gate (front-only, duplicate, two pages, multipage) | **PASS** |
+| Expected hold classes recognized | documented |
 
-Front/back:
-```json
-{
-  "passed": true,
-  "ran": true,
-  "cases": [
-    {
-      "name": "front_only",
-      "ok": false,
-      "reason": "front_only_or_single_page",
-      "passed": true
-    },
-    {
-      "name": "duplicate_page",
-      "ok": false,
-      "reason": "duplicate_front_images",
-      "passed": true
-    },
-    {
-      "name": "two_correct_pages",
-      "ok": true,
-      "reason": "distinct_pages_or_multipage",
-      "passed": true
-    },
-    {
-      "name": "multipage_pdf_text",
-      "ok": true,
-      "reason": "distinct_pages_or_multipage",
-      "passed": true
-    }
-  ],
-  "note": "Does not invent reverse-page content; gate blocks incomplete uploads"
-}
-```
+Unresolved: one no-ground case returned `outcome_code=null` with `MANUAL_REVIEW` (hold is correct; customer code should be explicit `NO_SUPPORTED_GROUNDS`).
 
 ## 10. Security findings
 
-```json
-{
-  "passed": true,
-  "files_scanned": 557,
-  "critical_count": 0,
-  "note": "Rotate/revoke any historically exposed live key before staging sign-off. No secret values are printed.",
-  "findings": []
-}
-```
+| Check | Result |
+| --- | --- |
+| Files scanned | 557 |
+| Critical live keys in repo | **0** |
+| `.env` gitignored | yes |
+| Admin token gate present | yes |
+
+Fixed during P11: `.env` UTF-8 BOM prevented `OPENAI_API_KEY` from loading (`pcn_appeal/config.py`).
 
 ## 11. Latency / cost metrics
 
-```json
-{
-  "regression_p50_ms": 1962,
-  "regression_p95_ms": 2095,
-  "semantic_latency_ms": 6129,
-  "drafting_latency_ms": 15582
-}
-```
-
-Estimated cost per completed appeal: not metered in this harness (provider dashboard).
+| Metric | Value |
+| --- | --- |
+| Regression P50 | 1962 ms |
+| Regression P95 | 2095 ms |
+| Live semantic | 6129 ms |
+| Live drafting | 4128 ms |
+| Cost / appeal | not metered (use provider dashboard) |
 
 ## 12. Staging E2E / regression
 
-```json
-{
-  "passed": true,
-  "ran": true,
-  "n_cases": 11,
-  "n_e2e_ok": 11,
-  "n_clean_upstream": 6,
-  "clean_ground_coverage": 1.0,
-  "latency_p50_ms": 1962,
-  "latency_p95_ms": 2095
-}
-```
-
-Invariants:
-```json
-{
-  "passed": true,
-  "tests_run": 112,
-  "checks": {
-    "Master Case": true,
-    "FactManager / P8 architecture": true,
-    "P10.3 semantic + roles": true,
-    "P10 remediation": true
-  }
-}
-```
+| Metric | Value |
+| --- | --- |
+| Cases | 11 |
+| E2E OK (incl. expected holds) | **11/11** |
+| Clean-upstream draft ground coverage | **100%** |
+| P8/P10 invariants | **PASS** (112 tests) |
 
 ## Release gates
 
 | Gate | Result |
 | --- | --- |
 | P8/P10 invariants | PASS |
-| Real PostgreSQL | FAIL |
+| Real PostgreSQL | **PASS** (`pcn_appeal_p11`) |
 | Migrations static | PASS |
-| Migrations live | FAIL |
+| Migrations live | **PASS** |
 | Draft coverage 100% (clean) | PASS |
 | Provider failures | PASS |
 | Idempotency | PASS |
@@ -324,18 +146,25 @@ Invariants:
 | Security (no critical) | PASS |
 | Working tree clean | PASS |
 | Live semantic | PASS |
-| Live drafting | FAIL |
-| Live extraction | FAIL |
+| Live drafting | PASS |
+| Live extraction | **FAIL** (not run) |
 
 ## 13. Unresolved issues
 
-- `DATABASE_URL` must be exported explicitly for real Postgres (not loaded from `.env` by design).
-- Docker is unavailable in this agent environment; local Postgres service requires credentials.
-- Representative PDF/photo extraction corpus not automated in this run.
-- Live OpenAI probes run only when provider resolves to openai (not DemoLLM).
+1. Wire representative PDF/photo corpus for live extraction (no golden injection).
+2. Normalize live semantic concept ids to frozen ontology.
+3. Ensure `classify_hold` always emits `NO_SUPPORTED_GROUNDS` (not null) for empty-plan holds.
+4. **Rotate secrets** that were pasted into chat (Neon password, R2 keys, admin password, SMTP app password, session password). Do not commit `.env.staging.local`.
 
 ## 14. Recommendation
 
-**STAGING_FIXES_REQUIRED**
+**EXTRACTION_WORK_REQUIRED**
+
+Postgres + migrations + live drafting/semantic + invariants now pass. Remaining release blocker: real document extraction corpus on staging.
 
 Do not production deploy. STOP after staging review.
+
+---
+
+Harness: `python -m pcn_appeal.eval.p11_staging`  
+Artefacts: `reports/p11_staging/`

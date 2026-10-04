@@ -1,0 +1,22 @@
+{
+  "postgresql": {
+    "passed": true,
+    "ran": true,
+    "case_id": "56f8ae52-b6fd-4776-8b94-70681e0a801b",
+    "steps": {
+      "create_ingest": "EXTRACTED",
+      "save_1": true,
+      "reload_1": true,
+      "reassess": true,
+      "draft_state": "RELEASED",
+      "reload_after_draft": true,
+      "plan_ids_match": true,
+      "master_digest_match": true,
+      "db_facts": 24,
+      "db_claim_plans": 1,
+      "db_draft_versions": 1
+    }
+  },
+  "database": "pcn_appeal_p11",
+  "migrations_live_passed": true
+}

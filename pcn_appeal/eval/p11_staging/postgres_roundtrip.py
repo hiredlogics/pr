@@ -2,11 +2,24 @@
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[3]
+TESTS = ROOT / "tests"
+for p in (str(ROOT), str(TESTS)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 
 def run() -> dict[str, Any]:
     url = os.getenv("DATABASE_URL") or os.getenv("STAGING_DATABASE_URL")
+    if not url and Path(".env.staging.local").exists():
+        for line in Path(".env.staging.local").read_text(encoding="utf-8").splitlines():
+            if line.startswith("DATABASE_URL="):
+                url = line.split("=", 1)[1].strip()
+                break
     if not url:
         return {
             "passed": False,

@@ -40,7 +40,7 @@ def audit_static() -> dict:
     missing = [n for n in expected if n not in numbers]
     ordered = numbers == sorted(numbers)
     return {
-        "passed": ordered and not dupes and not missing and len(files) >= 11,
+        "passed": ordered and not dupes and not missing and len(files) >= 12,
         "migration_count": len(files),
         "numbers": numbers,
         "duplicates": dupes,

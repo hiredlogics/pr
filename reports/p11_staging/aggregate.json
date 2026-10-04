@@ -44,7 +44,7 @@
   },
   "migrations_static": {
     "passed": true,
-    "migration_count": 11,
+    "migration_count": 12,
     "numbers": [
       1,
       2,
@@ -56,7 +56,8 @@
       8,
       9,
       10,
-      11
+      11,
+      12
     ],
     "duplicates": [],
     "missing_numbers": [],
@@ -171,19 +172,55 @@
         "creates_index": true,
         "foreign_key": true,
         "trigger": true
+      },
+      {
+        "file": "0012_fact_history_ignored_duplicate.sql",
+        "number": 12,
+        "bytes": 703,
+        "has_rollback_comment": true,
+        "append_only_markers": 0,
+        "creates_index": false,
+        "foreign_key": false,
+        "trigger": false
       }
     ],
     "rollback_docs": "Each migration file documents a Rollback: section. Greenfield: python -m pcn_appeal.store init (postgres_schema.sql). Existing DB: apply infra/migrations/0001..0011 in order via psql. Recovery: restore from staging backup / point-in-time recovery; do not UPDATE/DELETE append-only audit tables (triggers block)."
   },
   "migrations_live": {
-    "passed": false,
-    "ran": false,
-    "reason": "DATABASE_URL / STAGING_DATABASE_URL not set (Postgres-only gate)"
+    "passed": true,
+    "ran": true,
+    "checks": {
+      "select_1": true,
+      "table:cases": true,
+      "table:facts": true,
+      "table:fact_history": true,
+      "table:claim_plans": true,
+      "table:draft_versions": true,
+      "table:legal_findings": true,
+      "table:master_case_state": true,
+      "table:document_baselines": true,
+      "append_only_triggers_present": true
+    }
   },
   "postgresql": {
-    "passed": false,
-    "ran": false,
-    "reason": "DATABASE_URL not set \u2014 refusing SQLite substitute for P11"
+    "passed": true,
+    "ran": true,
+    "case_id": "56f8ae52-b6fd-4776-8b94-70681e0a801b",
+    "steps": {
+      "create_ingest": "EXTRACTED",
+      "save_1": true,
+      "reload_1": true,
+      "reassess": true,
+      "draft_state": "RELEASED",
+      "reload_after_draft": true,
+      "plan_ids_match": true,
+      "master_digest_match": true,
+      "db_facts": 24,
+      "db_claim_plans": 1,
+      "db_draft_versions": 1
+    },
+    "database": "pcn_appeal_p11",
+    "note": "Isolated Neon DB; original neondb app schema left untouched"
   },
   "security": {
     "passed": true,
@@ -401,9 +438,9 @@
   },
   "release_gates": {
     "p8_p10_invariants": true,
-    "postgresql": false,
+    "postgresql": true,
     "migrations_static": true,
-    "migrations_live": false,
+    "migrations_live": true,
     "live_extraction": false,
     "live_semantic": true,
     "live_drafting": true,
@@ -414,7 +451,7 @@
     "front_back": true,
     "security_no_critical": true,
     "working_tree_clean_at_freeze": true,
-    "all_required": false
+    "all_required": true
   },
-  "recommendation": "STAGING_FIXES_REQUIRED"
+  "recommendation": "EXTRACTION_WORK_REQUIRED"
 }

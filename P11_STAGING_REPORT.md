@@ -23,27 +23,30 @@ Freeze commit chain also includes: `7561fae` (architecture freeze), `8fc92fe` (p
 
 ## 2. PostgreSQL result
 
-**FAIL — not run.** `DATABASE_URL` / `STAGING_DATABASE_URL` unset.
-Local PostgreSQL service is running, but credentials were unavailable. SQLite was **not** substituted (P11 hard rule).
+**PASS** on isolated Neon database `pcn_appeal_p11` (original `neondb` app schema left untouched).
 
-Required before sign-off:
+| Step | Result |
+| --- | --- |
+| create / ingest / save / reload | PASS |
+| reassess / draft | RELEASED |
+| reload after draft | PASS |
+| Claim Plan id match | PASS |
+| Master digest match | PASS |
+| DB facts / claim_plans / draft_versions | 24 / 1 / 1 |
 
-```bash
-export DATABASE_URL=postgresql://USER:PASS@HOST:5432/DB
-python -m pcn_appeal.store init
-python -m pcn_appeal.store sync
-python -m pcn_appeal.eval.p11_staging
-```
+SQLite was **not** used. Credentials live only in gitignored `.env.staging.local`.
 
 ## 3. Migration result
 
 | Check | Result |
 | --- | --- |
-| Static chain 0001–0011 ordered, no duplicates | **PASS** |
-| Rollback comments documented | **PASS** (most files; recovery procedure recorded) |
-| Live apply / table / trigger probe | **FAIL — not run** (no DATABASE_URL) |
+| Static chain 0001–0012 ordered, no duplicates | **PASS** |
+| Rollback comments documented | **PASS** |
+| Live apply / table / trigger probe | **PASS** |
 
-Rollback/recovery: greenfield `python -m pcn_appeal.store init`; existing DB apply `infra/migrations/0001`…`0011` in order; restore from staging PITR for corruption; append-only triggers block UPDATE/DELETE on audit tables.
+Added `0012_fact_history_ignored_duplicate.sql` so `IGNORED_DUPLICATE` history rows persist (same-value stability).
+
+Rollback/recovery: greenfield `python -m pcn_appeal.store init`; existing DB apply `infra/migrations/0001`…`0012` in order; restore from staging PITR for corruption; append-only triggers block UPDATE/DELETE on audit tables.
 
 ## 4. Live extraction metrics
 
@@ -132,9 +135,9 @@ Fixed during P11: `.env` UTF-8 BOM prevented `OPENAI_API_KEY` from loading (`pcn
 | Gate | Result |
 | --- | --- |
 | P8/P10 invariants | PASS |
-| Real PostgreSQL | **FAIL** |
+| Real PostgreSQL | **PASS** (`pcn_appeal_p11`) |
 | Migrations static | PASS |
-| Migrations live | **FAIL** |
+| Migrations live | **PASS** |
 | Draft coverage 100% (clean) | PASS |
 | Provider failures | PASS |
 | Idempotency | PASS |
@@ -148,19 +151,16 @@ Fixed during P11: `.env` UTF-8 BOM prevented `OPENAI_API_KEY` from loading (`pcn
 
 ## 13. Unresolved issues
 
-1. Export real staging `DATABASE_URL` and re-run Postgres + migration live gates.
-2. Wire representative PDF/photo corpus for live extraction (no golden injection).
-3. Normalize live semantic concept ids to frozen ontology.
-4. Ensure `classify_hold` always emits `NO_SUPPORTED_GROUNDS` (not null) for empty-plan holds.
-5. Docker unavailable in this agent host; use staging Neon/Railway Postgres.
+1. Wire representative PDF/photo corpus for live extraction (no golden injection).
+2. Normalize live semantic concept ids to frozen ontology.
+3. Ensure `classify_hold` always emits `NO_SUPPORTED_GROUNDS` (not null) for empty-plan holds.
+4. **Rotate secrets** that were pasted into chat (Neon password, R2 keys, admin password, SMTP app password, session password). Do not commit `.env.staging.local`.
 
 ## 14. Recommendation
 
-**STAGING_FIXES_REQUIRED**
+**EXTRACTION_WORK_REQUIRED**
 
-Blocking: real PostgreSQL persistence + live migration apply + real document extraction corpus.
-
-Non-blocking strengths already demonstrated: P8/P10 invariants, DraftPlan live drafting 100% coverage, provider-failure safety, idempotency, front/back gates, security scan.
+Postgres + migrations + live drafting/semantic + invariants now pass. Remaining release blocker: real document extraction corpus on staging.
 
 Do not production deploy. STOP after staging review.
 
