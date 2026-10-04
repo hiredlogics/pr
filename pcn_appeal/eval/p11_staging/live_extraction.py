@@ -67,6 +67,20 @@ def _norm(value: Any) -> str:
     return s
 
 
+def _date_digits_ymd(value: Any) -> str:
+    """Normalize UK dd/mm/yyyy or ISO yyyy-mm-dd to yyyymmdd digits."""
+    import re
+    s = str(value or "").strip()
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+    if m:
+        return f"{m.group(1)}{m.group(2)}{m.group(3)}"
+    m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})", s)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), m.group(3)
+        return f"{y}{mo:02d}{d:02d}"
+    return "".join(ch for ch in s if ch.isdigit())
+
+
 def _match(expected: Any, got: Any, field: str) -> bool:
     if expected in (None, ""):
         return got not in (None, "")
@@ -76,10 +90,8 @@ def _match(expected: Any, got: Any, field: str) -> bool:
     if field == "vrm":
         return e.replace(" ", "") == g.replace(" ", "")
     if field in ("parking_event_date", "notice_issue_date"):
-        # Accept ISO or UK forms containing the same digits
-        ed = "".join(ch for ch in str(expected) if ch.isdigit())
-        gd = "".join(ch for ch in str(got) if ch.isdigit())
-        return bool(ed) and ed in gd or gd in ed
+        ed, gd = _date_digits_ymd(expected), _date_digits_ymd(got)
+        return bool(ed) and bool(gd) and ed == gd
     if field == "operator_name":
         return e[:12] in g or g[:12] in e
     if field == "alleged_breach":

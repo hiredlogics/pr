@@ -70,14 +70,19 @@ def _gates(agg: dict) -> dict:
 
 
 def _recommendation(agg: dict, gates: dict) -> str:
-    if gates.get("all_required") and gates.get("live_semantic") and gates.get("live_drafting"):
-        return "READY_FOR_PRODUCTION_PILOT"
     if not gates.get("postgresql") or not gates.get("migrations_live"):
         return "STAGING_FIXES_REQUIRED"
     if not gates.get("live_semantic") or not gates.get("live_drafting"):
         return "MODEL_PROVIDER_WORK_REQUIRED"
     if not gates.get("live_extraction"):
         return "EXTRACTION_WORK_REQUIRED"
+    if (
+        gates.get("all_required")
+        and gates.get("live_semantic")
+        and gates.get("live_drafting")
+        and gates.get("live_extraction")
+    ):
+        return "READY_FOR_PRODUCTION_PILOT"
     if not gates.get("all_required"):
         return "STAGING_FIXES_REQUIRED"
     return "STAGING_FIXES_REQUIRED"
