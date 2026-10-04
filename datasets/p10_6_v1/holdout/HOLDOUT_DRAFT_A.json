@@ -1,0 +1,43 @@
+{
+  "case_id": "HOLDOUT_DRAFT_A",
+  "split": "HOLDOUT",
+  "family": "pay_key_unseen",
+  "input": {
+    "customer_narrative": "Completed the tariff on RingGo; the VRM keyed was one digit out.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Holdout Park A",
+      "pcn_number": "HA700901",
+      "vrm": "LL22MMM",
+      "parking_location": "Holdout Plaza A",
+      "site_postcode": "G1 1AA",
+      "parking_event_date": "02/09/2026",
+      "notice_issue_date": "06/09/2026",
+      "alleged_breach": "No payment recorded",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "ringgo.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "facts_any": {
+      "payment_made": true,
+      "keying_error_type": "MINOR"
+    },
+    "substantive_grounds_any": [
+      "KB-PAY-01",
+      "KB-KEY-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "VAL_permit",
+  "split": "VALIDATION",
+  "family": "permit_issue",
+  "notes": "Fresh VAL wording — not copied from DEV_permit_mismatch.",
+  "input": {
+    "customer_narrative": "I have a permit for the block; the notice says bay 3 but my agreement is bay 11.",
+    "customer_answers": {
+      "resident_status": "TENANT",
+      "permit_held": "yes"
+    },
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410105",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Court Residences",
+      "site_postcode": "NG1 4CC",
+      "parking_event_date": "06/08/2026",
+      "notice_issue_date": "10/08/2026",
+      "alleged_breach": "No valid permit displayed",
+      "operator_ata": "BPA",
+      "allocated_bay": "3"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["PERMIT_HELD"],
+    "facts_any": {"permit_held": true},
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "invariants": ["no_legal_conclusion_independent"]
+  }
+}

@@ -699,3 +699,80 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS legal_findings_immutable ON legal_findings;
 CREATE TRIGGER legal_findings_immutable BEFORE UPDATE ON legal_findings
   FOR EACH ROW EXECUTE FUNCTION legal_findings_immutable();
+
+-- ---------------------------------------------------------------- P8.1 master case state
+-- 0010_master_case_state.sql: the sections of the Master Case Object
+-- (pcn_appeal/case_state.py) that have no other home - derivation lineage,
+-- knowledge matches and the grounds of each decided claim plan version.
+-- Append-only: a case's state grows, and an earlier generation is never edited.
+CREATE TABLE IF NOT EXISTS master_case_state (
+  entry_id    bigserial PRIMARY KEY,
+  case_id     uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  section     text NOT NULL CHECK (section IN ('derivations', 'knowledge_matches', 'grounds')),
+  run_id      int,
+  payload     jsonb NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS master_case_state_case ON master_case_state (case_id, entry_id);
+CREATE INDEX IF NOT EXISTS master_case_state_section
+  ON master_case_state (case_id, section, entry_id);
+
+CREATE OR REPLACE FUNCTION master_case_state_append_only() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'master_case_state is append-only: record a new entry';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS master_case_state_append_only ON master_case_state;
+CREATE TRIGGER master_case_state_append_only BEFORE UPDATE OR DELETE ON master_case_state
+  FOR EACH ROW EXECUTE FUNCTION master_case_state_append_only();
+
+-- ---------------------------------------------------------------- P8.3 document belt
+-- 0011_document_baseline.sql: DocumentBaseline + case_analysis_state.
+CREATE TABLE IF NOT EXISTS document_baselines (
+  entry_id    bigserial PRIMARY KEY,
+  case_id     uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  version     int NOT NULL,
+  digest      text NOT NULL,
+  payload     jsonb NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (case_id, version)
+);
+CREATE INDEX IF NOT EXISTS document_baselines_case ON document_baselines (case_id, version);
+
+CREATE OR REPLACE FUNCTION document_baselines_append_only() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'document_baselines is append-only: record a new version';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS document_baselines_append_only ON document_baselines;
+CREATE TRIGGER document_baselines_append_only BEFORE UPDATE OR DELETE ON document_baselines
+  FOR EACH ROW EXECUTE FUNCTION document_baselines_append_only();
+
+CREATE TABLE IF NOT EXISTS case_analysis_state (
+  entry_id                   bigserial PRIMARY KEY,
+  case_id                    uuid NOT NULL REFERENCES cases ON DELETE CASCADE,
+  analysis_version           int NOT NULL,
+  document_baseline_version  int,
+  customer_analysis_version  int,
+  candidate_ground_ids       jsonb,
+  selected_ground_ids        jsonb,
+  verified_ground_ids        jsonb,
+  rejected_ground_ids        jsonb,
+  created_by                 text,
+  timestamp                  timestamptz NOT NULL DEFAULT now(),
+  payload                    jsonb NOT NULL,
+  UNIQUE (case_id, analysis_version)
+);
+CREATE INDEX IF NOT EXISTS case_analysis_state_case ON case_analysis_state (case_id, analysis_version);
+
+CREATE OR REPLACE FUNCTION case_analysis_state_append_only() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'case_analysis_state is append-only: record a new version';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS case_analysis_state_append_only ON case_analysis_state;
+CREATE TRIGGER case_analysis_state_append_only BEFORE UPDATE OR DELETE ON case_analysis_state
+  FOR EACH ROW EXECUTE FUNCTION case_analysis_state_append_only();

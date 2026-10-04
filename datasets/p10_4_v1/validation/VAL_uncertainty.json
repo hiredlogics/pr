@@ -1,0 +1,27 @@
+{
+  "case_id": "VAL_uncertainty",
+  "split": "VALIDATION",
+  "family": "uncertainty",
+  "notes": "Fresh VAL wording — not copied from DEV_uncertain_statement.",
+  "input": {
+    "customer_narrative": "Possibly the vehicle lost power; I'm not sure what happened.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410107",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "08/08/2026",
+      "notice_issue_date": "12/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "uncertain_concepts_any": ["BROKEN_DOWN"],
+    "must_not_promote_facts": ["vehicle_immobilised"],
+    "must_not_affirm_concepts": ["BROKEN_DOWN"],
+    "invariants": ["uncertainty_accuracy", "no_legal_conclusion_independent"]
+  }
+}

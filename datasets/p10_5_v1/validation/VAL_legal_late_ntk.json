@@ -1,0 +1,29 @@
+{
+  "case_id": "VAL_legal_late_ntk",
+  "split": "VALIDATION",
+  "family": "legal_finding",
+  "input": {
+    "customer_narrative": "The notice arrived weeks after the parking date.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS907120",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/08/2026",
+      "notice_issue_date": "25/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "substantive_grounds_any": [
+      "KB-POFA-02"
+    ],
+    "must_not_include_grounds": [
+      "KB-POFA-01",
+      "KB-POFA-05"
+    ]
+  }
+}

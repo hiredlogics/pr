@@ -23,6 +23,47 @@ LEGAL_CRITICAL = frozenset({
     "operator_name", "alleged_breach", "entry_time", "exit_time",
 })
 
+
+def _flat_text(value: Any) -> str:
+    """Stringify nested lists/dicts from audit rows for UI join fields."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, list):
+        parts = [_flat_text(x) for x in value]
+        return ", ".join(p for p in parts if p)
+    if isinstance(value, dict):
+        return ", ".join(f"{k}={_flat_text(v)}" for k, v in value.items())
+    return str(value)
+
+
+def _fact_name(value: Any) -> Optional[str]:
+    """Extract a hashable fact name from support-row / because_of shapes."""
+    if value is None or value is False:
+        return None
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    if isinstance(value, dict):
+        for key in ("fact", "name", "id", "condition"):
+            nested = _fact_name(value.get(key))
+            if nested:
+                return nested
+        return None
+    if isinstance(value, (list, tuple)):
+        # Prefer first resolvable name; otherwise join for display-only use cases.
+        for item in value:
+            nested = _fact_name(item)
+            if nested:
+                return nested
+        return None
+    return str(value)
+
+
 # Map integrity/execution stages onto the console pipeline labels the UI shows.
 PIPELINE = (
     ("UPLOAD", "DOCUMENT_EXTRACTION"),
@@ -35,6 +76,7 @@ PIPELINE = (
     ("RELATIONSHIPS", "KNOWLEDGE_MATCH"),
     ("LEGAL_CALCULATIONS", "CASE_ANALYSIS"),
     ("VERIFIED_FINDINGS", "CASE_ANALYSIS"),
+    ("DOCUMENT_BASELINE", "CASE_ANALYSIS"),
     ("CASE_INTELLIGENCE", "CASE_ANALYSIS"),
     ("GROUND_MERGE", "CLAIM_PLAN"),
     ("CLAIM_PLAN", "CLAIM_PLAN"),
@@ -84,6 +126,24 @@ def _fact_row(name: str, fact) -> dict:
     }
 
 
+def _fact_lifecycle(case, facts: list[dict]) -> list[dict]:
+    """P8.4: FACT CREATED → USED → UPDATED → SUPERSEDED."""
+    from ..fact_lifecycle import lifecycle_trace
+    used = {f["name"]: list(f.get("used_by") or []) for f in facts}
+    rows = lifecycle_trace(case)
+    for row in rows:
+        row["used_by"] = used.get(row.get("name")) or row.get("used_by") or []
+        if row["used_by"] and row.get("event") == "FACT CREATED":
+            row["used"] = True
+    return rows
+
+
+def _fact_write_trace(case) -> list[dict]:
+    """P8.7: first write, later writes, IGNORED_DUPLICATE decisions."""
+    from ..fact_lifecycle import fact_write_trace
+    return fact_write_trace(case)
+
+
 def _enrich_used_by(facts: list[dict], case, plan) -> None:
     by_name = {f["name"]: f for f in facts}
     # Derived lineage from narrative atoms → multiple_visits
@@ -98,12 +158,12 @@ def _enrich_used_by(facts: list[dict], case, plan) -> None:
             mid = item.module_id
             for row in item.supporting_facts or ():
                 row = dict(row) if not isinstance(row, dict) else dict(row)
-                fname = row.get("fact") or row.get("condition")
-                if fname in by_name and mid not in by_name[fname]["used_by"]:
+                fname = _fact_name(row.get("fact") or row.get("condition"))
+                if fname and fname in by_name and mid not in by_name[fname]["used_by"]:
                     by_name[fname]["used_by"].append(mid)
                 for dep in row.get("because_of") or []:
-                    dname = dep.get("fact") if isinstance(dep, dict) else dep
-                    if dname in by_name and mid not in by_name[dname]["used_by"]:
+                    dname = _fact_name(dep)
+                    if dname and dname in by_name and mid not in by_name[dname]["used_by"]:
                         by_name[dname]["used_by"].append(mid)
 
 
@@ -242,11 +302,27 @@ def _relationships(case, plan) -> list[dict]:
                     "type": r.get("type") or r.get("relationship") or "RELATED",
                     "from_id": None, "to_id": item.module_id,
                 })
-    # Deduplicate
-    seen = set()
+    def _edge_key(edge: dict) -> tuple:
+        """Make from/to hashable — selected_because / blocked_by can be lists."""
+        def _norm(v):
+            if isinstance(v, list):
+                return tuple(_norm(x) for x in v)
+            if isinstance(v, dict):
+                return tuple(sorted((k, _norm(val)) for k, val in v.items()))
+            return v
+        return (_norm(edge.get("from")), _norm(edge.get("to")), edge.get("type"))
+
+    seen: set = set()
     out = []
     for e in edges:
-        key = (e.get("from"), e.get("to"), e.get("type"))
+        # Flatten list endpoints so the UI gets readable strings.
+        for end in ("from", "to"):
+            v = e.get(end)
+            if isinstance(v, list):
+                e[end] = ", ".join(str(x) for x in v) if v else None
+            elif isinstance(v, dict):
+                e[end] = str(v)
+        key = _edge_key(e)
         if key in seen:
             continue
         seen.add(key)
@@ -262,7 +338,7 @@ def _legal_findings(case) -> list[dict]:
         calc = f.get("calculation_result") or f.get("calculation") or {}
         rows.append({
             "finding_id": f.get("finding_id") or f.get("code") or f.get("family"),
-            "family": f.get("family") or f.get("code"),
+            "family": f.get("finding_type") or f.get("family") or f.get("code"),
             "status": f.get("status"),
             "legal_module_id": f.get("legal_module_id") or f.get("module_id"),
             "particulars": f.get("particulars") or {},
@@ -278,35 +354,44 @@ def _knowledge(case) -> dict:
     buckets = {
         "SUPPORTED": [], "RELEVANT": [], "REJECTED": [], "BLOCKED": [], "UNRESOLVED": [],
     }
+    # P8.6: join KM buckets to the LOCKED claim plan (not KM alone).
+    from ..engines.claim_plan_authority import latest_locked
+    plan = latest_locked(case)
+    plan_ids = set(plan.supported_ids) if plan is not None else set()
+
     for row in km.get("selected") or []:
+        because = row.get("selected_because") or []
+        mid = row.get("module") or row.get("module_id")
         buckets["SUPPORTED"].append({
-            "module_id": row.get("module") or row.get("module_id"),
-            "reason": ", ".join(row.get("selected_because") or []) or row.get("reason"),
-            "facts_available": row.get("selected_because") or [],
+            "module_id": mid,
+            "reason": _flat_text(because) or row.get("reason"),
+            "facts_available": because if isinstance(because, list) else [because],
             "missing_facts": row.get("missing") or [],
             "final_decision": "SUPPORTED",
-            "in_claim_plan": None,
+            "in_claim_plan": mid in plan_ids if mid else None,
         })
     for row in km.get("relevant") or []:
         mid = row if isinstance(row, str) else (row.get("module") or row.get("module_id"))
         buckets["RELEVANT"].append({
             "module_id": mid, "reason": "relevant", "final_decision": "RELEVANT",
-            "facts_available": [], "missing_facts": [], "in_claim_plan": None,
+            "facts_available": [], "missing_facts": [],
+            "in_claim_plan": mid in plan_ids if mid else None,
         })
     for row in km.get("rejected") or []:
         status = row.get("status") or "REJECTED"
         bucket = "BLOCKED" if status == "BLOCKED" else "REJECTED"
+        mid = row.get("module") or row.get("module_id")
         buckets[bucket].append({
-            "module_id": row.get("module") or row.get("module_id"),
+            "module_id": mid,
             "reason": row.get("reason"),
             "blocking_condition": row.get("reason") if status == "BLOCKED" else None,
             "facts_available": row.get("facts") or [],
             "missing_facts": row.get("missing") or [],
             "final_decision": status,
-            "in_claim_plan": False,
+            # May still be in plan via VERIFIED_FINDING / CARRIED_FORWARD.
+            "in_claim_plan": mid in plan_ids if mid else False,
         })
     return buckets
-
 
 def _ground_sets(case, plan) -> dict:
     """Critical merge view: independent / narrative / verified / carried / final."""
@@ -352,41 +437,71 @@ def _ground_sets(case, plan) -> dict:
             else:
                 narrative.append(entry)
 
-    # Integrity: VERIFIED finding module missing from final without invalidation.
+    # P8.6: integrity only when a VERIFIED-licensed module is absent AND the
+    # builder left no reject reason (GATE / NO_SUPPORT / BLOCKED / …). Legitimate
+    # gate lapses are recorded on plan items, not as corruption.
     integrity_errors = []
     final_ids = {g["module_id"] for g in final}
+    rejected_with_reason = {
+        i.module_id: i.decision
+        for i in (plan.items if plan is not None else [])
+        if i.status != "SUPPORTED" and i.decision
+    }
+    from .module_decisions import expected_rejection
+    rejected_items = {
+        i.module_id: i
+        for i in (plan.items if plan is not None else [])
+        if i.status != "SUPPORTED"
+    }
     for mid in verified_ids:
         if mid and mid not in final_ids:
+            item = rejected_items.get(mid)
+            if item is not None and expected_rejection(item.decision, item.reason):
+                continue
+            if rejected_with_reason.get(mid) and expected_rejection(
+                    rejected_with_reason.get(mid), ""):
+                continue
             inv = any(g.get("module_id") == mid for g in invalidated)
             if not inv:
                 integrity_errors.append({
                     "code": "GROUND_INTEGRITY_FAILURE",
                     "message": (
                         f"{mid} was licensed by a VERIFIED legal finding but "
-                        "disappeared from the final ground set with no INVALIDATES record."
+                        "disappeared from the final ground set with no builder "
+                        "reject reason (GATE/NO_SUPPORT/BLOCKED/…)."
                     ),
                     "ground": mid,
                 })
 
-    # Flag when a previous locked plan had a ground the current final lacks.
+    # Prior plan drop: only flag when the new plan has no reject reason for it.
     plans = list(getattr(case, "claim_plans", []) or [])
     if len(plans) >= 2:
         a, b = plans[-2], plans[-1]
         a_ids = set(a.supported_ids)
         b_ids = set(b.supported_ids)
+        b_reject_items = {i.module_id: i for i in b.items}
+        b_reject = {
+            i.module_id: i.decision
+            for i in b.items
+            if i.status != "SUPPORTED" and i.decision
+        }
         for mid in sorted(a_ids - b_ids):
+            item = b_reject_items.get(mid)
+            if item is not None and expected_rejection(item.decision, item.reason):
+                continue
+            if expected_rejection(b_reject.get(mid) or "", ""):
+                continue
             if not any(g.get("module_id") == mid for g in invalidated):
                 integrity_errors.append({
                     "code": "GROUND_INTEGRITY_FAILURE",
                     "message": (
                         f"{mid} existed in plan v{a.version} but disappeared in "
-                        f"v{b.version}. No INVALIDATES relationship exists."
+                        f"v{b.version} without a recorded gate/support/block reason."
                     ),
                     "ground": mid,
                     "from_version": a.version,
                     "to_version": b.version,
                 })
-
     return {
         "independent_notice": independent,
         "narrative": narrative,
@@ -400,60 +515,95 @@ def _ground_sets(case, plan) -> dict:
     }
 
 
-def _support_bundle(item) -> dict:
-    facts, derived, calc, findings, evidence, rels, allegation = (
-        [], [], [], [], [], [], [],
-    )
-    for row in item.supporting_facts or ():
-        r = dict(row) if not isinstance(row, dict) else dict(row)
-        name = r.get("fact") or r.get("condition")
-        entry = {
-            "condition": r.get("condition"),
-            "fact": name,
-            "value": r.get("value"),
-            "fact_id": r.get("fact_id"),
-            "source": r.get("source"),
-        }
-        if r.get("because_of"):
-            derived_names = [
-                (d.get("fact") if isinstance(d, dict) else d) for d in r["because_of"]
-            ]
-            derived.extend([n for n in derived_names if n])
-            entry["because_of"] = derived_names
-        facts.append(entry)
-    for e in item.evidence_refs or ():
-        evidence.append(dict(e) if not isinstance(e, dict) else dict(e))
-    for rel in item.relationships or ():
-        rels.append(dict(rel) if not isinstance(rel, dict) else dict(rel))
-    # Heuristic split for derived vs supporting
-    derived_set = set(derived) | {f["fact"] for f in facts
-                                  if f.get("fact") in ("multiple_visits",)}
-    supporting = [f for f in facts if f.get("fact") not in derived_set]
-    must_express = []
-    for f in supporting:
-        if f.get("fact"):
-            must_express.append(f["fact"])
-    for d in sorted(derived_set):
-        must_express.append(d)
-    if item.decision == "VERIFIED_FINDING":
-        must_express.extend(["event_date", "issue_date", "statutory_deadline",
-                             "deemed_delivery", "days_outside"])
-    if item.module_id.startswith("KB-ANPR"):
-        for p in ("purpose_of_visit", "left_site", "returned_same_day",
-                  "why_anpr_does_not_prove_continuous_stay"):
-            if p not in must_express:
-                must_express.append(p)
+def _ground_sources(case, plan) -> dict:
+    """P8.2 trace: verified findings vs CI selection vs the final plan."""
+    from ..engines.claim_plan_authority import VERIFIED_FINDING, latest_locked
+    plan = plan or latest_locked(case)
+    findings = _legal_findings(case)
+    verified = [
+        {"finding_type": f.get("family") or f.get("finding_id"),
+         "module_id": f.get("legal_module_id"), "status": "VERIFIED"}
+        for f in findings if f.get("status") == "VERIFIED"
+    ]
+    selected = []
+    if plan is not None:
+        selected = list((_thaw_trust(plan) or {}).get("proposals", {}).get("selected") or [])
+        if not selected:
+            selected = list(getattr(case, "analysis_module_ids", None) or [])
+    vf_modules = []
+    if plan is not None:
+        vf_modules = [i.module_id for i in plan.supported if i.decision == VERIFIED_FINDING]
+    omitted = [mid for mid in vf_modules if mid not in set(selected)]
+    overrides = [
+        {"module_id": mid,
+         "reason": "Verified finding authority overrides omission."}
+        for mid in omitted
+    ]
     return {
-        "allegation_refs": allegation or [item.topic or item.claim_type],
+        "verified_findings": verified,
+        "case_intelligence": {
+            "selected": selected,
+            "not_selected": omitted,
+        },
+        "final_claim_plan": list(plan.supported_ids) if plan is not None else [],
+        "overrides": overrides,
+        "source_trace": plan.source_trace() if plan is not None else ["GROUND SOURCES"],
+        "invalidations": list((_thaw_trust(plan) or {}).get("invalidations") or [])
+        if plan is not None else [],
+    }
+
+
+def _document_baseline_view(case, plan) -> dict:
+    """Trace: DOCUMENT BASELINE → CUSTOMER DELTA → FINAL."""
+    from ..document_baseline import baseline_trace, latest_analysis_state, latest_baseline
+    base = latest_baseline(case)
+    state = latest_analysis_state(case)
+    return {
+        "created": ["extraction", "calculations", "findings"] if base is not None else [],
+        "version": getattr(base, "version", None),
+        "digest": getattr(base, "digest", None),
+        "legal_findings": list(getattr(base, "legal_findings", None) or []),
+        "document_grounds": list(getattr(base, "document_grounds", None) or []),
+        "document_finding_types": list(getattr(base, "document_finding_types", None) or []),
+        "customer_delta": list(getattr(state, "add_ground_candidates", None) or []),
+        "final": list(plan.supported_ids) if plan is not None else list(
+            getattr(base, "document_grounds", None) or []),
+        "analysis_version": getattr(state, "analysis_version", None),
+        "trace": baseline_trace(case, plan),
+    }
+
+
+def _thaw_trust(plan) -> dict:
+    t = getattr(plan, "trust", None) or {}
+    if hasattr(t, "items"):
+        return {k: (dict(v) if hasattr(v, "items") else v) for k, v in t.items()}
+    return {}
+
+
+def _support_bundle(item) -> dict:
+    from ..drafting.support_contract import bundle_for_item, requirement_for_item
+    bundle = bundle_for_item(item)
+    req = requirement_for_item(item)
+    supporting = [{"fact": n, "value": bundle.values.get(n),
+                   "fact_id": bundle.source_fact_ids[i] if i < len(bundle.source_fact_ids) else n}
+                  for i, n in enumerate(bundle.source_fact_names)]
+    evidence = [dict(e) if not isinstance(e, dict) else dict(e)
+                for e in (item.evidence_refs or ())]
+    return {
+        "allegation_refs": [item.topic or item.claim_type],
         "supporting_facts": supporting,
-        "derived_facts": sorted(derived_set),
-        "calculated_facts": calc,
-        "verified_findings": findings,
+        "derived_facts": list(bundle.derived_fact_names),
+        "source_fact_ids": list(bundle.source_fact_ids),
+        "derived_fact_ids": list(bundle.derived_fact_ids),
+        "calculated_facts": [],
+        "verified_findings": list(bundle.legal_finding_ids),
         "evidence": evidence,
-        "relationship_ids": [r.get("id") or r.get("type") for r in rels],
+        "relationship_ids": list(bundle.relationship_ids),
+        "complete": bundle.complete(),
         "draft_requirement": {
-            "must_express": must_express,
-            "must_not_express": ["driver_identity_unless_formally_identified"],
+            "must_express": list(req.required_particulars),
+            "must_not_express": list(req.prohibited_content),
+            "explanation_goal": list(req.explanation_goal),
             "legal_licence": item.decision,
         },
     }
@@ -490,6 +640,8 @@ def _claim_plan_view(plan) -> Optional[dict]:
             for r in (plan.material_fact_accounting or ())
         ],
         "trace": plan.trace(),
+        "source_trace": plan.source_trace(),
+        "invalidations": list((_thaw_trust(plan) or {}).get("invalidations") or []),
     }
 
 
@@ -509,15 +661,16 @@ def _draft_context(case, plan, out) -> dict:
         fact_basis[name] = f.source.kind.value
     # Narrative atoms that are in a support bundle SHOULD be in draft context;
     # flag when they are missing (lossy boundary detector).
-    plan_facts = set()
+    plan_facts: set[str] = set()
     if plan is not None:
         for item in plan.supported:
             for row in item.supporting_facts or ():
                 r = dict(row) if not isinstance(row, dict) else dict(row)
-                if r.get("fact"):
-                    plan_facts.add(r["fact"])
+                fname = _fact_name(r.get("fact") or r.get("condition"))
+                if fname:
+                    plan_facts.add(fname)
                 for dep in r.get("because_of") or []:
-                    dname = dep.get("fact") if isinstance(dep, dict) else dep
+                    dname = _fact_name(dep)
                     if dname:
                         plan_facts.add(dname)
     missing_from_context = sorted(
@@ -539,14 +692,11 @@ def _draft_context(case, plan, out) -> dict:
         "verified_facts": verified_facts,
         "fact_basis": fact_basis,
         "verified_findings": findings,
-        "evidence_refs": [
-            e.evidence_id for e in getattr(case, "evidence", []) or []
-            if getattr(e, "uploaded", True)
-        ],
+        "evidence_refs": sorted(str(k) for k in (getattr(case, "evidence", None) or {})),
         "driver_status": driver,
-        "operator": _plain(case.get("operator_name")) if hasattr(case, "get") else None,
-        "pcn_number": _plain(case.get("pcn_number")) if hasattr(case, "get") else None,
-        "vrm": _plain(case.get("vrm")) if hasattr(case, "get") else None,
+        "operator": _plain(case.facts["operator_name"].value) if case.facts.get("operator_name") else None,
+        "pcn_number": _plain(case.facts["pcn_number"].value) if case.facts.get("pcn_number") else None,
+        "vrm": _plain(case.facts["vrm"].value) if case.facts.get("vrm") else None,
         "context_audit": {
             "context_sha256": (dc or {}).get("context_sha256"),
             "claim_plan_id": (dc or {}).get("claim_plan_id"),
@@ -634,6 +784,8 @@ def _validation(case, out) -> dict:
         "VAL-PARTICULARS", "VAL-LEGAL-FINDING", "VAL-POFA-AUTHORITY",
         "VAL-DRIVER", "VAL-FACT", "VAL-EVIDENCE", "VAL-CONFLICT",
         "VAL-IDENTITY", "VAL-PLACEHOLDER", "VAL-INTEGRITY",
+        "VAL-MODULE-TRACE", "VAL-VERIFIED-GROUND-PRESENCE", "VAL-EXPECTED-REJECTION",
+        "VAL-FACT-AUTHORITY", "VAL-FACT-STABILITY", "VAL-DERIVED-CONSISTENCY",
     ]
     seen = {c["rule"] for c in checks}
     for rule in catalogue:
@@ -657,6 +809,12 @@ def _pipeline_fixed(case, trace, grounds, plan, draft_ctx, validation) -> list[d
                 status = "UNRESOLVED"
             elif st.get("status") == "NOT_RUN":
                 status = "NOT_RUN"
+        if label == "DOCUMENT_BASELINE":
+            from ..document_baseline import latest_baseline
+            base = latest_baseline(case)
+            if base is not None:
+                status = "PASS"
+                detail = detail or f"v{base.version} digest={base.digest[:12]}"
         if label == "GROUND_MERGE":
             if grounds.get("integrity_errors"):
                 status, detail = "FAIL", grounds["integrity_errors"][0]["message"][:200]
@@ -847,6 +1005,10 @@ def build_console(case, out=None, kg=None, *, include_raw_narrative: bool = Fals
     relationships = _relationships(case, plan)
     knowledge = _knowledge(case)
     grounds = _ground_sets(case, plan)
+    from .module_decisions import build_module_journey
+    module_view = build_module_journey(
+        case, plan, getattr(out, "draft", None) if out else None,
+        integrity_errors=grounds.get("integrity_errors") or [])
     # Mark knowledge in_claim_plan
     approved = set(plan.supported_ids) if plan else set()
     for bucket in knowledge.values():
@@ -896,12 +1058,19 @@ def build_console(case, out=None, kg=None, *, include_raw_narrative: bool = Fals
         "pipeline": pipeline,
         "extraction": extraction,
         "facts": facts,
+        "fact_lifecycle": _fact_lifecycle(case, facts),
+        "fact_write_trace": _fact_write_trace(case),
         "narrative": narrative,
         "allegations": allegations,
         "relationships": relationships,
         "legal_findings": findings,
         "knowledge": knowledge,
+        "module_journey": module_view["journey"],
+        "module_decisions": module_view["decisions"],
+        "module_trace_checks": module_view["checks"],
         "grounds": grounds,
+        "ground_sources": _ground_sources(case, plan),
+        "document_baseline": _document_baseline_view(case, plan),
         "claim_plan": claim_plan,
         "draft_context": draft_ctx,
         "draft": draft,
@@ -949,41 +1118,100 @@ def compare_runs(case, run_a: Optional[int] = None, run_b: Optional[int] = None)
     a_ids, b_ids = set(ground_ids(a)), set(ground_ids(b))
     added = sorted(b_ids - a_ids)
     removed = sorted(a_ids - b_ids)
+    a_mods = {i.module_id for i in a.items}
+    b_mods = {i.module_id for i in b.items}
+    from .module_decisions import expected_rejection
+    b_items = {i.module_id: i for i in b.items}
+    b_inv = {
+        str(i.get("ground_id")): i
+        for i in (_thaw_trust(b).get("invalidations") or [])
+        if isinstance(i, dict) and i.get("ground_id")
+    }
     integrity_errors = []
-    for mid in removed:
-        integrity_errors.append({
-            "code": "GROUND_INTEGRITY_FAILURE",
-            "message": (
-                f"Ground {mid} present in run A (plan v{a.version}) but missing in "
-                f"run B (plan v{b.version}) after further customer information."
-            ),
-            "ground": mid,
-        })
+    removals = []
+    for mid in removed + sorted(a_mods - b_mods):
+        if any(r.get("module_id") == mid for r in removals):
+            continue
+        item = b_items.get(mid)
+        inv = b_inv.get(mid)
+        if inv:
+            removals.append({
+                "module_id": mid, "kind": "invalidation",
+                "reason": inv.get("reason") or "invalidated",
+                "explain": inv.get("reason") or "invalidated",
+            })
+        elif item is not None and expected_rejection(item.decision, item.reason):
+            removals.append({
+                "module_id": mid, "kind": "requirements_unavailable",
+                "reason": item.reason or item.decision,
+                "explain": "not selected because requirements unavailable",
+            })
+        elif mid in removed:
+            removals.append({
+                "module_id": mid, "kind": "unexplained",
+                "reason": "",
+                "explain": "removed with no invalidation or expected-rejection reason",
+            })
+            integrity_errors.append({
+                "code": "GROUND_INTEGRITY_FAILURE",
+                "message": (
+                    f"Ground {mid} present in run A (plan v{a.version}) but missing in "
+                    f"run B (plan v{b.version}) after further customer information, "
+                    "with no recorded gate/support/block reason."
+                ),
+                "ground": mid,
+            })
 
-    facts_added, facts_removed = [], []
-    if a.run_number != b.run_number:
-        # Approximate: narrative / account facts present on the live case
+    def _facts_of(p):
+        used = (_thaw_trust(p) or {}).get("facts_used") or {}
+        if isinstance(used, dict):
+            return {str(k): (v.get("value") if isinstance(v, dict) else v)
+                    for k, v in used.items()}
+        return {}
+
+    fa, fb = _facts_of(a), _facts_of(b)
+    facts_added = [{"name": n, "value": fb[n]} for n in sorted(set(fb) - set(fa))]
+    facts_removed = [{"name": n, "value": fa[n]} for n in sorted(set(fa) - set(fb))]
+    facts_changed = [{"name": n, "from": fa[n], "to": fb[n]}
+                     for n in sorted(set(fa) & set(fb)) if fa[n] != fb[n]]
+    if not fa and not fb and a.run_number != b.run_number:
         for n in ("left_site", "returned_same_day", "purpose_of_visit",
                   "visited_premises", "multiple_visits", "forgotten_item"):
             f = case.facts.get(n)
             if f is not None and f.usable:
                 facts_added.append({"name": n, "value": _plain(f.value)})
 
+    def _findings_of(p):
+        trust = _thaw_trust(p) or {}
+        rows = trust.get("verified_finding_types") or trust.get("findings") or []
+        if isinstance(rows, list) and rows:
+            return [str(x.get("family") if isinstance(x, dict) else x) for x in rows]
+        return []
+
     findings = _legal_findings(case)
-    finding_ids = [f.get("family") or f.get("finding_id") for f in findings
-                   if f.get("status") == "VERIFIED"]
+    live = [f.get("family") or f.get("finding_id") for f in findings
+            if f.get("status") == "VERIFIED"]
+    find_a = _findings_of(a) or live
+    find_b = _findings_of(b) or live
 
     return {
         "a": {"label": f"Run A — plan v{a.version}", "version": a.version,
               "run_number": a.run_number, "grounds": ground_ids(a),
-              "findings": finding_ids},
+              "modules": sorted(a_mods), "findings": find_a},
         "b": {"label": f"Run B — plan v{b.version}", "version": b.version,
               "run_number": b.run_number, "grounds": ground_ids(b),
-              "findings": finding_ids},
+              "modules": sorted(b_mods), "findings": find_b},
+        "modules": {"added": sorted(b_mods - a_mods), "removed": sorted(a_mods - b_mods),
+                    "unchanged": sorted(a_mods & b_mods)},
         "grounds": {"added": added, "removed": removed, "unchanged": sorted(a_ids & b_ids)},
-        "facts": {"added": facts_added, "removed": facts_removed},
-        "legal_findings": {"a": finding_ids, "b": finding_ids},
+        "facts": {"added": facts_added, "removed": facts_removed, "changed": facts_changed},
+        "findings": {"added": sorted(set(find_b) - set(find_a)),
+                     "removed": sorted(set(find_a) - set(find_b)),
+                     "unchanged": sorted(set(find_a) & set(find_b))},
+        "legal_findings": {"a": find_a, "b": find_b},
+        "removals": removals,
         "integrity_errors": integrity_errors,
+        "explained": all(r.get("kind") != "unexplained" for r in removals),
     }
 
 
@@ -1008,6 +1236,60 @@ def copy_report(console: dict) -> str:
     for p in console.get("pipeline") or []:
         lines.append(f"  {p.get('stage')}: {p.get('status')}"
                      + (f" — {p.get('detail')}" if p.get("detail") else ""))
+    db = console.get("document_baseline") or {}
+    lines += ["", "DOCUMENT BASELINE"]
+    for t in db.get("document_finding_types") or db.get("document_grounds") or []:
+        lines.append(f"  ✓ {t}")
+    lines.append("CUSTOMER DELTA")
+    delta = db.get("customer_delta") or []
+    if delta:
+        lines.extend(f"  + {m}" for m in delta)
+    else:
+        lines.append("  (none)")
+    lines.append("FINAL")
+    for mid in db.get("final") or []:
+        lines.append(f"  ✓ {mid}")
+    lines += ["", "MODULE JOURNEY"]
+    for row in console.get("module_journey") or []:
+        km = (row.get("knowledge") or {}).get("decision") or "—"
+        ci = (row.get("case_intelligence") or {}).get("decision") or "—"
+        cp = (row.get("claim_plan") or {}).get("decision") or "—"
+        dr = (row.get("draft") or {}).get("decision") or "—"
+        lines.append(f"  {row.get('module_id')}")
+        lines.append(f"    Knowledge Matcher: {km}")
+        req = row.get("required_facts") or []
+        if req:
+            lines.append(f"    Required facts: {', '.join(req)}")
+        miss = row.get("missing_facts") or []
+        if miss:
+            lines.append(f"    Missing: {', '.join(miss)}")
+        lines.append(f"    Case Intelligence: {ci}")
+        lines.append(f"    Claim Plan: {cp}")
+        lines.append(f"    Draft: {dr}")
+        reason = ((row.get("claim_plan") or {}).get("reason")
+                  or (row.get("case_intelligence") or {}).get("reason")
+                  or (row.get("applicability") or {}).get("reason"))
+        if reason:
+            lines.append(f"    Reason: {reason}")
+        lines.append(f"    Integrity: {row.get('integrity') or 'PASS'}")
+    gs = console.get("ground_sources") or {}
+    lines += ["", "GROUND SOURCES", "Verified findings:"]
+    for x in gs.get("verified_findings") or []:
+        lines.append(f"  ✓ {x.get('finding_type') or x.get('module_id')}")
+    ci = gs.get("case_intelligence") or {}
+    lines.append("Case Intelligence:")
+    if ci.get("not_selected"):
+        for mid in ci["not_selected"]:
+            lines.append(f"  not selected {mid}")
+    elif ci.get("selected"):
+        lines.append("  selected " + ", ".join(ci["selected"]))
+    else:
+        lines.append("  none")
+    lines.append("Final Claim Plan:")
+    for mid in gs.get("final_claim_plan") or []:
+        lines.append(f"  ✓ {mid}")
+    for ov in gs.get("overrides") or []:
+        lines.append(f"Reason: {ov.get('reason')}")
     g = console.get("grounds") or {}
     lines += ["", "Grounds independent:"]
     for x in g.get("independent_notice") or []:
@@ -1029,6 +1311,36 @@ def copy_report(console: dict) -> str:
         for r in why.get("reasons") or []:
             lines.append(f"  - {r}")
     # Facts (non-redacted names/values already scrubbed)
+    lines += ["", "PARTICULARISATION:"]
+    for item in (console.get("claim_plan") or {}).get("items") or []:
+        if item.get("status") != "SUPPORTED":
+            continue
+        b = item.get("support_bundle") or {}
+        req = item.get("draft_requirement") or {}
+        lines.append(f"  GROUND {item.get('module_id')}")
+        src = [f.get("fact") for f in (b.get("supporting_facts") or []) if f.get("fact")]
+        lines.append(f"    SOURCE FACTS: {', '.join(src) or '—'}")
+        lines.append(f"    DERIVED FACTS: {', '.join(b.get('derived_facts') or []) or '—'}")
+        lines.append(f"    SUPPORT BUNDLE: {'complete' if b.get('complete') else 'incomplete'}")
+        lines.append(f"    DRAFT REQUIREMENTS: {', '.join(req.get('must_express') or []) or '—'}")
+        linked = [p.get("text") for p in ((console.get("draft") or {}).get("paragraphs") or [])
+                  if item.get("module_id") in (p.get("module_refs") or [])]
+        lines.append(f"    DRAFT SENTENCES: {len(linked)}")
+    lines += ["", "FACT WRITE TRACE:"]
+    for row in console.get("fact_write_trace") or []:
+        first = row.get("first_write") or {}
+        lines.append(f"  FACT: {row.get('fact')}={row.get('value')}")
+        lines.append(f"    First write: {first.get('authority') or first.get('source') or '—'}")
+        for w in row.get("writes") or []:
+            lines.append(
+                f"    Later: {w.get('authority') or w.get('source')} "
+                f"→ {w.get('decision')} ({w.get('reason') or ''})")
+        if row.get("held_authority"):
+            lines.append(f"    Held authority: {row['held_authority']}")
+    lines += ["", "FACT LIFECYCLE:"]
+    for row in console.get("fact_lifecycle") or []:
+        extra = f" used by {', '.join(row.get('used_by') or [])}" if row.get("used_by") else ""
+        lines.append(f"  {row.get('event')}: {row.get('name')}={row.get('value')}{extra}")
     lines += ["", "Key facts:"]
     for f in console.get("extraction") or []:
         lines.append(f"  {f.get('name')}={f.get('value')} ({f.get('status')})")

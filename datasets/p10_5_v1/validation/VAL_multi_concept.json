@@ -1,0 +1,40 @@
+{
+  "case_id": "VAL_multi_concept",
+  "split": "VALIDATION",
+  "family": "multi_concept",
+  "input": {
+    "customer_narrative": "Paid via app with a mistyped plate; later left and came back.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS367681",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "app.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "PAYMENT_MADE",
+      "KEYING_ERROR",
+      "LEFT_SITE",
+      "RETURNED"
+    ]
+  }
+}

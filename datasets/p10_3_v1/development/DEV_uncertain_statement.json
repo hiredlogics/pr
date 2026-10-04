@@ -1,0 +1,23 @@
+{
+  "case_id": "DEV_uncertain_statement",
+  "split": "DEVELOPMENT",
+  "family": "uncertain_statement",
+  "input": {
+    "customer_narrative": "Maybe the car broke down, not sure — I cannot remember clearly.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900107",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "07/06/2026",
+      "notice_issue_date": "11/06/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_promote_facts": ["vehicle_immobilised"]
+  }
+}

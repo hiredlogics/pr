@@ -1,0 +1,288 @@
+{
+  "golden": {
+    "case_id": "REG_no_notice",
+    "dataset_version": "p9_v1",
+    "completeness": "COMPLETE",
+    "split": "VALIDATION",
+    "approval_status": "DEVELOPMENT_APPROVED",
+    "family": "not_a_pcn",
+    "operator": "unknown",
+    "allegation": "none",
+    "legal_route": "out_of_scope",
+    "circumstance": "receipt_only",
+    "evidence_type": "pay_and_display_ticket",
+    "notes": "Not a PCN. Must stop cleanly with no letter and no KB/VAL leak.",
+    "paired_with": null,
+    "input": {
+      "notice_front": "",
+      "notice_back": "",
+      "customer_narrative": "I paid for parking, here is my ticket.",
+      "customer_answers": {},
+      "answer_policy": "skip",
+      "evidence": [
+        {
+          "evidence_id": "E1",
+          "filename": "receipt.txt",
+          "kind": "OTHER",
+          "doc_type": "OTHER",
+          "text": "Riverside Retail Park - Pay and Display\nTicket 00412  12/06/2026 14:10\nPaid: 2.00  Expires: 16:10\nThank you for your visit"
+        }
+      ],
+      "corrections": {},
+      "extraction_fields": {},
+      "doc_types": {
+        "E1": "OTHER"
+      },
+      "image_path": null
+    },
+    "expected": {
+      "classification": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "not_pcn": true
+        }
+      },
+      "extraction": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "facts": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "derived_facts": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "relationships": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "questions": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "legal_findings": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "knowledge_matches": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "supported_grounds": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "rejected_grounds": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "invalidated_grounds": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "claim_plan": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "required_particulars": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "prohibited_claims": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "final_outcome": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "letter_must_be_empty": true,
+          "letter_excludes": [
+            "KB-",
+            "VAL-"
+          ]
+        }
+      },
+      "final_appeal_requirements": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "must_express": [],
+          "must_not_express": [
+            "KB-",
+            "VAL-"
+          ],
+          "exact_wording_approved": false
+        }
+      },
+      "ground_origins": {}
+    },
+    "governance": {
+      "approved_by": "development_test_suite",
+      "approved_at": "2026-10-04",
+      "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+    }
+  },
+  "actual": {
+    "ok": true,
+    "extraction_method": "INJECTED_EMPTY",
+    "error": null,
+    "state": "NO_APPEAL_RIGHT",
+    "outcome": null,
+    "scope_stop": "UNSUPPORTED",
+    "document_classes": {
+      "E1": "OTHER"
+    },
+    "asked_questions": [],
+    "pending_questions": [],
+    "facts": {
+      "jurisdiction": {
+        "value": "UNKNOWN",
+        "status": "CONFIRMED",
+        "source": "CALCULATION",
+        "fact_id": "F-jurisdiction",
+        "authority": null
+      },
+      "notice_route": {
+        "value": "UNKNOWN",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_route",
+        "authority": null
+      }
+    },
+    "findings": [],
+    "pofa_findings": [],
+    "pofa_route": null,
+    "primary_route": null,
+    "retrieved_modules": [],
+    "supported_grounds": [],
+    "claim_plan_items": [],
+    "plan_digest": null,
+    "plan_id": null,
+    "draft_context": {},
+    "draft_context_error": null,
+    "letter": "",
+    "validation_passed": null,
+    "validation_issues": [],
+    "placeholders": [],
+    "master_digest": "e84526003eede720f36c401c9c8904440087babceb8687cef170b47848590457",
+    "versions": {
+      "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+      "kb_release": null,
+      "prompt_versions": {
+        "extraction": 10,
+        "drafting": 16,
+        "case_analysis": 8,
+        "validation": 3,
+        "page_references": 2,
+        "classification": 2
+      },
+      "model_provider": "ReferenceAnalysisLLM",
+      "claim_plan_builder_version": "3",
+      "master_case_object_version": 1,
+      "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+    },
+    "persist": {
+      "status": "N/A"
+    }
+  },
+  "scores": {
+    "scores": {
+      "classification": {
+        "status": "SCORED",
+        "document_classes": {
+          "E1": "OTHER"
+        },
+        "scope_stop": "UNSUPPORTED",
+        "issues": [],
+        "passed": true
+      },
+      "extraction": {
+        "status": "N/A",
+        "reason": "no extraction gold",
+        "method": "INJECTED_EMPTY"
+      },
+      "facts": {
+        "status": "N/A"
+      },
+      "derived": {
+        "status": "N/A"
+      },
+      "questions": {
+        "status": "N/A",
+        "asked": [],
+        "zero_questions_valid": true
+      },
+      "findings": {
+        "status": "N/A"
+      },
+      "retrieval": {
+        "status": "N/A",
+        "retrieved": [],
+        "note": "retrieved candidate \u2260 approved ground"
+      },
+      "grounds": {
+        "status": "N/A",
+        "selected": []
+      },
+      "claim_plan": {
+        "status": "N/A",
+        "item_count": 0
+      },
+      "draft_context": {
+        "status": "N/A",
+        "draft_context_error": null
+      },
+      "draft": {
+        "status": "SCORED",
+        "must_express_missing": [],
+        "must_not_express_hit": [],
+        "placeholders": [],
+        "driver_unsafe": false,
+        "ground_coverage": "N/A",
+        "material_fact_coverage": 1.0,
+        "unsupported_assertion_rate": 0.0,
+        "passed": true
+      },
+      "validation": {
+        "status": "N/A",
+        "note": "no draft to validate"
+      },
+      "outcome": {
+        "status": "SCORED",
+        "state": "NO_APPEAL_RIGHT",
+        "outcome": null,
+        "issues": [],
+        "passed": true,
+        "consistency_ok": true
+      },
+      "persist": {
+        "status": "N/A"
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null,
+    "scored_layer_count": 3,
+    "failed_layer_count": 0
+  },
+  "persist": {
+    "status": "N/A"
+  }
+}

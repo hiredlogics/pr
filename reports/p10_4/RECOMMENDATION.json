@@ -1,0 +1,11 @@
+{
+  "recommendation": "MORE_SEMANTIC_WORK",
+  "add_vector_retrieval": false,
+  "reasons": [
+    "sealed holdout E2E 25% - wording/pattern generalisation gap",
+    "sealed holdout semantic recall 33%",
+    "4 modules ROLE_REVIEW_REQUIRED (evidence lead inheritance)"
+  ],
+  "do_not_production_deploy": true,
+  "do_not_fine_tune": true
+}

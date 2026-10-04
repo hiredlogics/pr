@@ -1,0 +1,33 @@
+{
+  "case_id": "DEV_DRAFT_multi_independent",
+  "split": "DEVELOPMENT",
+  "family": "multiple_independent",
+  "input": {
+    "customer_narrative": "The notice arrived very late. Separately the car broke down and would not restart on site.",
+    "customer_answers": {
+      "vehicle_immobilised": "yes",
+      "breakdown_severity": "IMMOBILISED"
+    },
+    "extraction_fields": {
+      "operator_name": "Northgate Parking",
+      "pcn_number": "NG720011",
+      "vrm": "BB22CCC",
+      "parking_location": "Northgate MSCP",
+      "site_postcode": "NE1 2BB",
+      "parking_event_date": "01/07/2026",
+      "notice_issue_date": "25/07/2026",
+      "alleged_breach": "Overstay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "vehicle_immobilised": true
+    },
+    "substantive_grounds_any": [
+      "KB-BREAK-01",
+      "KB-POFA-02"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

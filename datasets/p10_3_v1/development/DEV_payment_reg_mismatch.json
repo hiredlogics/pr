@@ -1,0 +1,30 @@
+{
+  "case_id": "DEV_payment_reg_mismatch",
+  "split": "DEVELOPMENT",
+  "family": "payment_registration_mismatch",
+  "input": {
+    "customer_narrative": "Settled the tariff on the phone app but mistyped the plate.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900103",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "03/06/2026",
+      "notice_issue_date": "07/06/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    },
+    "evidence": [{"evidence_id": "E4", "kind": "APP_SCREENSHOT", "filename": "app.png"}]
+  },
+  "expected": {
+    "semantic_concepts_any": ["PAYMENT_MADE", "KEYING_ERROR"],
+    "substantive_grounds_any": ["KB-PAY-01", "KB-KEY-01"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"]
+  }
+}

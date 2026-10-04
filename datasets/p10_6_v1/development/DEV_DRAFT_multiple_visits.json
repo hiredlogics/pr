@@ -1,0 +1,34 @@
+{
+  "case_id": "DEV_DRAFT_multiple_visits",
+  "split": "DEVELOPMENT",
+  "family": "multiple_visits",
+  "input": {
+    "customer_narrative": "The vehicle left the car park mid-morning and returned later the same day for a second visit.",
+    "customer_answers": {
+      "left_site": "yes",
+      "returned_same_day": "yes",
+      "multiple_visits": "yes"
+    },
+    "extraction_fields": {
+      "operator_name": "VisitCam Parking",
+      "pcn_number": "VC900101",
+      "vrm": "EE55FFF",
+      "parking_location": "VisitCam Centre",
+      "site_postcode": "CB1 1AA",
+      "parking_event_date": "10/08/2026",
+      "notice_issue_date": "14/08/2026",
+      "alleged_breach": "Overstay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "left_site": true,
+      "returned_same_day": true
+    },
+    "substantive_grounds_any": [
+      "KB-ANPR-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

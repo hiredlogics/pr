@@ -67,7 +67,7 @@ def customer_surface(case, out) -> list[str]:
 
 def check_case(case, out=None, kg=None) -> list[dict]:
     from ..customer_safe import internal_ids
-    from ..engines.claim_plan_authority import LOCKED, SUPERSEDED
+    from ..engines.claim_plan_authority import LOCKED, SUPERSEDED, latest_locked
     from .trace import run_audit
     results: list[dict] = []
     audit = run_audit(case)
@@ -193,6 +193,32 @@ def check_case(case, out=None, kg=None) -> list[dict]:
     hit = DRIVER.search(letter) if (letter and unidentified) else None
     results.append(_check("DRIVER_NOT_IDENTIFIED", hit is None,
                           None if hit is None else {"match": hit.group(0)}))
+
+    # P8.6: joined KM → CI → Claim Plan → Draft authority (diagnostics only).
+    from .module_decisions import build_module_journey
+    plan = latest_locked(case)
+    view = build_module_journey(case, plan, draft, persist=False)
+    by_rule: dict[str, list] = {}
+    for iss in view.get("checks") or []:
+        by_rule.setdefault(iss.get("rule") or "VAL-MODULE-TRACE", []).append(iss)
+    for rule in ("VAL-MODULE-TRACE", "VAL-VERIFIED-GROUND-PRESENCE",
+                 "VAL-EXPECTED-REJECTION"):
+        rows = by_rule.get(rule) or []
+        fails = [r for r in rows if r.get("status") == FAIL]
+        results.append(_check(rule, not fails,
+                              fails or ([{"checked": len(rows)}] if rows else None)))
+
+    from ..fact_lifecycle import (
+        derived_consistency_issues, fact_authority_issues, fact_stability_issues,
+    )
+    for rule, fn in (
+        ("VAL-FACT-AUTHORITY", fact_authority_issues),
+        ("VAL-FACT-STABILITY", fact_stability_issues),
+        ("VAL-DERIVED-CONSISTENCY", derived_consistency_issues),
+    ):
+        rows = fn(case)
+        fails = [r for r in rows if r.get("status") == FAIL]
+        results.append(_check(rule, not fails, fails or None))
     return results
 
 

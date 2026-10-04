@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_returned_04",
+  "split": "DEVELOPMENT",
+  "family": "returned",
+  "input": {
+    "customer_narrative": "I don't remember whether I came back.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS937201",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "uncertain_concepts_any": [
+      "RETURNED"
+    ],
+    "must_not_promote_facts": [
+      "returned_same_day"
+    ]
+  }
+}

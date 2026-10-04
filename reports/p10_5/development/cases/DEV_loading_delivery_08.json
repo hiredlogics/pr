@@ -1,0 +1,1302 @@
+{
+  "spec": {
+    "case_id": "DEV_loading_delivery_08",
+    "split": "DEVELOPMENT",
+    "family": "loading_delivery",
+    "input": {
+      "customer_narrative": "Stock drop-off and then a second short stay.",
+      "customer_answers": {},
+      "extraction_fields": {
+        "operator_name": "Fieldstone Parking Ltd",
+        "pcn_number": "FS643557",
+        "vrm": "AB12CDE",
+        "parking_location": "Fieldstone Retail",
+        "site_postcode": "M2 2AA",
+        "parking_event_date": "01/09/2026",
+        "notice_issue_date": "05/09/2026",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA"
+      }
+    },
+    "expected": {
+      "semantic_concepts_any": [
+        "DROP_OFF",
+        "DELIVERY",
+        "MULTIPLE_VISITS"
+      ]
+    }
+  },
+  "expected_scored": {
+    "semantic_concepts_any": [
+      "DROP_OFF",
+      "DELIVERY",
+      "MULTIPLE_VISITS"
+    ]
+  },
+  "actual": {
+    "ok": true,
+    "error": null,
+    "state": "RELEASED",
+    "outcome": null,
+    "asked_questions": [],
+    "facts": {
+      "operator_name": {
+        "value": "Fieldstone Parking Ltd",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_name",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_number": {
+        "value": "FS643557",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-pcn_number",
+        "authority": null,
+        "lineage": null
+      },
+      "vrm": {
+        "value": "AB12CDE",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-vrm",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_location": {
+        "value": "Fieldstone Retail",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_location",
+        "authority": null,
+        "lineage": null
+      },
+      "site_postcode": {
+        "value": "M2 2AA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-site_postcode",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_event_date": {
+        "value": "2026-09-01",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_event_date",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_issue_date": {
+        "value": "2026-09-05",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_issue_date",
+        "authority": null,
+        "lineage": null
+      },
+      "alleged_breach": {
+        "value": "Overstayed paid time",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-alleged_breach",
+        "authority": null,
+        "lineage": null
+      },
+      "operator_ata": {
+        "value": "BPA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_ata",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_sides_complete": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_sides_complete",
+        "authority": null,
+        "lineage": null
+      },
+      "jurisdiction": {
+        "value": "ENGLAND_WALES",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-jurisdiction",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_conflict": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "ANSWER",
+        "fact_id": "F-pcn_conflict",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_parking_clause_found": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_parking_clause_found",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_has_regulations_clause": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_has_regulations_clause",
+        "authority": null,
+        "lineage": null
+      },
+      "multiple_visits": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-multiple_visits",
+        "authority": null,
+        "lineage": null
+      },
+      "loading_activity": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-loading_activity",
+        "authority": null,
+        "lineage": null
+      },
+      "purpose_of_visit": {
+        "value": "drop_off",
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-purpose_of_visit",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_findings": {
+        "value": [],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_findings",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_finding": {
+        "value": null,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_finding",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_9_2_e_status": {
+        "value": "UNRESOLVED",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_9_2_e_status",
+        "authority": null,
+        "lineage": null
+      }
+    },
+    "findings": [
+      {
+        "finding_id": "d00c31e3-4097-518b-84b0-9f5bdb66f86c",
+        "case_id": "DEV_loading_delivery_08",
+        "finding_type": "POFA_POSTAL_LATE",
+        "created_at": "2026-10-04T03:40:29.162599+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "parking_event_date",
+            "fact_id": "F-parking_event_date"
+          },
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-09-01",
+          "notice_issue_date": "2026-09-05",
+          "deadline": "2026-09-15",
+          "presumed_delivery": "2026-09-08",
+          "days_between": -7,
+          "note": "timing compliant on the established dates"
+        },
+        "legal_module_id": "KB-POFA-02",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "0c75cbb6-b411-551c-a7e2-5373b5594019",
+        "case_id": "DEV_loading_delivery_08",
+        "finding_type": "POFA_NTD_NTK_LATE",
+        "created_at": "2026-10-04T03:40:29.162599+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-09-01",
+          "notice_issue_date": "2026-09-05",
+          "deadline": "2026-09-15",
+          "presumed_delivery": "2026-09-08",
+          "days_between": -7,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "066fe348-8332-5fef-9f6a-176ee613d6ea",
+        "case_id": "DEV_loading_delivery_08",
+        "finding_type": "POFA_NTD_NTK_TOO_EARLY",
+        "created_at": "2026-10-04T03:40:29.162599+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-09-01",
+          "notice_issue_date": "2026-09-05",
+          "deadline": "2026-09-15",
+          "presumed_delivery": "2026-09-08",
+          "days_between": -7,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "8ee7514b-872d-5f48-81ca-4b10be1ce20e",
+        "case_id": "DEV_loading_delivery_08",
+        "finding_type": "POFA_NTK_INVITATION_DEFECT",
+        "created_at": "2026-10-04T03:40:29.162599+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "pofa_9_2_e_status",
+            "fact_id": "F-pofa_9_2_e_status"
+          },
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-09-01",
+          "notice_issue_date": "2026-09-05",
+          "deadline": "2026-09-15",
+          "presumed_delivery": "2026-09-08",
+          "days_between": -7,
+          "note": "notice content not yet fully reviewed"
+        },
+        "legal_module_id": "KB-POFA-05",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "23b80dea-ea06-53ee-8a3b-ee4057843658",
+        "case_id": "DEV_loading_delivery_08",
+        "finding_type": "NTK_CONTENT_DEFECT",
+        "created_at": "2026-10-04T03:40:29.162599+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-09-01",
+          "notice_issue_date": "2026-09-05",
+          "deadline": "2026-09-15",
+          "presumed_delivery": "2026-09-08",
+          "days_between": -7,
+          "note": "both notice sides required before a content defect"
+        },
+        "legal_module_id": null,
+        "run_id": 1,
+        "_persisted": true
+      }
+    ],
+    "concepts": [
+      {
+        "concept": "MULTIPLE_VISITS",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "Stock drop-off and then a second short stay.",
+        "confidence": 0.8,
+        "provenance": "meaning_bridge_reference"
+      },
+      {
+        "concept": "DELIVERY",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "Stock drop-off and then a second short stay.",
+        "confidence": 0.8,
+        "provenance": "meaning_bridge_reference"
+      },
+      {
+        "concept": "DROP_OFF",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "Stock drop-off and then a second short stay.",
+        "confidence": 0.9,
+        "provenance": "deterministic_helper"
+      }
+    ],
+    "retrieved_modules": [
+      "KB-ANPR-01",
+      "KB-ACT-01",
+      "KB-POFA-01"
+    ],
+    "supported_grounds": [
+      "KB-ANPR-01",
+      "KB-ACT-01"
+    ],
+    "claim_plan_items": [
+      {
+        "module_id": "KB-ANPR-01",
+        "status": "SUPPORTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "SELECTED",
+        "supporting_facts": [
+          "{'condition': 'multiple_visits=true', 'fact': 'multiple_visits', 'value': True, 'source': 'semantic:multiple_visits', 'source_kind': 'CUSTOMER_FREE_TEXT', 'fact_id': '505f702b-fbc6-4a2a-871e-efa498579b7f'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts"
+      },
+      {
+        "module_id": "KB-ACT-01",
+        "status": "SUPPORTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "SELECTED",
+        "supporting_facts": [
+          "{'condition': 'alleged_breach present', 'fact': 'alleged_breach', 'value': 'Overstayed paid time', 'source': 'E1#p1', 'source_kind': 'DOCUMENT', 'fact_id': 'd3761aff-830d-4e08-bca8-d11adc8024a5'}",
+          "{'condition': 'loading_activity=true', 'fact': 'loading_activity', 'value': True, 'source': 'semantic:loading_activity', 'source_kind': 'CUSTOMER_FREE_TEXT', 'fact_id': '31885686-8468-47b4-8229-197469ec4704'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts"
+      },
+      {
+        "module_id": "KB-ACT-03",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer"
+      },
+      {
+        "module_id": "KB-AUTH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source"
+      },
+      {
+        "module_id": "KB-CON-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, short_presence_before_acceptance, total_recorded_duration_min"
+      },
+      {
+        "module_id": "KB-EVCH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ev_charging_session"
+      },
+      {
+        "module_id": "KB-GRACE-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_delay_min, permitted_period_ended"
+      },
+      {
+        "module_id": "KB-GRACE-02",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_congestion, exit_delay_min, exit_time"
+      },
+      {
+        "module_id": "KB-KEY-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: keying_error_type, payment_made, vrm_entered"
+      },
+      {
+        "module_id": "KB-PAY-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, payment_method"
+      },
+      {
+        "module_id": "KB-POFA-05",
+        "status": "UNRESOLVED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation"
+      },
+      {
+        "module_id": "KB-TIME-01",
+        "status": "UNRESOLVED",
+        "role": "EVIDENCE_REQUIREMENT",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_duration_disputed, entry_time, exit_time"
+      },
+      {
+        "module_id": "KB-ACT-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed dropoff_activity=true"
+      },
+      {
+        "module_id": "KB-BAY-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed restricted_bay_alleged=true; no confirmed observation_window_min present; no confirmed observation_window_min<=5"
+      },
+      {
+        "module_id": "KB-BREAK-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true"
+      },
+      {
+        "module_id": "KB-BREAK-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed recovery_attended=true"
+      },
+      {
+        "module_id": "KB-EQ-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true"
+      },
+      {
+        "module_id": "KB-EQ-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true; no confirmed disability_time_relates_to_breach=true"
+      },
+      {
+        "module_id": "KB-EQ-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true"
+      },
+      {
+        "module_id": "KB-HOSP-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed hospital_attendance=true"
+      },
+      {
+        "module_id": "KB-HOSP-03",
+        "status": "REJECTED",
+        "role": "SUPPORTING_PROPOSITION",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed hospital_attendance=true; no confirmed landholder_cancellation_route_available=true"
+      },
+      {
+        "module_id": "KB-INFRA-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed barrier_or_access_failure=true"
+      },
+      {
+        "module_id": "KB-KEY-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed payment_made=true; no confirmed keying_error_type=DIFFERENT_VEHICLE"
+      },
+      {
+        "module_id": "KB-PAY-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: payment_method!=MACHINE"
+      },
+      {
+        "module_id": "KB-PAY-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: do_not_use_when"
+      },
+      {
+        "module_id": "KB-POFA-01",
+        "status": "REJECTED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "ROLE_INELIGIBLE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "module role LEGAL_CONCLUSION cannot independently create a Claim Plan ground (use_when/retrieval is not enough)"
+      },
+      {
+        "module_id": "KB-POFA-04",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: notice_sides_complete=false, ntk_invites_pass_to_driver!=false"
+      }
+    ],
+    "role_partition": {
+      "substantive": [
+        "KB-ANPR-01",
+        "KB-ACT-01"
+      ],
+      "support_only": [],
+      "other": [],
+      "orphan_support": false
+    },
+    "plan_digest": "b3eb19962da64c13bd94c34f5b07bd2b2664bd4b992c4095540bff34baa38aca",
+    "plan_id": "1baf66f1-05ce-55ff-91f1-2036edaa4a03",
+    "primary_route": "ANPR",
+    "secondary_routes": [
+      "ACTIVITY"
+    ],
+    "draft_context": {
+      "primary_route": "ANPR",
+      "secondary_routes": [
+        "ACTIVITY"
+      ],
+      "verified_facts": {
+        "operator_name": "Fieldstone Parking Ltd",
+        "pcn_number": "FS643557",
+        "vrm": "AB12CDE",
+        "parking_location": "Fieldstone Retail",
+        "site_postcode": "M2 2AA",
+        "parking_event_date": "2026-09-01",
+        "notice_issue_date": "2026-09-05",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA",
+        "notice_sides_complete": false,
+        "jurisdiction": "ENGLAND_WALES",
+        "notice_route": "POSTAL",
+        "pcn_conflict": false,
+        "lease_parking_clause_found": false,
+        "lease_has_regulations_clause": false,
+        "multiple_visits": true,
+        "loading_activity": true,
+        "pofa_route": "POSTAL",
+        "pofa_findings": [],
+        "pofa_finding": null,
+        "pofa_9_2_e_status": "UNRESOLVED",
+        "driver_status": "UNIDENTIFIED",
+        "evidence_kinds": [
+          "PCN"
+        ]
+      },
+      "fact_refs": {
+        "operator_name": "F-operator_name",
+        "pcn_number": "F-pcn_number",
+        "vrm": "F-vrm",
+        "parking_location": "F-parking_location",
+        "site_postcode": "F-site_postcode",
+        "parking_event_date": "F-parking_event_date",
+        "notice_issue_date": "F-notice_issue_date",
+        "alleged_breach": "F-alleged_breach",
+        "operator_ata": "F-operator_ata",
+        "notice_sides_complete": "F-notice_sides_complete",
+        "jurisdiction": "F-jurisdiction",
+        "notice_route": "F-notice_route",
+        "pcn_conflict": "F-pcn_conflict",
+        "lease_parking_clause_found": "F-lease_parking_clause_found",
+        "lease_has_regulations_clause": "F-lease_has_regulations_clause",
+        "multiple_visits": "F-multiple_visits",
+        "loading_activity": "F-loading_activity",
+        "purpose_of_visit": "F-purpose_of_visit",
+        "pofa_route": "F-pofa_route",
+        "pofa_findings": "F-pofa_findings",
+        "pofa_finding": "F-pofa_finding",
+        "pofa_9_2_e_status": "F-pofa_9_2_e_status"
+      },
+      "evidence_refs": [
+        "E1"
+      ],
+      "prohibited_claims": [
+        "10 minutes always cancels",
+        "automatic exemption",
+        "breakdown automatically frustrates",
+        "calibration",
+        "genuine pre-estimate of loss",
+        "loading is always exempt",
+        "unlawful penalty",
+        "who was driving"
+      ],
+      "code_version": "SCOP-1.1",
+      "pofa_route": "POSTAL",
+      "pofa_findings": [],
+      "driver_status": "UNIDENTIFIED",
+      "context_chunks": [
+        {
+          "id": "KB-ANPR-01",
+          "module_id": "KB-ANPR-01",
+          "kind": "module",
+          "text": "Multiple visits / double visit. Require review of the complete ANPR sequence rather than two selected images. Keeper-safe - 'the vehicle attended on more than one occasion'.",
+          "sources": [
+            {
+              "id": "SCOP-evidence",
+              "title": "Single Code - evidence / ANPR",
+              "versioned": true,
+              "current_version": "1.1",
+              "version_date": "2026-04-13",
+              "in_source_register": true
+            }
+          ]
+        },
+        {
+          "id": "KB-ACT-01",
+          "module_id": "KB-ACT-01",
+          "kind": "module",
+          "text": "Loading / unloading. Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence. Do not assume loading is always exempt on private land - the argument is about the site terms actually in force.",
+          "sources": [
+            {
+              "id": "CL-contract-formation",
+              "title": "Contract formation / acceptance of parking terms",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        },
+        {
+          "id": "AI-ACT-001",
+          "module_id": "KB-ACT-01",
+          "kind": "block",
+          "text": "The vehicle's presence was connected with genuine loading/unloading activity. The operator should assess the actual site terms and the factual distinction between temporary stopping for that activity and ordinary parking, rather than assuming that every stationary period is parking.",
+          "sources": [
+            {
+              "id": "CL-contract-formation",
+              "title": "Contract formation / acceptance of parking terms",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        },
+        {
+          "id": "PP-ANPR-003",
+          "module_id": "KB-ANPR-01",
+          "kind": "block",
+          "text": "The vehicle attended the location on more than one separate occasion. The first recorded entry and final recorded exit must not be treated as one continuous parking event without review of the complete sequence.",
+          "sources": [
+            {
+              "id": "SCOP-evidence",
+              "title": "Single Code - evidence / ANPR",
+              "versioned": true,
+              "current_version": "1.1",
+              "version_date": "2026-04-13",
+              "in_source_register": true
+            }
+          ]
+        },
+        {
+          "id": "PP-ANPR-005",
+          "module_id": "KB-ANPR-01",
+          "kind": "block",
+          "text": "The operator should review the complete sequence of captures for the vehicle and date, including intermediate entry/exit records, rather than relying only on the two images reproduced on the PCN.",
+          "sources": [
+            {
+              "id": "SCOP-evidence",
+              "title": "Single Code - evidence / ANPR",
+              "versioned": true,
+              "current_version": "1.1",
+              "version_date": "2026-04-13",
+              "in_source_register": true
+            }
+          ]
+        }
+      ],
+      "lease_clauses": [],
+      "case_context": {
+        "operator_name": "Fieldstone Parking Ltd",
+        "parking_location": "Fieldstone Retail",
+        "alleged_breach": "Overstayed paid time",
+        "parking_event_date": "2026-09-01",
+        "pcn_number": "FS643557",
+        "vrm": "AB12CDE",
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "PCN",
+            "filename": "notice.txt"
+          }
+        ],
+        "unresolved_topics": [],
+        "validation_status": null,
+        "shopping_receipt_enclosed": false,
+        "material_account_propositions": [],
+        "material_account_proposition": "",
+        "account_contradicts_allegation": false,
+        "child_occupant_present": false,
+        "customer_reported_facts": [
+          "loading_activity",
+          "multiple_visits",
+          "pcn_conflict"
+        ],
+        "document_established_facts": [
+          "alleged_breach",
+          "jurisdiction",
+          "lease_has_regulations_clause",
+          "lease_parking_clause_found",
+          "notice_issue_date",
+          "notice_route",
+          "notice_sides_complete",
+          "operator_ata",
+          "operator_name",
+          "parking_event_date",
+          "parking_location",
+          "pcn_number",
+          "pofa_9_2_e_status",
+          "pofa_finding",
+          "pofa_findings",
+          "pofa_route",
+          "site_postcode",
+          "vrm"
+        ],
+        "customer_quotations": [],
+        "factual_rebuttal": {
+          "account_contradicts_allegation": false,
+          "propositions": [],
+          "child_occupant_present": false,
+          "independent_of_timing": true
+        },
+        "timing_argument": {
+          "observation_window_min": null,
+          "observation_time": null,
+          "event_time": null,
+          "bay_timing_selected": false
+        },
+        "claim_plan": {
+          "claim_plan_id": "1baf66f1-05ce-55ff-91f1-2036edaa4a03",
+          "version": 1,
+          "status": "LOCKED",
+          "module_ids": [
+            "KB-ANPR-01",
+            "KB-ACT-01"
+          ],
+          "claims": [
+            {
+              "module_id": "KB-ANPR-01",
+              "claim_type": "ANPR",
+              "priority": 1,
+              "supported_by": [
+                "multiple_visits=true"
+              ]
+            },
+            {
+              "module_id": "KB-ACT-01",
+              "claim_type": "ACTIVITY",
+              "priority": 2,
+              "supported_by": [
+                "alleged_breach present",
+                "loading_activity=true"
+              ]
+            }
+          ],
+          "support_bundles": {
+            "KB-ANPR-01": {
+              "source_fact_ids": [
+                "505f702b-fbc6-4a2a-871e-efa498579b7f"
+              ],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "e5a5ebef-7dbb-5e9c-a0a2-cd55e6e6da40"
+              ],
+              "source_fact_names": [
+                "multiple_visits"
+              ],
+              "derived_fact_names": [],
+              "values": {
+                "multiple_visits": true
+              }
+            },
+            "KB-ACT-01": {
+              "source_fact_ids": [
+                "d3761aff-830d-4e08-bca8-d11adc8024a5",
+                "31885686-8468-47b4-8229-197469ec4704"
+              ],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "6ee734da-9336-593d-89b8-943b7f6a99df",
+                "d6a976ed-ffc7-5ee1-b10d-1d19bab1834d"
+              ],
+              "source_fact_names": [
+                "alleged_breach",
+                "loading_activity"
+              ],
+              "derived_fact_names": [],
+              "values": {
+                "alleged_breach": "Overstayed paid time",
+                "loading_activity": true
+              }
+            }
+          },
+          "draft_requirements": {
+            "KB-ANPR-01": {
+              "required_particulars": [
+                "multiple_visits"
+              ],
+              "prohibited_content": [
+                "calibration",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the supporting facts"
+              ]
+            },
+            "KB-ACT-01": {
+              "required_particulars": [
+                "alleged_breach",
+                "loading_activity"
+              ],
+              "prohibited_content": [
+                "loading is always exempt",
+                "automatic exemption",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the supporting facts"
+              ]
+            }
+          },
+          "material_fact_accounting": []
+        },
+        "supported_grounds": [
+          {
+            "module_id": "KB-ANPR-01",
+            "route": "ANPR",
+            "topic": "Multiple visits / double visit",
+            "proposition": "Require review of the complete ANPR sequence rather than two selected images."
+          },
+          {
+            "module_id": "KB-ACT-01",
+            "route": "ACTIVITY",
+            "topic": "Loading / unloading",
+            "proposition": "Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence."
+          }
+        ],
+        "particulars": {
+          "multiple_visits": true,
+          "alleged_breach": "Overstayed paid time",
+          "loading_activity": true
+        }
+      },
+      "module_ids": [
+        "KB-ANPR-01",
+        "KB-ACT-01"
+      ],
+      "evidence_index": {
+        "E1": "PCN"
+      },
+      "fact_basis": {
+        "operator_name": "DOCUMENT",
+        "pcn_number": "DOCUMENT",
+        "vrm": "DOCUMENT",
+        "parking_location": "DOCUMENT",
+        "site_postcode": "DOCUMENT",
+        "parking_event_date": "DOCUMENT",
+        "notice_issue_date": "DOCUMENT",
+        "alleged_breach": "DOCUMENT",
+        "operator_ata": "DOCUMENT",
+        "notice_sides_complete": "DOCUMENT",
+        "jurisdiction": "DOCUMENT",
+        "notice_route": "DOCUMENT",
+        "pcn_conflict": "CUSTOMER_ACCOUNT",
+        "lease_parking_clause_found": "DOCUMENT",
+        "lease_has_regulations_clause": "DOCUMENT",
+        "multiple_visits": "CUSTOMER_ACCOUNT",
+        "loading_activity": "CUSTOMER_ACCOUNT",
+        "pofa_route": "DOCUMENT",
+        "pofa_findings": "DOCUMENT",
+        "pofa_finding": "DOCUMENT",
+        "pofa_9_2_e_status": "DOCUMENT",
+        "driver_status": "DERIVED",
+        "evidence_kinds": "DERIVED"
+      },
+      "driver_rule": "Write about the keeper and the vehicle. Never say or imply who parked, drove, left or returned. Never write 'I parked' or 'the driver parked'.",
+      "verified_legal_findings": [],
+      "support_bundles": {
+        "KB-ANPR-01": {
+          "source_fact_ids": [
+            "505f702b-fbc6-4a2a-871e-efa498579b7f"
+          ],
+          "derived_fact_ids": [],
+          "evidence_ids": [],
+          "legal_finding_ids": [],
+          "relationship_ids": [
+            "e5a5ebef-7dbb-5e9c-a0a2-cd55e6e6da40"
+          ],
+          "source_fact_names": [
+            "multiple_visits"
+          ],
+          "derived_fact_names": [],
+          "values": {
+            "multiple_visits": true
+          }
+        },
+        "KB-ACT-01": {
+          "source_fact_ids": [
+            "d3761aff-830d-4e08-bca8-d11adc8024a5",
+            "31885686-8468-47b4-8229-197469ec4704"
+          ],
+          "derived_fact_ids": [],
+          "evidence_ids": [],
+          "legal_finding_ids": [],
+          "relationship_ids": [
+            "6ee734da-9336-593d-89b8-943b7f6a99df",
+            "d6a976ed-ffc7-5ee1-b10d-1d19bab1834d"
+          ],
+          "source_fact_names": [
+            "alleged_breach",
+            "loading_activity"
+          ],
+          "derived_fact_names": [],
+          "values": {
+            "alleged_breach": "Overstayed paid time",
+            "loading_activity": true
+          }
+        }
+      },
+      "draft_requirements": {
+        "KB-ANPR-01": {
+          "required_particulars": [
+            "multiple_visits"
+          ],
+          "prohibited_content": [
+            "calibration",
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the supporting facts"
+          ]
+        },
+        "KB-ACT-01": {
+          "required_particulars": [
+            "alleged_breach",
+            "loading_activity"
+          ],
+          "prohibited_content": [
+            "loading is always exempt",
+            "automatic exemption",
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the supporting facts"
+          ]
+        }
+      }
+    },
+    "draft_context_error": null,
+    "draft_context_complete": true,
+    "support_bundle_complete": true,
+    "letter": "I write as the registered keeper of vehicle AB12CDE in respect of Parking Charge Notice FS643557. I dispute liability for this parking charge and require the operator to consider this appeal.\n\nThe Parking Charge Notice alleges: Overstayed paid time at Fieldstone Retail.\n\nThe vehicle attended the location on more than one separate occasion. The first recorded entry and final recorded exit must not be treated as one continuous parking event without review of the complete sequence.\n\nThe operator should review the complete sequence of captures for the vehicle and date, including intermediate entry/exit records, rather than relying only on the two images reproduced on the PCN.\n\nThe vehicle's presence was connected with genuine loading/unloading activity. The operator should assess the actual site terms and the factual distinction between temporary stopping for that activity and ordinary parking, rather than assuming that every stationary period is parking.\n\nFor the reasons set out above, the parking charge is disputed and the operator is requested to cancel the Parking Charge Notice.",
+    "letter_empty": false,
+    "validation_passed": true,
+    "validation_issues": [],
+    "master_digest": "13ac9d343281be8f73af0c2d71a81f96be3777b28b49c7b15dfbb77b908f2723",
+    "versions": {
+      "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+      "kb_release": null,
+      "prompt_versions": {
+        "semantic_extraction": 1,
+        "extraction": 10,
+        "drafting": 16,
+        "case_analysis": 8,
+        "validation": 3,
+        "page_references": 2,
+        "classification": 2
+      },
+      "model_provider": "ReferenceAnalysisLLM",
+      "claim_plan_builder_version": "3",
+      "master_case_object_version": 1,
+      "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+    },
+    "persist": {
+      "passed": true,
+      "before": [
+        "KB-ANPR-01",
+        "KB-ACT-01"
+      ],
+      "after": [
+        "KB-ANPR-01",
+        "KB-ACT-01"
+      ],
+      "digest_before": "b3eb19962da64c13bd94c34f5b07bd2b2664bd4b992c4095540bff34baa38aca",
+      "digest_after": "b3eb19962da64c13bd94c34f5b07bd2b2664bd4b992c4095540bff34baa38aca",
+      "master_roundtrip_ok": true
+    }
+  },
+  "scores": {
+    "scores": {
+      "semantic": {
+        "status": "SCORED",
+        "semantic_concept_precision": 1.0,
+        "semantic_concept_recall": 1.0,
+        "concept_tp": [
+          "DELIVERY",
+          "DROP_OFF",
+          "MULTIPLE_VISITS"
+        ],
+        "concept_fp": [],
+        "concept_fn": [],
+        "concept_misses_partial": [],
+        "concept_unexpected_affirmed": [],
+        "narrative_fact_precision": "N/A",
+        "narrative_fact_recall": "N/A",
+        "fact_tp": [],
+        "fact_fp": [],
+        "fact_fn": [],
+        "negation_accuracy": 1.0,
+        "uncertainty_accuracy": 1.0,
+        "attribution_accuracy": 1.0,
+        "fact_promotion_accuracy": 1.0,
+        "derived_lineage_completeness": "N/A",
+        "passed": true
+      },
+      "kb_ground": {
+        "status": "SCORED",
+        "kb_candidate_precision": "N/A",
+        "kb_candidate_recall": "N/A",
+        "candidate_tp": [],
+        "candidate_fp": [],
+        "candidate_fn": [],
+        "role_filter_precision": 1.0,
+        "role_filter_recall": 1.0,
+        "ground_precision": "N/A",
+        "ground_recall": "N/A",
+        "ground_tp": [],
+        "ground_fp": [],
+        "ground_fn": [],
+        "orphan_support": false,
+        "orphan_support_letter": false,
+        "unsupported_leading_ground_rate": 0.0,
+        "supporting_incorrectly_in_claim_plan": 0,
+        "legal_conclusion_independent_grounds": 0,
+        "legal_in_plan": [],
+        "support_in_plan": [],
+        "structural_in_plan": [],
+        "evidence_in_plan": [],
+        "primary_route_ok": true,
+        "passed": true
+      },
+      "invariants": {
+        "status": "SCORED",
+        "checks": {
+          "no_legal_conclusion_independent": true,
+          "support_cannot_lead_alone": true,
+          "no_structural_lead": true,
+          "no_support_orphan_letter": true
+        },
+        "legal_conclusion_in_plan": [],
+        "supporting_in_plan": [],
+        "passed": true
+      },
+      "draft": {
+        "status": "SCORED",
+        "clean_upstream": true,
+        "draft_ground_coverage": 0.0,
+        "material_fact_coverage": "N/A",
+        "required_particular_coverage": "N/A",
+        "unsupported_assertion_rate": 0.0,
+        "validation_passed": true,
+        "passed": true
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null
+  }
+}

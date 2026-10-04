@@ -1,0 +1,6 @@
+{
+  "status": "SKIPPED",
+  "reason": "OPENAI_API_KEY not set",
+  "reference_model": "ReferenceAnalysisLLM + meaning_bridge",
+  "note": "DEV/VAL/HOLDOUT pipeline scores use ReferenceAnalysisLLM. Live probe skipped."
+}

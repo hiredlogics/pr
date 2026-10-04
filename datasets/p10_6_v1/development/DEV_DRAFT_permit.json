@@ -1,0 +1,41 @@
+{
+  "case_id": "DEV_DRAFT_permit",
+  "split": "DEVELOPMENT",
+  "family": "permit",
+  "input": {
+    "customer_narrative": "I hold a resident permit for that bay.",
+    "customer_answers": {
+      "permit_held": "yes",
+      "permit_type": "RESIDENT"
+    },
+    "extraction_fields": {
+      "operator_name": "PermitCo",
+      "pcn_number": "PR200401",
+      "vrm": "GG77HHH",
+      "parking_location": "Harbour Residences",
+      "site_postcode": "BS1 4AA",
+      "parking_event_date": "15/08/2026",
+      "notice_issue_date": "19/08/2026",
+      "alleged_breach": "No valid permit",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E5",
+        "kind": "PERMIT",
+        "filename": "permit.pdf",
+        "doc_type": "PERMIT"
+      }
+    ]
+  },
+  "expected": {
+    "facts_any": {
+      "permit_held": true
+    },
+    "substantive_grounds_any": [
+      "KB-AUTH-01",
+      "KB-RES-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

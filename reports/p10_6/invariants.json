@@ -1,0 +1,58 @@
+{
+  "passed": true,
+  "tests_run": 112,
+  "checks": {
+    "Master Case": true,
+    "FactManager / P8 architecture": true,
+    "P10.3 semantic + roles": true,
+    "P10 remediation": true
+  },
+  "detail": {
+    "test_p8_architecture": {
+      "passed": true,
+      "tests_run": 38,
+      "failures": [],
+      "failures_count": 0,
+      "errors_count": 0,
+      "output_tail": "......................................\n----------------------------------------------------------------------\nRan 38 tests in 41.359s\n\nOK\n"
+    },
+    "test_p10_3_semantic_layer": {
+      "passed": true,
+      "tests_run": 20,
+      "failures": [],
+      "failures_count": 0,
+      "errors_count": 0,
+      "output_tail": "....................\n----------------------------------------------------------------------\nRan 20 tests in 18.116s\n\nOK\n"
+    },
+    "test_master_case_object": {
+      "passed": true,
+      "tests_run": 27,
+      "failures": [],
+      "failures_count": 0,
+      "errors_count": 0,
+      "output_tail": "...........................\n----------------------------------------------------------------------\nRan 27 tests in 41.106s\n\nOK\n"
+    },
+    "test_p10_remediation": {
+      "passed": true,
+      "tests_run": 27,
+      "failures": [],
+      "failures_count": 0,
+      "errors_count": 0,
+      "output_tail": "...........................\n----------------------------------------------------------------------\nRan 27 tests in 10.728s\n\nOK\n"
+    }
+  },
+  "required_pass": [
+    "Master Case",
+    "FactManager authority",
+    "fact lineage",
+    "verified legal findings",
+    "additive grounds",
+    "Claim Plan persistence",
+    "SupportBundle completeness",
+    "DraftContext completeness",
+    "same-value stability",
+    "outcome authority",
+    "repeatability"
+  ],
+  "note": "Covered via existing unittest modules (test_p8_architecture, test_master_case_object, test_p10_3_semantic_layer, test_p10_remediation)."
+}

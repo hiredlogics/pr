@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Optional
 
 from .narrative import NARRATIVE_FACTS
+from .. import case_state
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
@@ -64,14 +65,16 @@ class ReasoningEngine:
         for ev in case.evidence.values():
             if ev.kind in ("LEASE", "TENANCY") and ev.text:
                 clauses += find_parking_clauses(ev.evidence_id, ev.text)
-        if clauses:
-            case.put(Fact("F-lease_clauses", "lease_clauses", clauses, FactStatus.DERIVED,
-                          FactSource(SourceKind.DOCUMENT, clauses[0]["evidence_id"])))
-        case.put(Fact("F-lease_parking_clause_found", "lease_parking_clause_found", bool(clauses),
-                      FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
-        case.put(Fact("F-lease_has_regulations_clause", "lease_has_regulations_clause",
-                      any(c["has_regulations_power"] for c in clauses), FactStatus.DERIVED,
-                      FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
+        with case_state.derives(case, "lease_clauses", rule="lease_clause_finder"):
+            if clauses:
+                case.put(Fact("F-lease_clauses", "lease_clauses", clauses, FactStatus.DERIVED,
+                              FactSource(SourceKind.DOCUMENT, clauses[0]["evidence_id"])))
+            case.put(Fact("F-lease_parking_clause_found", "lease_parking_clause_found",
+                          bool(clauses), FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
+            case.put(Fact("F-lease_has_regulations_clause", "lease_has_regulations_clause",
+                          any(c["has_regulations_power"] for c in clauses), FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
 
     # ------------------------------------------------------------------ 2
     def applicability(self, case: CaseFile, trace: Optional[list[str]] = None):
@@ -109,11 +112,23 @@ class ReasoningEngine:
                     and case.get("notice_route") == "POSTAL"):
                 route = "POSTAL"
         trace += [f"pofa:{n}" for n in notes]
-        case.put(Fact("F-pofa_route", "pofa_route", route, FactStatus.DERIVED,
-                      FactSource(SourceKind.CALCULATION, "pofa.assess")))
-        case.put(Fact("F-pofa_finding", "pofa_finding",
-                      findings[0] if findings else None,
-                      FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.assess")))
+        # P8.1: the PoFA assessment names the facts it read, so every value it
+        # writes carries the lineage back to the dates on the documents.
+        with case_state.derives(case, "jurisdiction", "relevant_land", "notice_route",
+                                "parking_event_date", "notice_issue_date", "ntd_date",
+                                "notice_received_date", "delivery_date_proven",
+                                "ntk_defect_statutory_invitation",
+                                rule="pofa.assess"):
+            case.put(Fact("F-pofa_route", "pofa_route", route, FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "pofa.assess")))
+            # The full finding set; the scalar is a legacy convenience only
+            # (first code). Gates read pofa_findings via the DSL.
+            case.put(Fact("F-pofa_findings", "pofa_findings",
+                          list(findings),
+                          FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.assess")))
+            case.put(Fact("F-pofa_finding", "pofa_finding",
+                          findings[0] if findings else None,
+                          FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.assess")))
         from ..legal.pofa import PofaResult
         res = PofaResult(route, findings, notes,
                          presumed_delivery=res.presumed_delivery, deadline=res.deadline)
@@ -199,10 +214,12 @@ class ReasoningEngine:
         """
         trace = trace if trace is not None else []
         why: dict[str, str] = {}
-        # 3. gate (R-03)
+        # 3. gate (R-03). P8.1: evaluate against multi-finding facts view.
+        from ..legal import findings as legal_findings
+        gate_facts = legal_findings.gate_facts(facts)
         eligible = []
         for m in self.kg.active_modules():
-            ok = evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts)
+            ok = evaluate(m.use_when, gate_facts) and not evaluate(m.do_not_use_when, gate_facts)
             if not ok:
                 why[m.module_id] = "gate does not hold (R-03)"
             if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \
@@ -256,13 +273,16 @@ class ReasoningEngine:
 
         The strength calibration in kb_modules.yaml is explicit that below
         SUPPORTING_THRESHOLD a module is "evidence / signage / authority support
-        only" and "can never lead the letter". A selection made up entirely of
-        those has nothing to support: the letter comes out as a landowner-authority
-        or keeper-liability-framing paragraph presented as an appeal.
+        only" and "can never lead the letter". P10.3 also requires an explicit
+        claim-ground role (SUBSTANTIVE_GROUND / EVIDENCE_REQUIREMENT): a
+        LEGAL_CONCLUSION with high strength still cannot lead alone.
         """
+        from ..module_roles import can_lead_letter
+
         return [mid for mid in (module_ids or [])
-                if (self.kg.modules.get(mid) and
-                    self.kg.modules[mid].strength >= SUPPORTING_THRESHOLD)]
+                if (self.kg.modules.get(mid)
+                    and self.kg.modules[mid].strength >= SUPPORTING_THRESHOLD
+                    and can_lead_letter(self.kg.modules[mid]))]
 
     def _drafting_priority(self, selected: list) -> list:
         """KB-GOV-07 / section 16 priorities 1-4.

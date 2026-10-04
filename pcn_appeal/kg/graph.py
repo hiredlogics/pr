@@ -106,7 +106,19 @@ class KnowledgeGraph:
         for src_id, meta in kb.get("legal_sources", {}).items():
             self.g.add_node(("LegalSource", src_id), **meta)
 
+        from ..module_roles import ROLE_BY_MODULE, normalize_role
+
         for m in kb["modules"]:
+            mid = m.get("module_id")
+            role = normalize_role(
+                m.get("module_role") or ROLE_BY_MODULE.get(mid),
+                default="SUBSTANTIVE_GROUND",
+            )
+            lead_raw = m.get("can_lead_letter", None)
+            if lead_raw is None:
+                lead_flag = None
+            else:
+                lead_flag = bool(lead_raw)
             mod = KBModule(**{k: m.get(k) for k in (
                 "module_id", "route", "topic", "use_when", "do_not_use_when", "core_proposition",
                 "required_facts", "evidence_helpful", "legal_basis", "drafting_notes",
@@ -121,7 +133,9 @@ class KnowledgeGraph:
                 source_reference=m.get("source_reference", "") or "",
                 legal_basis_origin=m.get("legal_basis_origin", "") or "",
                 last_legal_review=_as_date(m.get("last_legal_review")),
-                change_notes=m.get("change_notes", "") or "")
+                change_notes=m.get("change_notes", "") or "",
+                module_role=role,
+                can_lead_letter=lead_flag)
             self.modules[mod.module_id] = mod
             n = ("Module", mod.module_id)
             self.g.add_node(n, topic=mod.topic, strength=mod.strength)

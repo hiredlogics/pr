@@ -1,0 +1,1691 @@
+{
+  "golden": {
+    "case_id": "REG_late_ntk",
+    "dataset_version": "p9_v1",
+    "completeness": "COMPLETE",
+    "split": "DEVELOPMENT",
+    "approval_status": "DEVELOPMENT_APPROVED",
+    "family": "late_postal_ntk",
+    "operator": "Acme Parking Ltd",
+    "allegation": "overstay",
+    "legal_route": "POFA",
+    "circumstance": "none",
+    "evidence_type": "notice_only",
+    "notes": "Independent PoFA postal-late calculation: event 01/06/2026, issue 20/06/2026. Additive-pair A (notice + thin narrative).",
+    "paired_with": "REG_late_ntk_anpr",
+    "input": {
+      "notice_front": "PARKING CHARGE NOTICE\nOperator Name: Acme Parking Ltd\nPCN Number: PCN123456\nVehicle Registration: AB12 CDE\nLocation: Retail Park\nPostcode: M1 1AA\nDate of Contravention: 01/06/2026\nDate of Issue: 20/06/2026\nEntry Time: 10:00\nExit Time: 12:47\nCharge: \u00a3100\nAlleged Breach: Overstayed paid time\nTrade Association: BPA",
+      "notice_back": "HOW TO APPEAL\nIf you were not the driver, you may pass this notice to the driver or\nname them. We are seeking recovery from the keeper under Schedule 4 of\nthe Protection of Freedoms Act 2012 if the driver is not identified.\nIf your appeal to us is rejected you may appeal to the independent\nappeals service (POPLA) within 28 days using the code we will give you.\nPay or appeal within 28 days of the date of issue.",
+      "customer_narrative": "Got a letter weeks later",
+      "customer_answers": {},
+      "answer_policy": "skip",
+      "evidence": [],
+      "corrections": {},
+      "extraction_fields": {
+        "operator_name": "Acme Parking Ltd",
+        "pcn_number": "PCN123456",
+        "vrm": "AB12 CDE",
+        "parking_location": "Retail Park",
+        "site_postcode": "M1 1AA",
+        "parking_event_date": "01/06/2026",
+        "notice_issue_date": "20/06/2026",
+        "entry_time": "10:00",
+        "exit_time": "12:47",
+        "charge_amount": "\u00a3100",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA",
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      },
+      "doc_types": {
+        "E1": "PCN"
+      },
+      "image_path": null
+    },
+    "expected": {
+      "classification": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "document_class": "PCN"
+        }
+      },
+      "extraction": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "operator_name": "Acme Parking Ltd",
+          "pcn_number": "PCN123456",
+          "vrm": "AB12 CDE",
+          "parking_location": "Retail Park",
+          "site_postcode": "M1 1AA",
+          "parking_event_date": "01/06/2026",
+          "notice_issue_date": "20/06/2026",
+          "entry_time": "10:00",
+          "exit_time": "12:47",
+          "charge_amount": "\u00a3100",
+          "alleged_breach": "Overstayed paid time",
+          "operator_ata": "BPA",
+          "notice_route": "POSTAL",
+          "notice_type": "NTK"
+        }
+      },
+      "facts": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": [
+          {
+            "name": "operator_name",
+            "value": "Acme Parking Ltd",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "pcn_number",
+            "value": "PCN123456",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "vrm",
+            "value": "AB12 CDE",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "parking_event_date",
+            "value": "01/06/2026",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "notice_issue_date",
+            "value": "20/06/2026",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "entry_time",
+            "value": "10:00",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "exit_time",
+            "value": "12:47",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "parking_location",
+            "value": "Retail Park",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "site_postcode",
+            "value": "M1 1AA",
+            "source": "DOCUMENT",
+            "kind": "document"
+          },
+          {
+            "name": "alleged_breach",
+            "value": "Overstayed paid time",
+            "source": "DOCUMENT",
+            "kind": "document"
+          }
+        ]
+      },
+      "derived_facts": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "relationships": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "questions": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "legal_findings": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": [
+          {
+            "finding_type": "POFA_POSTAL_LATE",
+            "status": "VERIFIED",
+            "requires_lineage": true
+          }
+        ]
+      },
+      "knowledge_matches": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "required": [
+            "KB-POFA-02"
+          ]
+        }
+      },
+      "supported_grounds": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": [
+          "KB-POFA-02"
+        ]
+      },
+      "rejected_grounds": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "invalidated_grounds": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "claim_plan": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "must_include": [
+            "KB-POFA-02"
+          ],
+          "origin": {
+            "KB-POFA-02": "VERIFIED_FINDING"
+          }
+        }
+      },
+      "required_particulars": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "KB-POFA-02": [
+            "parking_event_date",
+            "notice_issue_date"
+          ]
+        }
+      },
+      "prohibited_claims": {
+        "evaluate": false,
+        "approval": "UNOBSERVED",
+        "values": null
+      },
+      "final_outcome": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "state": "RELEASED",
+          "letter_must_not_be_empty": true
+        }
+      },
+      "final_appeal_requirements": {
+        "evaluate": true,
+        "approval": "DEVELOPMENT_APPROVED",
+        "values": {
+          "must_express": [
+            "not delivered within"
+          ],
+          "must_not_express": [
+            "I parked",
+            "I drove"
+          ],
+          "exact_wording_approved": false
+        }
+      },
+      "ground_origins": {
+        "KB-POFA-02": "verified_finding"
+      }
+    },
+    "governance": {
+      "approved_by": "development_test_suite",
+      "approved_at": "2026-10-04",
+      "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+    }
+  },
+  "actual": {
+    "ok": true,
+    "extraction_method": "INJECTED_FROM_DOCUMENT_GOLD",
+    "error": null,
+    "state": "RELEASED",
+    "outcome": null,
+    "scope_stop": null,
+    "document_classes": {
+      "E1": "PCN"
+    },
+    "asked_questions": [],
+    "pending_questions": [],
+    "facts": {
+      "operator_name": {
+        "value": "Acme Parking Ltd",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_name",
+        "authority": null
+      },
+      "pcn_number": {
+        "value": "PCN123456",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-pcn_number",
+        "authority": null
+      },
+      "vrm": {
+        "value": "AB12CDE",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-vrm",
+        "authority": null
+      },
+      "parking_location": {
+        "value": "Retail Park",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_location",
+        "authority": null
+      },
+      "site_postcode": {
+        "value": "M1 1AA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-site_postcode",
+        "authority": null
+      },
+      "parking_event_date": {
+        "value": "2026-06-01",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_event_date",
+        "authority": null
+      },
+      "notice_issue_date": {
+        "value": "2026-06-20",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_issue_date",
+        "authority": null
+      },
+      "entry_time": {
+        "value": "10:00",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-entry_time",
+        "authority": null
+      },
+      "exit_time": {
+        "value": "12:47",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-exit_time",
+        "authority": null
+      },
+      "charge_amount": {
+        "value": "\u00a3100",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-charge_amount",
+        "authority": null
+      },
+      "alleged_breach": {
+        "value": "Overstayed paid time",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-alleged_breach",
+        "authority": null
+      },
+      "operator_ata": {
+        "value": "BPA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_ata",
+        "authority": null
+      },
+      "notice_route": {
+        "value": "POSTAL",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_route",
+        "authority": null
+      },
+      "notice_type": {
+        "value": "NTK",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_type",
+        "authority": null
+      },
+      "total_recorded_duration_min": {
+        "value": 167,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-total_recorded_duration_min",
+        "authority": null
+      },
+      "notice_sides_complete": {
+        "value": true,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_sides_complete",
+        "authority": null
+      },
+      "jurisdiction": {
+        "value": "ENGLAND_WALES",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-jurisdiction",
+        "authority": null
+      },
+      "pcn_conflict": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "ANSWER",
+        "fact_id": "F-pcn_conflict",
+        "authority": null
+      },
+      "lease_parking_clause_found": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_parking_clause_found",
+        "authority": null
+      },
+      "lease_has_regulations_clause": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_has_regulations_clause",
+        "authority": null
+      },
+      "pofa_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_route",
+        "authority": null
+      },
+      "pofa_findings": {
+        "value": [
+          "POFA_POSTAL_LATE"
+        ],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_findings",
+        "authority": null
+      },
+      "pofa_finding": {
+        "value": "POFA_POSTAL_LATE",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_finding",
+        "authority": null
+      },
+      "ntk_invites_name_driver": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-ntk_invites_name_driver",
+        "authority": null
+      },
+      "ntk_invites_pass_to_driver": {
+        "value": true,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-ntk_invites_pass_to_driver",
+        "authority": null
+      },
+      "pofa_9_2_e_status": {
+        "value": "SATISFIED",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_9_2_e_status",
+        "authority": null
+      }
+    },
+    "findings": [
+      {
+        "finding_id": "a76bd293-98c0-5739-b46d-14d6e0e04594",
+        "case_id": "REG_late_ntk",
+        "finding_type": "POFA_POSTAL_LATE",
+        "created_at": "2026-10-04T02:37:45.006695+00:00",
+        "status": "VERIFIED",
+        "supporting_facts": [
+          {
+            "fact": "parking_event_date",
+            "fact_id": "F-parking_event_date"
+          },
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "deadline": "2026-06-15",
+          "presumed_delivery": "2026-06-23",
+          "days_between": 8
+        },
+        "legal_module_id": "KB-POFA-02",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "ed86df73-0191-5523-a2a1-d973eeaa0e2c",
+        "case_id": "REG_late_ntk",
+        "finding_type": "POFA_NTD_NTK_LATE",
+        "created_at": "2026-10-04T02:37:45.007699+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "deadline": "2026-06-15",
+          "presumed_delivery": "2026-06-23",
+          "days_between": 8,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "770b4632-ecf6-552b-9a3b-e16dedeed57d",
+        "case_id": "REG_late_ntk",
+        "finding_type": "POFA_NTD_NTK_TOO_EARLY",
+        "created_at": "2026-10-04T02:37:45.007699+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "deadline": "2026-06-15",
+          "presumed_delivery": "2026-06-23",
+          "days_between": 8,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "c435f3c5-6171-5a53-96a3-e8c888ac6d08",
+        "case_id": "REG_late_ntk",
+        "finding_type": "POFA_NTK_INVITATION_DEFECT",
+        "created_at": "2026-10-04T02:37:45.007699+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "pofa_9_2_e_status",
+            "fact_id": "F-pofa_9_2_e_status"
+          },
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "deadline": "2026-06-15",
+          "presumed_delivery": "2026-06-23",
+          "days_between": 8,
+          "note": "mandatory invitation wording present"
+        },
+        "legal_module_id": "KB-POFA-05",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "66274c92-ba5b-5f4e-a170-f79b9c93e011",
+        "case_id": "REG_late_ntk",
+        "finding_type": "NTK_CONTENT_DEFECT",
+        "created_at": "2026-10-04T02:37:45.007699+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "deadline": "2026-06-15",
+          "presumed_delivery": "2026-06-23",
+          "days_between": 8,
+          "note": "no document-confirmed content defect"
+        },
+        "legal_module_id": null,
+        "run_id": 1,
+        "_persisted": true
+      }
+    ],
+    "pofa_findings": [
+      "POFA_POSTAL_LATE"
+    ],
+    "pofa_route": "POSTAL",
+    "primary_route": "POFA",
+    "retrieved_modules": [
+      "KB-POFA-02",
+      "KB-POFA-05",
+      "KB-POFA-01"
+    ],
+    "supported_grounds": [
+      "KB-POFA-02"
+    ],
+    "claim_plan_items": [
+      {
+        "module_id": "KB-POFA-02",
+        "status": "SUPPORTED",
+        "origin": "VERIFIED_FINDING",
+        "supporting_facts": [
+          "{'condition': 'pofa_route=POSTAL', 'fact': 'pofa_route', 'value': 'POSTAL', 'source': 'pofa.assess', 'source_kind': 'CALCULATION', 'fact_id': 'a329417c-9008-4429-8a21-49721b27fd93', 'because_of': (mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'source': 'E1#p1'}), mappingproxy({'fact': 'jurisdiction', 'value': 'ENGLAND_WALES', 'fact_id': '3e963cd5-836d-44fa-bf32-0efba176e6cc', 'source': 'postcode_jurisdiction'}), mappingproxy({'fact': 'relevant_land'}), mappingproxy({'fact': 'parking_event_date', 'value': datetime.date(2026, 6, 1), 'fact_id': '47872aad-e50d-47f9-8cae-504f0168a504', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_issue_date', 'value': datetime.date(2026, 6, 20), 'fact_id': 'c5d30340-19f8-4de8-a1f3-0f94b8ea66a6', 'source': 'E1#p1'}), mappingproxy({'fact': 'ntd_date'}), mappingproxy({'fact': 'notice_received_date'}), mappingproxy({'fact': 'delivery_date_proven'}))}",
+          "{'condition': 'pofa_finding in [\"POFA_POSTAL_LATE\"]', 'fact': 'pofa_finding', 'value': 'POFA_POSTAL_LATE', 'source': 'pofa.assess', 'source_kind': 'CALCULATION', 'fact_id': 'be431f78-b732-42bc-b56b-90df531dcd8c', 'because_of': (mappingproxy({'fact': 'parking_event_date', 'value': '2026-06-01', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_issue_date', 'value': '2026-06-20', 'source': 'E1#p1'}), mappingproxy({'fact': 'notice_route', 'value': 'POSTAL', 'source': 'E1#p1'}), mappingproxy({'fact': 'jurisdiction', 'value': 'ENGLAND_WALES', 'source': 'postcode_jurisdiction'}), mappingproxy({'fact': 'relevant_land'}), mappingproxy({'fact': 'ntd_date'}), mappingproxy({'fact': 'notice_received_date'}), mappingproxy({'fact': 'delivery_date_proven'}))}",
+          "{'condition': 'notice_issue_date', 'fact': 'notice_issue_date', 'value': datetime.date(2026, 6, 20), 'fact_id': 'c5d30340-19f8-4de8-a1f3-0f94b8ea66a6'}",
+          "{'condition': 'parking_event_date', 'fact': 'parking_event_date', 'value': datetime.date(2026, 6, 1), 'fact_id': '47872aad-e50d-47f9-8cae-504f0168a504'}",
+          "{'condition': 'POFA_POSTAL_LATE', 'finding_id': 'a76bd293-98c0-5739-b46d-14d6e0e04594', 'finding_type': 'POFA_POSTAL_LATE'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "licensed by verified legal finding POFA_POSTAL_LATE; a calculated statutory defect is argued independently of selection"
+      },
+      {
+        "module_id": "KB-ACT-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: loading_activity"
+      },
+      {
+        "module_id": "KB-ACT-03",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer"
+      },
+      {
+        "module_id": "KB-ANPR-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: multiple_visits"
+      },
+      {
+        "module_id": "KB-ANPR-02",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_sequence_incomplete"
+      },
+      {
+        "module_id": "KB-ANPR-03",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_discrepancy"
+      },
+      {
+        "module_id": "KB-AUTH-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source"
+      },
+      {
+        "module_id": "KB-CON-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, short_presence_before_acceptance"
+      },
+      {
+        "module_id": "KB-EVCH-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ev_charging_session"
+      },
+      {
+        "module_id": "KB-GRACE-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_delay_min, permitted_period_ended"
+      },
+      {
+        "module_id": "KB-GRACE-02",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_congestion, exit_delay_min"
+      },
+      {
+        "module_id": "KB-KEY-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: keying_error_type, payment_made, vrm_entered"
+      },
+      {
+        "module_id": "KB-PAY-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, payment_method"
+      },
+      {
+        "module_id": "KB-POFA-04",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation"
+      },
+      {
+        "module_id": "KB-TIME-01",
+        "status": "UNRESOLVED",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_duration_disputed"
+      },
+      {
+        "module_id": "KB-AUTH-02",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed permit_held=true"
+      },
+      {
+        "module_id": "KB-AUTH-03",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed visitor_authorised=true"
+      },
+      {
+        "module_id": "KB-BAY-01",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed restricted_bay_alleged=true; no confirmed observation_window_min present; no confirmed observation_window_min<=5"
+      },
+      {
+        "module_id": "KB-EQ-02",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true; no confirmed disability_time_relates_to_breach=true"
+      },
+      {
+        "module_id": "KB-HOSP-03",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed hospital_attendance=true; no confirmed landholder_cancellation_route_available=true"
+      },
+      {
+        "module_id": "KB-INFRA-01",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed barrier_or_access_failure=true"
+      },
+      {
+        "module_id": "KB-KEY-02",
+        "status": "REJECTED",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed payment_made=true; no confirmed keying_error_type=DIFFERENT_VEHICLE"
+      },
+      {
+        "module_id": "KB-PAY-02",
+        "status": "REJECTED",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: payment_method!=MACHINE"
+      },
+      {
+        "module_id": "KB-PAY-03",
+        "status": "REJECTED",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: do_not_use_when"
+      },
+      {
+        "module_id": "KB-POFA-01",
+        "status": "REJECTED",
+        "origin": "ROLE_INELIGIBLE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "module role LEGAL_CONCLUSION cannot independently create a Claim Plan ground (use_when/retrieval is not enough)"
+      },
+      {
+        "module_id": "KB-POFA-05",
+        "status": "REJECTED",
+        "origin": "ROLE_INELIGIBLE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "module role LEGAL_CONCLUSION cannot be a Claim Plan ground (licensed by POFA_POSTAL_LATE)"
+      }
+    ],
+    "plan_digest": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+    "plan_id": "0eb0f2d1-d145-5a86-bdbb-6d6cf5f9a665",
+    "draft_context": {
+      "primary_route": "POFA",
+      "secondary_routes": [],
+      "verified_facts": {
+        "operator_name": "Acme Parking Ltd",
+        "pcn_number": "PCN123456",
+        "vrm": "AB12CDE",
+        "parking_location": "Retail Park",
+        "site_postcode": "M1 1AA",
+        "parking_event_date": "2026-06-01",
+        "notice_issue_date": "2026-06-20",
+        "entry_time": "10:00",
+        "exit_time": "12:47",
+        "charge_amount": "\u00a3100",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA",
+        "notice_route": "POSTAL",
+        "notice_type": "NTK",
+        "total_recorded_duration_min": 167,
+        "notice_sides_complete": true,
+        "jurisdiction": "ENGLAND_WALES",
+        "pcn_conflict": false,
+        "lease_parking_clause_found": false,
+        "lease_has_regulations_clause": false,
+        "pofa_route": "POSTAL",
+        "pofa_findings": [
+          "POFA_POSTAL_LATE"
+        ],
+        "pofa_finding": "POFA_POSTAL_LATE",
+        "ntk_invites_name_driver": false,
+        "ntk_invites_pass_to_driver": true,
+        "pofa_9_2_e_status": "SATISFIED",
+        "driver_status": "UNIDENTIFIED",
+        "evidence_kinds": [
+          "PCN"
+        ]
+      },
+      "fact_refs": {
+        "operator_name": "F-operator_name",
+        "pcn_number": "F-pcn_number",
+        "vrm": "F-vrm",
+        "parking_location": "F-parking_location",
+        "site_postcode": "F-site_postcode",
+        "parking_event_date": "F-parking_event_date",
+        "notice_issue_date": "F-notice_issue_date",
+        "entry_time": "F-entry_time",
+        "exit_time": "F-exit_time",
+        "charge_amount": "F-charge_amount",
+        "alleged_breach": "F-alleged_breach",
+        "operator_ata": "F-operator_ata",
+        "notice_route": "F-notice_route",
+        "notice_type": "F-notice_type",
+        "total_recorded_duration_min": "F-total_recorded_duration_min",
+        "notice_sides_complete": "F-notice_sides_complete",
+        "jurisdiction": "F-jurisdiction",
+        "pcn_conflict": "F-pcn_conflict",
+        "lease_parking_clause_found": "F-lease_parking_clause_found",
+        "lease_has_regulations_clause": "F-lease_has_regulations_clause",
+        "pofa_route": "F-pofa_route",
+        "pofa_findings": "F-pofa_findings",
+        "pofa_finding": "F-pofa_finding",
+        "ntk_invites_name_driver": "F-ntk_invites_name_driver",
+        "ntk_invites_pass_to_driver": "F-ntk_invites_pass_to_driver",
+        "pofa_9_2_e_status": "F-pofa_9_2_e_status"
+      },
+      "evidence_refs": [
+        "E1"
+      ],
+      "prohibited_claims": [
+        "10 minutes always cancels",
+        "breakdown automatically frustrates",
+        "genuine pre-estimate of loss",
+        "unlawful penalty",
+        "who was driving"
+      ],
+      "code_version": "SCOP-1.1",
+      "pofa_route": "POSTAL",
+      "pofa_findings": [
+        "POFA_POSTAL_LATE"
+      ],
+      "driver_status": "UNIDENTIFIED",
+      "context_chunks": [
+        {
+          "id": "KB-POFA-02",
+          "module_id": "KB-POFA-02",
+          "kind": "module",
+          "text": "Postal NTK timing. Assess the statutory delivery timing applicable to a postal Notice to Keeper before alleging lateness. Do not allege a timing failure until the correct statutory calculation is confirmed. Only after the deterministic timing calculation confirms the failure may the letter state that the NTK was not given within the statutory period for the postal route, so keeper liability is not established under Schedule 4.",
+          "sources": [
+            {
+              "id": "PoFA-2012-Sch4-para9",
+              "title": "PoFA 2012 Sch 4 para 9",
+              "jurisdiction": "ENGLAND_WALES",
+              "in_source_register": true
+            }
+          ]
+        },
+        {
+          "id": "PP-POFA-003",
+          "module_id": "KB-POFA-02",
+          "kind": "block",
+          "text": "The Notice to Keeper was not delivered within the applicable statutory period for the relevant postal-notice route. The operator has therefore failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4.",
+          "sources": [
+            {
+              "id": "PoFA-2012-Sch4-para9",
+              "title": "PoFA 2012 Sch 4 para 9",
+              "jurisdiction": "ENGLAND_WALES",
+              "in_source_register": true
+            }
+          ]
+        },
+        {
+          "id": "PP-POFA-006",
+          "module_id": "KB-POFA-02",
+          "kind": "block",
+          "text": "The operator has not established the identity of the driver. As the applicable Schedule 4 requirements have also not been satisfied, liability cannot be transferred to the registered keeper under Schedule 4.",
+          "sources": [
+            {
+              "id": "PoFA-2012-Sch4-para9",
+              "title": "PoFA 2012 Sch 4 para 9",
+              "jurisdiction": "ENGLAND_WALES",
+              "in_source_register": true
+            }
+          ]
+        },
+        {
+          "id": "PP-POFA-007",
+          "module_id": "KB-POFA-02",
+          "kind": "block",
+          "text": "For the verified reasons set out above, the operator has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012. The charge should therefore be cancelled as against the registered keeper.",
+          "sources": [
+            {
+              "id": "PoFA-2012-Sch4-para9",
+              "title": "PoFA 2012 Sch 4 para 9",
+              "jurisdiction": "ENGLAND_WALES",
+              "in_source_register": true
+            }
+          ]
+        }
+      ],
+      "lease_clauses": [],
+      "case_context": {
+        "operator_name": "Acme Parking Ltd",
+        "parking_location": "Retail Park",
+        "alleged_breach": "Overstayed paid time",
+        "parking_event_date": "2026-06-01",
+        "pcn_number": "PCN123456",
+        "vrm": "AB12CDE",
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "PCN",
+            "filename": "notice.txt"
+          }
+        ],
+        "unresolved_topics": [],
+        "validation_status": null,
+        "shopping_receipt_enclosed": false,
+        "material_account_propositions": [],
+        "material_account_proposition": "",
+        "account_contradicts_allegation": false,
+        "child_occupant_present": false,
+        "customer_reported_facts": [
+          "pcn_conflict"
+        ],
+        "document_established_facts": [
+          "alleged_breach",
+          "charge_amount",
+          "entry_time",
+          "exit_time",
+          "jurisdiction",
+          "lease_has_regulations_clause",
+          "lease_parking_clause_found",
+          "notice_issue_date",
+          "notice_route",
+          "notice_sides_complete",
+          "notice_type",
+          "ntk_invites_name_driver",
+          "ntk_invites_pass_to_driver",
+          "operator_ata",
+          "operator_name",
+          "parking_event_date",
+          "parking_location",
+          "pcn_number",
+          "pofa_9_2_e_status",
+          "pofa_finding",
+          "pofa_findings",
+          "pofa_route",
+          "site_postcode",
+          "total_recorded_duration_min",
+          "vrm"
+        ],
+        "customer_quotations": [],
+        "factual_rebuttal": {
+          "account_contradicts_allegation": false,
+          "propositions": [],
+          "child_occupant_present": false,
+          "independent_of_timing": true
+        },
+        "timing_argument": {
+          "observation_window_min": null,
+          "observation_time": null,
+          "event_time": null,
+          "bay_timing_selected": false
+        },
+        "claim_plan": {
+          "claim_plan_id": "0eb0f2d1-d145-5a86-bdbb-6d6cf5f9a665",
+          "version": 1,
+          "status": "LOCKED",
+          "module_ids": [
+            "KB-POFA-02"
+          ],
+          "claims": [
+            {
+              "module_id": "KB-POFA-02",
+              "claim_type": "POFA",
+              "priority": 1,
+              "supported_by": [
+                "pofa_route=POSTAL",
+                "pofa_finding in [\"POFA_POSTAL_LATE\"]",
+                "notice_issue_date",
+                "parking_event_date",
+                "POFA_POSTAL_LATE"
+              ]
+            }
+          ],
+          "support_bundles": {
+            "KB-POFA-02": {
+              "source_fact_ids": [
+                "notice_route",
+                "3e963cd5-836d-44fa-bf32-0efba176e6cc",
+                "relevant_land",
+                "47872aad-e50d-47f9-8cae-504f0168a504",
+                "c5d30340-19f8-4de8-a1f3-0f94b8ea66a6",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven",
+                "parking_event_date",
+                "notice_issue_date",
+                "jurisdiction"
+              ],
+              "derived_fact_ids": [
+                "a329417c-9008-4429-8a21-49721b27fd93",
+                "be431f78-b732-42bc-b56b-90df531dcd8c"
+              ],
+              "evidence_ids": [],
+              "legal_finding_ids": [
+                "a76bd293-98c0-5739-b46d-14d6e0e04594"
+              ],
+              "relationship_ids": [
+                "232aeb86-384d-5b58-aa57-873b303d0cb3",
+                "b49e5838-4ed4-5f13-8f69-0649893b7b63"
+              ],
+              "source_fact_names": [
+                "notice_route",
+                "jurisdiction",
+                "relevant_land",
+                "parking_event_date",
+                "notice_issue_date",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven"
+              ],
+              "derived_fact_names": [
+                "pofa_route",
+                "pofa_finding"
+              ],
+              "values": {
+                "pofa_route": "POSTAL",
+                "notice_route": "POSTAL",
+                "jurisdiction": "ENGLAND_WALES",
+                "parking_event_date": "2026-06-01",
+                "notice_issue_date": "2026-06-20",
+                "pofa_finding": "POFA_POSTAL_LATE"
+              }
+            }
+          },
+          "draft_requirements": {
+            "KB-POFA-02": {
+              "required_particulars": [
+                "notice_route",
+                "jurisdiction",
+                "relevant_land",
+                "parking_event_date",
+                "notice_issue_date",
+                "ntd_date",
+                "notice_received_date",
+                "delivery_date_proven",
+                "pofa_route",
+                "pofa_finding",
+                "deadline",
+                "presumed_delivery",
+                "days_late"
+              ],
+              "prohibited_content": [
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the source sequence that produces the derived conclusion",
+                "state each calculated date and the day count"
+              ]
+            }
+          },
+          "material_fact_accounting": []
+        },
+        "supported_grounds": [
+          {
+            "module_id": "KB-POFA-02",
+            "route": "POFA",
+            "topic": "Postal NTK timing",
+            "proposition": "Assess the statutory delivery timing applicable to a postal Notice to Keeper before alleging lateness."
+          }
+        ],
+        "particulars": {
+          "pofa_route": "POSTAL",
+          "notice_route": "POSTAL",
+          "jurisdiction": "ENGLAND_WALES",
+          "parking_event_date": "2026-06-01",
+          "notice_issue_date": "2026-06-20",
+          "pofa_finding": "POFA_POSTAL_LATE"
+        }
+      },
+      "module_ids": [
+        "KB-POFA-02"
+      ],
+      "evidence_index": {
+        "E1": "PCN"
+      },
+      "fact_basis": {
+        "operator_name": "DOCUMENT",
+        "pcn_number": "DOCUMENT",
+        "vrm": "DOCUMENT",
+        "parking_location": "DOCUMENT",
+        "site_postcode": "DOCUMENT",
+        "parking_event_date": "DOCUMENT",
+        "notice_issue_date": "DOCUMENT",
+        "entry_time": "DOCUMENT",
+        "exit_time": "DOCUMENT",
+        "charge_amount": "DOCUMENT",
+        "alleged_breach": "DOCUMENT",
+        "operator_ata": "DOCUMENT",
+        "notice_route": "DOCUMENT",
+        "notice_type": "DOCUMENT",
+        "total_recorded_duration_min": "DOCUMENT",
+        "notice_sides_complete": "DOCUMENT",
+        "jurisdiction": "DOCUMENT",
+        "pcn_conflict": "CUSTOMER_ACCOUNT",
+        "lease_parking_clause_found": "DOCUMENT",
+        "lease_has_regulations_clause": "DOCUMENT",
+        "pofa_route": "DOCUMENT",
+        "pofa_findings": "DOCUMENT",
+        "pofa_finding": "DOCUMENT",
+        "ntk_invites_name_driver": "DOCUMENT",
+        "ntk_invites_pass_to_driver": "DOCUMENT",
+        "pofa_9_2_e_status": "DOCUMENT",
+        "driver_status": "DERIVED",
+        "evidence_kinds": "DERIVED"
+      },
+      "driver_rule": "Write about the keeper and the vehicle. Never say or imply who parked, drove, left or returned. Never write 'I parked' or 'the driver parked'.",
+      "verified_legal_findings": [
+        {
+          "finding_id": "a76bd293-98c0-5739-b46d-14d6e0e04594",
+          "finding_type": "POFA_POSTAL_LATE",
+          "status": "VERIFIED",
+          "description": "late delivery of a postal Notice to Keeper (Schedule 4 para 9)",
+          "supporting_facts": [
+            "parking_event_date",
+            "notice_issue_date",
+            "notice_route"
+          ],
+          "legal_module_id": "KB-POFA-02",
+          "calculation": {
+            "pofa_route": "POSTAL",
+            "parking_event_date": "2026-06-01",
+            "notice_issue_date": "2026-06-20",
+            "deadline": "2026-06-15",
+            "presumed_delivery": "2026-06-23",
+            "days_between": 8
+          }
+        }
+      ],
+      "support_bundles": {
+        "KB-POFA-02": {
+          "source_fact_ids": [
+            "notice_route",
+            "3e963cd5-836d-44fa-bf32-0efba176e6cc",
+            "relevant_land",
+            "47872aad-e50d-47f9-8cae-504f0168a504",
+            "c5d30340-19f8-4de8-a1f3-0f94b8ea66a6",
+            "ntd_date",
+            "notice_received_date",
+            "delivery_date_proven",
+            "parking_event_date",
+            "notice_issue_date",
+            "jurisdiction"
+          ],
+          "derived_fact_ids": [
+            "a329417c-9008-4429-8a21-49721b27fd93",
+            "be431f78-b732-42bc-b56b-90df531dcd8c"
+          ],
+          "evidence_ids": [],
+          "legal_finding_ids": [
+            "a76bd293-98c0-5739-b46d-14d6e0e04594"
+          ],
+          "relationship_ids": [
+            "232aeb86-384d-5b58-aa57-873b303d0cb3",
+            "b49e5838-4ed4-5f13-8f69-0649893b7b63"
+          ],
+          "source_fact_names": [
+            "notice_route",
+            "jurisdiction",
+            "relevant_land",
+            "parking_event_date",
+            "notice_issue_date",
+            "ntd_date",
+            "notice_received_date",
+            "delivery_date_proven"
+          ],
+          "derived_fact_names": [
+            "pofa_route",
+            "pofa_finding"
+          ],
+          "values": {
+            "pofa_route": "POSTAL",
+            "notice_route": "POSTAL",
+            "jurisdiction": "ENGLAND_WALES",
+            "parking_event_date": "2026-06-01",
+            "notice_issue_date": "2026-06-20",
+            "pofa_finding": "POFA_POSTAL_LATE"
+          }
+        }
+      },
+      "draft_requirements": {
+        "KB-POFA-02": {
+          "required_particulars": [
+            "notice_route",
+            "jurisdiction",
+            "relevant_land",
+            "parking_event_date",
+            "notice_issue_date",
+            "ntd_date",
+            "notice_received_date",
+            "delivery_date_proven",
+            "pofa_route",
+            "pofa_finding",
+            "deadline",
+            "presumed_delivery",
+            "days_late"
+          ],
+          "prohibited_content": [
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the source sequence that produces the derived conclusion",
+            "state each calculated date and the day count"
+          ]
+        }
+      }
+    },
+    "draft_context_error": null,
+    "letter": "I write as the registered keeper of vehicle AB12CDE in respect of Parking Charge Notice PCN123456. I dispute liability for this parking charge and require the operator to consider this appeal.\n\nThe Parking Charge Notice alleges: Overstayed paid time at Retail Park.\n\nOn the operator's own documents the parking event took place on 1 June 2026, the Notice to Keeper was issued on 20 June 2026; the statutory period for delivery of the notice ended on 15 June 2026 and it is deemed delivered on 23 June 2026, 8 days outside that period, so the notice was not delivered within the statutory period and keeper liability does not transfer.\n\nThe Notice to Keeper was not delivered within the applicable statutory period for the relevant postal-notice route. The operator has therefore failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4.\n\nThe operator has not established the identity of the driver. As the applicable Schedule 4 requirements have also not been satisfied, liability cannot be transferred to the registered keeper under Schedule 4.\n\nFor the reasons set out above, the parking charge is disputed and the operator is requested to cancel the Parking Charge Notice.\n\nThe operator has not established the identity of the driver. As the applicable Schedule 4 requirements have also not been satisfied, liability cannot be transferred to the registered keeper under Schedule 4. For the verified reasons set out above, the operator has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012. The charge should therefore be cancelled as against the registered keeper. If the operator is not prepared to cancel the charge, it is requested to provide a clear response addressing the specific grounds and evidence raised.",
+    "validation_passed": true,
+    "validation_issues": [],
+    "placeholders": [],
+    "master_digest": "340b90db1f04bd2af8daac22a60dcfca0321fac54f5271ca5a33127373d52b15",
+    "versions": {
+      "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+      "kb_release": null,
+      "prompt_versions": {
+        "extraction": 10,
+        "drafting": 16,
+        "case_analysis": 8,
+        "validation": 3,
+        "page_references": 2,
+        "classification": 2
+      },
+      "model_provider": "ReferenceAnalysisLLM",
+      "claim_plan_builder_version": "3",
+      "master_case_object_version": 1,
+      "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+    },
+    "persist": {
+      "passed": true,
+      "before": [
+        "KB-POFA-02"
+      ],
+      "after": [
+        "KB-POFA-02"
+      ],
+      "digest_before": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+      "digest_after": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+      "master_roundtrip_ok": true
+    }
+  },
+  "scores": {
+    "scores": {
+      "classification": {
+        "status": "SCORED",
+        "document_classes": {
+          "E1": "PCN"
+        },
+        "scope_stop": null,
+        "issues": [],
+        "passed": true
+      },
+      "extraction": {
+        "status": "SCORED",
+        "method": "INJECTED_FROM_DOCUMENT_GOLD",
+        "note": "Values were injected from document gold; this scores fact-graph landing, not OCR.",
+        "fields": {
+          "operator_name": {
+            "verdict": "correct",
+            "expected": "Acme Parking Ltd",
+            "actual": "Acme Parking Ltd",
+            "source": "DOCUMENT"
+          },
+          "pcn_number": {
+            "verdict": "correct",
+            "expected": "PCN123456",
+            "actual": "PCN123456",
+            "source": "DOCUMENT"
+          },
+          "vrm": {
+            "verdict": "correct",
+            "expected": "AB12 CDE",
+            "actual": "AB12CDE",
+            "source": "DOCUMENT"
+          },
+          "parking_event_date": {
+            "verdict": "correct",
+            "expected": "01/06/2026",
+            "actual": "2026-06-01",
+            "source": "DOCUMENT"
+          },
+          "notice_issue_date": {
+            "verdict": "correct",
+            "expected": "20/06/2026",
+            "actual": "2026-06-20",
+            "source": "DOCUMENT"
+          },
+          "entry_time": {
+            "verdict": "correct",
+            "expected": "10:00",
+            "actual": "10:00",
+            "source": "DOCUMENT"
+          },
+          "exit_time": {
+            "verdict": "correct",
+            "expected": "12:47",
+            "actual": "12:47",
+            "source": "DOCUMENT"
+          },
+          "parking_location": {
+            "verdict": "correct",
+            "expected": "Retail Park",
+            "actual": "Retail Park",
+            "source": "DOCUMENT"
+          },
+          "site_postcode": {
+            "verdict": "correct",
+            "expected": "M1 1AA",
+            "actual": "M1 1AA",
+            "source": "DOCUMENT"
+          },
+          "alleged_breach": {
+            "verdict": "correct",
+            "expected": "Overstayed paid time",
+            "actual": "Overstayed paid time",
+            "source": "DOCUMENT"
+          },
+          "notice_route": {
+            "verdict": "correct",
+            "expected": "POSTAL",
+            "actual": "POSTAL",
+            "source": "DOCUMENT"
+          },
+          "notice_type": {
+            "verdict": "correct",
+            "expected": "NTK",
+            "actual": "NTK",
+            "source": "DOCUMENT"
+          }
+        },
+        "counts": {
+          "correct": 12,
+          "incorrect": 0,
+          "missing": 0,
+          "unsupported": 0
+        },
+        "accuracy": 1.0,
+        "legal_critical_accuracy": 1.0,
+        "ordinary_accuracy": 1.0,
+        "invented": [],
+        "passed": true
+      },
+      "facts": {
+        "status": "SCORED",
+        "tp": [
+          "operator_name",
+          "pcn_number",
+          "vrm",
+          "parking_event_date",
+          "notice_issue_date",
+          "entry_time",
+          "exit_time",
+          "parking_location",
+          "site_postcode",
+          "alleged_breach"
+        ],
+        "fn": [],
+        "provenance_mismatch": [],
+        "precision": 1.0,
+        "recall": 1.0,
+        "by_kind": {
+          "document": {
+            "tp": 10,
+            "fp": 0,
+            "fn": 0
+          },
+          "customer_stated": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "customer_confirmed": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          },
+          "derived": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0
+          }
+        },
+        "passed": true
+      },
+      "derived": {
+        "status": "N/A"
+      },
+      "questions": {
+        "status": "N/A",
+        "asked": [],
+        "zero_questions_valid": true
+      },
+      "findings": {
+        "status": "SCORED",
+        "rows": [
+          {
+            "finding_type": "POFA_POSTAL_LATE",
+            "expected": "VERIFIED",
+            "actual": "VERIFIED",
+            "lineage": true,
+            "match": true
+          }
+        ],
+        "passed": true,
+        "accuracy": 1.0
+      },
+      "retrieval": {
+        "status": "SCORED",
+        "retrieved": [
+          "KB-POFA-02",
+          "KB-POFA-05",
+          "KB-POFA-01"
+        ],
+        "required": [
+          "KB-POFA-02"
+        ],
+        "missed": [],
+        "irrelevant": [],
+        "precision": 0.3333333333333333,
+        "recall": 1.0,
+        "passed": true,
+        "note": "retrieved candidate \u2260 approved ground"
+      },
+      "grounds": {
+        "status": "SCORED",
+        "selected": [
+          "KB-POFA-02"
+        ],
+        "expected": [
+          "KB-POFA-02"
+        ],
+        "tp": [
+          "KB-POFA-02"
+        ],
+        "fp": [],
+        "fn": [],
+        "precision": 1.0,
+        "recall": 1.0,
+        "by_origin": {
+          "verified_finding": {
+            "expected": [
+              "KB-POFA-02"
+            ],
+            "hit": [
+              "KB-POFA-02"
+            ]
+          }
+        },
+        "passed": true
+      },
+      "claim_plan": {
+        "status": "SCORED",
+        "missing": [],
+        "bundles": [
+          {
+            "module_id": "KB-POFA-02",
+            "exists": true,
+            "supported": true,
+            "has_facts": true,
+            "has_reason": true
+          }
+        ],
+        "coverage": 1.0,
+        "support_bundle_completeness": 1.0,
+        "passed": true
+      },
+      "draft_context": {
+        "status": "SCORED",
+        "required": [
+          "parking_event_date",
+          "notice_issue_date"
+        ],
+        "present": [
+          "parking_event_date",
+          "notice_issue_date"
+        ],
+        "missing": [],
+        "coverage": 1.0,
+        "error": null,
+        "passed": true
+      },
+      "draft": {
+        "status": "SCORED",
+        "must_express_missing": [],
+        "must_not_express_hit": [],
+        "placeholders": [],
+        "driver_unsafe": false,
+        "ground_coverage": 0.0,
+        "material_fact_coverage": 1.0,
+        "unsupported_assertion_rate": 0.0,
+        "passed": true
+      },
+      "validation": {
+        "status": "SCORED",
+        "passed": true,
+        "issues": [],
+        "placeholders": []
+      },
+      "outcome": {
+        "status": "SCORED",
+        "state": "RELEASED",
+        "outcome": null,
+        "issues": [],
+        "passed": true,
+        "consistency_ok": true
+      },
+      "persist": {
+        "passed": true,
+        "before": [
+          "KB-POFA-02"
+        ],
+        "after": [
+          "KB-POFA-02"
+        ],
+        "digest_before": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+        "digest_after": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+        "master_roundtrip_ok": true
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null,
+    "scored_layer_count": 11,
+    "failed_layer_count": 0
+  },
+  "persist": {
+    "passed": true,
+    "before": [
+      "KB-POFA-02"
+    ],
+    "after": [
+      "KB-POFA-02"
+    ],
+    "digest_before": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+    "digest_after": "8e5a2e04004c01ae09dd0b0665605a2ed079b3af4e512d4a62a7ff1052110e40",
+    "master_roundtrip_ok": true
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "case_id": "REG_residential",
+  "dataset_version": "p9_v1",
+  "completeness": "COMPLETE",
+  "split": "BLIND_HOLDOUT",
+  "approval_status": "DEVELOPMENT_APPROVED",
+  "family": "residential",
+  "operator": "Acme Parking Ltd",
+  "allegation": "no_permit",
+  "legal_route": "RESIDENTIAL",
+  "circumstance": "tenant_allocated_bay",
+  "evidence_type": "notice_plus_tenancy",
+  "notes": "Blind holdout. Different allegation, route, and evidence type.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "PARKING CHARGE NOTICE\nOperator Name: Acme Parking Ltd\nPCN Number: PCN123456\nVehicle Registration: AB12 CDE\nLocation: Retail Park\nPostcode: M1 1AA\nDate of Contravention: 01/06/2026\nDate of Issue: 05/06/2026\nEntry Time: 10:00\nExit Time: 12:47\nCharge: \u00a3100\nAlleged Breach: No valid permit displayed\nTrade Association: BPA",
+    "notice_back": "HOW TO APPEAL\nIf you were not the driver, you may pass this notice to the driver or\nname them. We are seeking recovery from the keeper under Schedule 4 of\nthe Protection of Freedoms Act 2012 if the driver is not identified.\nIf your appeal to us is rejected you may appeal to the independent\nappeals service (POPLA) within 28 days using the code we will give you.\nPay or appeal within 28 days of the date of issue.",
+    "customer_narrative": "I live there, it's my allocated space",
+    "customer_answers": {
+      "resident_status": "TENANT",
+      "permit_held": "no"
+    },
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E3",
+        "filename": "tenancy.pdf",
+        "kind": "TENANCY",
+        "doc_type": "TENANCY",
+        "text": "1. Definitions apply.\n3.2 The Tenant shall have the right to park one private motor vehicle in the parking space numbered 14 shown on the plan.\n4. Rent is payable monthly."
+      }
+    ],
+    "corrections": {
+      "allocated_bay": "14"
+    },
+    "extraction_fields": {
+      "operator_name": "Acme Parking Ltd",
+      "pcn_number": "PCN123456",
+      "vrm": "AB12 CDE",
+      "parking_location": "Retail Park",
+      "site_postcode": "M1 1AA",
+      "parking_event_date": "01/06/2026",
+      "notice_issue_date": "05/06/2026",
+      "entry_time": "10:00",
+      "exit_time": "12:47",
+      "charge_amount": "\u00a3100",
+      "alleged_breach": "No valid permit displayed",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN",
+      "E3": "TENANCY"
+    },
+    "image_path": null
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "Acme Parking Ltd",
+        "pcn_number": "PCN123456",
+        "vrm": "AB12 CDE",
+        "parking_location": "Retail Park",
+        "site_postcode": "M1 1AA",
+        "parking_event_date": "01/06/2026",
+        "notice_issue_date": "05/06/2026",
+        "entry_time": "10:00",
+        "exit_time": "12:47",
+        "charge_amount": "\u00a3100",
+        "alleged_breach": "No valid permit displayed",
+        "operator_ata": "BPA",
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "Acme Parking Ltd",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "PCN123456",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "AB12 CDE",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "01/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "05/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "10:00",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "12:47",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "Retail Park",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "site_postcode",
+          "value": "M1 1AA",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "alleged_breach",
+          "value": "No valid permit displayed",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "state": "RELEASED",
+        "primary_route": "RESIDENTIAL"
+      }
+    },
+    "final_appeal_requirements": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "must_express": [
+          "parking space numbered 14"
+        ],
+        "must_not_express": [
+          "I parked",
+          "I drove"
+        ],
+        "exact_wording_approved": false
+      }
+    },
+    "ground_origins": {
+      "RESIDENTIAL": "evidence"
+    }
+  },
+  "governance": {
+    "approved_by": "development_test_suite",
+    "approved_at": "2026-10-04",
+    "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+  }
+}

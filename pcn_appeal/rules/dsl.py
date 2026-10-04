@@ -23,7 +23,7 @@ No eval(), no attribute access, unknown operators raise.
 """
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, List, Mapping, Optional
 
 _MISSING = object()
 
@@ -71,6 +71,18 @@ def evaluate(pred: Any, facts: Mapping[str, Any]) -> bool:
     if op in {"eq", "ne", "in", "gt", "gte", "lt", "lte"}:
         name, ref = arg
         v = _val(facts, name)
+        # P8.1: pofa_finding may be multi-valued via pofa_findings[]. A gate
+        # that names one defect code passes when that code is among the
+        # calculated findings — never only when it happens to be findings[0].
+        if name == "pofa_finding" and op in ("eq", "ne", "in"):
+            codes = _pofa_codes(facts)
+            if codes is not None:
+                if op == "eq":
+                    return ref in codes
+                if op == "ne":
+                    return ref not in codes
+                if op == "in":
+                    return any(c in (ref or []) for c in codes)
         if v is _MISSING:
             return op == "ne"
         if op == "eq":
@@ -91,6 +103,29 @@ def evaluate(pred: Any, facts: Mapping[str, Any]) -> bool:
         except TypeError:
             return False
     raise PredicateError(f"Unknown operator: {op}")
+
+
+def _pofa_codes(facts: Mapping[str, Any]) -> Optional[List[str]]:
+    """Authoritative defect codes for gate eval, or None when unset.
+
+    Union of pofa_findings[] and scalar pofa_finding. An empty list plus a
+    scalar (test injection / legacy) still yields the scalar — empty list alone
+    does not mask a present scalar.
+    """
+    has_list = "pofa_findings" in facts
+    has_scalar = "pofa_finding" in facts
+    if not has_list and not has_scalar:
+        return None
+    codes: List[str] = []
+    raw = facts.get("pofa_findings")
+    if isinstance(raw, (list, tuple, set)):
+        codes.extend(str(c) for c in raw if c)
+    elif raw:
+        codes.append(str(raw))
+    single = facts.get("pofa_finding")
+    if single not in (None, "", _MISSING) and str(single) not in codes:
+        codes.append(str(single))
+    return codes
 
 
 def referenced_facts(pred: Any) -> set[str]:

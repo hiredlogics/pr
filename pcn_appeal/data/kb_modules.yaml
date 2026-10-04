@@ -31,6 +31,14 @@
 #   <50     evidence / signage / authority support only - engines/reasoning.py
 #           SUPPORTING_THRESHOLD means these can never lead the letter
 #
+# P10.3 module_role (optional per-module override; defaults in module_roles.py):
+#   SUBSTANTIVE_GROUND      may be a Claim Plan ground and may lead
+#   EVIDENCE_REQUIREMENT    may be a Claim Plan ground and may lead
+#   SUPPORTING_PROPOSITION  cannot independently create a ground
+#   LEGAL_CONCLUSION        cannot independently create a ground
+#   STRUCTURAL              never a ground
+# Roles do not change topic / core_proposition / building-block wording.
+#
 # NOTE on `ne`: rules/dsl.py returns True for `ne` when the fact is MISSING, so
 # every `ne` gate below is paired with an `exists` gate (KB-PAY-02's
 # do_not_use_when relies on the missing-is-True behaviour deliberately).
@@ -188,6 +196,8 @@ modules:
     building_blocks: [PP-POFA-008, PP-POFA-006, PP-POFA-007]
     strength: 88
     status: REVIEW
+    module_role: SUBSTANTIVE_GROUND
+    can_lead_letter: false   # P10.5: REVIEW — must not lead until legally activated
     version: "1.0"
     effective_from: null      # to be set by administrator
     effective_to: null
@@ -663,6 +673,8 @@ modules:
     building_blocks: [PP-ANPR-010, PP-ANPR-011, PP-ANPR-005, PP-ANPR-002]
     strength: 55
     status: ACTIVE
+    module_role: EVIDENCE_REQUIREMENT
+    can_lead_letter: false   # P10.5: evidence challenge; explicit override required to lead
     version: "1.1"
     effective_from: null      # to be set by administrator
     effective_to: null
@@ -685,6 +697,8 @@ modules:
     building_blocks: [PP-ANPR-007, PP-ANPR-008]
     strength: 60
     status: ACTIVE
+    module_role: EVIDENCE_REQUIREMENT
+    can_lead_letter: false   # P10.5: evidence challenge; explicit override required to lead
     version: "1.1"
     effective_from: null      # to be set by administrator
     effective_to: null
@@ -711,6 +725,8 @@ modules:
     building_blocks: [PP-ANPR-004]
     strength: 70
     status: ACTIVE
+    module_role: EVIDENCE_REQUIREMENT
+    can_lead_letter: false   # P10.5: evidence challenge; explicit override required to lead
     version: "1.1"
     effective_from: null      # to be set by administrator
     effective_to: null
@@ -790,6 +806,8 @@ modules:
     building_blocks: [PP-ANPR-001, PP-ANPR-002]
     strength: 30
     status: ACTIVE
+    module_role: EVIDENCE_REQUIREMENT
+    can_lead_letter: false   # P10.5: evidence / timing challenge; strength also <50
     version: "1.2"
     effective_from: null      # to be set by administrator
     effective_to: null

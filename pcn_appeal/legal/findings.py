@@ -200,19 +200,48 @@ def gate_depends_on_finding(module, facts: dict) -> Optional[str]:
     is only argued when that finding is VERIFIED. A module that also passes
     through a non-finding branch (for example a document-confirmed content
     defect) is untouched.
+
+    P8.1: dependency is resolved against the full pofa_findings set (and any
+    codes the module's gate names), never only against a collapsed scalar.
     """
-    from ..rules.dsl import evaluate
-    code = facts.get("pofa_finding")
-    if not code:
+    from ..rules.dsl import evaluate, _pofa_codes
+    codes = _pofa_codes(facts) or []
+    refs = referenced_findings(module)
+    candidates = list(dict.fromkeys([*codes, *sorted(refs)]))
+    if not candidates:
         return None
     try:
         if not evaluate(module.use_when, facts):
             return None
-        if evaluate(module.use_when, {**facts, "pofa_finding": None}):
+        # Gate stands without any finding codes.
+        cleared = {**facts, "pofa_finding": None, "pofa_findings": []}
+        if evaluate(module.use_when, cleared):
             return None
     except Exception:
         return None
-    return str(code)
+    # Prefer a code the module names that is present; else first calculated code.
+    for code in candidates:
+        if refs and code not in refs:
+            continue
+        return str(code)
+    return str(candidates[0]) if candidates else None
+
+
+def gate_facts(facts: dict, finding_codes=()) -> dict:
+    """Facts view for gate / eligibility with multi-finding authority (P8.1)."""
+    out = dict(facts or {})
+    codes = [str(c) for c in (finding_codes or []) if c]
+    if not codes:
+        raw = out.get("pofa_findings")
+        if isinstance(raw, (list, tuple)):
+            codes = [str(c) for c in raw if c]
+        elif out.get("pofa_finding"):
+            codes = [str(out["pofa_finding"])]
+    out["pofa_findings"] = codes
+    # Keep a scalar for legacy readers; do not invent one when empty.
+    if codes and not out.get("pofa_finding"):
+        out["pofa_finding"] = codes[0]
+    return out
 
 
 REJECTION_REASON = "Legal defect not verified"

@@ -1,0 +1,23 @@
+{
+  "case_id": "DEV_negated_statement",
+  "split": "DEVELOPMENT",
+  "family": "negated_statement",
+  "input": {
+    "customer_narrative": "I did not pay for parking that day and there was no breakdown.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900108",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "08/06/2026",
+      "notice_issue_date": "12/06/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": ["PAYMENT_MADE", "BROKEN_DOWN"]
+  }
+}

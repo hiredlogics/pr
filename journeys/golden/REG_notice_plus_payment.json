@@ -8,7 +8,7 @@
       "KB-PAY-01",
       "KB-REC-01"
     ],
-    "plan_digest": "2b1b9de9c83b046d6d895f286a77cf3f9587aef6d5b4535b07703cefa745f9d6"
+    "plan_digest": "6e1d31b9f7fb6c2cc91ab0a05042a550fc184fa0b4ce8303c9460106d302a201"
   },
   "draft": {
     "content_hash": "704532cf6469c3d6d772bfe6214083bef7644e60feb35e3db0bfcd281625a6ed",
@@ -131,6 +131,7 @@
     "pcn_number": "e18ed3ade1e1",
     "pofa_9_2_e_status": "80bf2e217f0b",
     "pofa_finding": "d82bd98d4438",
+    "pofa_findings": "1bad73db9be0",
     "pofa_route": "3b314d5ff8c4",
     "shopping_purchase_confirmed": "3cbc87c7681f",
     "site_postcode": "3c262990cebd",

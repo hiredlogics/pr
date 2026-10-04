@@ -46,6 +46,12 @@ class ReferenceAnalysisLLM:
             if queued:
                 return queued.pop(0)
             return self._analyse(user)
+        if task == "semantic_extraction":
+            queued = self.responses.get(task)
+            if queued:
+                return queued.pop(0)
+            # Reference-model meaning bridge — NOT a live LLM; labelled for eval.
+            return self._semantic(user)
         if task == "drafting":
             queued = self.responses.get(task)
             if queued:
@@ -67,6 +73,16 @@ class ReferenceAnalysisLLM:
         if not queued:
             raise RuntimeError(f"no response queued for task {task!r}")
         return queued.pop(0)
+
+    def _semantic(self, payload: str) -> dict:
+        """Meaning-bridge stand-in for semantic_extraction (offline eval)."""
+        from pcn_appeal.semantics.meaning_bridge import extract_concepts_meaning_bridge
+        data = json.loads(payload) if isinstance(payload, str) else (payload or {})
+        texts = list(data.get("customer_texts") or data.get("texts") or [])
+        concepts = extract_concepts_meaning_bridge(texts)
+        for c in concepts:
+            c["provenance"] = "reference_analysis_llm_meaning_bridge"
+        return {"concepts": concepts, "model_kind": "ReferenceAnalysisLLM"}
 
     def _draft(self, payload: str) -> dict:
         """Deterministic letter from the pack the pipeline already finalized.

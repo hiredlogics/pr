@@ -279,10 +279,16 @@ class AnalysisEngine:
         # decides which, if any, the customer sees. Zero is a valid outcome.
         result.questions = self._safe_questions(case, asking, result)
 
+        from .claim_plan_authority import latest_locked
+        previous = latest_locked(case)
+        prev_ids = set(previous.supported_ids) if previous is not None else set()
+        kept = list(result.module_ids or [])
+        # P8.2: Case Intelligence is a proposer. These three lists are the
+        # contract; there is no final_ground_list.
         case.audit.append({
             "event": "case_analysis",
             "proposed": [g.get("module_id") for g in proposed],
-            "kept": result.module_ids,
+            "kept": kept,
             "suppressed": result.suppressed,
             "claim_plan": result.claim_plan,
             # P5: what was offered, so the final Claim Plan accounts for every
@@ -292,6 +298,13 @@ class AnalysisEngine:
             "why_asked": {q.get("fact"): q.get("material_because")
                           for q in (raw.get("questions") or []) if q.get("fact")},
             "not_supported": raw.get("not_supported") or [],
+            "add_ground_candidates": [m for m in kept if m not in prev_ids],
+            "support_existing_ground": [m for m in kept if m in prev_ids],
+            "proposed_invalidations": [
+                {"ground_id": s.get("module_id"),
+                 "reason": s.get("why") or s.get("reason") or "suppressed"}
+                for s in (result.suppressed or []) if s.get("module_id")
+            ],
         })
         return result
 

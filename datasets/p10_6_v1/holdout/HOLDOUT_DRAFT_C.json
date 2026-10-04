@@ -1,0 +1,31 @@
+{
+  "case_id": "HOLDOUT_DRAFT_C",
+  "split": "HOLDOUT",
+  "family": "visits_unseen",
+  "input": {
+    "customer_narrative": "Drove away after the first stop, then came back later that afternoon.",
+    "customer_answers": {
+      "left_site": "yes",
+      "returned_same_day": "yes",
+      "multiple_visits": "yes"
+    },
+    "extraction_fields": {
+      "operator_name": "Holdout Park C",
+      "pcn_number": "HC901101",
+      "vrm": "NN44OOO",
+      "parking_location": "Holdout Plaza C",
+      "site_postcode": "CF1 1AA",
+      "parking_event_date": "05/09/2026",
+      "notice_issue_date": "09/09/2026",
+      "alleged_breach": "Overstay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "left_site": true,
+      "returned_same_day": true
+    },
+    "draft_ground_coverage": 1.0
+  }
+}

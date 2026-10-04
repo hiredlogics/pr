@@ -22,10 +22,13 @@ Rules
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .. import fact_lifecycle
+from ..fact_graph import same_value
 from ..hypotheses import CONFIRMED, KINDS
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from . import narrative
@@ -109,6 +112,21 @@ _RULES: tuple[CircumstanceRule, ...] = (
         (),
     ),
     # Payment
+    CircumstanceRule(
+        "keying_error_type", "MINOR",
+        re.compile(
+            r"\b("
+            r"typ(o|ed)|keying (error|mistake)|mis-?key|"
+            r"(wrong|incorrect|mistyped|mis-?typed|misentered|mis-?entered)"
+            r".{0,24}(reg(istration)?|vrm|plate|number plate)|"
+            r"(reg(istration)?|vrm|plate).{0,24}"
+            r"(typ(o|ed)|wrong|incorrect|mistake|error)"
+            r")",
+            re.I,
+        ),
+        "a registration-entry error occurred when the vehicle registration was recorded",
+        (),
+    ),
     CircumstanceRule(
         "payment_made", True,
         re.compile(
@@ -254,13 +272,17 @@ class FreeTextExtraction:
     relevant_to_allegation: bool = False
 
     def as_dict(self) -> dict[str, Any]:
+        span = (self.original or "")[:240]
         return {
             "source": self.source,
-            "original": self.original[:300],
+            "original": (self.original or "")[:300],
             "fact_name": self.fact_name,
             "normalized_value": self.normalized_value,
             "drafting_proposition": self.drafting_proposition,
             "relevant_to_allegation": self.relevant_to_allegation,
+            "answer_id": f"free_text:{self.fact_name}",
+            "text_span": span,
+            "extractor_version": fact_lifecycle.EXTRACTOR_VERSION,
         }
 
 
@@ -280,16 +302,56 @@ def _match_negated(text: str, match: re.Match) -> bool:
     return bool(_NEGATION.search(window))
 
 
-def assess_material_account(case: CaseFile) -> dict[str, Any]:
+# Affirmative occupancy / eligibility facts that negated wording must not invent.
+NEGATABLE = frozenset({
+    "child_occupant_present", "blue_badge_displayed", "permit_held",
+    "bay_conditions_met_accounted", "ev_charging_session", "payment_made",
+})
+
+
+def _intended_facts(texts: list[str]) -> dict[str, Any]:
+    """The free-text facts this pass is about to assert, scanned without
+    writing. What the clear keeps: a fact re-asserted with the same value keeps
+    its node, its history and its lineage instead of being retracted and
+    recreated (P8.4)."""
+    out: dict[str, Any] = {}
+    for raw in texts:
+        text = str(raw).strip()
+        if len(text) < 4:
+            continue
+        for rule in _RULES:
+            if rule.fact_name in out:
+                continue
+            m = rule.pattern.search(text)
+            if not m:
+                continue
+            if rule.fact_name in NEGATABLE and rule.value is True and _match_negated(text, m):
+                continue
+            out[rule.fact_name] = rule.value
+    return out
+
+
+def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     """Extract structured facts + professional propositions from all free text.
 
-    Safe to call repeatedly. Clears prior free-text-derived drafting facts first.
+    Safe to call repeatedly. P8.4: differential clear — only retract material
+    facts that will not be re-asserted with the same value; keep lineage.
+
+    P10.5 order: narrative → LLM-primary semantic concepts → FactManager →
+    (then questions elsewhere). Semantic promotion runs before CircumstanceRule
+    writes so an already-stated fact is not re-asked into existence.
     """
-    _clear_material(case)
     texts = _collect_customer_texts(case)
+    from ..semantics import extract_and_promote
+    semantic = extract_and_promote(case, texts, llm=llm)
+    intended = dict(_intended_facts(texts))
+    intended.update(_intended_narrative(texts))
+    intended.update(semantic.get("intended") or {})
+    apply_fact_delta(case, intended)
     narrative.understand(case, texts)
     if not texts:
-        return {"extractions": [], "propositions": [], "contradicts": False}
+        return {"extractions": [], "propositions": [], "contradicts": False,
+                "semantic": semantic}
 
     breach = str(case.get("alleged_breach") or "").strip().lower()
     extractions: list[FreeTextExtraction] = []
@@ -306,10 +368,7 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
             if not m:
                 continue
             # Negated wording must not invent affirmative occupancy/eligibility facts.
-            if rule.fact_name in {
-                "child_occupant_present", "blue_badge_displayed", "permit_held",
-                "bay_conditions_met_accounted", "ev_charging_session", "payment_made",
-            } and rule.value is True and _match_negated(text, m):
+            if rule.fact_name in NEGATABLE and rule.value is True and _match_negated(text, m):
                 continue
             # Do not overwrite a stronger confirmed/document value with free-text.
             existing = case.facts.get(rule.fact_name)
@@ -345,12 +404,13 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     extractions += _answered_circumstances(case, {e.fact_name for e in extractions})
 
     if not extractions:
-        case.free_text_provenance = []
+        fact_lifecycle.protect_derived_facts(case)
         case.audit.append({
             "event": "material_account",
             "extractions": [],
             "note": "no extractable structured circumstances in free text",
         })
+        fact_lifecycle.persist_versions(case)
         return {"extractions": [], "propositions": [], "contradicts": False}
 
     # Prefer propositions that address the allegation; keep others for drafting
@@ -388,19 +448,28 @@ def assess_material_account(case: CaseFile) -> dict[str, Any]:
     provenance = [e.as_dict() for e in extractions]
     case.raw_answers["_material_source_texts"] = "\n".join(
         dict.fromkeys(e.original for e in extractions))[:2000]
+    # P8.4: persist provenance in raw_answers so reload can restore lineage.
+    try:
+        case.raw_answers["_free_text_provenance"] = json.dumps(provenance)[:8000]
+    except (TypeError, ValueError):
+        case.raw_answers["_free_text_provenance"] = "[]"
     case.free_text_provenance = provenance
+    fact_lifecycle.protect_derived_facts(case)
     case.audit.append({
         "event": "material_account",
         "provenance": provenance,
+        "fact_versions": list(getattr(case, "fact_versions", None) or []),
         "propositions": propositions,
         "contradicts_allegation": contradicts,
     })
+    fact_lifecycle.persist_versions(case)
 
     return {
         "extractions": provenance,
         "propositions": propositions,
         "contradicts": contradicts,
         "source_texts": [e.original for e in extractions],
+        "semantic": semantic,
     }
 
 
@@ -497,33 +566,27 @@ def _account_contradicts_allegation(
     return any(e.fact_name in eligibility for e in extractions)
 
 
-def _clear_material(case: CaseFile) -> None:
-    """Remove prior free-text extractions so re-assessment is idempotent."""
-    drop_exact = {
-        "account_contradicts_allegation",
-        "material_account_propositions",
-        "material_account_proposition",
-        "material_account_points",
-        "material_account_summary",
-    }
-    for name in list(case.facts):
-        fact = case.facts[name]
-        ref = fact.source.ref or ""
-        if name in drop_exact:
-            case.retract(name, "account_reassessed")
+def apply_fact_delta(case: CaseFile, intended: dict[str, Any]) -> dict:
+    """P8.4: versioned delta. Same-value facts stay; corrections supersede."""
+    return fact_lifecycle.apply_fact_delta(case, intended)
+
+
+def _intended_narrative(texts: list[str]) -> dict[str, Any]:
+    """Dry-scan narrative atoms so apply_fact_delta does not retract them."""
+    from .narrative import read
+    out: dict[str, Any] = {}
+    for raw in texts:
+        text = str(raw).strip()
+        if len(text) < 4:
             continue
-        if fact.source.kind == SourceKind.CUSTOMER_FREE_TEXT and ref.startswith("free_text:"):
-            case.retract(name, "account_reassessed")
-            continue
-        if name.startswith("bay_") and name.endswith(
-                ("_accounted", "_condition_accounted", "_occupant_accounted")) \
-                and fact.source.kind in (
-                    SourceKind.CUSTOMER_FREE_TEXT, SourceKind.CALCULATION):
-            if "material_account" in ref or ref.startswith("free_text:"):
-                case.retract(name, "account_reassessed")
-    case.raw_answers.pop("_material_source_texts", None)
-    case.raw_answers.pop("_free_text_provenance", None)
-    case.free_text_provenance = []
+        out.update(read(text).facts)
+    return out
+
+
+def _clear_material(case: CaseFile, *, keep_names: Optional[set[str]] = None,
+                    keep_values: Optional[dict[str, Any]] = None) -> None:
+    """Deprecated name: reassessment now goes through apply_fact_delta."""
+    apply_fact_delta(case, keep_values or {n: case.get(n) for n in (keep_names or ())})
 
 
 def _collect_customer_texts(case: CaseFile) -> list[str]:
@@ -531,13 +594,14 @@ def _collect_customer_texts(case: CaseFile) -> list[str]:
     out: list[str] = []
     skip = {
         "narrative", "_material_source_texts", "_free_text_provenance",
-        "operator_ata", "site_postcode", "notice_route", "jurisdiction",
+        "_fact_versions", "operator_ata", "site_postcode", "notice_route",
+        "jurisdiction",
     }
     narrative = (case.raw_answers or {}).get("narrative") or ""
     if str(narrative).strip():
         out.append(str(narrative).strip())
     for name, raw in (case.raw_answers or {}).items():
-        if name in skip:
+        if name in skip or name.startswith("_"):
             continue
         text = str(raw or "").strip()
         if not text:

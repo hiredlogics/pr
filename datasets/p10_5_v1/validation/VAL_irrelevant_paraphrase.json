@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_irrelevant_paraphrase",
+  "split": "VALIDATION",
+  "family": "irrelevant",
+  "input": {
+    "customer_narrative": "Nice weather. Queued for a coffee. No parking defence facts stated.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS130832",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": [
+      "PAYMENT_MADE",
+      "BROKEN_DOWN",
+      "KEYING_ERROR",
+      "LOADING"
+    ]
+  }
+}

@@ -1,0 +1,220 @@
+{
+  "case_id": "REF_sp62712518",
+  "dataset_version": "p9_v1",
+  "completeness": "NOTICE_ONLY",
+  "split": "BLIND_HOLDOUT",
+  "approval_status": "REFERENCE_ONLY",
+  "family": "retail_anpr",
+  "operator": "Smart Parking Ltd",
+  "allegation": "unreadable",
+  "legal_route": "notice_derived_only",
+  "circumstance": "unknown",
+  "evidence_type": "front_notice_photo",
+  "notes": "NOTICE_ONLY reference from pcn_finetune_v1/sp62712518. gold_source=synthetic_from_exemplar. suggested_modules=[] are NOT approved grounds. Do not score reverse-page defects or unknown customer facts.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "[photograph] images/sp62712518_smart_chatham.png",
+    "notice_back": "",
+    "customer_narrative": "",
+    "customer_answers": {},
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E1",
+        "filename": "sp62712518_smart_chatham.png",
+        "kind": "PCN",
+        "doc_type": "PCN",
+        "text": "NOTICE TO KEEPER - PARKING CHARGE\nOperator: Smart Parking Ltd\nParking Charge Number: SP62712518\nVehicle Registration: FD18BOF\nLocation: B&M Chatham - ME4 4HA\nDate of Contravention: 10/08/2026\nDate Issued: 27/08/2026\nEntry Time: 19:06\nExit Time: 20:41\nAmount: 90"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {
+      "operator_name": "Smart Parking Ltd",
+      "pcn_number": "SP62712518",
+      "vrm": "FD18BOF",
+      "parking_event_date": "10/08/2026",
+      "notice_issue_date": "27/08/2026",
+      "entry_time": "19:06",
+      "exit_time": "20:41",
+      "parking_location": "B&M Chatham - ME4 4HA",
+      "site_postcode": "ME4 4HA",
+      "charge_amount": 90,
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN"
+    },
+    "image_path": "C:\\Users\\Abdul\\Downloads\\New folder (4)\\pr\\datasets\\pcn_finetune_v1\\images\\sp62712518_smart_chatham.png"
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN",
+        "notice_type": "NTK"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "Smart Parking Ltd",
+        "pcn_number": "SP62712518",
+        "vrm": "FD18BOF",
+        "parking_event_date": "10/08/2026",
+        "notice_issue_date": "27/08/2026",
+        "entry_time": "19:06",
+        "exit_time": "20:41",
+        "parking_location": "B&M Chatham - ME4 4HA",
+        "site_postcode": "ME4 4HA",
+        "charge_amount": 90,
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "Smart Parking Ltd",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "SP62712518",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "FD18BOF",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "10/08/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "27/08/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "19:06",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "20:41",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "B&M Chatham - ME4 4HA",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "site_postcode",
+          "value": "ME4 4HA",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "suggested_not_approved": []
+      }
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_appeal_requirements": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "gold_source": "synthetic_from_exemplar",
+        "style_only": true,
+        "must_not_use_as": [
+          "unknown_customer_circumstances",
+          "missing_reverse_page_defects",
+          "facts_not_visible_on_front",
+          "approved_supported_grounds"
+        ]
+      }
+    },
+    "ground_origins": {}
+  },
+  "governance": {
+    "approved_by": "labeler_from_photograph",
+    "approved_at": "2026-10-04",
+    "reason": "Front-notice field labels only. Not complete ground truth."
+  }
+}

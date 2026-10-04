@@ -1,0 +1,27 @@
+{
+  "case_id": "VAL_uncertain_unseen",
+  "split": "VALIDATION",
+  "family": "uncertainty",
+  "input": {
+    "customer_narrative": "Perhaps there was a mechanical problem — I am unsure and cannot recall clearly.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440016",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "16/07/2026",
+      "notice_issue_date": "20/07/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "must_not_promote_facts": ["vehicle_immobilised"],
+    "uncertain_concepts_any": ["BROKEN_DOWN", "IMMOBILISED"],
+    "orphan_support": false
+  }
+}

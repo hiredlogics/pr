@@ -273,6 +273,16 @@ class KeeperLiabilityWarning(unittest.TestCase):
         self.assertIs(scan_keeper_warning(WITHOUT_WARNING), False)
         self.assertIsNone(scan_keeper_warning("PCN"))
 
+    def test_common_schedule4_paraphrase_is_recognised(self):
+        """Generic wording used on many postal NTKs — not an operator template."""
+        text = (
+            "HOW TO APPEAL\nIf you were not the driver, you may pass this notice to the "
+            "driver or name them. We are seeking recovery from the keeper under Schedule 4 "
+            "of the Protection of Freedoms Act 2012 if the driver is not identified. "
+            "Pay or appeal within 28 days of the date of issue. " * 3
+        )
+        self.assertIs(scan_keeper_warning(text), True)
+
     def _case(self, text="", flag=None, sides=True):
         case = CaseFile("C-kw", evidence={"E1": EvidenceItem("E1", "NTK", "n.pdf", text=text)})
         case.document_classes["E1"] = "NTK"

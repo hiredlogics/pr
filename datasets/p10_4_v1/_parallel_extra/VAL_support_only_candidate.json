@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_support_only_candidate",
+  "split": "VALIDATION",
+  "family": "support_only",
+  "notes": "Thin notice facts where only framing/support modules might match — must not draft orphan support.",
+  "input": {
+    "customer_narrative": "Just received this.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440019",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "18/07/2026",
+      "notice_issue_date": "20/07/2026",
+      "alleged_breach": "Breach of terms",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "orphan_support": false,
+    "must_not_include_grounds": ["KB-POFA-01", "KB-LAND-01", "KB-POFA-05"],
+    "if_no_substantive_then_no_letter": true
+  }
+}

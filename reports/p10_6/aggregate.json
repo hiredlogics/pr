@@ -1,0 +1,113 @@
+{
+  "phase": "P10.6",
+  "draft_plan_version": "p10_6_draft_plan_v1",
+  "prompt_version_drafting": 17,
+  "frozen_semantic_observations": {
+    "DEV_semantic_recall": 0.794,
+    "VAL_semantic_recall": 0.733,
+    "sealed_holdout_semantic_recall": 1.0,
+    "note": "Existing P10.5 observations \u2014 not changed in P10.6"
+  },
+  "development": {
+    "split": "development",
+    "n_cases": 11,
+    "n_clean_upstream": 8,
+    "ground_coverage": 1.0,
+    "material_fact_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validator_pass_rate": 1.0,
+    "no_ground_hold_ok_rate": 1.0,
+    "first_defective_layers": {
+      "CLAIM_PLAN": 3,
+      "NONE": 8
+    }
+  },
+  "holdout": {
+    "split": "holdout",
+    "n_cases": 4,
+    "n_clean_upstream": 1,
+    "ground_coverage": 1.0,
+    "material_fact_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validator_pass_rate": 1.0,
+    "no_ground_hold_ok_rate": 1.0,
+    "first_defective_layers": {
+      "CLAIM_PLAN": 3,
+      "NONE": 1
+    }
+  },
+  "invariants": {
+    "passed": true,
+    "tests_run": 112,
+    "checks": {
+      "Master Case": true,
+      "FactManager / P8 architecture": true,
+      "P10.3 semantic + roles": true,
+      "P10 remediation": true
+    },
+    "detail": {
+      "test_p8_architecture": {
+        "passed": true,
+        "tests_run": 38,
+        "failures": [],
+        "failures_count": 0,
+        "errors_count": 0,
+        "output_tail": "......................................\n----------------------------------------------------------------------\nRan 38 tests in 41.359s\n\nOK\n"
+      },
+      "test_p10_3_semantic_layer": {
+        "passed": true,
+        "tests_run": 20,
+        "failures": [],
+        "failures_count": 0,
+        "errors_count": 0,
+        "output_tail": "....................\n----------------------------------------------------------------------\nRan 20 tests in 18.116s\n\nOK\n"
+      },
+      "test_master_case_object": {
+        "passed": true,
+        "tests_run": 27,
+        "failures": [],
+        "failures_count": 0,
+        "errors_count": 0,
+        "output_tail": "...........................\n----------------------------------------------------------------------\nRan 27 tests in 41.106s\n\nOK\n"
+      },
+      "test_p10_remediation": {
+        "passed": true,
+        "tests_run": 27,
+        "failures": [],
+        "failures_count": 0,
+        "errors_count": 0,
+        "output_tail": "...........................\n----------------------------------------------------------------------\nRan 27 tests in 10.728s\n\nOK\n"
+      }
+    },
+    "required_pass": [
+      "Master Case",
+      "FactManager authority",
+      "fact lineage",
+      "verified legal findings",
+      "additive grounds",
+      "Claim Plan persistence",
+      "SupportBundle completeness",
+      "DraftContext completeness",
+      "same-value stability",
+      "outcome authority",
+      "repeatability"
+    ],
+    "note": "Covered via existing unittest modules (test_p8_architecture, test_master_case_object, test_p10_3_semantic_layer, test_p10_remediation)."
+  },
+  "real_model_probe": {
+    "provider": "demo",
+    "models": {},
+    "reason": "no OPENAI_API_KEY set",
+    "prompt_version": 17,
+    "temperature": null,
+    "structured_output_valid": null,
+    "ground_coverage": null,
+    "latency_ms": null,
+    "cost": null,
+    "ran": false,
+    "note": "No live OpenAI credentials in this environment; DemoLLM/reference only."
+  },
+  "recommendation": "READY_FOR_STAGING"
+}

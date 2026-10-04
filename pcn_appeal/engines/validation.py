@@ -33,6 +33,9 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-EVIDENCE-CONTRADICTION contradiction claims / EVIDENCE route without the required fact
   VAL-CUSTOMER-COPY customer free-text pasted into the letter instead of rewritten
   VAL-ACCOUNT-COVERAGE material account fact marked used but professional proposition absent
+  VAL-INVENTED a permit/bay/ticket identifier that is not a verified fact
+  VAL-CALC     a stated day-count that contradicts a verified finding calculation
+  VAL-ORPHAN-SUPPORT support/conclusion modules without a substantive ground
 """
 from __future__ import annotations
 
@@ -43,6 +46,7 @@ from .. import prompts
 from ..customer_safe import internal_ids
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
+from ..module_roles import classify_pack
 from ..routes import Route
 
 R = lambda p: re.compile(p, re.I)  # noqa: E731
@@ -54,7 +58,8 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-3"  # VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
+VERSION = "VAL-5"  # VAL-5: P10.3 — VAL-ORPHAN-SUPPORT (support-only packs)
+# VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
 # VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
 DRIVER_PATTERNS = [
@@ -84,7 +89,37 @@ EQ_TERMS = R(r"\b(Equality Act|reasonable adjustment|disabilit)")
 ANPR_GENERIC = R(r"\b(calibrat|camera maintenance|synchroni[sz]ation of the camera)")
 STAGE = R(r"\b(POPLA|IAS|Independent Appeals Service|county court|small claims|claim form|letter of claim)\b")
 OBSOLETE = R(r"(genuine pre-?estimate|unlawful penalty|penalty charge is unenforceable)")
-LEAK = R(r"(\b(KB|PP|AI|VAL)-[A-Z]{2,}|\{\{|\}\}|as an AI|language model|module_id)")
+LEAK = R(
+    r"(\b(KB|PP|AI|VAL)-[A-Z]{2,}|\{\{|\}\}|"
+    r"\[(?:PLACEHOLDER|TODO|TBD)[^\]]*\]|as an AI|language model|module_id)"
+)
+# Unresolved single-brace tokens ({OPERATOR_NAME}). Case-sensitive so a
+# filled template field is not treated as a leak.
+UNRESOLVED_TOKEN = re.compile(r"\{[A-Z][A-Z0-9_]{2,}\}")
+# A concrete identifier the letter invented (permit/bay/ticket number) that
+# does not appear in any verified fact. Generic ontology — not operator-specific.
+INVENTED_IDENTIFIER = R(
+    r"\b(?:permit|badge|ticket|voucher|reference|pass)\s+"
+    r"(?:numbered\s+|no\.?\s+|number\s+|#\s*)([A-Z0-9-]*\d[A-Z0-9-]*)\b"
+    r"|\bbay\s+(?:numbered\s+|no\.?\s+|#\s*)(\d+[A-Z]?)\b"
+)
+STATED_DAYS = R(
+    r"\b(?:given|delivered|posted|issued|received|served)\b[^.]{0,60}"
+    r"\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+"
+    r"(?:calendar\s+|working\s+)?days?\b"
+    r"|\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\s+"
+    r"(?:calendar\s+|working\s+)?days?\s+(?:after|late|beyond|past|from)\b"
+    r"|\blate(?:ness)?(?:\s+by)?\s+"
+    r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+days?\b"
+)
+_DAY_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+    "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+}
 # A block's own guidance to whoever drafts from it. Three Appendix A blocks carry
 # such a sentence inside their approved text, so a drafter that renders the block
 # verbatim sent "Use only where the actual sign evidence supports this factual
@@ -198,6 +233,38 @@ def _phrase_windows(fingerprint: str, min_words: int = 6) -> list[str]:
     if len(words) < min_words:
         return [fingerprint] if fingerprint else []
     return [" ".join(words[i:i + min_words]) for i in range(len(words) - min_words + 1)]
+
+
+def _invented_identifiers(sentence: str, facts: dict) -> list[str]:
+    """Permit/bay/ticket tokens in the sentence that no verified fact holds."""
+    known = " ".join(str(v) for v in (facts or {}).values() if v not in (None, "")).upper()
+    hits = []
+    for m in INVENTED_IDENTIFIER.finditer(sentence or ""):
+        token = next((g for g in m.groups() if g), None)
+        if not token:
+            continue
+        if token.upper() not in known:
+            hits.append(token)
+    return hits
+
+
+def _contradictory_day_counts(sentence: str, expected_days: int) -> Optional[int]:
+    """A stated day-count in this sentence that is not the verified calculation."""
+    expected = abs(int(expected_days))
+    for m in STATED_DAYS.finditer(sentence or ""):
+        raw = next((g for g in m.groups() if g), None)
+        if not raw:
+            continue
+        raw = raw.lower()
+        n = _DAY_WORDS.get(raw)
+        if n is None:
+            try:
+                n = int(raw)
+            except ValueError:
+                continue
+        if n != expected:
+            return n
+    return None
 
 
 def _quotes_a_verified_fact(quote: str, facts: dict) -> bool:
@@ -327,10 +394,14 @@ class ValidationEngine:
                 block("VAL-STAGE", "Wrong-stage language in an initial operator appeal", t)
             if OBSOLETE.search(t):
                 block("VAL-OBSOLETE", "Obsolete penalty / pre-estimate argument", t)
-            if LEAK.search(t) or internal_ids(t):
+            if LEAK.search(t) or UNRESOLVED_TOKEN.search(t) or internal_ids(t):
                 block("VAL-LEAK", "Internal IDs, placeholders or AI self-reference in output", t)
             if DRAFTER_NOTE.search(t):
                 block("VAL-LEAK", "Drafting guidance from a building block left in the letter", t)
+            invented = _invented_identifiers(t, facts)
+            for token in invented:
+                block("VAL-INVENTED",
+                      f"Identifier {token!r} is not among the verified facts", t)
             if facts.get("payment_made") and NOT_PAID.search(t) and not REPORTED.search(t):
                 block("VAL-CONFLICT", "Contradicts confirmed payment", t)
             # The docstring promised "payment status contradicting source facts";
@@ -355,6 +426,28 @@ class ValidationEngine:
         if not substantive:
             block("VAL-SUBSTANCE",
                   "Draft has no substantive grounds — intro/conclusion alone cannot be released")
+
+        # P10.3: SUPPORTING_PROPOSITION / LEGAL_CONCLUSION alone cannot be an appeal.
+        roles = classify_pack(pack.module_ids)
+        if roles["orphan_support"]:
+            block("VAL-ORPHAN-SUPPORT",
+                  "Pack has support/conclusion modules but no substantive Claim Plan "
+                  "ground; do not draft an empty or framing-only appeal")
+
+        for rec in pack.legal_findings or []:
+            if not isinstance(rec, dict) or rec.get("status") != "VERIFIED":
+                continue
+            from ..legal import findings as legal_findings
+            days = legal_findings.particulars(rec).get("days")
+            if not days:
+                continue
+            for s in draft.sentences():
+                wrong = _contradictory_day_counts(s.text, int(days))
+                if wrong:
+                    block("VAL-CALC",
+                          f"Letter states {wrong} days but the verified "
+                          f"{rec.get('finding_type')} calculation is {days} days",
+                          s.text)
 
         # Case-specificity: when the pack knows the allegation / operator, the
         # letter must engage them — not ship interchangeable filler.

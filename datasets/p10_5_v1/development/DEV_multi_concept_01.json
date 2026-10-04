@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_multi_concept_01",
+  "split": "DEVELOPMENT",
+  "family": "multi_concept",
+  "input": {
+    "customer_narrative": "Paid on the app, mistyped the plate, then left and returned later.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS689271",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "PAYMENT_MADE",
+      "KEYING_ERROR",
+      "LEFT_SITE",
+      "RETURNED"
+    ]
+  }
+}

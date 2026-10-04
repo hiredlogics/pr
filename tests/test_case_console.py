@@ -125,9 +125,82 @@ class ConsolePayload(unittest.TestCase):
         self.assertEqual(finals, {"KB-POFA-02", "KB-ANPR-01"})
         self.assertTrue(payload["claim_plan"]["items"])
         self.assertIn("draft_requirement", payload["claim_plan"]["items"][0])
+        self.assertIn("ground_sources", payload)
+        self.assertTrue(payload["ground_sources"]["source_trace"][0].startswith("GROUND SOURCES"))
+        self.assertIn("document_baseline", payload)
+        self.assertTrue(payload["document_baseline"]["trace"][0].startswith("DOCUMENT BASELINE"))
         report = cons.copy_report(payload)
         self.assertIn("88812000363", report)
+        self.assertIn("GROUND SOURCES", report)
+        self.assertIn("MODULE JOURNEY", report)
         self.assertNotIn("Secret Person", report)
+        self.assertTrue(payload["module_journey"])
+        anpr = next(r for r in payload["module_journey"] if r["module_id"] == "KB-ANPR-01")
+        self.assertEqual(anpr["knowledge"]["decision"], "MATCHED")
+        self.assertEqual(anpr["case_intelligence"]["decision"], "SELECTED")
+        self.assertEqual(anpr["claim_plan"]["decision"], "SUPPORTED")
+
+    def test_enrich_used_by_tolerates_dict_because_of(self):
+        case = CaseFile(case_id="C-TRACE-DICT")
+        case.state = CaseState.ANALYSED
+        case.run_id = 1
+        case.facts = {
+            "pcn_number": _fact("pcn_number", "1"),
+            "left_site": _fact("left_site", True, kind=SourceKind.CUSTOMER_FREE_TEXT),
+        }
+        plan = FinalClaimPlan(
+            claim_plan_id="CP-DICT-v1", case_id="C-TRACE-DICT",
+            analysis_run_id="run-1", run_number=1, version=1,
+            inputs_digest="x", trust={},
+        )
+        plan.add_item(ClaimPlanItem(
+            item_id="I-ANPR", knowledge_id="KB-ANPR-01", module_id="KB-ANPR-01",
+            claim_type="ANPR", status=SUPPORTED, decision=SELECTED,
+            reason="test",
+            supporting_facts=(
+                {
+                    "condition": "multiple_visits",
+                    "fact": {"fact": "multiple_visits"},
+                    "value": True,
+                    "because_of": [
+                        {"fact": {"name": "left_site"}},
+                        {"fact": "returned_same_day"},
+                    ],
+                },
+            ),
+            evidence_refs=(), relationships=(), priority=1, topic="test",
+        ))
+        plan.confirm().lock()
+        case.claim_plans = [plan]
+        payload = cons.build_console(case)
+        self.assertEqual(payload["schema"], "case_console.v1")
+        left = next(f for f in payload["facts"] if f["name"] == "left_site")
+        self.assertIn("KB-ANPR-01", left["used_by"])
+
+    def test_relationships_tolerate_list_endpoints(self):
+        """knowledge_match blocked_by / selected_because can be lists — must not 500."""
+        case = CaseFile(case_id="C-TRACE-REL")
+        case.state = CaseState.ANALYSED
+        case.run_id = 1
+        case.facts = {"pcn_number": _fact("pcn_number", "1")}
+        case.evidence = {"E1": mock.Mock(evidence_id="E1"), "E2": mock.Mock(evidence_id="E2")}
+        case.audit.append({
+            "event": "knowledge_match",
+            "selected": [
+                {"module": "KB-ANPR-01", "selected_because": [["left_site", "returned"]]},
+            ],
+            "rejected": [
+                {"module": "KB-POFA-01", "status": "BLOCKED",
+                 "blocked_by": ["missing_date", "missing_issue"], "reason": "gap"},
+            ],
+        })
+        payload = cons.build_console(case)
+        rels = payload["relationships"]
+        self.assertTrue(any(r.get("type") == "BLOCKS" for r in rels))
+        for r in rels:
+            self.assertNotIsInstance(r.get("from"), list)
+            self.assertNotIsInstance(r.get("to"), list)
+        self.assertEqual(payload["draft_context"]["evidence_refs"], ["E1", "E2"])
 
     def test_ground_integrity_failure_when_prior_ground_vanishes(self):
         case = CaseFile(case_id="C-TRACE-2")
@@ -163,6 +236,51 @@ class ConsolePayload(unittest.TestCase):
         diff = cons.compare_runs(case)
         self.assertIn("KB-POFA-02", diff["grounds"]["removed"])
         self.assertTrue(diff["integrity_errors"])
+
+    def test_expected_rejection_is_not_integrity_failure(self):
+        """Missing-fact reject is expected — not GROUND_INTEGRITY_FAILURE."""
+        from pcn_appeal.engines.claim_plan_authority import MISSING_FACTS, REJECTED
+        case = CaseFile(case_id="C-TRACE-PAY")
+        case.state = CaseState.ANALYSED
+        case.run_id = 1
+        case.facts = {"pcn_number": _fact("pcn_number", "1")}
+        case.audit.append({
+            "event": "knowledge_match",
+            "selected": [],
+            "relevant": [{"module": "KB-PAY-01", "missing": ["payment_made"],
+                          "reason": "use_when not yet met"}],
+            "rejected": [{"module": "KB-PAY-01", "status": "REJECTED",
+                          "missing": ["payment_made"],
+                          "reason": "use_when not yet met: no confirmed payment_made"}],
+        })
+        case.audit.append({
+            "event": "case_analysis",
+            "kept": [], "proposed": ["KB-PAY-01"],
+            "not_supported": [{"module_id": "KB-PAY-01", "reason": "payment_made missing",
+                               "missing": ["payment_made"]}],
+        })
+        plan = FinalClaimPlan(
+            claim_plan_id="CP-PAY-v1", case_id="C-TRACE-PAY",
+            analysis_run_id="run-1", run_number=1, version=1,
+            inputs_digest="x", trust={},
+        )
+        plan.add_item(ClaimPlanItem(
+            item_id="I-PAY", knowledge_id="KB-PAY-01", module_id="KB-PAY-01",
+            claim_type="PAYMENT", status=REJECTED, decision=MISSING_FACTS,
+            reason="not established: payment_made",
+            supporting_facts=(), evidence_refs=(), relationships=(),
+            priority=None, topic="payment",
+        ))
+        plan.confirm().lock()
+        case.claim_plans = [plan]
+        payload = cons.build_console(case)
+        self.assertFalse(payload["grounds"]["integrity_errors"])
+        row = next(r for r in payload["module_journey"] if r["module_id"] == "KB-PAY-01")
+        self.assertTrue(row["expected_rejection"])
+        self.assertEqual(row["integrity"], "PASS")
+        self.assertIn("payment_made", row["missing_facts"])
+        val = {c["rule"]: c["status"] for c in payload["module_trace_checks"]}
+        self.assertEqual(val.get("VAL-EXPECTED-REJECTION"), "PASS")
 
 
 class ConsoleApi(unittest.TestCase):

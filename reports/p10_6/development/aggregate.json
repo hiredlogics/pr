@@ -1,0 +1,15 @@
+{
+  "split": "development",
+  "n_cases": 11,
+  "n_clean_upstream": 8,
+  "ground_coverage": 1.0,
+  "material_fact_coverage": 1.0,
+  "required_particular_coverage": 1.0,
+  "unsupported_assertion_rate": 0.0,
+  "validator_pass_rate": 1.0,
+  "no_ground_hold_ok_rate": 1.0,
+  "first_defective_layers": {
+    "CLAIM_PLAN": 3,
+    "NONE": 8
+  }
+}

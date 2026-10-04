@@ -1,0 +1,1372 @@
+{
+  "spec": {
+    "case_id": "VAL_mechanical",
+    "split": "VALIDATION",
+    "family": "mechanical_issue",
+    "notes": "Fresh VAL wording \u2014 not copied from DEV_mech / DEV_temp_mechanical.",
+    "input": {
+      "customer_narrative": "There was a mechanical failure \u2014 the car stalled and we were unable to leave.",
+      "customer_answers": {
+        "vehicle_immobilised": "yes",
+        "immobilisation_prevented_departure": "yes"
+      },
+      "extraction_fields": {
+        "operator_name": "Oakridge Parking Services",
+        "pcn_number": "OR410104",
+        "vrm": "MT24KPL",
+        "parking_location": "Oakridge Retail Quarter",
+        "site_postcode": "NG1 2AA",
+        "parking_event_date": "05/08/2026",
+        "notice_issue_date": "09/08/2026",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA",
+        "entry_time": "11:10",
+        "exit_time": "13:40"
+      }
+    },
+    "expected": {
+      "semantic_concepts_any": [
+        "BROKEN_DOWN",
+        "IMMOBILISED"
+      ],
+      "facts_any": {
+        "vehicle_immobilised": true
+      },
+      "substantive_grounds_any": [
+        "KB-BREAK-01",
+        "KB-BREAK-02",
+        "KB-BREAK-03"
+      ],
+      "kb_candidates_any": [
+        "KB-BREAK-01",
+        "KB-BREAK-02",
+        "KB-BREAK-03"
+      ],
+      "must_not_include_grounds": [
+        "KB-POFA-01",
+        "KB-POFA-05"
+      ],
+      "invariants": [
+        "no_legal_conclusion_independent",
+        "support_cannot_lead_alone"
+      ]
+    }
+  },
+  "expected_scored": {
+    "semantic_concepts_any": [
+      "BROKEN_DOWN",
+      "IMMOBILISED"
+    ],
+    "facts_any": {
+      "vehicle_immobilised": true
+    },
+    "substantive_grounds_any": [
+      "KB-BREAK-01",
+      "KB-BREAK-02",
+      "KB-BREAK-03"
+    ],
+    "kb_candidates_any": [
+      "KB-BREAK-01",
+      "KB-BREAK-02",
+      "KB-BREAK-03"
+    ],
+    "must_not_include_grounds": [
+      "KB-POFA-01",
+      "KB-POFA-05"
+    ],
+    "invariants": [
+      "no_legal_conclusion_independent",
+      "support_cannot_lead_alone"
+    ]
+  },
+  "actual": {
+    "ok": true,
+    "error": null,
+    "state": "RELEASED",
+    "outcome": null,
+    "asked_questions": [],
+    "facts": {
+      "operator_name": {
+        "value": "Oakridge Parking Services",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_name",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_number": {
+        "value": "OR410104",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-pcn_number",
+        "authority": null,
+        "lineage": null
+      },
+      "vrm": {
+        "value": "MT24KPL",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-vrm",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_location": {
+        "value": "Oakridge Retail Quarter",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_location",
+        "authority": null,
+        "lineage": null
+      },
+      "site_postcode": {
+        "value": "NG1 2AA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-site_postcode",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_event_date": {
+        "value": "2026-08-05",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_event_date",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_issue_date": {
+        "value": "2026-08-09",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_issue_date",
+        "authority": null,
+        "lineage": null
+      },
+      "alleged_breach": {
+        "value": "Overstayed paid time",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-alleged_breach",
+        "authority": null,
+        "lineage": null
+      },
+      "operator_ata": {
+        "value": "BPA",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_ata",
+        "authority": null,
+        "lineage": null
+      },
+      "entry_time": {
+        "value": "11:10",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-entry_time",
+        "authority": null,
+        "lineage": null
+      },
+      "exit_time": {
+        "value": "13:40",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-exit_time",
+        "authority": null,
+        "lineage": null
+      },
+      "total_recorded_duration_min": {
+        "value": 150,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-total_recorded_duration_min",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_sides_complete": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_sides_complete",
+        "authority": null,
+        "lineage": null
+      },
+      "jurisdiction": {
+        "value": "ENGLAND_WALES",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-jurisdiction",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_conflict": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "ANSWER",
+        "fact_id": "F-pcn_conflict",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_parking_clause_found": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_parking_clause_found",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_has_regulations_clause": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_has_regulations_clause",
+        "authority": null,
+        "lineage": null
+      },
+      "vehicle_immobilised": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-vehicle_immobilised",
+        "authority": null,
+        "lineage": null
+      },
+      "left_site": {
+        "value": true,
+        "status": "DERIVED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-left_site",
+        "authority": null,
+        "lineage": null
+      },
+      "immobilisation_prevented_departure": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-immobilisation_prevented_departure",
+        "authority": null,
+        "lineage": null
+      },
+      "account_contradicts_allegation": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-account_contradicts_allegation",
+        "authority": null,
+        "lineage": null
+      },
+      "material_account_propositions": {
+        "value": [
+          "that immobilisation prevented the vehicle from leaving or complying on time"
+        ],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-material_account_propositions",
+        "authority": null,
+        "lineage": null
+      },
+      "material_account_proposition": {
+        "value": "that immobilisation prevented the vehicle from leaving or complying on time",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-material_account_proposition",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_findings": {
+        "value": [],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_findings",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_finding": {
+        "value": null,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_finding",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_9_2_e_status": {
+        "value": "UNRESOLVED",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_9_2_e_status",
+        "authority": null,
+        "lineage": null
+      }
+    },
+    "findings": [
+      {
+        "finding_id": "d0e43593-600d-5c29-96b4-75c7e73fa91e",
+        "case_id": "VAL_mechanical",
+        "finding_type": "POFA_POSTAL_LATE",
+        "created_at": "2026-10-04T02:59:19.874694+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "parking_event_date",
+            "fact_id": "F-parking_event_date"
+          },
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-05",
+          "notice_issue_date": "2026-08-09",
+          "deadline": "2026-08-19",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -8,
+          "note": "timing compliant on the established dates"
+        },
+        "legal_module_id": "KB-POFA-02",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "072762a7-8fe4-59d0-ab3b-968c08bb1753",
+        "case_id": "VAL_mechanical",
+        "finding_type": "POFA_NTD_NTK_LATE",
+        "created_at": "2026-10-04T02:59:19.874694+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-05",
+          "notice_issue_date": "2026-08-09",
+          "deadline": "2026-08-19",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -8,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "caf939f3-735e-55dc-b4d0-f4799cbafb1a",
+        "case_id": "VAL_mechanical",
+        "finding_type": "POFA_NTD_NTK_TOO_EARLY",
+        "created_at": "2026-10-04T02:59:19.874694+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-05",
+          "notice_issue_date": "2026-08-09",
+          "deadline": "2026-08-19",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -8,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "d8996885-f1cd-558a-bc8f-cc325f656b9b",
+        "case_id": "VAL_mechanical",
+        "finding_type": "POFA_NTK_INVITATION_DEFECT",
+        "created_at": "2026-10-04T02:59:19.874694+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "pofa_9_2_e_status",
+            "fact_id": "F-pofa_9_2_e_status"
+          },
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-05",
+          "notice_issue_date": "2026-08-09",
+          "deadline": "2026-08-19",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -8,
+          "note": "notice content not yet fully reviewed"
+        },
+        "legal_module_id": "KB-POFA-05",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "183d7922-44f9-52dd-a70a-76f4f3012042",
+        "case_id": "VAL_mechanical",
+        "finding_type": "NTK_CONTENT_DEFECT",
+        "created_at": "2026-10-04T02:59:19.874694+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-05",
+          "notice_issue_date": "2026-08-09",
+          "deadline": "2026-08-19",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -8,
+          "note": "both notice sides required before a content defect"
+        },
+        "legal_module_id": null,
+        "run_id": 1,
+        "_persisted": true
+      }
+    ],
+    "concepts": [
+      {
+        "concept": "BROKEN_DOWN",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "There was a mechanical failure \u2014 the car stalled and we were unable to leave.",
+        "confidence": 0.85,
+        "provenance": "deterministic_pattern"
+      },
+      {
+        "concept": "IMMOBILISED",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "There was a mechanical failure \u2014 the car stalled and we were unable to leave.",
+        "confidence": 0.85,
+        "provenance": "deterministic_pattern"
+      }
+    ],
+    "retrieved_modules": [
+      "KB-BREAK-01",
+      "KB-POFA-01"
+    ],
+    "supported_grounds": [
+      "KB-BREAK-01"
+    ],
+    "claim_plan_items": [
+      {
+        "module_id": "KB-BREAK-01",
+        "status": "SUPPORTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "SELECTED",
+        "supporting_facts": [
+          "{'condition': 'immobilisation_prevented_departure=true', 'fact': 'immobilisation_prevented_departure', 'value': True, 'source': 'free_text:immobilisation_prevented_departure', 'source_kind': 'CUSTOMER_FREE_TEXT', 'fact_id': '29b923dc-6ec5-44af-8a42-aeaef0e6112c'}",
+          "{'condition': 'vehicle_immobilised=true', 'fact': 'vehicle_immobilised', 'value': True, 'source': 'semantic:vehicle_immobilised', 'source_kind': 'CUSTOMER_FREE_TEXT', 'fact_id': '22012901-f8db-4f3a-b8a9-091b8c8f54bf'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts"
+      },
+      {
+        "module_id": "KB-ACT-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: loading_activity"
+      },
+      {
+        "module_id": "KB-ACT-03",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer"
+      },
+      {
+        "module_id": "KB-ANPR-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: multiple_visits"
+      },
+      {
+        "module_id": "KB-ANPR-02",
+        "status": "UNRESOLVED",
+        "role": "EVIDENCE_REQUIREMENT",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_sequence_incomplete"
+      },
+      {
+        "module_id": "KB-ANPR-03",
+        "status": "UNRESOLVED",
+        "role": "EVIDENCE_REQUIREMENT",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_discrepancy"
+      },
+      {
+        "module_id": "KB-AUTH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source"
+      },
+      {
+        "module_id": "KB-BREAK-02",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: immobilisation_cause"
+      },
+      {
+        "module_id": "KB-BREAK-03",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: recovery_attended"
+      },
+      {
+        "module_id": "KB-CON-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, short_presence_before_acceptance"
+      },
+      {
+        "module_id": "KB-EVCH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ev_charging_session"
+      },
+      {
+        "module_id": "KB-GRACE-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_delay_min, permitted_period_ended"
+      },
+      {
+        "module_id": "KB-GRACE-02",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: exit_congestion, exit_delay_min"
+      },
+      {
+        "module_id": "KB-KEY-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: keying_error_type, payment_made, vrm_entered"
+      },
+      {
+        "module_id": "KB-PAY-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: payment_made, payment_method"
+      },
+      {
+        "module_id": "KB-POFA-05",
+        "status": "UNRESOLVED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation"
+      },
+      {
+        "module_id": "KB-TIME-01",
+        "status": "UNRESOLVED",
+        "role": "EVIDENCE_REQUIREMENT",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: anpr_duration_disputed"
+      },
+      {
+        "module_id": "KB-AUTH-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed permit_held=true"
+      },
+      {
+        "module_id": "KB-AUTH-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed visitor_authorised=true"
+      },
+      {
+        "module_id": "KB-BAY-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed restricted_bay_alleged=true; no confirmed observation_window_min present; no confirmed observation_window_min<=5"
+      },
+      {
+        "module_id": "KB-EQ-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true"
+      },
+      {
+        "module_id": "KB-INFRA-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed barrier_or_access_failure=true"
+      },
+      {
+        "module_id": "KB-KEY-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed payment_made=true; no confirmed keying_error_type=DIFFERENT_VEHICLE"
+      },
+      {
+        "module_id": "KB-PAY-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: payment_method!=MACHINE"
+      },
+      {
+        "module_id": "KB-PAY-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: do_not_use_when"
+      },
+      {
+        "module_id": "KB-POFA-01",
+        "status": "REJECTED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "ROLE_INELIGIBLE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "module role LEGAL_CONCLUSION cannot independently create a Claim Plan ground (use_when/retrieval is not enough)"
+      },
+      {
+        "module_id": "KB-POFA-04",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: notice_sides_complete=false, ntk_invites_pass_to_driver!=false"
+      }
+    ],
+    "role_partition": {
+      "substantive": [
+        "KB-BREAK-01"
+      ],
+      "support_only": [],
+      "other": [],
+      "orphan_support": false
+    },
+    "plan_digest": "3d7b6227ba760e577c9b1e14917ba66099f1e752834a95d4473ab1fb5a74d2a3",
+    "plan_id": "28134e7e-5be8-5355-a72f-3322fa34426e",
+    "primary_route": "BREAKDOWN",
+    "secondary_routes": [],
+    "draft_context": {
+      "primary_route": "BREAKDOWN",
+      "secondary_routes": [],
+      "verified_facts": {
+        "operator_name": "Oakridge Parking Services",
+        "pcn_number": "OR410104",
+        "vrm": "MT24KPL",
+        "parking_location": "Oakridge Retail Quarter",
+        "site_postcode": "NG1 2AA",
+        "parking_event_date": "2026-08-05",
+        "notice_issue_date": "2026-08-09",
+        "alleged_breach": "Overstayed paid time",
+        "operator_ata": "BPA",
+        "entry_time": "11:10",
+        "exit_time": "13:40",
+        "total_recorded_duration_min": 150,
+        "notice_sides_complete": false,
+        "jurisdiction": "ENGLAND_WALES",
+        "notice_route": "POSTAL",
+        "pcn_conflict": false,
+        "lease_parking_clause_found": false,
+        "lease_has_regulations_clause": false,
+        "vehicle_immobilised": true,
+        "immobilisation_prevented_departure": true,
+        "account_contradicts_allegation": false,
+        "material_account_propositions": [
+          "that immobilisation prevented the vehicle from leaving or complying on time"
+        ],
+        "material_account_proposition": "that immobilisation prevented the vehicle from leaving or complying on time",
+        "pofa_route": "POSTAL",
+        "pofa_findings": [],
+        "pofa_finding": null,
+        "pofa_9_2_e_status": "UNRESOLVED",
+        "driver_status": "UNIDENTIFIED",
+        "evidence_kinds": [
+          "PCN"
+        ]
+      },
+      "fact_refs": {
+        "operator_name": "F-operator_name",
+        "pcn_number": "F-pcn_number",
+        "vrm": "F-vrm",
+        "parking_location": "F-parking_location",
+        "site_postcode": "F-site_postcode",
+        "parking_event_date": "F-parking_event_date",
+        "notice_issue_date": "F-notice_issue_date",
+        "alleged_breach": "F-alleged_breach",
+        "operator_ata": "F-operator_ata",
+        "entry_time": "F-entry_time",
+        "exit_time": "F-exit_time",
+        "total_recorded_duration_min": "F-total_recorded_duration_min",
+        "notice_sides_complete": "F-notice_sides_complete",
+        "jurisdiction": "F-jurisdiction",
+        "notice_route": "F-notice_route",
+        "pcn_conflict": "F-pcn_conflict",
+        "lease_parking_clause_found": "F-lease_parking_clause_found",
+        "lease_has_regulations_clause": "F-lease_has_regulations_clause",
+        "vehicle_immobilised": "F-vehicle_immobilised",
+        "left_site": "F-left_site",
+        "immobilisation_prevented_departure": "F-immobilisation_prevented_departure",
+        "account_contradicts_allegation": "F-account_contradicts_allegation",
+        "material_account_propositions": "F-material_account_propositions",
+        "material_account_proposition": "F-material_account_proposition",
+        "pofa_route": "F-pofa_route",
+        "pofa_findings": "F-pofa_findings",
+        "pofa_finding": "F-pofa_finding",
+        "pofa_9_2_e_status": "F-pofa_9_2_e_status"
+      },
+      "evidence_refs": [
+        "E1"
+      ],
+      "prohibited_claims": [
+        "10 minutes always cancels",
+        "automatically frustrated",
+        "automatically void",
+        "breakdown automatically frustrates",
+        "genuine pre-estimate of loss",
+        "invented fault",
+        "invented recovery attendance",
+        "unlawful penalty",
+        "who was driving"
+      ],
+      "code_version": "SCOP-1.1",
+      "pofa_route": "POSTAL",
+      "pofa_findings": [],
+      "driver_status": "UNIDENTIFIED",
+      "context_chunks": [
+        {
+          "id": "KB-BREAK-01",
+          "module_id": "KB-BREAK-01",
+          "kind": "module",
+          "text": "Mechanical breakdown. Consider whether an unforeseen supervening event outside the relevant party's control made contractual performance/departure impossible or materially prevented it. Frame as a substantive contractual issue where facts support it, not merely a plea for discretion. Do not state 'breakdown = automatic frustration'. Do not invent the fault or recovery attendance. The conclusion must follow the facts. Order per Appendix B - current-Code breakdown route (AI-BREAK-001) first, frustration/impossibility (AI-BREAK-002) second if the facts support it.",
+          "sources": [
+            {
+              "id": "CL-frustration-impossibility",
+              "title": "Common-law frustration / impossibility",
+              "case_law_enabled": false,
+              "in_source_register": false,
+              "note": "Named in KB-BREAK-01 LEGAL / CODE BASIS. Application is fact-sensitive and must not be presented as automatic."
+            },
+            {
+              "id": "SCOP-breakdown",
+              "title": "Single Code / Appeals Charter - breakdown",
+              "versioned": true,
+              "current_version": "1.1",
+              "version_date": "2026-04-13",
+              "in_source_register": false,
+              "note": "Named in block AI-BREAK-001 and Appendix B only; not listed in the Source Register scope."
+            }
+          ]
+        },
+        {
+          "id": "AI-BREAK-002",
+          "module_id": "KB-BREAK-01",
+          "kind": "block",
+          "text": "The alleged breach arose, if at all, only because an unforeseen mechanical event prevented the vehicle from being moved as required. The operator is requested to address the legal effect of that supervening event and the evidence of genuine immobilisation rather than treating the additional presence as a voluntary decision to remain parked.",
+          "sources": [
+            {
+              "id": "CL-frustration-impossibility",
+              "title": "Common-law frustration / impossibility",
+              "case_law_enabled": false,
+              "in_source_register": false,
+              "note": "Named in KB-BREAK-01 LEGAL / CODE BASIS. Application is fact-sensitive and must not be presented as automatic."
+            },
+            {
+              "id": "SCOP-breakdown",
+              "title": "Single Code / Appeals Charter - breakdown",
+              "versioned": true,
+              "current_version": "1.1",
+              "version_date": "2026-04-13",
+              "in_source_register": false,
+              "note": "Named in block AI-BREAK-001 and Appendix B only; not listed in the Source Register scope."
+            }
+          ]
+        }
+      ],
+      "lease_clauses": [],
+      "case_context": {
+        "operator_name": "Oakridge Parking Services",
+        "parking_location": "Oakridge Retail Quarter",
+        "alleged_breach": "Overstayed paid time",
+        "parking_event_date": "2026-08-05",
+        "pcn_number": "OR410104",
+        "vrm": "MT24KPL",
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "PCN",
+            "filename": "notice.txt"
+          }
+        ],
+        "unresolved_topics": [],
+        "validation_status": null,
+        "shopping_receipt_enclosed": false,
+        "material_account_propositions": [
+          "that immobilisation prevented the vehicle from leaving or complying on time"
+        ],
+        "material_account_proposition": "that immobilisation prevented the vehicle from leaving or complying on time",
+        "account_contradicts_allegation": false,
+        "child_occupant_present": false,
+        "customer_reported_facts": [
+          "immobilisation_prevented_departure",
+          "pcn_conflict",
+          "vehicle_immobilised"
+        ],
+        "document_established_facts": [
+          "account_contradicts_allegation",
+          "alleged_breach",
+          "entry_time",
+          "exit_time",
+          "jurisdiction",
+          "lease_has_regulations_clause",
+          "lease_parking_clause_found",
+          "material_account_proposition",
+          "material_account_propositions",
+          "notice_issue_date",
+          "notice_route",
+          "notice_sides_complete",
+          "operator_ata",
+          "operator_name",
+          "parking_event_date",
+          "parking_location",
+          "pcn_number",
+          "pofa_9_2_e_status",
+          "pofa_finding",
+          "pofa_findings",
+          "pofa_route",
+          "site_postcode",
+          "total_recorded_duration_min",
+          "vrm"
+        ],
+        "customer_quotations": [],
+        "factual_rebuttal": {
+          "account_contradicts_allegation": false,
+          "propositions": [
+            "that immobilisation prevented the vehicle from leaving or complying on time"
+          ],
+          "child_occupant_present": false,
+          "independent_of_timing": true
+        },
+        "timing_argument": {
+          "observation_window_min": null,
+          "observation_time": null,
+          "event_time": null,
+          "bay_timing_selected": false
+        },
+        "claim_plan": {
+          "claim_plan_id": "28134e7e-5be8-5355-a72f-3322fa34426e",
+          "version": 1,
+          "status": "LOCKED",
+          "module_ids": [
+            "KB-BREAK-01"
+          ],
+          "claims": [
+            {
+              "module_id": "KB-BREAK-01",
+              "claim_type": "BREAKDOWN",
+              "priority": 1,
+              "supported_by": [
+                "immobilisation_prevented_departure=true",
+                "vehicle_immobilised=true"
+              ]
+            }
+          ],
+          "support_bundles": {
+            "KB-BREAK-01": {
+              "source_fact_ids": [
+                "29b923dc-6ec5-44af-8a42-aeaef0e6112c",
+                "22012901-f8db-4f3a-b8a9-091b8c8f54bf"
+              ],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "06302fb9-90f8-5fd1-8a8b-83c997cc3886",
+                "1309fca9-39b5-5be7-bdba-9efee4628d12"
+              ],
+              "source_fact_names": [
+                "immobilisation_prevented_departure",
+                "vehicle_immobilised"
+              ],
+              "derived_fact_names": [],
+              "values": {
+                "immobilisation_prevented_departure": true,
+                "vehicle_immobilised": true
+              }
+            }
+          },
+          "draft_requirements": {
+            "KB-BREAK-01": {
+              "required_particulars": [
+                "immobilisation_prevented_departure",
+                "vehicle_immobilised"
+              ],
+              "prohibited_content": [
+                "automatically frustrated",
+                "automatically void",
+                "invented fault",
+                "invented recovery attendance",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the supporting facts"
+              ]
+            }
+          },
+          "material_fact_accounting": [
+            {
+              "fact_name": "immobilisation_prevented_departure",
+              "disposition": "used",
+              "reason": "supports KB-BREAK-01",
+              "relations": [
+                {
+                  "module_id": "KB-BREAK-01",
+                  "relation": "supports"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "account_contradicts_allegation",
+              "disposition": "irrelevant",
+              "reason": "no selected claim engages this fact",
+              "relations": [
+                {
+                  "module_id": "KB-BREAK-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "material_account_proposition",
+              "disposition": "irrelevant",
+              "reason": "no selected claim engages this fact",
+              "relations": [
+                {
+                  "module_id": "KB-BREAK-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "material_account_propositions",
+              "disposition": "irrelevant",
+              "reason": "no selected claim engages this fact",
+              "relations": [
+                {
+                  "module_id": "KB-BREAK-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            }
+          ]
+        },
+        "supported_grounds": [
+          {
+            "module_id": "KB-BREAK-01",
+            "route": "BREAKDOWN",
+            "topic": "Mechanical breakdown",
+            "proposition": "Consider whether an unforeseen supervening event outside the relevant party's control made contractual performance/departure impossible or materially prevented it. Frame as a substantive contractual issue where facts support it, not merely a plea for discretion."
+          }
+        ],
+        "particulars": {
+          "immobilisation_prevented_departure": true,
+          "vehicle_immobilised": true
+        }
+      },
+      "module_ids": [
+        "KB-BREAK-01"
+      ],
+      "evidence_index": {
+        "E1": "PCN"
+      },
+      "fact_basis": {
+        "operator_name": "DOCUMENT",
+        "pcn_number": "DOCUMENT",
+        "vrm": "DOCUMENT",
+        "parking_location": "DOCUMENT",
+        "site_postcode": "DOCUMENT",
+        "parking_event_date": "DOCUMENT",
+        "notice_issue_date": "DOCUMENT",
+        "alleged_breach": "DOCUMENT",
+        "operator_ata": "DOCUMENT",
+        "entry_time": "DOCUMENT",
+        "exit_time": "DOCUMENT",
+        "total_recorded_duration_min": "DOCUMENT",
+        "notice_sides_complete": "DOCUMENT",
+        "jurisdiction": "DOCUMENT",
+        "notice_route": "DOCUMENT",
+        "pcn_conflict": "CUSTOMER_ACCOUNT",
+        "lease_parking_clause_found": "DOCUMENT",
+        "lease_has_regulations_clause": "DOCUMENT",
+        "vehicle_immobilised": "CUSTOMER_ACCOUNT",
+        "immobilisation_prevented_departure": "CUSTOMER_ACCOUNT",
+        "account_contradicts_allegation": "CUSTOMER_ACCOUNT",
+        "material_account_propositions": "CUSTOMER_ACCOUNT",
+        "material_account_proposition": "CUSTOMER_ACCOUNT",
+        "pofa_route": "DOCUMENT",
+        "pofa_findings": "DOCUMENT",
+        "pofa_finding": "DOCUMENT",
+        "pofa_9_2_e_status": "DOCUMENT",
+        "driver_status": "DERIVED",
+        "evidence_kinds": "DERIVED"
+      },
+      "driver_rule": "Write about the keeper and the vehicle. Never say or imply who parked, drove, left or returned. Never write 'I parked' or 'the driver parked'.",
+      "verified_legal_findings": [],
+      "support_bundles": {
+        "KB-BREAK-01": {
+          "source_fact_ids": [
+            "29b923dc-6ec5-44af-8a42-aeaef0e6112c",
+            "22012901-f8db-4f3a-b8a9-091b8c8f54bf"
+          ],
+          "derived_fact_ids": [],
+          "evidence_ids": [],
+          "legal_finding_ids": [],
+          "relationship_ids": [
+            "06302fb9-90f8-5fd1-8a8b-83c997cc3886",
+            "1309fca9-39b5-5be7-bdba-9efee4628d12"
+          ],
+          "source_fact_names": [
+            "immobilisation_prevented_departure",
+            "vehicle_immobilised"
+          ],
+          "derived_fact_names": [],
+          "values": {
+            "immobilisation_prevented_departure": true,
+            "vehicle_immobilised": true
+          }
+        }
+      },
+      "draft_requirements": {
+        "KB-BREAK-01": {
+          "required_particulars": [
+            "immobilisation_prevented_departure",
+            "vehicle_immobilised"
+          ],
+          "prohibited_content": [
+            "automatically frustrated",
+            "automatically void",
+            "invented fault",
+            "invented recovery attendance",
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the supporting facts"
+          ]
+        }
+      }
+    },
+    "draft_context_error": null,
+    "draft_context_complete": true,
+    "support_bundle_complete": true,
+    "letter": "I write as the registered keeper of vehicle MT24KPL in respect of Parking Charge Notice OR410104. I dispute liability for this parking charge and require the operator to consider this appeal.\n\nThe Parking Charge Notice alleges: Overstayed paid time at Oakridge Retail Quarter.\n\nThe alleged breach arose, if at all, only because an unforeseen mechanical event prevented the vehicle from being moved as required. The operator is requested to address the legal effect of that supervening event and the evidence of genuine immobilisation rather than treating the additional presence as a voluntary decision to remain parked.\n\nFor the reasons set out above, the parking charge is disputed and the operator is requested to cancel the Parking Charge Notice.",
+    "letter_empty": false,
+    "validation_passed": true,
+    "validation_issues": [],
+    "master_digest": "8803508ada1a2ebd37760954f4e6f0aa940dd9ea2e85fbf03b7af6197efde795",
+    "versions": {
+      "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+      "kb_release": null,
+      "prompt_versions": {
+        "extraction": 10,
+        "drafting": 16,
+        "case_analysis": 8,
+        "validation": 3,
+        "page_references": 2,
+        "classification": 2
+      },
+      "model_provider": "ReferenceAnalysisLLM",
+      "claim_plan_builder_version": "3",
+      "master_case_object_version": 1,
+      "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+    },
+    "persist": {
+      "passed": true,
+      "before": [
+        "KB-BREAK-01"
+      ],
+      "after": [
+        "KB-BREAK-01"
+      ],
+      "digest_before": "3d7b6227ba760e577c9b1e14917ba66099f1e752834a95d4473ab1fb5a74d2a3",
+      "digest_after": "3d7b6227ba760e577c9b1e14917ba66099f1e752834a95d4473ab1fb5a74d2a3",
+      "master_roundtrip_ok": true
+    }
+  },
+  "scores": {
+    "scores": {
+      "semantic": {
+        "status": "SCORED",
+        "semantic_concept_precision": 1.0,
+        "semantic_concept_recall": 1.0,
+        "concept_tp": [
+          "BROKEN_DOWN",
+          "IMMOBILISED"
+        ],
+        "concept_fp": [],
+        "concept_fn": [],
+        "concept_misses_partial": [],
+        "concept_unexpected_affirmed": [],
+        "narrative_fact_precision": 1.0,
+        "narrative_fact_recall": 1.0,
+        "fact_tp": [
+          "vehicle_immobilised"
+        ],
+        "fact_fp": [],
+        "fact_fn": [],
+        "negation_accuracy": 1.0,
+        "uncertainty_accuracy": 1.0,
+        "attribution_accuracy": 1.0,
+        "fact_promotion_accuracy": 1.0,
+        "derived_lineage_completeness": "N/A",
+        "passed": true
+      },
+      "kb_ground": {
+        "status": "SCORED",
+        "kb_candidate_precision": 1.0,
+        "kb_candidate_recall": 1.0,
+        "candidate_tp": [
+          "KB-BREAK-01"
+        ],
+        "candidate_fp": [],
+        "candidate_fn": [],
+        "role_filter_precision": 1.0,
+        "role_filter_recall": 1.0,
+        "ground_precision": 1.0,
+        "ground_recall": 1.0,
+        "ground_tp": [
+          "KB-BREAK-01"
+        ],
+        "ground_fp": [],
+        "ground_fn": [],
+        "orphan_support": false,
+        "orphan_support_letter": false,
+        "unsupported_leading_ground_rate": 0.0,
+        "supporting_incorrectly_in_claim_plan": 0,
+        "legal_conclusion_independent_grounds": 0,
+        "legal_in_plan": [],
+        "support_in_plan": [],
+        "structural_in_plan": [],
+        "evidence_in_plan": [],
+        "primary_route_ok": true,
+        "passed": true
+      },
+      "invariants": {
+        "status": "SCORED",
+        "checks": {
+          "support_cannot_lead_alone": true,
+          "no_legal_conclusion_independent": true
+        },
+        "legal_conclusion_in_plan": [],
+        "supporting_in_plan": [],
+        "passed": true
+      },
+      "draft": {
+        "status": "SCORED",
+        "clean_upstream": true,
+        "draft_ground_coverage": 1.0,
+        "material_fact_coverage": 1.0,
+        "required_particular_coverage": "N/A",
+        "unsupported_assertion_rate": 0.0,
+        "validation_passed": true,
+        "passed": true
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null
+  },
+  "persist": {
+    "passed": true,
+    "before": [
+      "KB-BREAK-01"
+    ],
+    "after": [
+      "KB-BREAK-01"
+    ],
+    "digest_before": "3d7b6227ba760e577c9b1e14917ba66099f1e752834a95d4473ab1fb5a74d2a3",
+    "digest_after": "3d7b6227ba760e577c9b1e14917ba66099f1e752834a95d4473ab1fb5a74d2a3",
+    "master_roundtrip_ok": true
+  }
+}

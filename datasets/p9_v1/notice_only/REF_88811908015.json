@@ -1,0 +1,220 @@
+{
+  "case_id": "REF_88811908015",
+  "dataset_version": "p9_v1",
+  "completeness": "NOTICE_ONLY",
+  "split": "DEVELOPMENT",
+  "approval_status": "REFERENCE_ONLY",
+  "family": "overstay_max_stay",
+  "operator": "Euro Car Parks",
+  "allegation": "Your vehicle has overstayed the maximum time period allowed.",
+  "legal_route": "notice_derived_only",
+  "circumstance": "unknown",
+  "evidence_type": "front_notice_photo",
+  "notes": "NOTICE_ONLY reference from pcn_finetune_v1/88811908015. gold_source=synthetic_from_exemplar. suggested_modules=[] are NOT approved grounds. Do not score reverse-page defects or unknown customer facts.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "[photograph] images/88811908015_euro_keighley.png",
+    "notice_back": "",
+    "customer_narrative": "",
+    "customer_answers": {},
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E1",
+        "filename": "88811908015_euro_keighley.png",
+        "kind": "PCN",
+        "doc_type": "PCN",
+        "text": "NOTICE TO KEEPER - PARKING CHARGE\nOperator: Euro Car Parks\nParking Charge Number: 88811908015\nVehicle Registration: YG25JVV\nLocation: Morrisons - Keighley - Market Car Park\nDate of Contravention: 28/05/2026\nDate Issued: 02/06/2026\nEntry Time: 08:31:38\nExit Time: 10:46:38\nAlleged Breach: Your vehicle has overstayed the maximum time period allowed.\nAmount: 100"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {
+      "operator_name": "Euro Car Parks",
+      "pcn_number": "88811908015",
+      "vrm": "YG25JVV",
+      "parking_event_date": "28/05/2026",
+      "notice_issue_date": "02/06/2026",
+      "entry_time": "08:31:38",
+      "exit_time": "10:46:38",
+      "parking_location": "Morrisons - Keighley - Market Car Park",
+      "alleged_breach": "Your vehicle has overstayed the maximum time period allowed.",
+      "charge_amount": 100,
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN"
+    },
+    "image_path": "C:\\Users\\Abdul\\Downloads\\New folder (4)\\pr\\datasets\\pcn_finetune_v1\\images\\88811908015_euro_keighley.png"
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN",
+        "notice_type": "NTK"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "Euro Car Parks",
+        "pcn_number": "88811908015",
+        "vrm": "YG25JVV",
+        "parking_event_date": "28/05/2026",
+        "notice_issue_date": "02/06/2026",
+        "entry_time": "08:31:38",
+        "exit_time": "10:46:38",
+        "parking_location": "Morrisons - Keighley - Market Car Park",
+        "alleged_breach": "Your vehicle has overstayed the maximum time period allowed.",
+        "charge_amount": 100,
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "Euro Car Parks",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "88811908015",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "YG25JVV",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "28/05/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "02/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "08:31:38",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "10:46:38",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "Morrisons - Keighley - Market Car Park",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "alleged_breach",
+          "value": "Your vehicle has overstayed the maximum time period allowed.",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "suggested_not_approved": []
+      }
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_appeal_requirements": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "gold_source": "synthetic_from_exemplar",
+        "style_only": true,
+        "must_not_use_as": [
+          "unknown_customer_circumstances",
+          "missing_reverse_page_defects",
+          "facts_not_visible_on_front",
+          "approved_supported_grounds"
+        ]
+      }
+    },
+    "ground_origins": {}
+  },
+  "governance": {
+    "approved_by": "labeler_from_photograph",
+    "approved_at": "2026-10-04",
+    "reason": "Front-notice field labels only. Not complete ground truth."
+  }
+}

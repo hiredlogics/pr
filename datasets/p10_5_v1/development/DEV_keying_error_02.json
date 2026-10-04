@@ -1,0 +1,25 @@
+{
+  "case_id": "DEV_keying_error_02",
+  "split": "DEVELOPMENT",
+  "family": "keying_error",
+  "input": {
+    "customer_narrative": "The registration did not exactly match what I typed.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS768412",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "REGISTRATION_MISMATCH"
+    ]
+  }
+}
