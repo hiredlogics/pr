@@ -52,7 +52,7 @@ def test_outcome_consistency() -> dict[str, Any]:
                 code = a.get("outcome")
                 break
     ok = (
-        state != "RELEASED"
+        state == "NO_SUPPORTED_GROUNDS"
         and code == OUTCOME_NO_SUPPORTED_GROUNDS
     )
     rows.append({
@@ -61,7 +61,10 @@ def test_outcome_consistency() -> dict[str, Any]:
         "outcome_code": code,
         "passed": ok,
         "class": code or "HOLD",
-        "trace_ui_agree": bool(code) and state != "RELEASED",
+        "trace_ui_agree": (
+            state == "NO_SUPPORTED_GROUNDS"
+            and code == OUTCOME_NO_SUPPORTED_GROUNDS
+        ),
     })
 
     # Successful appeal path (payment) — RELEASED, no hold code

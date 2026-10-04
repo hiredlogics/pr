@@ -1,7 +1,8 @@
-"""Customer-facing hold outcomes — distinct from internal MANUAL_REVIEW.
+"""Customer-facing hold outcomes — distinct from internal pipeline states.
 
-MANUAL_REVIEW is a pipeline state. The customer message must name *why* we
-stopped, not treat every hold as "your case has no merit".
+MANUAL_REVIEW is for processing/validation holds. Completed analysis with
+nothing to argue uses CaseState.NO_SUPPORTED_GROUNDS and the matching outcome
+code so state, outcome, trace, and UI agree.
 """
 from __future__ import annotations
 

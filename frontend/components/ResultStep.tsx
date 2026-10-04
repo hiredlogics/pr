@@ -148,6 +148,8 @@ export default function ResultStep({
   const awaitingQuestions = (data.questions?.length ?? 0) > 0;
   // Held after automatic recovery. The backend names *why* via `outcome` —
   // never collapse every MANUAL_REVIEW into a merits judgment.
+  // NO_SUPPORTED_GROUNDS is its own authoritative state (and outcome).
+  const stateNoGrounds = data.state === "NO_SUPPORTED_GROUNDS";
   const held =
     !released &&
     !noAppeal &&
@@ -157,11 +159,12 @@ export default function ResultStep({
       data.state === "VALIDATION_FAILED" ||
       data.state === "DRAFTED" ||
       data.state === "CONFIRMED" ||
-      data.state === "ANALYSED");
+      data.state === "ANALYSED" ||
+      stateNoGrounds);
 
   const outcome = data.outcome;
   const isProcessing = outcome === "PROCESSING_ERROR" || (!outcome && held === false && technicalError);
-  const isNoGrounds = outcome === "NO_SUPPORTED_GROUNDS";
+  const isNoGrounds = outcome === "NO_SUPPORTED_GROUNDS" || stateNoGrounds;
   const isNeedsDocs = outcome === "NEEDS_DOCUMENTS";
   const isNeedsFacts = outcome === "NEEDS_FACTS";
   // Legacy payloads without `outcome` must not imply merits: treat as processing.

@@ -768,15 +768,18 @@ class AppealPipeline:
         """No ground that can lead the letter: a detail is missing that would
         unlock one (the site postcode, `postcode_unlocks`), or nothing we can
         stand behind was found. Neither drafts a letter."""
-        case.state = CaseState.MANUAL_REVIEW
         unlocks = postcode_unlocks(case, self.kg)
         q = self.kg.question_for("site_postcode")
         if unlocks and q:
+            # Missing unlock fact — not a merits no-grounds finding.
+            case.state = CaseState.MANUAL_REVIEW
             case.pending_questions = [{"fact": "site_postcode", "type": q.get("type", "text"),
                                        "text": q["text"]}]
             case.audit.append({"event": "held_needs_site_postcode", "unlocks": unlocks,
                                "module_ids": list(pack.module_ids or [])})
         else:
+            # Authoritative no-grounds terminal: state + outcome agree.
+            case.state = CaseState.NO_SUPPORTED_GROUNDS
             case.audit.append({"event": "analysis_complete_no_supported_grounds",
                                "module_ids": list(pack.module_ids or []), "reason": reason})
         return _with_outcome(

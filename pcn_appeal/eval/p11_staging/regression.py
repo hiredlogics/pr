@@ -54,7 +54,7 @@ def run(report_dir: Path) -> dict[str, Any]:
             e2e_ok = state != "RELEASED" and (
                 code == expected_hold
                 or code in ("NEEDS_FACTS", "NEEDS_DOCUMENTS", "NO_SUPPORTED_GROUNDS")
-                or state == "MANUAL_REVIEW"
+                or state in ("MANUAL_REVIEW", "NO_SUPPORTED_GROUNDS")
             )
             result_class = code or "HOLD"
         else:
@@ -73,7 +73,7 @@ def run(report_dir: Path) -> dict[str, Any]:
                 e2e_ok = result_class in (
                     "NO_SUPPORTED_GROUNDS", "NEEDS_FACTS", "NEEDS_DOCUMENTS",
                     "CLAIM_PLAN_EMPTY", "UPSTREAM_INCOMPLETE",
-                ) or state == "MANUAL_REVIEW"
+                ) or state in ("MANUAL_REVIEW", "NO_SUPPORTED_GROUNDS")
 
         pack = getattr(actual.get("_out"), "pack", None) if actual.get("_out") else None
         draft = getattr(actual.get("_out"), "draft", None) if actual.get("_out") else None

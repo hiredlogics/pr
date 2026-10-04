@@ -390,11 +390,24 @@ def _persist(case: CaseFile, out=None) -> None:
 
 def _new_case() -> tuple[str, dict[str, Any]]:
     pipe = _pipeline()                   # before the case row: no orphan on a 503
+    # P12: never create a production/pilot case without a pinned KB release.
+    if not getattr(KG, "release_id", None):
+        raise HTTPException(
+            503,
+            "KB release is not pinned; cannot create cases. "
+            "Publish with `python -m pcn_appeal.store sync --publish` "
+            "or ensure YAML pin is active.",
+        )
     if db.enabled():
         from .store import cases as case_store
         case = case_store.new_case(kb_release_id=KG.release_id)
     else:
         case = CaseFile(f"C-{len(CASES) + 1:04d}")
+        case.audit.append({
+            "event": "kb_release_pin",
+            "kb_release_id": KG.release_id,
+            "kb_release_digest": getattr(KG, "release_digest", None),
+        })
     case.frontend_version = manifest.FRONTEND_VERSION.get()
     rec = {"case": case, "pipe": pipe,
            "flags": [], "questions": [], "output": None}
@@ -440,7 +453,9 @@ def health():
             "app_version": runtime.app_version(),
             "environment": runtime.environment(), "build_id": runtime.build_id(),
             "commit": version.commit(),
-            "kb_release": KG.release_id, "kb_source": KB_STATUS["source"],
+            "kb_release": KG.release_id,
+            "kb_release_digest": getattr(KG, "release_digest", None),
+            "kb_source": KB_STATUS["source"],
             "kb_source_note": KB_STATUS["reason"], "kb_drift": KB_STATUS["drift"],
             "prompt_versions": prompts.versions(), "validator_version": validation.VERSION,
             "store": "postgres" if db.enabled() else "memory",

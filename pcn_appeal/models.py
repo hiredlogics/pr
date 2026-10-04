@@ -55,6 +55,9 @@ class CaseState(str, Enum):
     DRAFTED = "DRAFTED"
     VALIDATION_FAILED = "VALIDATION_FAILED"
     MANUAL_REVIEW = "MANUAL_REVIEW"
+    # Completed analysis with no substantive ground we will draft. Authoritative
+    # terminal state — not routine manual review and not a processing error.
+    NO_SUPPORTED_GROUNDS = "NO_SUPPORTED_GROUNDS"
     RELEASED = "RELEASED"
     # Debt-recovery / appeal-window closed: normal appeal drafting must not run.
     NO_APPEAL_RIGHT = "NO_APPEAL_RIGHT"

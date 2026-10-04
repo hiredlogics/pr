@@ -58,7 +58,9 @@ class KnowledgeGraph:
         self.questions: dict[str, dict] = {}
         self.question_cfg: dict = {}
         self.release_id: str | None = None
+        self.release_digest: str | None = None
         self._load(data_dir)
+        self._pin_release_identity()
 
     @classmethod
     def from_release(cls, release: dict) -> "KnowledgeGraph":
@@ -69,9 +71,24 @@ class KnowledgeGraph:
         self.modules, self.blocks, self.routes = {}, {}, {}
         self.questions, self.question_cfg = {}, {}
         self.release_id = release.get("release_id")
+        self.release_digest = None
         self._build(release["kb_modules"], release["routes"],
                     release["building_blocks"], release["questions"])
+        self._pin_release_identity()
         return self
+
+    def _pin_release_identity(self) -> None:
+        """Ensure every loaded KG has a non-null release id + content digest.
+
+        Production/pilot cases must never stamp `kb_release = null`. YAML loads
+        get a stable content-addressed pin; published releases keep their id and
+        gain the same digest fingerprint.
+        """
+        from ..manifest import kb_digest
+        digest = kb_digest(self)
+        self.release_digest = digest
+        if not self.release_id:
+            self.release_id = f"yaml-{digest[:16]}"
 
     # ------------------------------------------------------------------ load
     def _load(self, d: Path) -> None:
