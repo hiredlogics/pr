@@ -41,25 +41,64 @@ def test_outcome_consistency() -> dict[str, Any]:
     pipe.confirm(case, {}, list(case.facts), "The weather was nice that day.")
     out = pipe.generate(case)
     state = getattr(out.state, "value", out.state)
-    outcome = out.outcome or {}
-    code = outcome.get("code") if isinstance(outcome, dict) else None
-    ok = state != "RELEASED" and code in (
-        OUTCOME_NO_SUPPORTED_GROUNDS, OUTCOME_NEEDS_FACTS, OUTCOME_NEEDS_DOCUMENTS,
-        OUTCOME_PROCESSING_ERROR, None,
+    # AppealOutput.outcome is a string code (not a dict).
+    code = out.outcome if isinstance(out.outcome, str) else None
+    if isinstance(out.outcome, dict):
+        code = out.outcome.get("code") or out.outcome.get("outcome")
+    # Fallback: audit trail customer_outcome event
+    if not code:
+        for a in reversed(list(getattr(case, "audit", None) or [])):
+            if a.get("event") == "customer_outcome" and a.get("outcome"):
+                code = a.get("outcome")
+                break
+    ok = (
+        state != "RELEASED"
+        and code == OUTCOME_NO_SUPPORTED_GROUNDS
     )
-    # Prefer explicit no-grounds when analysis finished empty
     rows.append({
         "case": "no_ground",
         "state": state,
         "outcome_code": code,
-        "passed": ok and state != "RELEASED",
+        "passed": ok,
         "class": code or "HOLD",
+        "trace_ui_agree": bool(code) and state != "RELEASED",
     })
-    # Trace/UI agreement: outcome attached when not released
-    if state != "RELEASED":
-        rows[-1]["trace_ui_agree"] = bool(outcome) or state in (
-            "QUESTIONING", "MANUAL_REVIEW", "VALIDATION_FAILED",
-        )
+
+    # Successful appeal path (payment) — RELEASED, no hold code
+    llm2 = ReferenceAnalysisLLM(_extract_payload(
+        operator_name="Pay Park", pcn_number="PP1", vrm="PP11AAA",
+        parking_location="L", site_postcode="P1 1AA",
+        parking_event_date="01/09/2026", notice_issue_date="05/09/2026",
+        alleged_breach="No valid payment", operator_ata="BPA",
+    ))
+    case2 = CaseFile("P11_OUT_OK", evidence={
+        "E1": EvidenceItem("E1", "PCN", "n.txt", text="PARKING CHARGE NOTICE"),
+    })
+    pipe2 = AppealPipeline(llm2)
+    pipe2.ingest(case2)
+    pipe2.confirm(case2, {}, list(case2.facts),
+                  "I paid on the app but mistyped one character.")
+    for _ in range(4):
+        if case2.state != CaseState.QUESTIONING:
+            break
+        try:
+            pipe2.answer(case2, {
+                "payment_made": "yes", "payment_method": "APP",
+                "keying_error_type": "MINOR",
+            })
+        except Exception:
+            break
+    out2 = pipe2.generate(case2)
+    state2 = getattr(out2.state, "value", out2.state)
+    rows.append({
+        "case": "successful_appeal",
+        "state": state2,
+        "outcome_code": out2.outcome,
+        "passed": state2 == "RELEASED" and not out2.outcome,
+        "class": "RELEASED" if state2 == "RELEASED" else (out2.outcome or "HOLD"),
+        "trace_ui_agree": state2 == "RELEASED",
+    })
+
     return {
         "passed": all(r.get("passed") for r in rows),
         "ran": True,

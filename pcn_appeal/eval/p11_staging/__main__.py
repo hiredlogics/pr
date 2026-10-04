@@ -20,6 +20,7 @@ from pcn_appeal import config
 from pcn_appeal.eval.p10_4.invariants import run_p8_p10_invariants
 
 from . import freeze as freeze_mod
+from . import live_extraction
 from . import live_llm
 from . import migrations
 from . import outcomes
@@ -82,9 +83,27 @@ def _recommendation(agg: dict, gates: dict) -> str:
     return "STAGING_FIXES_REQUIRED"
 
 
+def _load_staging_env() -> None:
+    """Load DATABASE_URL from .env.staging.local before any Postgres gates.
+
+    Secrets stay out of git; config.load() still handles OPENAI from .env.
+    """
+    staging = ROOT / ".env.staging.local"
+    if not staging.exists():
+        return
+    for line in staging.read_text(encoding="utf-8").splitlines():
+        if not line or line.lstrip().startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        key, val = key.strip(), val.strip().strip("\"'")
+        if key:
+            os.environ.setdefault(key, val)
+
+
 def main() -> int:
     REPORT.mkdir(parents=True, exist_ok=True)
-    config.load()  # OPENAI from .env; DATABASE_URL must be exported explicitly
+    _load_staging_env()
+    config.load()  # OPENAI from .env; DATABASE_URL from .env.staging.local
 
     print("P11 freeze...")
     fr = freeze_mod.write_freeze(REPORT / "freeze")
@@ -119,16 +138,10 @@ def main() -> int:
     print("Live drafting probe...")
     draft = live_llm.probe_drafting()
 
-    # Live extraction requires real images — mark not-run unless STAGING_EXTRACTION=1
-    live_extraction = {
-        "ran": False,
-        "passed": False,
-        "reason": (
-            "No representative PDF/photo corpus wired for automated P11 extraction "
-            "in this environment. Set STAGING_EXTRACTION=1 and provide sample paths "
-            "to enable. Golden field injection is forbidden."
-        ),
-    }
+    print("Live document extraction...")
+    ext = live_extraction.run(max_cases=6)
+    (REPORT / "live_extraction_detail.json").write_text(
+        json.dumps(ext, indent=2, default=str) + "\n", encoding="utf-8")
 
     print("Staging regression set...")
     reg = regression.run(REPORT)
@@ -150,7 +163,7 @@ def main() -> int:
         "provider_failure_cases": pf.get("cases"),
         "live_semantic": {k: v for k, v in sem.items() if k != "sample_concepts"},
         "live_drafting": {k: v for k, v in draft.items() if k != "text_preview"},
-        "live_extraction": live_extraction,
+        "live_extraction": {k: v for k, v in ext.items() if k != "cases"},
         "regression": {k: v for k, v in reg.items() if k != "cases"},
         "invariants": {k: inv.get(k) for k in ("passed", "tests_run", "checks")
                        if isinstance(inv, dict)},
@@ -310,10 +323,10 @@ Invariants:
 
 ## 13. Unresolved issues
 
-- `DATABASE_URL` must be exported explicitly for real Postgres (not loaded from `.env` by design).
-- Docker is unavailable in this agent environment; local Postgres service requires credentials.
-- Representative PDF/photo extraction corpus not automated in this run.
-- Live OpenAI probes run only when provider resolves to openai (not DemoLLM).
+- Staging `DATABASE_URL` is loaded from gitignored `.env.staging.local` (isolated `pcn_appeal_p11`).
+- Live extraction uses p9 notice_only transcripts rendered to JPEG (vision path); not physical phone photos.
+- Estimated cost per appeal is not metered in-harness (use provider dashboard).
+- Working tree must be clean at freeze for the release gate (staging release commit).
 
 ## 14. Recommendation
 
