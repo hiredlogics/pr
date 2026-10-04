@@ -261,17 +261,39 @@ def _fields_of(out: dict) -> dict[str, Any]:
 
 
 def _hhmm(v: Any) -> Optional[str]:
-    """The HH:MM in a time field. Notices routinely print a date and a time in
-    one line ("19/09/2026 12:23"), so a bare strptime drops the value entirely."""
-    m = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)\b", str(v or ""))
-    return f"{int(m.group(1)):02d}:{m.group(2)}" if m else None
+    """The clock time in a time field.
+
+    Notices routinely print a date and a time in one line
+    ("19/09/2026 12:23"), so a bare strptime drops the value entirely.
+    ANPR captures often include seconds ("12:59:17"). Seconds are kept
+    when printed; they are not invented when the notice only shows HH:MM.
+    """
+    m = re.search(r"\b([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b", str(v or ""))
+    if not m:
+        return None
+    clock = f"{int(m.group(1)):02d}:{m.group(2)}"
+    if m.group(3) is not None:
+        clock += f":{m.group(3)}"
+    return clock
+
+
+def _time_parts(v: Any) -> Optional[tuple[int, int, int]]:
+    clock = _hhmm(v)
+    if clock is None:
+        return None
+    bits = [int(p) for p in clock.split(":")]
+    if len(bits) == 2:
+        bits.append(0)
+    return bits[0], bits[1], bits[2]
 
 
 def _minutes(t1: Any, t2: Any, signed: bool = True) -> Optional[int]:
-    a, b = _hhmm(t1), _hhmm(t2)
+    a, b = _time_parts(t1), _time_parts(t2)
     if a is None or b is None:
         return None
-    m = int((datetime.strptime(b, "%H:%M") - datetime.strptime(a, "%H:%M")).total_seconds() // 60)
+    sa = a[0] * 3600 + a[1] * 60 + a[2]
+    sb = b[0] * 3600 + b[1] * 60 + b[2]
+    m = (sb - sa) // 60
     if signed:
         return m if m >= 0 else None
     return abs(m)

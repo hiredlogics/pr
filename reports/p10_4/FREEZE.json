@@ -1,0 +1,26 @@
+{
+  "evaluation_release": "P10_4_FROZEN_2026-10-04",
+  "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+  "git_branch": "feature/p8-architecture-hardening",
+  "working_tree_dirty": true,
+  "freeze_note": "P10.4 evaluation freeze. Application behaviour must not change during scoring. Working tree may contain uncommitted P10.3 work.",
+  "kb_release": null,
+  "module_count": 55,
+  "semantic_ontology_version": "p10_3_ontology_v1",
+  "semantic_ontology_digest": "a23fb0172da385d5",
+  "semantic_concept_count": 21,
+  "module_role_version": "p10_3_roles_v1",
+  "module_role_digest": "b777ffd2a9758a44",
+  "claim_plan_builder_version": "3",
+  "master_case_schema_version": 1,
+  "validation_engine_version": "VAL-5",
+  "draft_validation_version": "DV-1",
+  "prompt_versions": {
+    "classification": 2,
+    "extraction": 10,
+    "case_analysis": 8,
+    "drafting": 16,
+    "validation": 3
+  },
+  "model_provider": "ReferenceAnalysisLLM"
+}

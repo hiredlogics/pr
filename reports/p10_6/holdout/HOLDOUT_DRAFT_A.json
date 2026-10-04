@@ -1,0 +1,107 @@
+{
+  "case_id": "HOLDOUT_DRAFT_A",
+  "family": "pay_key_unseen",
+  "actual": {
+    "state": "MANUAL_REVIEW",
+    "supported_grounds": [],
+    "validation_passed": false,
+    "letter_preview": "",
+    "validation_issues": []
+  },
+  "drafting": {
+    "status": "N/A",
+    "reason": "upstream incomplete or not released",
+    "clean_upstream": false,
+    "passed": null
+  },
+  "layer": {
+    "claim_plan_complete": false,
+    "support_bundle_complete": false,
+    "draft_requirements_complete": false,
+    "draft_context_complete": true,
+    "state": "MANUAL_REVIEW",
+    "letter_empty": true,
+    "draft_plan_sections": 0,
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "first_defective_layer": "CLAIM_PLAN"
+  },
+  "coverage_trace": [],
+  "score": {
+    "scores": {
+      "semantic": {
+        "status": "SCORED",
+        "semantic_concept_precision": "N/A",
+        "semantic_concept_recall": "N/A",
+        "concept_tp": [],
+        "concept_fp": [],
+        "concept_fn": [],
+        "concept_misses_partial": [],
+        "concept_unexpected_affirmed": [],
+        "narrative_fact_precision": 1.0,
+        "narrative_fact_recall": 0.5,
+        "fact_tp": [
+          "keying_error_type"
+        ],
+        "fact_fp": [],
+        "fact_fn": [
+          "payment_made"
+        ],
+        "negation_accuracy": 1.0,
+        "uncertainty_accuracy": 1.0,
+        "attribution_accuracy": 1.0,
+        "fact_promotion_accuracy": 1.0,
+        "derived_lineage_completeness": "N/A",
+        "passed": false
+      },
+      "kb_ground": {
+        "status": "SCORED",
+        "kb_candidate_precision": "N/A",
+        "kb_candidate_recall": "N/A",
+        "candidate_tp": [],
+        "candidate_fp": [],
+        "candidate_fn": [],
+        "role_filter_precision": 1.0,
+        "role_filter_recall": 1.0,
+        "ground_precision": "N/A",
+        "ground_recall": 0.0,
+        "ground_tp": [],
+        "ground_fp": [],
+        "ground_fn": [
+          "KB-KEY-01",
+          "KB-PAY-01"
+        ],
+        "orphan_support": false,
+        "orphan_support_letter": false,
+        "unsupported_leading_ground_rate": 0.0,
+        "supporting_incorrectly_in_claim_plan": 0,
+        "legal_conclusion_independent_grounds": 0,
+        "legal_in_plan": [],
+        "support_in_plan": [],
+        "structural_in_plan": [],
+        "evidence_in_plan": [],
+        "primary_route_ok": true,
+        "passed": false
+      },
+      "invariants": {
+        "status": "SCORED",
+        "checks": {
+          "support_cannot_lead_alone": true,
+          "no_support_orphan_letter": true,
+          "no_legal_conclusion_independent": true,
+          "no_structural_lead": true
+        },
+        "legal_conclusion_in_plan": [],
+        "supporting_in_plan": [],
+        "passed": true
+      },
+      "draft": {
+        "status": "N/A",
+        "reason": "upstream incomplete or not released",
+        "clean_upstream": false,
+        "passed": null
+      }
+    },
+    "end_to_end_pass": false,
+    "first_failed_layer": "SEMANTIC"
+  }
+}

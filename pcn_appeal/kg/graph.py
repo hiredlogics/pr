@@ -58,7 +58,9 @@ class KnowledgeGraph:
         self.questions: dict[str, dict] = {}
         self.question_cfg: dict = {}
         self.release_id: str | None = None
+        self.release_digest: str | None = None
         self._load(data_dir)
+        self._pin_release_identity()
 
     @classmethod
     def from_release(cls, release: dict) -> "KnowledgeGraph":
@@ -69,9 +71,24 @@ class KnowledgeGraph:
         self.modules, self.blocks, self.routes = {}, {}, {}
         self.questions, self.question_cfg = {}, {}
         self.release_id = release.get("release_id")
+        self.release_digest = None
         self._build(release["kb_modules"], release["routes"],
                     release["building_blocks"], release["questions"])
+        self._pin_release_identity()
         return self
+
+    def _pin_release_identity(self) -> None:
+        """Ensure every loaded KG has a non-null release id + content digest.
+
+        Production/pilot cases must never stamp `kb_release = null`. YAML loads
+        get a stable content-addressed pin; published releases keep their id and
+        gain the same digest fingerprint.
+        """
+        from ..manifest import kb_digest
+        digest = kb_digest(self)
+        self.release_digest = digest
+        if not self.release_id:
+            self.release_id = f"yaml-{digest[:16]}"
 
     # ------------------------------------------------------------------ load
     def _load(self, d: Path) -> None:
@@ -106,7 +123,19 @@ class KnowledgeGraph:
         for src_id, meta in kb.get("legal_sources", {}).items():
             self.g.add_node(("LegalSource", src_id), **meta)
 
+        from ..module_roles import ROLE_BY_MODULE, normalize_role
+
         for m in kb["modules"]:
+            mid = m.get("module_id")
+            role = normalize_role(
+                m.get("module_role") or ROLE_BY_MODULE.get(mid),
+                default="SUBSTANTIVE_GROUND",
+            )
+            lead_raw = m.get("can_lead_letter", None)
+            if lead_raw is None:
+                lead_flag = None
+            else:
+                lead_flag = bool(lead_raw)
             mod = KBModule(**{k: m.get(k) for k in (
                 "module_id", "route", "topic", "use_when", "do_not_use_when", "core_proposition",
                 "required_facts", "evidence_helpful", "legal_basis", "drafting_notes",
@@ -121,7 +150,9 @@ class KnowledgeGraph:
                 source_reference=m.get("source_reference", "") or "",
                 legal_basis_origin=m.get("legal_basis_origin", "") or "",
                 last_legal_review=_as_date(m.get("last_legal_review")),
-                change_notes=m.get("change_notes", "") or "")
+                change_notes=m.get("change_notes", "") or "",
+                module_role=role,
+                can_lead_letter=lead_flag)
             self.modules[mod.module_id] = mod
             n = ("Module", mod.module_id)
             self.g.add_node(n, topic=mod.topic, strength=mod.strength)

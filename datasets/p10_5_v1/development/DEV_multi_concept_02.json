@@ -1,0 +1,29 @@
+{
+  "case_id": "DEV_multi_concept_02",
+  "split": "DEVELOPMENT",
+  "family": "multi_concept",
+  "input": {
+    "customer_narrative": "Mechanical failure immobilised us; we never made a payment.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS871534",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "BROKEN_DOWN",
+      "IMMOBILISED"
+    ],
+    "negated_concepts_any": [
+      "PAYMENT_MADE"
+    ]
+  }
+}

@@ -44,6 +44,8 @@ OPENAI_PREFERENCES = {
     # one document's printed PCN / VRM, read from its own pages only, so a
     # reference on one notice cannot be attributed to another (intake gate)
     "page_references": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
+    # P10.5: meaning-first narrative → controlled ontology concepts
+    "semantic_extraction": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # case analysis decides which grounds the evidence supports and what is
     # still worth asking - the most consequential judgement in the system, so it
     # gets the strongest model available.
@@ -282,6 +284,15 @@ class DemoLLM:
         self.calls.append({"task": task, "user": user})
         if task == "case_analysis":
             return self._reference_analysis(user)
+        if task == "semantic_extraction":
+            # Demo stand-in: meaning-bridge only. Not a live model.
+            from .semantics.meaning_bridge import extract_concepts_meaning_bridge
+            data = json.loads(user) if isinstance(user, str) else (user or {})
+            texts = list(data.get("customer_texts") or data.get("texts") or [])
+            return {
+                "concepts": extract_concepts_meaning_bridge(texts),
+                "model_kind": "DemoLLM_meaning_bridge",
+            }
         if task == "drafting":
             # Demo must still produce a letter when grounds are selected. This is
             # not TemplateDrafter-after-AI-failure: the demo *is* the drafter when
@@ -344,9 +355,9 @@ class DemoLLM:
     def _demo_draft(self, payload: str) -> dict:
         """Pack-faithful draft when no provider is configured.
 
-        Uses retrieved block wording when present so VAL-LEAK / VAL-SUBSTANCE pass.
-        Never substitutes TemplateDrafter after an OpenAI failure — this path is
-        only the demo client's own drafting response.
+        P10.6: when draft_plan is present, render one structured section per
+        owned ground (with required particulars) so coverage cannot silently
+        disappear. Falls back to legacy module/chunk rendering otherwise.
         """
         import json
         data = json.loads(payload) if isinstance(payload, str) else payload
@@ -355,12 +366,183 @@ class DemoLLM:
         modules = list(data.get("module_ids") or [])
         refs = data.get("fact_refs") or {}
         chunks = data.get("context_chunks") or []
-        if not modules:
-            return {"paragraphs": [], "no_ground_reason": "no finalized claims to draft"}
+        plan = data.get("draft_plan") or {}
+        plan_sections = list(plan.get("sections") or [])
+
+        if not modules and not plan_sections:
+            return {"paragraphs": [], "sections": [],
+                    "no_ground_reason": "no finalized claims to draft"}
+
         vrm = facts.get("vrm") or ctx.get("vrm") or "the vehicle"
         pcn = facts.get("pcn_number") or ctx.get("pcn_number") or "the notice"
         breach = str(facts.get("alleged_breach") or ctx.get("alleged_breach") or "").strip()
         location = str(facts.get("parking_location") or ctx.get("parking_location") or "").strip()
+        operator = str(facts.get("operator_name") or ctx.get("operator_name") or "the operator")
+
+        opening = (f"I am appealing this Parking Charge Notice as the registered keeper "
+                   f"of vehicle {vrm}.")
+        if pcn and pcn != "the notice":
+            opening = (f"I am appealing Parking Charge Notice {pcn} as the registered "
+                       f"keeper of vehicle {vrm}.")
+
+        findings_by_module: dict = {}
+        for f in data.get("verified_legal_findings") or []:
+            m = f.get("legal_module_id")
+            if m and m not in findings_by_module:
+                findings_by_module[m] = f
+
+        def _particular_clause(name: str, value) -> str:
+            if value in (None, ""):
+                return ""
+            # Boolean / flag particulars → professional prose (not bare True)
+            if name == "payment_made" and value:
+                return "a payment was made"
+            if name == "keying_error_type":
+                return f"a keying / registration mismatch ({value})"
+            if name == "vehicle_immobilised" and value:
+                return "the vehicle was immobilised by a mechanical failure"
+            if name == "left_site" and value:
+                return "the vehicle left the site"
+            if name == "returned_same_day" and value:
+                return "the vehicle later returned the same day"
+            if name == "multiple_visits" and value:
+                return "more than one visit is in issue"
+            if name == "loading_activity" and value:
+                return "loading / delivery / collection activity took place"
+            if name == "permit_held" and value:
+                return "a permit was held"
+            if name == "account_contradicts_allegation" and value:
+                return ("the keeper's account contradicts the factual premise "
+                        "of the allegation")
+            if name == "material_account_proposition" and value:
+                return f"the keeper's account is that {value}"
+            if name in ("parking_event_date", "notice_issue_date", "deadline",
+                        "presumed_delivery", "days_late"):
+                label = {
+                    "parking_event_date": "parking event date",
+                    "notice_issue_date": "notice issue date",
+                    "deadline": "statutory deadline",
+                    "presumed_delivery": "presumed delivery date",
+                    "days_late": "days outside the statutory period",
+                }[name]
+                return f"{label} {value}"
+            if value is False:
+                return ""
+            label = name.replace("_", " ")
+            return f"{label} ({value})"
+
+        def _render_section(sec: dict) -> dict:
+            grounds = list(sec.get("ground_ids") or ([sec["ground_id"]] if sec.get("ground_id") else []))
+            values = dict(sec.get("particular_values") or {})
+            parts: list[str] = []
+            # Finding-driven particulars first (dates + day count)
+            for mid in grounds:
+                lf = findings_by_module.get(mid)
+                if lf:
+                    sentence = legal_findings.particularised_sentence(lf)
+                    if sentence:
+                        parts.append(sentence)
+                    calc = lf.get("calculation") or {}
+                    # Ensure deadline / presumed_delivery appear even if sentence omits them
+                    for key in ("deadline", "presumed_delivery", "days"):
+                        if calc.get(key) is not None:
+                            values.setdefault(
+                                key if key != "days" else "days_late", calc.get(key))
+            # Chunk wording for the owned grounds
+            for mid in grounds:
+                for c in chunks:
+                    if c.get("kind") == "block" and c.get("module_id") == mid and c.get("text"):
+                        parts.append(str(c["text"]).strip())
+                        break
+            # Required particulars as attributed account / facts
+            particular_bits = []
+            for name in sec.get("required_particulars") or []:
+                val = values.get(name, facts.get(name))
+                clause = _particular_clause(name, val)
+                if clause:
+                    particular_bits.append(clause)
+            if particular_bits:
+                parts.append(
+                    "The material particulars relied upon are: "
+                    + "; ".join(particular_bits) + "."
+                )
+            # Topic-faithful fallback so semantic cues exist even without chunks
+            if not parts:
+                fam_bits = []
+                joined = " ".join(grounds)
+                if "PAY" in joined:
+                    fam_bits.append("a payment was made for the parking session")
+                if "KEY" in joined:
+                    fam_bits.append("a keying / registration mismatch arose when the details were entered")
+                if "BREAK" in joined:
+                    fam_bits.append("the vehicle suffered a mechanical failure and was immobilised")
+                if "ANPR" in joined or "ACT" in joined:
+                    fam_bits.append("the vehicle left the site and later returned, so multiple visits are in issue")
+                if "RES" in joined or "AUTH" in joined:
+                    fam_bits.append("a permit / residential authorisation is relied upon")
+                if "REC" in joined or "EV-" in joined:
+                    fam_bits.append(
+                        "the operator is requested to check its validation and transaction records"
+                    )
+                if "POFA" in joined:
+                    fam_bits.append("keeper liability under Schedule 4 is not established on the timing")
+                if "BAY" in joined:
+                    fam_bits.append("the keeper's account contradicts the factual premise of the bay allegation")
+                if "ACT" in joined:
+                    fam_bits.append("loading / delivery / collection activity is relied upon")
+                if not fam_bits:
+                    fam_bits.append("the contractual and statutory conditions for the charge are not made out")
+                where = f" at {location}" if location else ""
+                allege = f" The notice alleges {breach}{where}." if breach else ""
+                parts.append(
+                    f"In respect of the supported ground, {'; '.join(fam_bits)}.{allege} "
+                    f"{operator if operator != 'the operator' else 'The operator'} is put to proof "
+                    f"of the records relied upon."
+                )
+            text = " ".join(p for p in parts if p).strip()
+            fact_ids = list(sec.get("supporting_fact_ids") or [])
+            if not fact_ids:
+                fact_ids = [refs[k] for k in (sec.get("required_particulars") or []) if k in refs]
+            return {
+                "section_id": sec.get("section_id"),
+                "ground_ids": grounds,
+                "text": text,
+                "fact_ids_used": fact_ids,
+                "finding_ids_used": list(sec.get("legal_finding_ids") or []),
+                "evidence_ids": list(sec.get("evidence_ids") or []),
+            }
+
+        if plan_sections:
+            sections = [_render_section(s) for s in plan_sections]
+            closing = (f"For the reasons set out above, I invite {operator} to cancel "
+                       f"the Parking Charge Notice.")
+            # Also emit legacy paragraphs for older callers.
+            paras = [[{
+                "text": opening,
+                "fact_refs": [refs[k] for k in ("vrm", "pcn_number") if k in refs],
+                "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
+            }]]
+            for sec in sections:
+                paras.append([{
+                    "text": sec["text"],
+                    "fact_refs": sec.get("fact_ids_used") or [],
+                    "module_refs": sec.get("ground_ids") or [],
+                    "evidence_refs": sec.get("evidence_ids") or [],
+                    "quote_of": None,
+                }])
+            paras.append([{
+                "text": closing, "fact_refs": [], "module_refs": ["STRUCTURAL"],
+                "evidence_refs": [], "quote_of": None,
+            }])
+            return {
+                "opening": opening,
+                "sections": sections,
+                "closing": closing,
+                "paragraphs": paras,
+                "no_ground_reason": None,
+            }
+
+        # Legacy path (no draft_plan)
         paras: list = [[
             {"text": (f"I write as the registered keeper of vehicle {vrm} in respect of "
                       f"Parking Charge Notice {pcn}. I dispute liability for this parking "
@@ -376,14 +558,7 @@ class DemoLLM:
                 "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
             }])
         used = 0
-        findings_by_module: dict = {}
-        for f in data.get("verified_legal_findings") or []:
-            m = f.get("legal_module_id")
-            if m and m not in findings_by_module:
-                findings_by_module[m] = f
         for mid in modules:
-            # P6.2: a verified timed finding is argued on its calculation -
-            # the exact dates and day count - before any retrieved wording.
             lf = findings_by_module.get(mid)
             if lf:
                 sentence = legal_findings.particularised_sentence(lf)
@@ -407,7 +582,6 @@ class DemoLLM:
                 }])
                 used += 1
         if used == 0:
-            # One substantive paragraph covering the selected pack — no module IDs.
             lead = modules[0]
             paras.append([{
                 "text": ("The operator is requested to establish that the statutory and "
@@ -415,7 +589,6 @@ class DemoLLM:
                          "date, and to cancel the notice if they were not."),
                 "fact_refs": [], "module_refs": [lead], "evidence_refs": [], "quote_of": None,
             }])
-            used = 1
         paras.append([{
             "text": ("For the reasons set out above, the parking charge is disputed and the "
                      "operator is requested to cancel the Parking Charge Notice."),

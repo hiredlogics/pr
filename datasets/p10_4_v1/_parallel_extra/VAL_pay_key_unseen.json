@@ -1,0 +1,37 @@
+{
+  "case_id": "VAL_pay_key_unseen",
+  "split": "VALIDATION",
+  "family": "payment_keying",
+  "input": {
+    "customer_narrative": "Completed the RingGo session successfully but one character of the plate was wrong.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440012",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "11/07/2026",
+      "notice_issue_date": "15/07/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA",
+      "entry_time": "11:00",
+      "exit_time": "12:30",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "evidence": [{"evidence_id": "E4", "kind": "APP_SCREENSHOT", "filename": "ringgo.png", "text": "Payment OK GH21KLN"}]
+  },
+  "expected": {
+    "semantic_concepts_affirmed_any": ["PAYMENT_MADE", "KEYING_ERROR", "REGISTRATION_MISMATCH"],
+    "substantive_grounds_any": ["KB-PAY-01", "KB-KEY-01"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "must_not_claim_roles_in_plan": ["LEGAL_CONCLUSION"],
+    "primary_route": "PAYMENT",
+    "orphan_support": false
+  }
+}

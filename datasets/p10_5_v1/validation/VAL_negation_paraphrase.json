@@ -1,0 +1,30 @@
+{
+  "case_id": "VAL_negation_paraphrase",
+  "split": "VALIDATION",
+  "family": "negation",
+  "input": {
+    "customer_narrative": "Never paid that day and no vehicle fault occurred.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS233945",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": [
+      "PAYMENT_MADE",
+      "BROKEN_DOWN"
+    ],
+    "negated_concepts_any": [
+      "PAYMENT_MADE",
+      "BROKEN_DOWN"
+    ]
+  }
+}

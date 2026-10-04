@@ -1,0 +1,32 @@
+{
+  "case_id": "DEV_DRAFT_mechanical",
+  "split": "DEVELOPMENT",
+  "family": "mechanical",
+  "input": {
+    "customer_narrative": "The car broke down on site; it would not restart and was immobilised.",
+    "customer_answers": {
+      "vehicle_immobilised": "yes",
+      "breakdown_severity": "IMMOBILISED"
+    },
+    "extraction_fields": {
+      "operator_name": "MechPark Ltd",
+      "pcn_number": "MP300501",
+      "vrm": "HH88III",
+      "parking_location": "MechPark Site",
+      "site_postcode": "L1 1AA",
+      "parking_event_date": "18/08/2026",
+      "notice_issue_date": "22/08/2026",
+      "alleged_breach": "Overstay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "vehicle_immobilised": true
+    },
+    "substantive_grounds_any": [
+      "KB-BREAK-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

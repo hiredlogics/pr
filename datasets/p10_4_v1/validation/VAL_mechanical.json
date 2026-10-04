@@ -1,0 +1,34 @@
+{
+  "case_id": "VAL_mechanical",
+  "split": "VALIDATION",
+  "family": "mechanical_issue",
+  "notes": "Fresh VAL wording — not copied from DEV_mech / DEV_temp_mechanical.",
+  "input": {
+    "customer_narrative": "There was a mechanical failure — the car stalled and we were unable to leave.",
+    "customer_answers": {
+      "vehicle_immobilised": "yes",
+      "immobilisation_prevented_departure": "yes"
+    },
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410104",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "05/08/2026",
+      "notice_issue_date": "09/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA",
+      "entry_time": "11:10",
+      "exit_time": "13:40"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["BROKEN_DOWN", "IMMOBILISED"],
+    "facts_any": {"vehicle_immobilised": true},
+    "substantive_grounds_any": ["KB-BREAK-01", "KB-BREAK-02", "KB-BREAK-03"],
+    "kb_candidates_any": ["KB-BREAK-01", "KB-BREAK-02", "KB-BREAK-03"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "invariants": ["no_legal_conclusion_independent", "support_cannot_lead_alone"]
+  }
+}

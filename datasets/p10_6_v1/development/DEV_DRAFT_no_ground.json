@@ -1,0 +1,27 @@
+{
+  "case_id": "DEV_DRAFT_no_ground",
+  "split": "DEVELOPMENT",
+  "family": "no_supported_ground",
+  "input": {
+    "customer_narrative": "The weather was nice that day.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "No Ground Ops",
+      "pcn_number": "NG600801",
+      "vrm": "KK11LLL",
+      "parking_location": "Neutral Site",
+      "site_postcode": "E1 1AA",
+      "parking_event_date": "22/08/2026",
+      "notice_issue_date": "26/08/2026",
+      "alleged_breach": "Breach of terms",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "outcome_any": [
+      "NO_SUPPORTED_GROUNDS",
+      "NEED_MORE_INFORMATION"
+    ],
+    "must_not_release_empty_appeal": true
+  }
+}

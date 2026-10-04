@@ -40,6 +40,22 @@ export type CaseConsole = {
   }[];
   extraction: FactRow[];
   facts: FactRow[];
+  fact_lifecycle?: {
+    event: string;
+    name?: string;
+    value?: unknown;
+    reason?: string;
+    used_by?: string[];
+    supersedes?: string | null;
+  }[];
+  fact_write_trace?: {
+    fact: string;
+    value?: unknown;
+    first_write?: { authority?: string | null; source?: string; status?: string; at?: string } | null;
+    writes?: { authority?: string; source?: string; decision?: string; reason?: string; at?: string }[];
+    held_authority?: string | null;
+    provenance_count?: number;
+  }[];
   narrative: {
     customer_facts: { name: string; value: unknown; status: string; fact_id?: string }[];
     derived?: {
@@ -76,6 +92,9 @@ export type CaseConsole = {
     reason?: string;
   }[];
   knowledge: Record<string, KnowledgeRow[]>;
+  module_journey?: ModuleJourneyRow[];
+  module_decisions?: ModuleDecisionRow[];
+  module_trace_checks?: { rule: string; status: TraceStatus; module_id?: string; message?: string }[];
   grounds: {
     independent_notice: GroundRow[];
     narrative: GroundRow[];
@@ -86,6 +105,26 @@ export type CaseConsole = {
     final_merged: GroundRow[];
     verified_families?: string[];
     integrity_errors: IntegrityError[];
+  };
+  ground_sources?: {
+    verified_findings: { finding_type?: string; module_id?: string; status?: string }[];
+    case_intelligence: { selected: string[]; not_selected: string[] };
+    final_claim_plan: string[];
+    overrides: { module_id: string; reason: string }[];
+    source_trace?: string[];
+    invalidations?: Record<string, unknown>[];
+  };
+  document_baseline?: {
+    created?: string[];
+    version?: number | null;
+    digest?: string | null;
+    legal_findings?: { type?: string; status?: string }[];
+    document_grounds?: string[];
+    document_finding_types?: string[];
+    customer_delta?: string[];
+    final?: string[];
+    analysis_version?: number | null;
+    trace?: string[];
   };
   claim_plan: ClaimPlanView | null;
   draft_context: {
@@ -153,6 +192,44 @@ export type GroundRow = {
   label?: string;
 };
 
+export type ModuleDecisionRow = {
+  module_id: string;
+  case_id?: string;
+  stage: string;
+  decision: string;
+  reason?: string;
+  supporting_fact_ids?: string[];
+  missing_fact_ids?: string[];
+  blocking_conditions?: string[];
+  timestamp?: string;
+  created_by?: string;
+};
+
+export type ModuleStageView = {
+  decision?: string;
+  reason?: string;
+  supporting_fact_ids?: string[];
+  missing_fact_ids?: string[];
+  blocking_conditions?: string[];
+  status?: string | null;
+  origin?: string | null;
+};
+
+export type ModuleJourneyRow = {
+  module_id: string;
+  knowledge?: ModuleStageView;
+  applicability?: ModuleStageView;
+  case_intelligence?: ModuleStageView;
+  claim_plan?: ModuleStageView;
+  draft?: ModuleStageView;
+  required_facts?: string[];
+  missing_facts?: string[];
+  expected_rejection?: boolean;
+  integrity?: TraceStatus;
+  integrity_message?: string;
+  history?: ModuleDecisionRow[];
+};
+
 export type KnowledgeRow = {
   module_id?: string;
   reason?: string;
@@ -193,19 +270,24 @@ export type ClaimPlanView = {
       allegation_refs: string[];
       supporting_facts: Record<string, unknown>[];
       derived_facts: string[];
+      source_fact_ids?: string[];
+      derived_fact_ids?: string[];
       calculated_facts: string[];
       verified_findings: string[];
       evidence: Record<string, unknown>[];
       relationship_ids: (string | undefined)[];
+      complete?: boolean;
       draft_requirement: {
         must_express: string[];
         must_not_express: string[];
+        explanation_goal?: string[];
         legal_licence?: string;
       };
     };
     draft_requirement: {
       must_express: string[];
       must_not_express: string[];
+      explanation_goal?: string[];
       legal_licence?: string;
     };
   }[];
@@ -213,12 +295,27 @@ export type ClaimPlanView = {
   trace?: string[];
 };
 
+export type RemovalExplain = {
+  module_id: string;
+  kind?: string;
+  reason?: string;
+  explain?: string;
+};
+
 export type RunCompare = {
-  a: { label: string; version: number; run_number?: number; grounds: string[]; findings: string[] };
-  b: { label: string; version: number; run_number?: number; grounds: string[]; findings: string[] };
+  a: { label: string; version: number; run_number?: number; grounds: string[]; modules?: string[]; findings: string[] };
+  b: { label: string; version: number; run_number?: number; grounds: string[]; modules?: string[]; findings: string[] };
+  modules?: { added: string[]; removed: string[]; unchanged: string[] };
   grounds: { added: string[]; removed: string[]; unchanged: string[] };
-  facts: { added: { name: string; value: unknown }[]; removed: unknown[] };
+  facts: {
+    added: { name: string; value: unknown }[];
+    removed: unknown[] | { name: string; value: unknown }[];
+    changed?: { name: string; from?: unknown; to?: unknown }[];
+  };
+  findings?: { added: string[]; removed: string[]; unchanged: string[] };
   legal_findings: { a: string[]; b: string[] };
+  removals?: RemovalExplain[];
+  explained?: boolean;
   integrity_errors: IntegrityError[];
   error?: string;
 };

@@ -67,11 +67,17 @@ def save(case: CaseFile) -> None:
                                  document_type = %s, stage = %s, scope_stop = %s,
                                  document_classes = %s, classifications = %s, timeline = %s,
                                  asked_questions = %s, pending_questions = %s,
-                                 current_run_id = %s, run_status = %s, frontend_version = %s
+                                 current_run_id = %s, run_status = %s, frontend_version = %s,
+                                 release_metadata = %s,
+                                 kb_release_id = COALESCE(%s, kb_release_id)
                 WHERE case_id = %s
             """, (case.state.value, case.driver_status.value, *routing_columns(case),
                   *question_columns(case), case.run_id, case.run_status,
-                  case.frontend_version, case.case_id))
+                  case.frontend_version,
+                  _json(case.release_metadata) if case.release_metadata is not None else None,
+                  (case.release_metadata or {}).get("kb_release_id")
+                  if isinstance(case.release_metadata, dict) else None,
+                  case.case_id))
 
             for ev in case.evidence.values():
                 cur.execute("""
@@ -99,12 +105,19 @@ def save(case: CaseFile) -> None:
             _save_claim_plans(cur, case)
             _save_draft_versions(cur, case)
             _save_legal_findings(cur, case)
+            _save_master_case_state(cur, case)
+            _save_document_baselines(cur, case)
+            _save_case_analysis_state(cur, case)
             _save_integrity(cur, case)
+
+            from ..fact_lifecycle import persist_versions
+            persist_versions(case)
 
             latest = _latest_raw_answers(cur, case.case_id)
             for question, raw in case.raw_answers.items():
                 # "_" keys are working values derived from the answers on every
                 # analysis round; storing them made them look like questions.
+                # Lineage lives in fact_history / audit / fact_versions (rebuilt on load).
                 if question.startswith("_") or latest.get(question) == raw:
                     continue
                 cur.execute("INSERT INTO raw_answers (case_id, question, raw_text) VALUES (%s, %s, %s)",
@@ -359,6 +372,108 @@ def _save_legal_findings(cur, case: CaseFile) -> None:
         r.pop("_dirty", None)
 
 
+MASTER_SECTIONS = ("derivations", "knowledge_matches", "grounds")
+
+
+def _save_master_case_state(cur, case: CaseFile) -> None:
+    """P8.1: the Master Case Object's own sections - derivation lineage,
+    knowledge matches, and the grounds of each decided claim plan version.
+
+    Append-only, in both directions: an entry is written once and never
+    rewritten, and the table refuses an update (0010_master_case_state.sql).
+    """
+    for section in MASTER_SECTIONS:
+        for entry in getattr(case, f"master_{section}", []) or []:
+            if entry.get("_persisted"):
+                continue
+            cur.execute("""
+                INSERT INTO master_case_state (case_id, section, run_id, payload, recorded_at)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (case.case_id, section, entry.get("run_id"),
+                  _json(_jsonable({k: v for k, v in entry.items()
+                                   if not k.startswith("_")})),
+                  entry.get("at") or datetime.now(timezone.utc).isoformat()))
+            entry["_persisted"] = True
+
+
+def _load_master_case_state(conn, case: CaseFile) -> None:
+    """Restore the sections in the order they were recorded, so the case comes
+    back holding the same generations it was saved with."""
+    rows = conn.execute(
+        "SELECT section, payload FROM master_case_state WHERE case_id = %s ORDER BY entry_id",
+        (case.case_id,)).fetchall()
+    restored: dict[str, list] = {s: [] for s in MASTER_SECTIONS}
+    for section, payload in rows:
+        if section not in restored:
+            continue
+        entry = _loaded(payload) or {}
+        entry["_persisted"] = True
+        restored[section].append(entry)
+    for section, entries in restored.items():
+        setattr(case, f"master_{section}", entries)
+
+
+def _save_document_baselines(cur, case: CaseFile) -> None:
+    """P8.3: append-only document belt snapshots."""
+    for entry in getattr(case, "document_baselines", []) or []:
+        if entry.get("_persisted"):
+            continue
+        cur.execute("""
+            INSERT INTO document_baselines (case_id, version, digest, payload, recorded_at)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (case.case_id, int(entry.get("version") or 1), entry.get("digest") or "",
+              _json(_jsonable({k: v for k, v in entry.items() if not k.startswith("_")})),
+              entry.get("at") or datetime.now(timezone.utc).isoformat()))
+        entry["_persisted"] = True
+
+
+def _load_document_baselines(conn, case: CaseFile) -> None:
+    rows = conn.execute(
+        "SELECT payload FROM document_baselines WHERE case_id = %s ORDER BY version, entry_id",
+        (case.case_id,)).fetchall()
+    case.document_baselines = []
+    for (payload,) in rows:
+        entry = _loaded(payload) or {}
+        entry["_persisted"] = True
+        case.document_baselines.append(entry)
+
+
+def _save_case_analysis_state(cur, case: CaseFile) -> None:
+    """P8.3: one row per Case Intelligence proposal run."""
+    for entry in getattr(case, "case_analysis_states", []) or []:
+        if entry.get("_persisted"):
+            continue
+        cur.execute("""
+            INSERT INTO case_analysis_state (
+                case_id, analysis_version, document_baseline_version,
+                customer_analysis_version, candidate_ground_ids, selected_ground_ids,
+                verified_ground_ids, rejected_ground_ids, created_by, timestamp, payload)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (case.case_id, int(entry.get("analysis_version") or 1),
+              entry.get("document_baseline_version"),
+              entry.get("customer_analysis_version"),
+              _json(list(entry.get("candidate_ground_ids") or [])),
+              _json(list(entry.get("selected_ground_ids") or [])),
+              _json(list(entry.get("verified_ground_ids") or [])),
+              _json(list(entry.get("rejected_ground_ids") or [])),
+              entry.get("created_by") or "case_intelligence",
+              entry.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+              _json(_jsonable({k: v for k, v in entry.items() if not k.startswith("_")}))))
+        entry["_persisted"] = True
+
+
+def _load_case_analysis_state(conn, case: CaseFile) -> None:
+    rows = conn.execute(
+        "SELECT payload FROM case_analysis_state WHERE case_id = %s "
+        "ORDER BY analysis_version, entry_id",
+        (case.case_id,)).fetchall()
+    case.case_analysis_states = []
+    for (payload,) in rows:
+        entry = _loaded(payload) or {}
+        entry["_persisted"] = True
+        case.case_analysis_states.append(entry)
+
+
 def _load_legal_findings(conn, case: CaseFile) -> None:
     for (fid, run, ftype, status, facts, calc, module, created) in conn.execute("""
             SELECT finding_id, run_id, finding_type, status, supporting_facts,
@@ -517,6 +632,19 @@ def _load_claim_plans(conn, case: CaseFile) -> None:
             "items": items}))
 
 
+def _conflict_authority(source_type: Optional[str], status: Optional[str]) -> str:
+    """Reload the P8.7 authority label that FactManager stored on the conflict."""
+    if source_type in ("DOCUMENT", "EVIDENCE"):
+        return "DOCUMENT_CONFIRMED"
+    if source_type == "CALCULATION":
+        return "INFERRED"
+    if status in ("CONFIRMED", "CORRECTED"):
+        return "CUSTOMER_CONFIRMED"
+    if source_type in ("CUSTOMER_ANSWER", "CUSTOMER_FREE_TEXT"):
+        return "CUSTOMER_ASSERTED"
+    return "INFERRED"
+
+
 def _stamp(at) -> Optional[str]:
     """A stored time as FactGraph holds it: UTC ISO, milliseconds."""
     if at is None or isinstance(at, str):
@@ -567,7 +695,7 @@ def load(case_id: str) -> CaseFile:
     with connect() as conn:
         row = conn.execute(f"SELECT state, driver_status, {', '.join(ROUTING_COLUMNS)}, "
                            f"{', '.join(QUESTION_COLUMNS)}, current_run_id, run_status, "
-                           "frontend_version "
+                           "frontend_version, release_metadata "
                            "FROM cases WHERE case_id = %s", (case_id,)).fetchone()
         if row is None:
             raise KeyError(case_id)
@@ -611,7 +739,8 @@ def load(case_id: str) -> CaseFile:
         # in the process that first received it.
         case.raw_answers = _latest_raw_answers(conn, case_id)
         apply_question_columns(case, row[2 + n:2 + n + len(QUESTION_COLUMNS)])
-        run_id, run_status, frontend_version = row[2 + n + len(QUESTION_COLUMNS):]
+        run_id, run_status, frontend_version, release_metadata = (
+            row[2 + n + len(QUESTION_COLUMNS):])
 
         case.audit = [{**(_loaded(detail) or {}), "_persisted": True} for (detail,) in conn.execute(
             "SELECT detail FROM audit_log WHERE case_id = %s ORDER BY id", (case_id,)).fetchall()]
@@ -620,6 +749,7 @@ def load(case_id: str) -> CaseFile:
         case.run_id = int(run_id or 0)
         case.run_status = run_status or "NONE"
         case.frontend_version = frontend_version
+        case.release_metadata = _loaded(release_metadata)
 
         for (run, fact, fact_id, previous, new, previous_status, status, source_kind,
              source_ref, source_type, changed_by, reason, outcome, at) in conn.execute("""
@@ -659,13 +789,22 @@ def load(case_id: str) -> CaseFile:
                 FROM fact_conflicts WHERE case_id = %s ORDER BY created_at
         """, (case_id,)).fetchall():
             case.fact_conflicts.append({
-                "conflict_id": str(conflict_id), "fact": fact,
+                "conflict_id": str(conflict_id), "fact": fact, "fact_name": fact,
                 "fact_id": None if fact_id is None else str(fact_id),
                 "held_value": held, "proposed_value": proposed,
+                "previous_value": held, "new_value": proposed,
                 "held_status": held_status, "proposed_status": proposed_status,
                 "held_source_type": held_type, "held_source": held_source,
                 "proposed_source_type": proposed_type, "proposed_source": proposed_source,
-                "rule": rule, "status": status, "resolution": resolution,
+                "sources": [
+                    {"kind": held_type, "ref": held_source,
+                     "authority": _conflict_authority(held_type, held_status)},
+                    {"kind": proposed_type, "ref": proposed_source,
+                     "authority": _conflict_authority(proposed_type, proposed_status)},
+                ],
+                "timestamps": {"previous": _stamp(created), "new": _stamp(created)},
+                "rule": rule, "status": status, "resolution_status": status,
+                "resolution": resolution,
                 "resolved_by": resolved_by, "run_id": run, "at": _stamp(created),
                 "resolved_at": _stamp(resolved_at),
                 "_held": _revived(held), "_proposed": _revived(proposed)})
@@ -674,7 +813,23 @@ def load(case_id: str) -> CaseFile:
         _load_claim_plans(conn, case)
         _load_draft_versions(conn, case)
         _load_legal_findings(conn, case)
+        _load_master_case_state(conn, case)
+        _load_document_baselines(conn, case)
+        _load_case_analysis_state(conn, case)
         _load_integrity(conn, case)
+        # P8.3: analysis state is the proposal record; restore after those rows
+        # are loaded. Audit `kept` is the fallback when no state row exists.
+        if not case.analysis_module_ids:
+            states = list(getattr(case, "case_analysis_states", None) or [])
+            if states and states[-1].get("selected_ground_ids"):
+                case.analysis_module_ids = [m for m in states[-1]["selected_ground_ids"] if m]
+            else:
+                for a in reversed(case.audit):
+                    if a.get("event") == "case_analysis" and a.get("kept"):
+                        case.analysis_module_ids = [m for m in a["kept"] if m]
+                        break
+        from ..fact_lifecycle import restore_lineage
+        restore_lineage(case)
     return case
 
 

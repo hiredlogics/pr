@@ -1,0 +1,27 @@
+{
+  "case_id": "DEV_p104_obs_02",
+  "split": "DEVELOPMENT",
+  "family": "p104_obs",
+  "input": {
+    "customer_narrative": "Finished paying in the operator app; one character on the plate was wrong.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS230417",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "PAYMENT_MADE",
+      "KEYING_ERROR"
+    ]
+  },
+  "notes": "DEV observation of P10.4 payment/keying paraphrase class"
+}

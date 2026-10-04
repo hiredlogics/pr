@@ -7,7 +7,7 @@
       "KB-POFA-02",
       "KB-REC-01"
     ],
-    "plan_digest": "707f855b8db4443c0a616d10ff5101f7fed07d8bb0989f7ac67403b597c1ec23"
+    "plan_digest": "c9f8dead4547d6ff290f91013f47adf8667c3fed05856b1a6c72b4890ef369ff"
   },
   "draft": {
     "content_hash": "e9a4104d74783f01d29af151655582650b7278e2d60815b7da68603eedc0d066",
@@ -94,6 +94,7 @@
     "pcn_number": "e18ed3ade1e1",
     "pofa_9_2_e_status": "80bf2e217f0b",
     "pofa_finding": "d82bd98d4438",
+    "pofa_findings": "1bad73db9be0",
     "pofa_route": "3b314d5ff8c4",
     "site_postcode": "3c262990cebd",
     "total_recorded_duration_min": "4a8596a7790b",

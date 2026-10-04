@@ -1,0 +1,32 @@
+{
+  "case_id": "HOLDOUT_DRAFT_B",
+  "split": "HOLDOUT",
+  "family": "mechanical_unseen",
+  "input": {
+    "customer_narrative": "Engine cut out in the bay; recovery attended because it would not restart.",
+    "customer_answers": {
+      "vehicle_immobilised": "yes",
+      "breakdown_severity": "IMMOBILISED"
+    },
+    "extraction_fields": {
+      "operator_name": "Holdout Park B",
+      "pcn_number": "HB801001",
+      "vrm": "MM33NNN",
+      "parking_location": "Holdout Plaza B",
+      "site_postcode": "EH1 1AA",
+      "parking_event_date": "04/09/2026",
+      "notice_issue_date": "08/09/2026",
+      "alleged_breach": "Overstay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "vehicle_immobilised": true
+    },
+    "substantive_grounds_any": [
+      "KB-BREAK-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

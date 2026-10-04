@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_broken_down_08",
+  "split": "DEVELOPMENT",
+  "family": "broken_down",
+  "input": {
+    "customer_narrative": "Possibly the vehicle lost power; I'm not sure.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS340785",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "uncertain_concepts_any": [
+      "BROKEN_DOWN"
+    ],
+    "must_not_promote_facts": [
+      "vehicle_immobilised"
+    ]
+  }
+}

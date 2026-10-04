@@ -1,0 +1,26 @@
+{
+  "case_id": "DEV_DRAFT_legal_finding_rebuttal",
+  "split": "DEVELOPMENT",
+  "family": "legal_finding_factual",
+  "input": {
+    "customer_narrative": "Notice came weeks after the event.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Late Notice Ops",
+      "pcn_number": "LN800001",
+      "vrm": "DD44EEE",
+      "parking_location": "Riverside Car Park",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "01/06/2026",
+      "notice_issue_date": "28/06/2026",
+      "alleged_breach": "Failure to display ticket",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "substantive_grounds_any": [
+      "KB-POFA-02"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

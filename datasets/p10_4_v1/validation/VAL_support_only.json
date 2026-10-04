@@ -1,0 +1,32 @@
+{
+  "case_id": "VAL_support_only",
+  "split": "VALIDATION",
+  "family": "support_only_candidate",
+  "notes": "Signage/landowner framing without a clear substantive narrative defence.",
+  "input": {
+    "customer_narrative": "Signage on site was confusing and I question whether the landowner authorised enforcement.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410110",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "10/08/2026",
+      "notice_issue_date": "14/08/2026",
+      "alleged_breach": "Parked outside marked bay",
+      "operator_ata": "IPC"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": ["PAYMENT_MADE", "BROKEN_DOWN", "KEYING_ERROR"],
+    "supporting_cannot_independently_lead": true,
+    "legal_conclusion_independent_count": 0,
+    "orphan_support_letter_forbidden": true,
+    "invariants": [
+      "no_legal_conclusion_independent",
+      "support_cannot_lead_alone",
+      "no_support_orphan_letter"
+    ]
+  }
+}

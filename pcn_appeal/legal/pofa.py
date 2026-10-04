@@ -161,12 +161,23 @@ class NtkContentScan:
 
 # Para 9(2)(f): the keeper warning has two parts - the driver's name and
 # address not being known, and the right to recover from the keeper.
+# Notices use several lawful phrasings of the same limbs; match the meaning,
+# not one operator's template.
 _KEEPER_WARNING_DRIVER_UNKNOWN = re.compile(
     r"(do not|don'?t|does not) know (both )?the (full )?name and (a |the )?(current )?"
-    r"(serviceable )?(postal )?address (for service )?of the driver", re.I)
+    r"(serviceable )?(postal )?address (for service )?of the driver|"
+    r"(if|where|when) the driver (is|has) not (been )?(identified|known)|"
+    r"driver (is|has) not (been )?(identified|known)|"
+    r"driver'?s? (identity|name and address) (is |are )?(not known|unknown|not established)",
+    re.I,
+)
 _KEEPER_WARNING_RECOVER = re.compile(
     r"right to recover[\s\S]{0,120}?(from (you|the keeper)|keeper)|"
-    r"recover[\s\S]{0,60}?from (you|the keeper)", re.I)
+    r"recover(?:y|ing)?[\s\S]{0,80}?from (you|the (registered )?keeper)|"
+    r"seeking recovery from the (registered )?keeper|"
+    r"recover any unpaid[\s\S]{0,40}?(from you|from the keeper)",
+    re.I,
+)
 
 
 def scan_keeper_warning(text: str, *, min_chars: int = 200) -> Optional[bool]:
@@ -177,7 +188,6 @@ def scan_keeper_warning(text: str, *, min_chars: int = 200) -> Optional[bool]:
     if len(raw) < min_chars:
         return None
     return bool(_KEEPER_WARNING_DRIVER_UNKNOWN.search(raw) and _KEEPER_WARNING_RECOVER.search(raw))
-
 
 def scan_ntk_invitations(text: str, *, min_chars: int = 80) -> NtkContentScan:
     """Detect para 9(2)(e)(i)/(ii)-style invitations in notice text.

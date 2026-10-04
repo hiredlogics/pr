@@ -177,8 +177,8 @@ class ScenarioD_LateNTK(unittest.TestCase):
         self.assertNotIn("Schedule 4", out.letter or "")
         # Schedule 4 does not apply in Scotland, so the late-notice ground that
         # carries this case in England is unavailable and nothing else here is
-        # strong enough to lead. Held rather than sent as a landowner paragraph.
-        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        # strong enough to lead. No-grounds terminal, not routine manual review.
+        self.assertEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
         self.assertIsNone(out.letter)
 
 

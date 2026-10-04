@@ -1,0 +1,43 @@
+{
+  "dataset_id": "p10_4_v1",
+  "dataset_version": "p10_4_v1",
+  "evaluation_release": "P10_4_FROZEN_2026-10-04",
+  "immutable": true,
+  "governance": {
+    "purpose": "Fresh VALIDATION for frozen P10.3 semantic-layer + ground-role architecture",
+    "not_used_during_p10_3_implementation": true,
+    "wording_distinct_from_development": true,
+    "no_holdout_tuning": true,
+    "no_code_changes_during_scoring": true
+  },
+  "split": {
+    "VALIDATION": [
+      "VAL_multiple_visits",
+      "VAL_payment_keying",
+      "VAL_loading_delivery",
+      "VAL_mechanical",
+      "VAL_permit",
+      "VAL_negation",
+      "VAL_uncertainty",
+      "VAL_irrelevant",
+      "VAL_legal_finding_only",
+      "VAL_support_only"
+    ]
+  },
+  "counts": {
+    "validation": 10
+  },
+  "notes": "Canonical VALIDATION is the 10 VAL_* files in validation/. Parallel extras (if any) live under _parallel_extra/ and are not scored.",
+  "families": {
+    "VAL_multiple_visits": "multiple_visits",
+    "VAL_payment_keying": "payment_keying",
+    "VAL_loading_delivery": "loading_delivery",
+    "VAL_mechanical": "mechanical_issue",
+    "VAL_permit": "permit_issue",
+    "VAL_negation": "negation",
+    "VAL_uncertainty": "uncertainty",
+    "VAL_irrelevant": "irrelevant_narrative",
+    "VAL_legal_finding_only": "legal_finding_only",
+    "VAL_support_only": "support_only_candidate"
+  }
+}

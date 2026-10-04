@@ -103,6 +103,7 @@ class Match:
             "selected": [_trace_row(c) for c in self.by_status(SUPPORTED)],
             "relevant": [_trace_row(c) for c in self.by_status(RELEVANT)],
             "rejected": [{"module": c.module_id, "status": c.status, "reason": c.reason,
+                          "missing": list(c.missing or []),
                           **({"blocked_by": c.blocked_by} if c.blocked_by else {})}
                          for c in self.by_status(REJECTED, BLOCKED)],
         }
@@ -177,7 +178,12 @@ class KnowledgeMatcher:
         out: dict[str, Candidate] = {}
         for module in sorted(self.kg.active_modules(), key=lambda m: m.module_id):
             out[module.module_id] = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
-        return Match(sig, out, self.graph.version)
+        match = Match(sig, out, self.graph.version)
+        # P8.1: the relationships are case state, not a value that lives only in
+        # whichever engine happened to ask. Recorded through the master object so
+        # "what blocked this module?" is answered from the case afterwards.
+        case.master.record_knowledge_matches(match)
+        return match
 
     def _one(self, case, module, facts, sig, sig_ids, evidence_kinds) -> Candidate:
         mid = module.module_id

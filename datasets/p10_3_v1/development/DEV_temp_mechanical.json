@@ -1,0 +1,24 @@
+{
+  "case_id": "DEV_temp_mechanical",
+  "split": "DEVELOPMENT",
+  "family": "temporary_mechanical_issue",
+  "input": {
+    "customer_narrative": "There was a temporary mechanical fault — the vehicle stalled and would not restart for several minutes.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900102",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "02/06/2026",
+      "notice_issue_date": "06/06/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["BROKEN_DOWN", "IMMOBILISED"],
+    "facts": {"vehicle_immobilised": true}
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "dataset_id": "p9_v1",
+  "dataset_version": "p9_v1",
+  "evaluation_release": "P9_BASELINE_2026-10-04",
+  "immutable": true,
+  "governance": {
+    "client_approved_expectations_immutable": true,
+    "expectation_change_requires_new_dataset_version": true,
+    "blind_holdout_may_not_tune": [
+      "prompts",
+      "rules",
+      "kb_content",
+      "model_parameters"
+    ],
+    "no_silent_golden_edits": true,
+    "approved_by": "development_baseline",
+    "approved_at": "2026-10-04",
+    "why": "First honest P9 baseline. Journey snapshot approved-grounds were not copied. NOTICE_ONLY cases are not complete ground truth."
+  },
+  "split_policy": {
+    "COMPLETE": {
+      "DEVELOPMENT": 6,
+      "VALIDATION": 2,
+      "BLIND_HOLDOUT": 2
+    },
+    "NOTICE_ONLY": {
+      "DEVELOPMENT": 5,
+      "VALIDATION": 2,
+      "BLIND_HOLDOUT": 2
+    },
+    "leakage_controls": [
+      "Near-duplicate Acme overstay notices stay together in DEVELOPMENT.",
+      "LATE / LATE+ANPR additive pair both in DEVELOPMENT.",
+      "CP Plus NTK + reminder stay together in DEVELOPMENT.",
+      "APCOA Luton pair stay together in VALIDATION.",
+      "BLIND_HOLDOUT uses different operators, allegations, and evidence types."
+    ]
+  },
+  "counts": {
+    "total": 19,
+    "complete": 10,
+    "notice_only": 9,
+    "by_split": {
+      "DEVELOPMENT": 11,
+      "VALIDATION": 4,
+      "BLIND_HOLDOUT": 4
+    },
+    "complete_by_split": {
+      "DEVELOPMENT": 6,
+      "VALIDATION": 2,
+      "BLIND_HOLDOUT": 2
+    },
+    "notice_only_by_split": {
+      "DEVELOPMENT": 5,
+      "VALIDATION": 2,
+      "BLIND_HOLDOUT": 2
+    }
+  },
+  "complete_case_ids": [
+    "REG_late_ntk",
+    "REG_late_ntk_anpr",
+    "REG_overstay_skip_all",
+    "REG_overstay_yes_all",
+    "REG_overstay_dont_know",
+    "REG_notice_plus_payment",
+    "REG_payment_keying",
+    "REG_no_notice",
+    "REG_breakdown",
+    "REG_residential"
+  ],
+  "notice_only_case_ids": [
+    "REF_stn1947529",
+    "REF_lu3440789",
+    "REF_lu3489734",
+    "REF_new1936102153896",
+    "REF_88811908015",
+    "REF_00347261120013",
+    "REF_00347261100014",
+    "REF_70377302",
+    "REF_sp62712518"
+  ],
+  "split": {
+    "DEVELOPMENT": [
+      "REG_late_ntk",
+      "REG_late_ntk_anpr",
+      "REG_overstay_skip_all",
+      "REG_overstay_yes_all",
+      "REG_overstay_dont_know",
+      "REG_notice_plus_payment",
+      "REF_stn1947529",
+      "REF_88811908015",
+      "REF_00347261120013",
+      "REF_00347261100014",
+      "REF_70377302"
+    ],
+    "VALIDATION": [
+      "REG_payment_keying",
+      "REG_no_notice",
+      "REF_lu3440789",
+      "REF_lu3489734"
+    ],
+    "BLIND_HOLDOUT": [
+      "REG_breakdown",
+      "REG_residential",
+      "REF_new1936102153896",
+      "REF_sp62712518"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "REG_late_ntk",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "late_postal_ntk",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "POFA",
+      "circumstance": "none",
+      "evidence_type": "notice_only",
+      "paired_with": "REG_late_ntk_anpr",
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_late_ntk_anpr",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "late_postal_ntk",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "POFA+ANPR",
+      "circumstance": "multiple_visits",
+      "evidence_type": "notice_plus_narrative",
+      "paired_with": "REG_late_ntk",
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_overstay_skip_all",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "acme_overstay",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "unobserved",
+      "circumstance": "skip_all_questions",
+      "evidence_type": "notice_plus_narrative",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_overstay_yes_all",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "acme_overstay",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "unobserved",
+      "circumstance": "answer_yes_all",
+      "evidence_type": "notice_plus_narrative",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_overstay_dont_know",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "acme_overstay",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "unobserved",
+      "circumstance": "dont_know_answers",
+      "evidence_type": "notice_plus_narrative",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_notice_plus_payment",
+      "completeness": "COMPLETE",
+      "split": "DEVELOPMENT",
+      "family": "overstay_plus_receipt",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "unobserved",
+      "circumstance": "partial_payment_receipt",
+      "evidence_type": "notice_plus_receipt",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_payment_keying",
+      "completeness": "COMPLETE",
+      "split": "VALIDATION",
+      "family": "payment_keying",
+      "operator": "Acme Parking Ltd",
+      "allegation": "no_valid_payment",
+      "legal_route": "PAYMENT+KEYING",
+      "circumstance": "app_typo",
+      "evidence_type": "notice_plus_app_screenshot",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_no_notice",
+      "completeness": "COMPLETE",
+      "split": "VALIDATION",
+      "family": "not_a_pcn",
+      "operator": "unknown",
+      "allegation": "none",
+      "legal_route": "out_of_scope",
+      "circumstance": "receipt_only",
+      "evidence_type": "pay_and_display_ticket",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_breakdown",
+      "completeness": "COMPLETE",
+      "split": "BLIND_HOLDOUT",
+      "family": "breakdown",
+      "operator": "Acme Parking Ltd",
+      "allegation": "overstay",
+      "legal_route": "BREAKDOWN",
+      "circumstance": "battery_failure_recovery",
+      "evidence_type": "notice_plus_recovery_report",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REG_residential",
+      "completeness": "COMPLETE",
+      "split": "BLIND_HOLDOUT",
+      "family": "residential",
+      "operator": "Acme Parking Ltd",
+      "allegation": "no_permit",
+      "legal_route": "RESIDENTIAL",
+      "circumstance": "tenant_allocated_bay",
+      "evidence_type": "notice_plus_tenancy",
+      "paired_with": null,
+      "approval_status": "DEVELOPMENT_APPROVED"
+    },
+    {
+      "case_id": "REF_stn1947529",
+      "completeness": "NOTICE_ONLY",
+      "split": "DEVELOPMENT",
+      "family": "airport_dropoff_unpaid_short_stay",
+      "operator": "APCOA Parking",
+      "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_lu3440789",
+      "completeness": "NOTICE_ONLY",
+      "split": "VALIDATION",
+      "family": "airport_dropoff_unpaid_short_stay",
+      "operator": "APCOA Parking",
+      "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_lu3489734",
+      "completeness": "NOTICE_ONLY",
+      "split": "VALIDATION",
+      "family": "airport_dropoff_unpaid_short_stay",
+      "operator": "APCOA Parking",
+      "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_new1936102153896",
+      "completeness": "NOTICE_ONLY",
+      "split": "BLIND_HOLDOUT",
+      "family": "no_valid_session",
+      "operator": "ParkMaven",
+      "allegation": "No valid parking session",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_88811908015",
+      "completeness": "NOTICE_ONLY",
+      "split": "DEVELOPMENT",
+      "family": "overstay_max_stay",
+      "operator": "Euro Car Parks",
+      "allegation": "Your vehicle has overstayed the maximum time period allowed.",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_00347261120013",
+      "completeness": "NOTICE_ONLY",
+      "split": "DEVELOPMENT",
+      "family": "overstay_max_stay",
+      "operator": "CP Plus",
+      "allegation": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_00347261100014",
+      "completeness": "NOTICE_ONLY",
+      "split": "DEVELOPMENT",
+      "family": "overstay_reminder",
+      "operator": "CP Plus",
+      "allegation": "unreadable",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_70377302",
+      "completeness": "NOTICE_ONLY",
+      "split": "DEVELOPMENT",
+      "family": "not_registered_or_exceeded_time",
+      "operator": "CPM (UK Car Park Management)",
+      "allegation": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    },
+    {
+      "case_id": "REF_sp62712518",
+      "completeness": "NOTICE_ONLY",
+      "split": "BLIND_HOLDOUT",
+      "family": "retail_anpr",
+      "operator": "Smart Parking Ltd",
+      "allegation": "unreadable",
+      "legal_route": "notice_derived_only",
+      "circumstance": "unknown",
+      "evidence_type": "front_notice_photo",
+      "paired_with": null,
+      "approval_status": "REFERENCE_ONLY"
+    }
+  ]
+}

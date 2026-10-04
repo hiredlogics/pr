@@ -1,7 +1,8 @@
-"""Customer-facing hold outcomes — distinct from internal MANUAL_REVIEW.
+"""Customer-facing hold outcomes — distinct from internal pipeline states.
 
-MANUAL_REVIEW is a pipeline state. The customer message must name *why* we
-stopped, not treat every hold as "your case has no merit".
+MANUAL_REVIEW is for processing/validation holds. Completed analysis with
+nothing to argue uses CaseState.NO_SUPPORTED_GROUNDS and the matching outcome
+code so state, outcome, trace, and UI agree.
 """
 from __future__ import annotations
 
@@ -111,6 +112,10 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
 
     if "draft_error" in events:
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="draft_error")
+
+    # P11.1: release identity incomplete — internal gate; customer sees processing hold.
+    if "release_metadata_incomplete" in events:
+        return _pack(OUTCOME_PROCESSING_ERROR, case, detail="release_metadata_incomplete")
 
     # Ground recovery wiped a prior selection to empty — technical, not merits.
     for a in audit:

@@ -350,6 +350,47 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
             </Accordion>
           )}
 
+          {showSection(filter, "FACTS") && (data.fact_write_trace || []).length > 0 && (
+            <Accordion id="fact-write-trace" title="Fact write trace" defaultOpen>
+              <div className="stack" data-testid="fact-write-trace">
+                {(data.fact_write_trace || []).map((row) => (
+                  <article key={row.fact} className="trace-fact-card">
+                    <header>
+                      <h4>FACT: {row.fact}={String(row.value ?? "")}</h4>
+                    </header>
+                    <ul className="trace-list">
+                      <li>
+                        First write: {(row.first_write || {}).authority
+                          || (row.first_write || {}).source || "—"}
+                      </li>
+                      {(row.writes || []).map((w, i) => (
+                        <li key={`${row.fact}-w-${i}`}>
+                          Later: {w.authority || w.source} → {w.decision}
+                          {w.reason ? ` · ${w.reason}` : ""}
+                        </li>
+                      ))}
+                      {row.held_authority && <li>Held authority: {row.held_authority}</li>}
+                    </ul>
+                  </article>
+                ))}
+              </div>
+            </Accordion>
+          )}
+
+          {showSection(filter, "FACTS") && (data.fact_lifecycle || []).length > 0 && (
+            <Accordion id="fact-lifecycle" title="Fact lifecycle" defaultOpen>
+              <ul className="trace-list" data-testid="fact-lifecycle">
+                {(data.fact_lifecycle || []).map((row, i) => (
+                  <li key={`fl-${i}`}>
+                    {row.event}: {row.name}={String(row.value ?? "")}
+                    {row.used_by?.length ? ` · used by ${row.used_by.join(", ")}` : ""}
+                    {row.reason ? ` · ${row.reason}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </Accordion>
+          )}
+
           {showSection(filter, "FACTS") && (
             <Accordion id="facts" title="Fact graph" badge={<span className="trace-count">{data.facts.length}</span>}>
               <div className="trace-cards">
@@ -484,6 +525,48 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
             </Accordion>
           )}
 
+          {showSection(filter, "GROUNDS") && (data.module_journey || []).length > 0 && (
+            <Accordion id="module-journey" title="Module journey" defaultOpen>
+              <div className="stack" data-testid="module-journey">
+                {(data.module_journey || []).map((row) => (
+                  <article key={row.module_id} className="trace-fact-card" data-testid="module-journey-row">
+                    <header>
+                      <CopyId id={row.module_id} />
+                      <StatusChip status={row.integrity || "PASS"} />
+                    </header>
+                    <ul className="trace-list">
+                      <li>Knowledge Matcher: {(row.knowledge || {}).decision || "—"}</li>
+                      {(row.required_facts || []).length > 0 && (
+                        <li>Required facts: {(row.required_facts || []).join(", ")}</li>
+                      )}
+                      {(row.missing_facts || []).length > 0 && (
+                        <li>Missing: {(row.missing_facts || []).join(", ")}</li>
+                      )}
+                      <li>Case Intelligence: {(row.case_intelligence || {}).decision || "—"}</li>
+                      <li>Claim Plan: {(row.claim_plan || {}).decision || (row.claim_plan || {}).status || "—"}</li>
+                      <li>Draft: {(row.draft || {}).decision || "—"}</li>
+                    </ul>
+                    {((row.claim_plan || {}).reason
+                      || (row.case_intelligence || {}).reason
+                      || (row.applicability || {}).reason) && (
+                      <p className="trace-muted">
+                        Reason: {(row.claim_plan || {}).reason
+                          || (row.case_intelligence || {}).reason
+                          || (row.applicability || {}).reason}
+                      </p>
+                    )}
+                    {row.expected_rejection && (
+                      <p className="trace-muted">Expected rejection · Integrity: PASS</p>
+                    )}
+                    {row.integrity_message && row.integrity === "FAIL" && (
+                      <p className="trace-error">{row.integrity_message}</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </Accordion>
+          )}
+
           {showSection(filter, "GROUNDS") && (
             <Accordion id="knowledge" title="Knowledge modules">
               {Object.entries(data.knowledge || {}).map(([bucket, rows]) => (
@@ -507,6 +590,69 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
                   ))}
                 </div>
               ))}
+            </Accordion>
+          )}
+
+          {showSection(filter, "GROUNDS") && data.document_baseline && (
+            <Accordion id="document-baseline" title="Document baseline" defaultOpen>
+              <div className="stack" data-testid="document-baseline">
+                <h4>DOCUMENT BASELINE</h4>
+                <ul className="trace-list">
+                  {(data.document_baseline.document_finding_types
+                    || data.document_baseline.document_grounds || []).map((t) => (
+                    <li key={`db-${t}`}>✓ {t}</li>
+                  ))}
+                </ul>
+                <h4>CUSTOMER DELTA</h4>
+                <ul className="trace-list">
+                  {(data.document_baseline.customer_delta || []).map((m) => (
+                    <li key={`delta-${m}`}>+ {m}</li>
+                  ))}
+                  {(data.document_baseline.customer_delta || []).length === 0 && <li>(none)</li>}
+                </ul>
+                <h4>FINAL</h4>
+                <ul className="trace-list">
+                  {(data.document_baseline.final || []).map((m) => (
+                    <li key={`db-final-${m}`}>✓ {m}</li>
+                  ))}
+                </ul>
+              </div>
+            </Accordion>
+          )}
+
+          {showSection(filter, "GROUNDS") && data.ground_sources && (
+            <Accordion id="ground-sources" title="Ground sources" defaultOpen>
+              <div className="stack" data-testid="ground-sources">
+                <h4>Verified findings</h4>
+                <ul className="trace-list">
+                  {(data.ground_sources.verified_findings || []).map((f, i) => (
+                    <li key={`vf-${i}`}>✓ {f.finding_type || f.module_id}</li>
+                  ))}
+                  {(data.ground_sources.verified_findings || []).length === 0 && <li>none</li>}
+                </ul>
+                <h4>Case Intelligence</h4>
+                <ul className="trace-list">
+                  {(data.ground_sources.case_intelligence?.not_selected || []).map((mid) => (
+                    <li key={`ci-omit-${mid}`}>not selected {mid}</li>
+                  ))}
+                  {(data.ground_sources.case_intelligence?.not_selected || []).length === 0 && (
+                    <li>
+                      {(data.ground_sources.case_intelligence?.selected || []).join(", ") || "none"}
+                    </li>
+                  )}
+                </ul>
+                <h4>Final Claim Plan</h4>
+                <ul className="trace-list">
+                  {(data.ground_sources.final_claim_plan || []).map((mid) => (
+                    <li key={`final-${mid}`}>✓ {mid}</li>
+                  ))}
+                </ul>
+                {(data.ground_sources.overrides || []).map((o, i) => (
+                  <p key={`ov-${i}`} className="trace-muted">
+                    Reason: {o.reason}
+                  </p>
+                ))}
+              </div>
             </Accordion>
           )}
 
@@ -555,6 +701,7 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
                             .join(", ") || "—"}
                         </li>
                         <li>Derived: {(item.support_bundle.derived_facts || []).join(", ") || "—"}</li>
+                        <li>Bundle: {item.support_bundle.complete ? "complete" : "incomplete"}</li>
                         <li>Evidence: {(item.support_bundle.evidence || []).length}</li>
                       </ul>
                       <h5>Draft requirement</h5>
@@ -562,6 +709,7 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
                         <li>Licence: {item.draft_requirement.legal_licence}</li>
                         <li>Must express: {(item.draft_requirement.must_express || []).join(", ") || "—"}</li>
                         <li>Must not: {(item.draft_requirement.must_not_express || []).join(", ") || "—"}</li>
+                        <li>Goal: {(item.draft_requirement.explanation_goal || []).join("; ") || "—"}</li>
                       </ul>
                     </article>
                   ))}
@@ -665,6 +813,12 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
                   <div className="trace-compare-change">
                     <h4>Change</h4>
                     <ul className="trace-list">
+                      {(compare.modules?.added || []).map((g) => (
+                        <li key={`m+${g}`}>+ module {g}</li>
+                      ))}
+                      {(compare.modules?.removed || []).map((g) => (
+                        <li key={`m-${g}`}>− module {g}</li>
+                      ))}
                       {(compare.grounds.added || []).map((g) => (
                         <li key={`+${g}`}>+ {g}</li>
                       ))}
@@ -680,8 +834,29 @@ export default function CaseTraceConsole({ caseId }: { caseId: string }) {
                       {(compare.facts.added || []).map((f) => (
                         <li key={f.name}>+ {f.name}={String(f.value)}</li>
                       ))}
-                      {(compare.facts.added || []).length === 0 && <li>none</li>}
+                      {(compare.facts.changed || []).map((f) => (
+                        <li key={`chg-${f.name}`}>~ {f.name}: {String(f.from)} → {String(f.to)}</li>
+                      ))}
+                      {(compare.facts.added || []).length === 0
+                        && (compare.facts.changed || []).length === 0 && <li>none</li>}
                     </ul>
+                    <h4>Findings</h4>
+                    <ul className="trace-list">
+                      {(compare.findings?.added || []).map((f) => (
+                        <li key={`f+${f}`}>+ {f}</li>
+                      ))}
+                      {(compare.findings?.removed || []).map((f) => (
+                        <li key={`f-${f}`}>− {f}</li>
+                      ))}
+                      {(compare.findings?.added || []).length === 0
+                        && (compare.findings?.removed || []).length === 0
+                        && <li>unchanged</li>}
+                    </ul>
+                    {(compare.removals || []).map((r, i) => (
+                      <p key={`rm-${i}`} className="trace-muted">
+                        {r.module_id}: {r.explain || r.reason || r.kind}
+                      </p>
+                    ))}
                     {(compare.integrity_errors || []).map((e, i) => (
                       <div key={i} className="trace-integrity-fail">
                         <strong>INTEGRITY ERROR</strong>

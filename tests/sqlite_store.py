@@ -116,6 +116,28 @@ CREATE TRIGGER legal_findings_immutable BEFORE UPDATE ON legal_findings
   WHEN NEW.finding_id IS NOT OLD.finding_id OR NEW.case_id IS NOT OLD.case_id
     OR NEW.finding_type IS NOT OLD.finding_type OR NEW.created_at IS NOT OLD.created_at
   BEGIN SELECT RAISE(ABORT, 'legal_findings: finding identity is immutable'); END;
+CREATE TABLE master_case_state (entry_id INTEGER PRIMARY KEY, case_id NOT NULL,
+  section NOT NULL CHECK (section IN ('derivations', 'knowledge_matches', 'grounds')),
+  run_id, payload NOT NULL, recorded_at);
+CREATE TRIGGER master_case_state_append_only BEFORE UPDATE ON master_case_state
+  BEGIN SELECT RAISE(ABORT, 'master_case_state is append-only: record a new entry'); END;
+CREATE TRIGGER master_case_state_no_delete BEFORE DELETE ON master_case_state
+  BEGIN SELECT RAISE(ABORT, 'master_case_state is append-only: record a new entry'); END;
+CREATE TABLE document_baselines (entry_id INTEGER PRIMARY KEY, case_id NOT NULL,
+  version NOT NULL, digest NOT NULL, payload NOT NULL, recorded_at,
+  UNIQUE (case_id, version));
+CREATE TRIGGER document_baselines_append_only BEFORE UPDATE ON document_baselines
+  BEGIN SELECT RAISE(ABORT, 'document_baselines is append-only: record a new version'); END;
+CREATE TRIGGER document_baselines_no_delete BEFORE DELETE ON document_baselines
+  BEGIN SELECT RAISE(ABORT, 'document_baselines is append-only: record a new version'); END;
+CREATE TABLE case_analysis_state (entry_id INTEGER PRIMARY KEY, case_id NOT NULL,
+  analysis_version NOT NULL, document_baseline_version, customer_analysis_version,
+  candidate_ground_ids, selected_ground_ids, verified_ground_ids, rejected_ground_ids,
+  created_by, timestamp, payload NOT NULL, UNIQUE (case_id, analysis_version));
+CREATE TRIGGER case_analysis_state_append_only BEFORE UPDATE ON case_analysis_state
+  BEGIN SELECT RAISE(ABORT, 'case_analysis_state is append-only: record a new version'); END;
+CREATE TRIGGER case_analysis_state_no_delete BEFORE DELETE ON case_analysis_state
+  BEGIN SELECT RAISE(ABORT, 'case_analysis_state is append-only: record a new version'); END;
 -- The lock, as 0006_claim_plan_authority.sql enforces it in Postgres.
 CREATE TRIGGER draft_versions_immutable BEFORE UPDATE ON draft_versions
   WHEN NEW.draft_id IS NOT OLD.draft_id OR NEW.case_id IS NOT OLD.case_id

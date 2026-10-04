@@ -1,0 +1,26 @@
+{
+  "case_id": "VAL_loading_unseen",
+  "split": "VALIDATION",
+  "family": "loading_delivery",
+  "input": {
+    "customer_narrative": "Stopped briefly while crates were taken into the wholesale unit.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440013",
+      "vrm": "GH21KLM",
+      "parking_location": "Wholesale Yard",
+      "site_postcode": "BS2 0AA",
+      "parking_event_date": "12/07/2026",
+      "notice_issue_date": "16/07/2026",
+      "alleged_breach": "Parked in a loading bay",
+      "operator_ata": "IPC",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed_any": ["LOADING", "DELIVERY", "COLLECTION"],
+    "orphan_support": false
+  }
+}

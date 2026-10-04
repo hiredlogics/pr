@@ -1,0 +1,22 @@
+{
+  "case_id": "HOLDOUT_C",
+  "split": "HOLDOUT",
+  "sealed": true,
+  "family": "sealed_holdout",
+  "input": {
+    "customer_narrative": "Collecting a parcel from the unit; vehicle stationary only for the collection.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Harborfield Estates Parking",
+      "pcn_number": "HF300303",
+      "vrm": "JK19MNO",
+      "parking_location": "Harborfield Works",
+      "site_postcode": "G2 2BB",
+      "parking_event_date": "14/07/2026",
+      "notice_issue_date": "18/07/2026",
+      "alleged_breach": "Parked outside marked bay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {"sealed": true}
+}

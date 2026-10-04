@@ -10,6 +10,8 @@ export type CaseState =
   | "DRAFTED"
   | "VALIDATION_FAILED"
   | "MANUAL_REVIEW"
+  /** Completed analysis with no substantive ground — not routine review. */
+  | "NO_SUPPORTED_GROUNDS"
   | "RELEASED"
   | "NO_APPEAL_RIGHT"
   /** Our own document classifier returned nothing: retryable, and not the

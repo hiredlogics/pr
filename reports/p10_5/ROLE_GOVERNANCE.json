@@ -1,0 +1,616 @@
+{
+  "module_role_version": "p10_5_roles_v1",
+  "policy": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; only explicit can_lead_letter=true may override.",
+  "resolved_review_modules": [
+    {
+      "module_id": "KB-ANPR-02",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-ANPR-03",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-EV-01",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-POFA-06",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "SUBSTANTIVE but REVIEW; explicit can_lead_letter=false until activation",
+      "status": "REVIEW",
+      "strength": 88
+    },
+    {
+      "module_id": "KB-TIME-01",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 30
+    }
+  ],
+  "evidence_still_leading_count": 0,
+  "explicit_map": {
+    "KB-ANPR-02": false,
+    "KB-ANPR-03": false,
+    "KB-EV-01": false,
+    "KB-TIME-01": false,
+    "KB-POFA-06": false
+  },
+  "rows": [
+    {
+      "module_id": "KB-ACT-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-ACT-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-ACT-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-ANPR-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 80
+    },
+    {
+      "module_id": "KB-ANPR-02",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-ANPR-03",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-AUTH-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 75
+    },
+    {
+      "module_id": "KB-AUTH-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-AUTH-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 72
+    },
+    {
+      "module_id": "KB-BAY-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-BAY-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-BREAK-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 85
+    },
+    {
+      "module_id": "KB-BREAK-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 80
+    },
+    {
+      "module_id": "KB-BREAK-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-CON-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-CON-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 75
+    },
+    {
+      "module_id": "KB-CUST-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-EQ-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-EQ-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-EQ-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-EV-01",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-EVCH-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-GRACE-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-GRACE-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-HOSP-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-HOSP-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 70
+    },
+    {
+      "module_id": "KB-HOSP-03",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 25
+    },
+    {
+      "module_id": "KB-INFRA-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-KEY-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 90
+    },
+    {
+      "module_id": "KB-KEY-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 80
+    },
+    {
+      "module_id": "KB-LAND-01",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 20
+    },
+    {
+      "module_id": "KB-LAND-02",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 45
+    },
+    {
+      "module_id": "KB-LAND-03",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 40
+    },
+    {
+      "module_id": "KB-PAY-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 85
+    },
+    {
+      "module_id": "KB-PAY-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 75
+    },
+    {
+      "module_id": "KB-PAY-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 75
+    },
+    {
+      "module_id": "KB-POFA-01",
+      "module_role": "LEGAL_CONCLUSION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role LEGAL_CONCLUSION cannot lead",
+      "status": "ACTIVE",
+      "strength": 40
+    },
+    {
+      "module_id": "KB-POFA-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 95
+    },
+    {
+      "module_id": "KB-POFA-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 95
+    },
+    {
+      "module_id": "KB-POFA-04",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 90
+    },
+    {
+      "module_id": "KB-POFA-05",
+      "module_role": "LEGAL_CONCLUSION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role LEGAL_CONCLUSION cannot lead",
+      "status": "ACTIVE",
+      "strength": 93
+    },
+    {
+      "module_id": "KB-POFA-06",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "SUBSTANTIVE but REVIEW; explicit can_lead_letter=false until activation",
+      "status": "REVIEW",
+      "strength": 88
+    },
+    {
+      "module_id": "KB-REC-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-RES-01",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 90
+    },
+    {
+      "module_id": "KB-RES-02",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 85
+    },
+    {
+      "module_id": "KB-RES-03",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 80
+    },
+    {
+      "module_id": "KB-RES-04",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 65
+    },
+    {
+      "module_id": "KB-RES-05",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 45
+    },
+    {
+      "module_id": "KB-RES-06",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 60
+    },
+    {
+      "module_id": "KB-RES-07",
+      "module_role": "SUBSTANTIVE_GROUND",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": true,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "SUBSTANTIVE_GROUND default lead=true",
+      "status": "ACTIVE",
+      "strength": 55
+    },
+    {
+      "module_id": "KB-SIGN-01",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 45
+    },
+    {
+      "module_id": "KB-SIGN-02",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 45
+    },
+    {
+      "module_id": "KB-SIGN-03",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 48
+    },
+    {
+      "module_id": "KB-SIGN-04",
+      "module_role": "SUPPORTING_PROPOSITION",
+      "can_enter_claim_plan": false,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": null,
+      "governance_basis": "role SUPPORTING_PROPOSITION cannot lead",
+      "status": "ACTIVE",
+      "strength": 40
+    },
+    {
+      "module_id": "KB-TIME-01",
+      "module_role": "EVIDENCE_REQUIREMENT",
+      "can_enter_claim_plan": true,
+      "can_lead_letter": false,
+      "explicit_can_lead_letter": false,
+      "governance_basis": "EVIDENCE_REQUIREMENT defaults can_lead_letter=false; no explicit true override",
+      "status": "ACTIVE",
+      "strength": 30
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "dataset_id": "p10_3_v1",
+  "dataset_version": "p10_3_v1",
+  "evaluation_release": "P10_3_SEMANTIC_2026-10-04",
+  "immutable": true,
+  "governance": {
+    "old_p9_blind_may_not_tune": true,
+    "holdout_sealed_until_next_cycle": true,
+    "no_operator_specific_patches": true,
+    "why": "P10.3 generic semantic + role eligibility. Fresh holdout; prior P9 blind not used for tuning."
+  },
+  "split": {
+    "DEVELOPMENT": [
+      "DEV_mech_unable_to_move",
+      "DEV_temp_mechanical",
+      "DEV_payment_reg_mismatch",
+      "DEV_permit_mismatch",
+      "DEV_loading_delivery",
+      "DEV_multiple_visits",
+      "DEV_uncertain_statement",
+      "DEV_negated_statement"
+    ],
+    "HOLDOUT": [
+      "HOLDOUT_A",
+      "HOLDOUT_B",
+      "HOLDOUT_C",
+      "HOLDOUT_D"
+    ]
+  },
+  "counts": {
+    "development": 8,
+    "holdout": 4
+  }
+}

@@ -11,7 +11,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from enum import Enum
 from collections.abc import Mapping
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:                       # the Master Case Object (P8.1)
+    from .case_state import MasterCase
 
 
 # --------------------------------------------------------------------------- enums
@@ -52,6 +55,9 @@ class CaseState(str, Enum):
     DRAFTED = "DRAFTED"
     VALIDATION_FAILED = "VALIDATION_FAILED"
     MANUAL_REVIEW = "MANUAL_REVIEW"
+    # Completed analysis with no substantive ground we will draft. Authoritative
+    # terminal state — not routine manual review and not a processing error.
+    NO_SUPPORTED_GROUNDS = "NO_SUPPORTED_GROUNDS"
     RELEASED = "RELEASED"
     # Debt-recovery / appeal-window closed: normal appeal drafting must not run.
     NO_APPEAL_RIGHT = "NO_APPEAL_RIGHT"
@@ -286,6 +292,8 @@ class CaseFile:
     run_status: str = "NONE"                 # NONE / OPEN / COMPLETED
     # P0.5: the frontend build the case was opened from (X-Frontend-Version).
     frontend_version: Optional[str] = None
+    # P11.1: immutable release identity stamped at RELEASED (or gate check).
+    release_metadata: Optional[dict] = None
     # P0.4: every fact write and removal, and the writes that were refused.
     fact_history: list[dict] = field(default_factory=list)
     fact_conflicts: list[dict] = field(default_factory=list)
@@ -312,6 +320,21 @@ class CaseFile:
     # NOT_SUPPORTED or UNRESOLVED, with the facts and calculation behind it.
     # Written only by the Legal Calculation Engine, never by a model.
     legal_findings: list[dict] = field(default_factory=list)
+    # P8.1: the sections of the Master Case Object (case_state.py) that have no
+    # other home. Append-only, and written through `case.master` alone:
+    #   master_derivations       where each derived fact came from
+    #   master_knowledge_matches module, relationship, support / block reason
+    #   master_grounds           the grounds of each decided claim plan version
+    master_derivations: list[dict] = field(default_factory=list)
+    master_knowledge_matches: list[dict] = field(default_factory=list)
+    master_grounds: list[dict] = field(default_factory=list)
+    # P8.4: append-only fact generations (ACTIVE / SUPERSEDED / RETRACTED).
+    fact_versions: list[dict] = field(default_factory=list)
+    # P8.3: document belt snapshot and each CI proposal run. Append-only.
+    document_baselines: list[dict] = field(default_factory=list)
+    case_analysis_states: list[dict] = field(default_factory=list)
+    # P8.6: reconstructed KM → CI → Claim Plan → Draft decisions (diagnostics).
+    module_decisions: list[dict] = field(default_factory=list)
 
     # convenience -----------------------------------------------------------
     def get(self, name: str, default: Any = None) -> Any:
@@ -394,6 +417,15 @@ class CaseFile:
                     "at": datetime.now(timezone.utc).isoformat(timespec="milliseconds")})
         object.__setattr__(self, name, value)
 
+    @property
+    def master(self) -> "MasterCase":
+        """The Master Case Object (case_state.py): the one state every stage
+        reads and writes. Notice facts, customer facts, derived facts and their
+        lineage, legal findings, knowledge matches, grounds and the claim plan,
+        projected from this case's own nodes."""
+        from .case_state import master
+        return master(self)
+
     def fact_view(self) -> dict[str, Any]:
         """Flat dict of usable facts for the rule DSL."""
         view = {k: f.value for k, f in self.facts.items() if f.usable}
@@ -429,6 +461,13 @@ class KBModule:
     legal_basis_origin: str = ""
     last_legal_review: Optional[date] = None
     change_notes: str = ""
+    # P10.3: Claim Plan eligibility role (metadata; not legal wording).
+    # SUBSTANTIVE_GROUND | SUPPORTING_PROPOSITION | LEGAL_CONCLUSION |
+    # EVIDENCE_REQUIREMENT | STRUCTURAL
+    module_role: str = "SUBSTANTIVE_GROUND"
+    # P10.5: explicit lead override. None = role default.
+    # EVIDENCE_REQUIREMENT defaults can_lead_letter=false unless True here.
+    can_lead_letter: Optional[bool] = None
 
 
 # Sentences inside approved block text that address the DRAFTER, not the
@@ -525,6 +564,8 @@ class Draft:
     # and a demo stand-in's letter cannot be told from a real provider's.
     model: Optional[str] = None
     prompt_version: Optional[int] = None
+    # P10.6: DraftPlan section ownership map (section_id -> ground_ids).
+    section_ownership: Optional[dict] = None
 
     def sentences(self) -> list[DraftSentence]:
         return [s for p in self.paragraphs for s in p]

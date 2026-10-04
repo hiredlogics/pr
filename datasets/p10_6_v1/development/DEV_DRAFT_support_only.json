@@ -1,0 +1,27 @@
+{
+  "case_id": "DEV_DRAFT_support_only",
+  "split": "DEVELOPMENT",
+  "family": "support_only",
+  "input": {
+    "customer_narrative": "I just want the operator to prove landowner authority.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Authority Only",
+      "pcn_number": "AO500701",
+      "vrm": "JJ00KKK",
+      "parking_location": "Authority Site",
+      "site_postcode": "W1 1AA",
+      "parking_event_date": "21/08/2026",
+      "notice_issue_date": "25/08/2026",
+      "alleged_breach": "Breach of terms",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "outcome_any": [
+      "NO_SUPPORTED_GROUNDS",
+      "NEED_MORE_INFORMATION"
+    ],
+    "must_not_release_empty_appeal": true
+  }
+}

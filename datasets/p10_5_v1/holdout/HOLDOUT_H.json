@@ -1,0 +1,26 @@
+{
+  "case_id": "HOLDOUT_H",
+  "split": "HOLDOUT",
+  "family": "sealed_holdout",
+  "input": {
+    "customer_narrative": "Unsure if we went off-site; permit situation also unclear.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS825153",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "sealed": true,
+    "note": "Sealed until P10.5 evaluation cycle."
+  },
+  "sealed": true,
+  "notes": "New P10.5 sealed holdout. Do not inspect expected during implementation."
+}

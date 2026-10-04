@@ -1,0 +1,17 @@
+{
+  "case_id": "DEV_DRAFT_support_only",
+  "family": "support_only",
+  "state": "MANUAL_REVIEW",
+  "outcome_code": null,
+  "result_class": "HOLD",
+  "e2e_ok": true,
+  "latency_ms": 2963,
+  "drafting": {
+    "status": "N/A",
+    "reason": "upstream incomplete or not released",
+    "clean_upstream": false,
+    "passed": null
+  },
+  "supported_grounds": [],
+  "coverage_trace": []
+}

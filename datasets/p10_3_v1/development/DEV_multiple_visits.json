@@ -1,0 +1,23 @@
+{
+  "case_id": "DEV_multiple_visits",
+  "split": "DEVELOPMENT",
+  "family": "multiple_visits",
+  "input": {
+    "customer_narrative": "We left the retail park and came back later for a second visit.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900106",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "06/06/2026",
+      "notice_issue_date": "10/06/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["MULTIPLE_VISITS", "LEFT_SITE", "RETURNED"]
+  }
+}

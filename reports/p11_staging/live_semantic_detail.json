@@ -1,0 +1,52 @@
+{
+  "ran": true,
+  "provider": "openai",
+  "models": {
+    "classification": "gpt-5.1",
+    "extraction": "gpt-5.1",
+    "page_references": "gpt-5.1",
+    "semantic_extraction": "gpt-5.1",
+    "case_analysis": "gpt-5.1",
+    "drafting": "gpt-5.1",
+    "validation": "gpt-5-mini"
+  },
+  "prompt_version": 1,
+  "is_demo": false,
+  "latency_ms": 4812,
+  "structured_output_valid": true,
+  "concept_count": 4,
+  "affirmed_count": 3,
+  "forbidden_kb_authority": false,
+  "model": "gpt-5.1",
+  "sample_concepts": [
+    {
+      "concept": "ONT::PAID_APP",
+      "polarity": "AFFIRMED",
+      "attribution": "CUSTOMER",
+      "source_text": "I paid on the app",
+      "confidence": 0.97
+    },
+    {
+      "concept": "ONT::VRM_MISTYPED",
+      "polarity": "AFFIRMED",
+      "attribution": "CUSTOMER",
+      "source_text": "typed one character of the registration wrong",
+      "confidence": 0.98
+    },
+    {
+      "concept": "ONT::BROKEN_DOWN",
+      "polarity": "AFFIRMED",
+      "attribution": "CUSTOMER",
+      "source_text": "The car would not restart and was immobilised on site.",
+      "confidence": 0.96
+    },
+    {
+      "concept": "ONT::PERMIT_DISPLAYED",
+      "polarity": "UNCERTAIN",
+      "attribution": "CUSTOMER",
+      "source_text": "I am not sure whether a permit was displayed.",
+      "confidence": 0.99
+    }
+  ],
+  "passed": true
+}

@@ -1,0 +1,29 @@
+{
+  "case_id": "VAL_multiple_visits",
+  "split": "VALIDATION",
+  "family": "multiple_visits",
+  "notes": "Fresh VAL wording — not copied from DEV_multiple_visits.",
+  "input": {
+    "customer_narrative": "Drove out of the car park mid-morning, then came back later for a second visit.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410101",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "02/08/2026",
+      "notice_issue_date": "06/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["MULTIPLE_VISITS", "LEFT_SITE", "RETURNED"],
+    "must_not_affirm_concepts": ["BROKEN_DOWN", "PAYMENT_MADE"],
+    "facts_any": {"multiple_visits": true},
+    "kb_candidates_any": [],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "invariants": ["no_legal_conclusion_independent", "no_support_orphan_letter"]
+  }
+}

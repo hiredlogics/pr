@@ -1,0 +1,32 @@
+{
+  "case_id": "VAL_multi_visits_unseen",
+  "split": "VALIDATION",
+  "family": "multiple_visits",
+  "input": {
+    "customer_narrative": "Drove out mid-morning, then re-entered the car park that afternoon for another stay.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440011",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "10/07/2026",
+      "notice_issue_date": "14/07/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA",
+      "entry_time": "09:10",
+      "exit_time": "16:40",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": ["LEFT_SITE", "RETURNED", "MULTIPLE_VISITS"],
+    "semantic_concepts_negated": [],
+    "semantic_concepts_uncertain": [],
+    "promoted_facts": {"left_site": true, "returned_same_day": true, "multiple_visits": true},
+    "must_not_claim_roles_in_plan": ["SUPPORTING_PROPOSITION", "LEGAL_CONCLUSION"],
+    "orphan_support": false
+  }
+}

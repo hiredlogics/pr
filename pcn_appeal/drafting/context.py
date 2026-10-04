@@ -28,10 +28,54 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
 from ..models import RetrievalPack
+from .support_contract import (
+    DraftContextError, DraftRequirement, SupportBundle,
+)
+
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
+
+
+def _kind_list(facts: dict, evidence_kinds: Any = None) -> list:
+    if evidence_kinds:
+        return list(evidence_kinds) if isinstance(evidence_kinds, (list, tuple, set)) else [evidence_kinds]
+    raw = (facts or {}).get("evidence_kinds")
+    if isinstance(raw, (list, tuple, set)):
+        return list(raw)
+    return [raw] if raw else []
+
+
+def fill_placeholder_text(text: str, facts: Optional[dict] = None,
+                          placeholder_map: Optional[dict] = None,
+                          evidence_kinds: Any = None) -> str:
+    """Replace {{token}} from verified facts. Unresolved tokens stay.
+
+    Generic ontology: placeholder_map renames a wording token to a fact
+    ({{bay_reference}} → allocated_bay); lease_or_tenancy is the evidence
+    kind, not an invented identifier.
+    """
+    facts = facts or {}
+    kinds = _kind_list(facts, evidence_kinds)
+
+    def sub(m):
+        token = m.group(1)
+        name = (placeholder_map or {}).get(token, token)
+        if name == "lease_or_tenancy" or token == "lease_or_tenancy":
+            return "tenancy agreement" if "TENANCY" in kinds else "lease"
+        value = facts.get(name)
+        if value in (None, ""):
+            return m.group(0)
+        if name == "vrm" and isinstance(value, str):
+            compact = value.replace(" ", "")
+            if len(compact) == 7 and " " not in value:
+                value = f"{compact[:4]} {compact[4:]}"
+        return str(value)
+
+    return _PLACEHOLDER.sub(sub, text or "")
 
 DOCUMENT = "DOCUMENT"
 CUSTOMER_ACCOUNT = "CUSTOMER_ACCOUNT"
@@ -56,7 +100,10 @@ CASE_CONTEXT_ALLOWED = (
     "material_account_proposition", "account_contradicts_allegation",
     "child_occupant_present", "customer_reported_facts", "document_established_facts",
     "customer_quotations", "factual_rebuttal", "timing_argument", "claim_plan",
-    "supported_grounds",
+    "supported_grounds", "support_bundles", "draft_requirements", "particulars",
+    # Professional narrative atoms (propositions + attribution). Source spans are
+    # for lineage; the drafter must rewrite, never paste customer wording.
+    "narrative_atoms",
 )
 
 PACK_KEYS = (
@@ -107,24 +154,75 @@ class DraftContext:
     case: dict                           # case metadata
     driver_status: str
     approved: tuple                      # approved module ids, in plan order
+    support_bundles: dict = None         # module_id -> SupportBundle
+    draft_requirements: dict = None      # module_id -> DraftRequirement
+    draft_plan: dict = None              # P10.6 structured rendering plan
 
     # ------------------------------------------------------------ build
     @classmethod
     def from_pack(cls, pack: RetrievalPack) -> "DraftContext":
         ctx = dict(pack.case_context or {})
         plan = dict(ctx.get("claim_plan") or {})
-        approved = tuple(m for m in (pack.module_ids or []))
+        overlay = dict(pack.claim_plan or {}) if isinstance(pack.claim_plan, dict) else {}
+        for key in ("status", "support_bundles", "draft_requirements", "approved",
+                    "module_ids", "claim_plan_id", "version"):
+            if overlay.get(key) and not plan.get(key):
+                plan[key] = overlay[key]
+        approved = tuple(m for m in (plan.get("module_ids") or pack.module_ids or []))
+        if plan.get("approved") and not approved:
+            approved = tuple(plan["approved"])
         approved_set = set(approved)
+        bundles = dict(plan.get("support_bundles") or {})
+        reqs = dict(plan.get("draft_requirements") or {})
+        if plan.get("status") and plan["status"] != "LOCKED":
+            raise DraftContextError(
+                "DraftContext is generated only from a LOCKED claim plan")
+        for mid in approved:
+            req = DraftRequirement.from_dict(reqs.get(mid))
+            bundle = SupportBundle.from_dict(bundles.get(mid))
+            if req.required_particulars and not bundle.complete():
+                raise DraftContextError(
+                    f"{mid} has DraftRequirement but an incomplete SupportBundle")
         reported = set(ctx.get("customer_reported_facts") or []) | ACCOUNT_DERIVED_FACTS
         established = set(ctx.get("document_established_facts") or []) - ACCOUNT_DERIVED_FACTS
         basis = {}
         for name in (pack.verified_facts or {}):
             basis[name] = (CUSTOMER_ACCOUNT if name in reported and name not in established
                            else DOCUMENT if name in established else DERIVED)
-        # Guidance: wording for approved claims only, plus structural wording
-        # (opening and closing blocks carry no module).
-        chunks = [c for c in (pack.context_chunks or [])
-                  if c.get("module_id") in approved_set or c.get("module_id") in (None, STRUCTURAL)]
+        case = {k: ctx.get(k) for k in CASE_CONTEXT_ALLOWED if k in ctx}
+        if "supported_grounds" in case:
+            case["supported_grounds"] = [g for g in case["supported_grounds"] or []
+                                         if g.get("module_id") in approved_set]
+        evidence = tuple(pack.evidence_refs or ())
+        facts = dict(pack.verified_facts or {})
+        particulars: dict[str, Any] = {}
+        kept_bundles, kept_reqs = {}, {}
+        for mid in approved:
+            raw = bundles.get(mid) or {}
+            bundle = SupportBundle.from_dict(raw)
+            kept_bundles[mid] = bundle.as_dict()
+            kept_reqs[mid] = DraftRequirement.from_dict(reqs.get(mid)).as_dict()
+            for name, value in (bundle.values or {}).items():
+                particulars[name] = value
+                if name not in facts and value not in (None, ""):
+                    facts[name] = value
+                    basis.setdefault(name, (CUSTOMER_ACCOUNT if name in reported
+                                            else DOCUMENT if name in established else DERIVED))
+        if particulars:
+            case["particulars"] = particulars
+        # LOCKED plan → DraftContext: fill approved wording from verified facts.
+        # Do not leave {{tokens}} for the model to invent or leak.
+        kinds = list((pack.evidence_index or {}).values())
+        chunks = []
+        for c in pack.context_chunks or []:
+            if c.get("module_id") not in approved_set and c.get("module_id") not in (None, STRUCTURAL):
+                continue
+            chunk = dict(c)
+            raw = chunk.get("text")
+            if raw and "{{" in str(raw):
+                chunk["text"] = fill_placeholder_text(
+                    str(raw), facts, chunk.get("placeholder_map"), kinds)
+            chunks.append(chunk)
         guidance = {
             "primary_route": pack.primary_route, "secondary_routes": list(pack.secondary_routes or []),
             "context_chunks": chunks, "lease_clauses": list(pack.lease_clauses or []),
@@ -137,15 +235,25 @@ class DraftContext:
             "legal_findings": [dict(f) for f in (pack.legal_findings or [])
                                if f.get("status") == "VERIFIED"],
         }
-        case = {k: ctx.get(k) for k in CASE_CONTEXT_ALLOWED if k in ctx}
-        if "supported_grounds" in case:
-            case["supported_grounds"] = [g for g in case["supported_grounds"] or []
-                                         if g.get("module_id") in approved_set]
-        evidence = tuple(pack.evidence_refs or ())
-        return cls(claim_plan=_strip(plan), facts=_strip(dict(pack.verified_facts or {})),
-                   fact_refs=dict(pack.fact_refs or {}), fact_basis=basis, evidence=evidence,
-                   evidence_index=dict(pack.evidence_index or {}), guidance=_strip(guidance),
-                   case=_strip(case), driver_status=str(pack.driver_status), approved=approved)
+        ctx_obj = cls(claim_plan=_strip(plan), facts=_strip(facts),
+                      fact_refs=dict(pack.fact_refs or {}), fact_basis=basis, evidence=evidence,
+                      evidence_index=dict(pack.evidence_index or {}), guidance=_strip(guidance),
+                      case=_strip(case), driver_status=str(pack.driver_status), approved=approved,
+                      support_bundles=_strip(kept_bundles), draft_requirements=_strip(kept_reqs),
+                      draft_plan=None)
+        try:
+            from .plan import build_draft_plan
+            draft_plan = build_draft_plan(pack, case_id=str(getattr(pack, "case_id", "") or ""))
+            return cls(claim_plan=ctx_obj.claim_plan, facts=ctx_obj.facts,
+                       fact_refs=ctx_obj.fact_refs, fact_basis=ctx_obj.fact_basis,
+                       evidence=ctx_obj.evidence, evidence_index=ctx_obj.evidence_index,
+                       guidance=ctx_obj.guidance, case=ctx_obj.case,
+                       driver_status=ctx_obj.driver_status, approved=ctx_obj.approved,
+                       support_bundles=ctx_obj.support_bundles,
+                       draft_requirements=ctx_obj.draft_requirements,
+                       draft_plan=_strip(draft_plan.as_dict()))
+        except Exception:
+            return ctx_obj
 
     # ---------------------------------------------------------- payload
     def to_payload(self) -> dict:
@@ -170,7 +278,11 @@ class DraftContext:
             # P6.1: the only legal defects the letter may state, each with the
             # deterministic calculation that proved it.
             "verified_legal_findings": self.guidance["legal_findings"],
+            "support_bundles": dict(self.support_bundles or {}),
+            "draft_requirements": dict(self.draft_requirements or {}),
         }
+        if self.draft_plan:
+            payload["draft_plan"] = dict(self.draft_plan)
         return payload
 
     # ------------------------------------------------------------ audit
@@ -186,6 +298,8 @@ class DraftContext:
                 "chunks": len(self.guidance["context_chunks"]),
                 "legal_findings": sorted(str(f.get("finding_type"))
                                          for f in self.guidance["legal_findings"]),
+                "support_bundles": sorted(self.support_bundles or {}),
+                "draft_plan_sections": len((self.draft_plan or {}).get("sections") or []),
                 "context_sha256": _digest(self.to_payload())}
 
     def violations(self) -> list[str]:
@@ -214,5 +328,6 @@ def draft_payload(pack: RetrievalPack, feedback: Optional[list[str]] = None) -> 
     return payload
 
 
-__all__ = ["DraftContext", "ACCOUNT_DERIVED_FACTS", "draft_payload", "find_forbidden", "FORBIDDEN_KEYS",
-           "CASE_CONTEXT_ALLOWED", "CUSTOMER_ACCOUNT", "DOCUMENT", "DERIVED"]
+__all__ = ["DraftContext", "DraftContextError", "ACCOUNT_DERIVED_FACTS", "draft_payload",
+           "find_forbidden", "FORBIDDEN_KEYS", "CASE_CONTEXT_ALLOWED", "CUSTOMER_ACCOUNT",
+           "DOCUMENT", "DERIVED"]

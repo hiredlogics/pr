@@ -1,0 +1,22 @@
+{
+  "case_id": "HOLDOUT_B",
+  "split": "HOLDOUT",
+  "sealed": true,
+  "family": "sealed_holdout",
+  "input": {
+    "customer_narrative": "Completed payment in the operator app; the keyed plate differed by one character.",
+    "customer_answers": {"payment_made": "yes", "payment_method": "APP"},
+    "extraction_fields": {
+      "operator_name": "Crestline Mobility",
+      "pcn_number": "CL700202",
+      "vrm": "QP58RTY",
+      "parking_location": "Crestline Hub",
+      "site_postcode": "B1 1AA",
+      "parking_event_date": "13/07/2026",
+      "notice_issue_date": "17/07/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "IPC"
+    }
+  },
+  "expected": {"sealed": true}
+}

@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_loading_delivery",
+  "split": "VALIDATION",
+  "family": "loading_delivery",
+  "notes": "Fresh VAL wording — not copied from DEV_loading_delivery.",
+  "input": {
+    "customer_narrative": "Stopped briefly while unloading stock for a courier delivery to unit 4.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410103",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Trade Yard",
+      "site_postcode": "NG1 3BB",
+      "parking_event_date": "04/08/2026",
+      "notice_issue_date": "08/08/2026",
+      "alleged_breach": "Parked in a loading bay",
+      "operator_ata": "IPC"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["LOADING", "DELIVERY"],
+    "facts_any": {"loading_activity": true},
+    "must_not_affirm_concepts": ["BROKEN_DOWN", "PAYMENT_MADE"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "invariants": ["no_legal_conclusion_independent"]
+  }
+}

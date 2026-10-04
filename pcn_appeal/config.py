@@ -69,7 +69,9 @@ def load(*, root: Path = ROOT, files: tuple[str, ...] = DEFAULT_FILES,
         path = root / name
         if not path.is_file():
             continue
-        for key, value in parse(path.read_text()).items():
+        # utf-8-sig strips a leading BOM so OPENAI_API_KEY is not read as
+        # \ufeffOPENAI_API_KEY (which silently skips APP_SETTINGS filtering).
+        for key, value in parse(path.read_text(encoding="utf-8-sig")).items():
             if only is not None and key not in only:
                 continue
             if key in applied:

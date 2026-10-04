@@ -1,0 +1,26 @@
+{
+  "case_id": "VAL_irrelevant_narrative",
+  "split": "VALIDATION",
+  "family": "irrelevant",
+  "input": {
+    "customer_narrative": "The weather was pleasant and I like this shopping centre's coffee.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440017",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "17/07/2026",
+      "notice_issue_date": "21/07/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [],
+    "orphan_support": false
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "DEV_left_site_10",
+  "split": "DEVELOPMENT",
+  "family": "left_site",
+  "input": {
+    "customer_narrative": "First we were there, then we went off site, then returned.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS470901",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "LEFT_SITE",
+      "RETURNED",
+      "MULTIPLE_VISITS"
+    ]
+  }
+}

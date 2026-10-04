@@ -1,0 +1,10 @@
+{
+  "recommendation": "DRAFT_MODEL_WORK_REQUIRED",
+  "add_vector_retrieval": false,
+  "reasons": [
+    "clean-upstream draft ground coverage 20% (tracked separately; semantic holdout clean)",
+    "validation semantic recall 73% still below DEV target on ReferenceAnalysisLLM meaning-bridge (live LLM probe skipped)"
+  ],
+  "do_not_production_deploy": true,
+  "do_not_fine_tune": true
+}

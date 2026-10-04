@@ -13,14 +13,21 @@ Only this builder DECIDES. Every proposed, offered or blocked module becomes one
 item, SUPPORTED / REJECTED / UNRESOLVED, with why it was selected or rejected and
 which facts, relationships and evidence support it.
 
-A claim is SUPPORTED only when all of these hold:
-  * Case Intelligence selected it (the plan never adds a ground on its own);
-  * it is in force and no BLOCKS relationship fires for this case;
-  * the reasoning gate keeps it (R-03 use_when / do_not_use_when, R-01 Code
-    version, R-04 conflicts) - the same function the pack used to apply, so the
-    pack can never silently drop an approved claim;
-  * at least one verified fact (or uploaded evidence) supports it;
-  * evidence it cannot be argued without has been uploaded (else UNRESOLVED).
+A claim is SUPPORTED when a higher-priority source licenses it and no
+GroundInvalidation removes it. Case Intelligence is a proposer only: it may
+add candidates, support an existing ground, or propose an invalidation. It
+cannot emit a final ground list, and a weaker selection cannot subtract a
+verified finding or a still-valid carried ground.
+
+Authority order (a lower source cannot remove a higher one):
+  1. VERIFIED_FINDING   calculated statutory / document defect
+  2. CARRIED_FORWARD    supported in the previous locked plan, still valid
+  3. SELECTED           Case Intelligence proposal that passes the gate
+  4. CANDIDATE          knowledge-match offer, not argued
+
+A ground leaves the supported set only with a GroundInvalidation (fact,
+finding, reason, plan versions). Omission, ranking, narrative, and module
+order are not invalidations.
 
 LOCKED is final: no item can be added, removed or re-prioritised and no reason
 changes, in memory (ClaimPlanLockedError) or in the database (triggers in
@@ -45,7 +52,7 @@ from ..legal import findings as legal_findings
 from ..models import CaseFile
 from ..rules.dsl import PredicateError, evaluate, referenced_facts
 
-BUILDER_VERSION = "1"
+BUILDER_VERSION = "3"  # P8.2: union of VF∪CF∪SELECTED∪CANDIDATE; drop only via invalidation
 
 DRAFT, CONFIRMED, LOCKED, SUPERSEDED = "DRAFT", "CONFIRMED", "LOCKED", "SUPERSEDED"
 PLAN_STATUSES = (DRAFT, CONFIRMED, LOCKED, SUPERSEDED)
@@ -63,11 +70,18 @@ EVIDENCE_REQUIRED = "EVIDENCE_REQUIRED"
 NOT_SELECTED = "NOT_SELECTED"               # offered / gate holds, CI did not choose it
 MISSING_FACTS = "MISSING_FACTS"             # could apply; facts still unknown
 NO_VERIFIED_FINDING = "NO_VERIFIED_FINDING"  # P6.1: legal defect not verified
+# P10.3: module role is SUPPORTING_PROPOSITION / LEGAL_CONCLUSION / STRUCTURAL —
+# retrieval or use_when=true is not enough to create a Claim Plan ground.
+ROLE_INELIGIBLE = "ROLE_INELIGIBLE"
 # P6.2: supported grounds are cumulative.
 VERIFIED_FINDING = "VERIFIED_FINDING"       # a calculated statutory defect: argued on the
                                             # calculation, independently of model selection
 CARRIED_FORWARD = "CARRIED_FORWARD"         # supported in the previous locked plan and the
                                             # gate + supporting facts still hold
+CANDIDATE = "CANDIDATE"                     # knowledge-match offer; not a supported ground
+
+# Lower index wins. A later source may add; it may not overwrite a better origin.
+ORIGIN_PRIORITY = (VERIFIED_FINDING, CARRIED_FORWARD, SELECTED, CANDIDATE)
 
 _NS = uuid.UUID("6b1f4c1e-5f0a-4d8e-9c55-0d7a5c1a9e05")
 _MUTABLE_WHEN_LOCKED = frozenset({"status", "superseded_at", "superseded_by"})
@@ -79,6 +93,37 @@ class ClaimPlanLockedError(RuntimeError):
 
 class ClaimPlanIntegrityError(RuntimeError):
     """A stored plan's content no longer matches the digest it was locked with."""
+
+
+class SilentGroundDropError(RuntimeError):
+    """A supported or verified-licensed ground left the plan with no invalidation."""
+
+
+@dataclass(frozen=True)
+class GroundInvalidation:
+    """The only record that may remove a ground from the supported set."""
+    ground_id: str
+    reason: str
+    invalidated_by_fact_id: Optional[str] = None
+    invalidated_by_finding_id: Optional[str] = None
+    timestamp: str = ""
+    previous_plan_version: Optional[int] = None
+    new_plan_version: Optional[int] = None
+    decision: str = GATE
+
+    def as_dict(self) -> dict:
+        return {"ground_id": self.ground_id, "reason": self.reason,
+                "invalidated_by_fact_id": self.invalidated_by_fact_id,
+                "invalidated_by_finding_id": self.invalidated_by_finding_id,
+                "timestamp": self.timestamp, "previous_plan_version": self.previous_plan_version,
+                "new_plan_version": self.new_plan_version, "decision": self.decision}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "GroundInvalidation":
+        return cls(d["ground_id"], d.get("reason") or "",
+                   d.get("invalidated_by_fact_id"), d.get("invalidated_by_finding_id"),
+                   d.get("timestamp") or "", d.get("previous_plan_version"),
+                   d.get("new_plan_version"), d.get("decision") or GATE)
 
 
 # ------------------------------------------------------------------ helpers
@@ -114,6 +159,33 @@ def _plain(v: Any) -> Any:
         return str(v)
 
 
+def _jsonable(v: Any) -> Any:
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    if isinstance(v, dict):
+        return {k: _jsonable(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_jsonable(x) for x in v]
+    return v
+
+
+_CONTENT_DROP = frozenset({"fact_id", "source", "finding_id"})
+
+
+def _content_facts(rows) -> list:
+    """Identity fields (including nested because_of fact_ids) must not enter
+    the plan digest: two cases on the same facts would otherwise differ."""
+    def strip(v):
+        if isinstance(v, dict):
+            return {k: strip(x) for k, x in v.items() if k not in _CONTENT_DROP}
+        if isinstance(v, (list, tuple)):
+            return [strip(x) for x in v]
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return v
+    return [strip(_thaw(f)) for f in rows]
+
+
 def claim_label(module_id: str) -> str:
     """The family a module argues, for customer-neutral messages:
     KB-ANPR-01 -> ANPR, KB-POFA-04 -> POFA."""
@@ -140,26 +212,43 @@ class ClaimPlanItem:
     relationships: tuple = ()
     priority: Optional[int] = None
     topic: str = ""
+    support_bundle: Any = None
+    draft_requirement: Any = None
 
     def content(self) -> dict:
         """What the plan decided about this claim - no ids, no timestamps -
         so two cases on the same facts compare equal."""
         return {"module_id": self.module_id, "claim_type": self.claim_type,
                 "status": self.status, "decision": self.decision, "reason": self.reason,
-                "supporting_facts": [{k: v for k, v in _thaw(f).items()
-                                      if k not in ("fact_id", "source")}
-                                     for f in self.supporting_facts],
+                "supporting_facts": _content_facts(self.supporting_facts),
                 "evidence_refs": sorted({_thaw(e).get("kind") for e in self.evidence_refs}),
                 "priority": self.priority}
 
     def as_dict(self) -> dict:
+        from ..drafting.support_contract import build_bundle, build_requirement
+        # Prefer the locked SupportBundle / DraftRequirement stamped at plan
+        # time so material source particulars survive reload without a live case.
+        if self.support_bundle is not None:
+            bundle_dict = _thaw(self.support_bundle)
+        else:
+            bundle_dict = build_bundle(
+                self.supporting_facts, self.evidence_refs, self.relationships,
+            ).as_dict()
+        if self.draft_requirement is not None:
+            req_dict = _thaw(self.draft_requirement)
+        else:
+            req_dict = build_requirement(
+                build_bundle(self.supporting_facts, self.evidence_refs,
+                             self.relationships),
+            ).as_dict()
         return {"item_id": self.item_id, "knowledge_id": self.knowledge_id,
                 "module_id": self.module_id, "claim_type": self.claim_type,
                 "status": self.status, "decision": self.decision, "reason": self.reason,
-                "supporting_facts": _thaw(self.supporting_facts),
+                "supporting_facts": _jsonable(_thaw(self.supporting_facts)),
                 "evidence_refs": _thaw(self.evidence_refs),
                 "relationships": _thaw(self.relationships),
-                "priority": self.priority, "topic": self.topic}
+                "priority": self.priority, "topic": self.topic,
+                "support_bundle": bundle_dict, "draft_requirement": req_dict}
 
     @classmethod
     def from_dict(cls, d: dict) -> "ClaimPlanItem":
@@ -167,7 +256,9 @@ class ClaimPlanItem:
                    d["status"], d.get("decision") or "", d.get("reason") or "",
                    _freeze(d.get("supporting_facts") or []), _freeze(d.get("evidence_refs") or []),
                    _freeze(d.get("relationships") or []), d.get("priority"),
-                   d.get("topic") or "")
+                   d.get("topic") or "",
+                   _freeze(d.get("support_bundle")) if d.get("support_bundle") else None,
+                   _freeze(d.get("draft_requirement")) if d.get("draft_requirement") else None)
 
 
 class FinalClaimPlan:
@@ -293,6 +384,8 @@ class FinalClaimPlan:
             row["relations"] = [r for r in row.get("relations") or []
                                 if r.get("module_id") in approved]
             accounting.append(row)
+        from ..drafting.support_contract import contract_views
+        bundles, reqs = contract_views(self)
         return {
             "claim_plan_id": self.claim_plan_id, "version": self.version,
             "status": self.status,
@@ -301,14 +394,69 @@ class FinalClaimPlan:
                         "priority": i.priority,
                         "supported_by": [_thaw(f).get("condition") for f in i.supporting_facts]}
                        for i in self.supported],
+            "support_bundles": bundles,
+            "draft_requirements": reqs,
             "material_fact_accounting": accounting,
         }
 
     def for_validation(self) -> dict:
+        def _fact_names(item):
+            names = []
+            for row in item.supporting_facts or ():
+                r = dict(row) if not isinstance(row, dict) else dict(row)
+                n = r.get("fact") or r.get("condition")
+                if isinstance(n, dict):
+                    n = n.get("fact") or n.get("name")
+                if n:
+                    names.append(str(n))
+                for dep in r.get("because_of") or ():
+                    d = dep.get("fact") if isinstance(dep, dict) else dep
+                    if isinstance(d, dict):
+                        d = d.get("fact") or d.get("name")
+                    if d:
+                        names.append(str(d))
+            return names
+
+        from ..drafting.support_contract import contract_views
+        bundles, reqs = contract_views(self)
         return {"claim_plan_id": self.claim_plan_id, "version": self.version,
                 "status": self.status, "plan_digest": self.plan_digest,
                 "approved": self.supported_ids,
-                "labels": {i.module_id: claim_label(i.module_id) for i in self.items}}
+                "labels": {i.module_id: claim_label(i.module_id) for i in self.items},
+                # P8.5 / P8.6: lineage + join diagnostics
+                "decisions": {i.module_id: i.decision for i in self.supported},
+                "support_facts": {i.module_id: _fact_names(i) for i in self.supported},
+                "support_bundles": bundles,
+                "draft_requirements": reqs,
+                "rejected": [{"module_id": i.module_id, "decision": i.decision,
+                              "reason": i.reason}
+                             for i in self.items if i.status == REJECTED]}
+
+    def source_trace(self) -> list[str]:
+        """P8.2: why each supported ground exists, against CI omission."""
+        selected = set((_thaw(self.trust).get("proposals") or {}).get("selected") or [])
+        vf = [i for i in self.supported if i.decision == VERIFIED_FINDING]
+        out = ["GROUND SOURCES", "Verified findings:"]
+        if vf:
+            out.extend(f"  ✓ {i.module_id}" for i in vf)
+        else:
+            out.append("  (none)")
+        out.append("Case Intelligence:")
+        omitted = [i.module_id for i in vf if i.module_id not in selected]
+        if omitted:
+            out.extend(f"  not selected {mid}" for mid in omitted)
+        elif selected:
+            out.append("  selected " + ", ".join(selected))
+        else:
+            out.append("  none")
+        out.append("Final Claim Plan:")
+        if self.supported_ids:
+            out.extend(f"  ✓ {mid}" for mid in self.supported_ids)
+        else:
+            out.append("  (none)")
+        for mid in omitted:
+            out.append(f"Reason: Verified finding authority overrides omission ({mid}).")
+        return out
 
     def trace(self) -> list[str]:
         """Admin-only. One line per item: what was selected and why, what was
@@ -433,7 +581,14 @@ class ClaimPlanBuilder:
     def proposals(case: CaseFile) -> dict:
         """What Case Intelligence proposed and what the analysis-stage veto said.
         Read from the case (selection + the latest analysis audit), so a
-        reloaded case decides from what was recorded, not from memory."""
+        reloaded case decides from what was recorded, not from memory.
+
+        The selection is read from the case and only from the case: an empty
+        selection means nothing was selected. Rebuilding it from the audit here
+        would be a second authority over the same decision - the store does that
+        once, on load (store/cases.py), where "never recorded" can still be told
+        apart from "selected nothing".
+        """
         event = next((a for a in reversed(case.audit) if a.get("event") == "case_analysis"),
                      None) or {}
         cp = event.get("claim_plan") or {}
@@ -444,12 +599,26 @@ class ClaimPlanBuilder:
         for s in event.get("suppressed") or []:
             if s.get("module_id"):
                 vetoed.setdefault(s["module_id"], s.get("why") or "suppressed")
-        return {"selected": [m for m in (case.analysis_module_ids or []) if m],
+        selected = [m for m in (case.analysis_module_ids or []) if m]
+        previous = latest_locked(case)
+        prev_ids = set(previous.supported_ids) if previous is not None else set()
+        # Live selection is the proposer's current output. Audit add/support
+        # lists document that call; they must not resurrect a cleared selection.
+        add = [m for m in selected if m not in prev_ids]
+        support_existing = [m for m in selected if m in prev_ids]
+        proposed_inv = event.get("proposed_invalidations")
+        if proposed_inv is None:
+            proposed_inv = [{"ground_id": mid, "reason": why} for mid, why in vetoed.items()]
+        return {"selected": selected,
                 "proposed": [m for m in (event.get("proposed") or []) if m],
                 "vetoed": dict(sorted(vetoed.items())),
                 "omitted": sorted(cp.get("omitted_gate_satisfied") or []),
                 "candidates": sorted(event.get("candidates") or []),
-                "material_fact_accounting": list(cp.get("material_fact_accounting") or [])}
+                "material_fact_accounting": list(cp.get("material_fact_accounting") or []),
+                # P8.2 CI contract: proposer outputs only. There is no final_ground_list.
+                "add_ground_candidates": [m for m in add if m],
+                "support_existing_ground": [m for m in support_existing if m],
+                "proposed_invalidations": list(proposed_inv or [])}
 
     def inputs_digest(self, case: CaseFile, facts: dict, proposals: dict,
                       code_version: Optional[str]) -> str:
@@ -458,27 +627,321 @@ class ClaimPlanBuilder:
                      "evidence": sorted((e.kind, e.evidence_id) for e in case.evidence.values()
                                         if e.uploaded),
                      "proposals": {k: v for k, v in proposals.items()
-                                   if k != "material_fact_accounting"},
+                                   if k not in ("material_fact_accounting",
+                                                "add_ground_candidates",
+                                                "support_existing_ground",
+                                                "proposed_invalidations")},
                      "kb": kb_digest(self.kg),
                      "relations": getattr(self.kg.relations, "version", None),
                      "practice_code_version": code_version,
                      "builder": BUILDER_VERSION})
 
     # -------------------------------------------------------------- build
+    def _origin_rank(self, decision: str) -> int:
+        if decision == VERIFIED_FINDING:
+            return 0
+        if decision == CARRIED_FORWARD:
+            return 1
+        if decision == SELECTED:
+            return 2
+        return 3  # CANDIDATE / NOT_SELECTED / veto / gate
+
+    def _row(self, mid: str, status: str, decision: str, reason: str,
+             support=(), evidence=()) -> dict:
+        m = self.kg.modules.get(mid)
+        return dict(status=status, decision=decision, reason=reason,
+                    support=list(support), evidence=list(evidence),
+                    claim_type=str(getattr(getattr(m, "route", None), "value",
+                                           getattr(m, "route", "")) or ""),
+                    topic=getattr(m, "topic", "") or "")
+
+    def _merge(self, decided: dict, mid: str, row: dict) -> None:
+        """Union with priority. A lower-origin row cannot overwrite a better one."""
+        held = decided.get(mid)
+        if held is None:
+            decided[mid] = row
+            return
+        if row["status"] == SUPPORTED:
+            if held["status"] != SUPPORTED:
+                decided[mid] = row
+                return
+            if self._origin_rank(row["decision"]) < self._origin_rank(held["decision"]):
+                decided[mid] = row
+            return
+        # Rejects / unresolved never subtract a supported higher-authority ground.
+
+    def _invalidation(self, case: CaseFile, mid: str, *, reason: str, decision: str,
+                      previous, version: int, fact: Optional[str] = None,
+                      finding: Optional[str] = None) -> GroundInvalidation:
+        return GroundInvalidation(
+            ground_id=mid, reason=reason, decision=decision,
+            invalidated_by_fact_id=case.facts.node_id(fact) if fact else None,
+            invalidated_by_finding_id=finding,
+            timestamp=_now(),
+            previous_plan_version=getattr(previous, "version", None),
+            new_plan_version=version)
+
+    def build_verified_ground_set(self, case, facts, verified_findings, match,
+                                  kept, uploaded, previous, version) -> tuple[dict, list]:
+        """Highest authority: modules licensed by a VERIFIED legal finding."""
+        from ..module_roles import can_be_claim_ground, role_of
+
+        rows, invalidations = {}, []
+        for m in kept:
+            mid = m.module_id
+            lic = legal_findings.referenced_findings(m) & verified_findings
+            if not lic:
+                continue
+            # Verified findings license substantive / evidence-requirement grounds
+            # only — not framing conclusions or support-only companions.
+            if not can_be_claim_ground(m):
+                reason = (f"module role {role_of(m)} cannot be a Claim Plan ground "
+                          f"(licensed by { '/'.join(sorted(lic)) })")
+                rows[mid] = self._row(mid, REJECTED, ROLE_INELIGIBLE, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=ROLE_INELIGIBLE,
+                    previous=previous, version=version,
+                    finding=next(iter(sorted(lic)), None)))
+                continue
+            cand = match.candidates.get(mid)
+            codes = "/".join(sorted(lic))
+            if cand is not None and cand.status == "BLOCKED":
+                reason = cand.reason or "blocked by relationship"
+                rows[mid] = self._row(mid, REJECTED, BLOCKED, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=BLOCKED, previous=previous,
+                    version=version, finding=next(iter(sorted(lic)), None)))
+                continue
+            support = self._support(m, cand, facts, case)
+            if not support:
+                reason = (f"verified finding {codes} licenses this ground but no "
+                          "verified fact or uploaded evidence supports it")
+                rows[mid] = self._row(mid, REJECTED, NO_SUPPORTING_FACTS, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=NO_SUPPORTING_FACTS,
+                    previous=previous, version=version,
+                    finding=next(iter(sorted(lic)), None)))
+                continue
+            for code in sorted(lic):
+                rec = next((r for r in (case.legal_findings or [])
+                            if r.get("finding_type") == code), None)
+                support.append({"condition": code,
+                                "finding_id": (rec or {}).get("finding_id") or code,
+                                "finding_type": code})
+            missing = self._required_evidence_missing(m, uploaded)
+            evidence = self._evidence(m, uploaded)
+            if missing:
+                reason = "evidence required before it can be argued: " + ", ".join(missing)
+                rows[mid] = self._row(
+                    mid, UNRESOLVED, EVIDENCE_REQUIRED, reason, support,
+                    evidence + [{"kind": k, "uploaded": False} for k in missing])
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=EVIDENCE_REQUIRED,
+                    previous=previous, version=version,
+                    finding=next(iter(sorted(lic)), None)))
+                continue
+            rows[mid] = self._row(
+                mid, SUPPORTED, VERIFIED_FINDING,
+                f"licensed by verified legal finding {codes}; a calculated "
+                "statutory defect is argued independently of selection",
+                support, evidence)
+        return rows, invalidations
+
+    def build_carried_forward_ground_set(self, case, facts, verified_findings, match,
+                                         kept_ids, gate_why, uploaded, previous,
+                                         version) -> tuple[dict, list]:
+        """Previously approved grounds that remain valid on the current facts."""
+        from ..module_roles import can_be_claim_ground, role_of
+
+        rows, invalidations = {}, []
+        if previous is None:
+            return rows, invalidations
+        for item in previous.supported:
+            mid = item.module_id
+            m = self.kg.modules.get(mid)
+            if m is None or m.status != "ACTIVE":
+                reason = "not an in-force knowledge module"
+                rows[mid] = self._row(mid, REJECTED, NOT_ACTIVE, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=NOT_ACTIVE,
+                    previous=previous, version=version))
+                continue
+            if not can_be_claim_ground(m):
+                reason = f"module role {role_of(m)} cannot remain a Claim Plan ground"
+                rows[mid] = self._row(mid, REJECTED, ROLE_INELIGIBLE, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=ROLE_INELIGIBLE,
+                    previous=previous, version=version))
+                continue
+            cand = match.candidates.get(mid)
+            if cand is not None and cand.status == "BLOCKED":
+                reason = cand.reason or "blocked by relationship"
+                rows[mid] = self._row(mid, REJECTED, BLOCKED, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=BLOCKED,
+                    previous=previous, version=version))
+                continue
+            if mid not in kept_ids:
+                fact = next(iter(sorted(referenced_facts(m.use_when) | referenced_facts(
+                    m.do_not_use_when))), None)
+                reason = (f"supported in plan v{previous.version} but the gate no longer "
+                          "holds on the current facts: " + gate_why.get(mid, "reasoning gate"))
+                rows[mid] = self._row(mid, REJECTED, GATE, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=GATE, previous=previous,
+                    version=version, fact=fact))
+                continue
+            refusal = legal_findings.rejection(m, facts, verified_findings)
+            if refusal:
+                rows[mid] = self._row(mid, REJECTED, NO_VERIFIED_FINDING, refusal)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=refusal, decision=NO_VERIFIED_FINDING,
+                    previous=previous, version=version))
+                continue
+            support = self._support(m, cand, facts, case)
+            if not support:
+                reason = (f"supported in plan v{previous.version} but no verified fact "
+                          "or uploaded evidence supports it any more")
+                rows[mid] = self._row(mid, REJECTED, NO_SUPPORTING_FACTS, reason)
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=NO_SUPPORTING_FACTS,
+                    previous=previous, version=version))
+                continue
+            missing = self._required_evidence_missing(m, uploaded)
+            evidence = self._evidence(m, uploaded)
+            if missing:
+                reason = "evidence required before it can be argued: " + ", ".join(missing)
+                rows[mid] = self._row(
+                    mid, UNRESOLVED, EVIDENCE_REQUIRED, reason, support,
+                    evidence + [{"kind": k, "uploaded": False} for k in missing])
+                invalidations.append(self._invalidation(
+                    case, mid, reason=reason, decision=EVIDENCE_REQUIRED,
+                    previous=previous, version=version))
+                continue
+            rows[mid] = self._row(
+                mid, SUPPORTED, CARRIED_FORWARD,
+                f"supported in plan v{previous.version}; gate and supporting facts "
+                "still hold", support, evidence)
+        return rows, invalidations
+
+    def build_selected_ground_set(self, case, facts, verified_findings, match,
+                                  kept_ids, gate_why, uploaded, proposals) -> dict:
+        """Case Intelligence proposals. Additive only; never subtracts VF/CF."""
+        from ..module_roles import can_be_claim_ground, role_of
+
+        rows = {}
+        selected = list(dict.fromkeys(
+            list(proposals.get("support_existing_ground") or [])
+            + list(proposals.get("add_ground_candidates") or [])
+            + list(proposals.get("selected") or [])))
+        for mid in selected:
+            m = self.kg.modules.get(mid)
+            cand = match.candidates.get(mid)
+            if m is None or m.status != "ACTIVE":
+                rows[mid] = self._row(mid, REJECTED, NOT_ACTIVE,
+                                      "not an in-force knowledge module")
+                continue
+            if not can_be_claim_ground(m):
+                rows[mid] = self._row(
+                    mid, REJECTED, ROLE_INELIGIBLE,
+                    f"module role {role_of(m)} cannot independently create a "
+                    "Claim Plan ground (use_when/retrieval is not enough)")
+                continue
+            if cand is not None and cand.status == "BLOCKED":
+                rows[mid] = self._row(mid, REJECTED, BLOCKED,
+                                      cand.reason or "blocked by relationship")
+                continue
+            finding_refusal = legal_findings.rejection(m, facts, verified_findings)
+            if finding_refusal:
+                rows[mid] = self._row(mid, REJECTED, NO_VERIFIED_FINDING, finding_refusal)
+                continue
+            if mid not in kept_ids:
+                why = gate_why.get(mid, "reasoning gate does not keep it")
+                if legal_findings.referenced_findings(m) and not (
+                        legal_findings.referenced_findings(m) & verified_findings):
+                    why = (f"{legal_findings.REJECTION_REASON}: no verified legal finding "
+                           "licenses this ground")
+                rows[mid] = self._row(mid, REJECTED, GATE, why)
+                continue
+            support = self._support(m, cand, facts, case)
+            if not support:
+                rows[mid] = self._row(mid, REJECTED, NO_SUPPORTING_FACTS,
+                                      "no verified fact or uploaded evidence supports it")
+                continue
+            evidence = self._evidence(m, uploaded)
+            missing = self._required_evidence_missing(m, uploaded)
+            if missing:
+                rows[mid] = self._row(
+                    mid, UNRESOLVED, EVIDENCE_REQUIRED,
+                    "evidence required before it can be argued: " + ", ".join(missing),
+                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
+                continue
+            rows[mid] = self._row(
+                mid, SUPPORTED, SELECTED,
+                "selected by Case Intelligence; gate holds, nothing blocks it, "
+                "supported by verified facts", support, evidence)
+        return rows
+
+    def apply_invalidations(self, case, decided, proposals, verified_ids,
+                            previous, version, pending: list) -> tuple[list, list]:
+        """Apply only explicit invalidations. CI proposals against VF/CF are refused.
+
+        Returns (accepted, refused). A previous supported or verified-licensed
+        ground that is not SUPPORTED must already have an accepted record;
+        otherwise the drop is a builder error, not an omission.
+        """
+        accepted = list(pending)
+        refused = []
+        protected = {
+            mid for mid, row in decided.items()
+            if row["status"] == SUPPORTED and row["decision"] in (VERIFIED_FINDING, CARRIED_FORWARD)
+        }
+        for raw in proposals.get("proposed_invalidations") or []:
+            mid = (raw or {}).get("ground_id") or (raw or {}).get("module_id")
+            if not mid:
+                continue
+            if mid in protected:
+                refused.append({
+                    "ground_id": mid,
+                    "reason": (raw.get("reason") or "proposed by Case Intelligence"),
+                    "refused": "verified or carried ground cannot be invalidated by selection",
+                })
+                continue
+            if mid in decided and decided[mid]["status"] == SUPPORTED:
+                # CI may propose dropping its own SELECTED ground only with a record.
+                reason = raw.get("reason") or "proposed by Case Intelligence"
+                decided[mid] = self._row(mid, REJECTED, VETOED, reason)
+                accepted.append(self._invalidation(
+                    case, mid, reason=reason, decision=VETOED,
+                    previous=previous, version=version))
+        must_explain = set(verified_ids)
+        if previous is not None:
+            must_explain |= set(previous.supported_ids)
+        explained = {inv.ground_id for inv in accepted}
+        for mid in sorted(must_explain):
+            row = decided.get(mid)
+            if row is not None and row["status"] == SUPPORTED:
+                continue
+            if mid in explained:
+                continue
+            raise SilentGroundDropError(
+                f"{mid} left the supported set with no GroundInvalidation "
+                f"(previous=v{getattr(previous, 'version', None)} new=v{version})")
+        return accepted, refused
+
     def build(self, case: CaseFile, *, version: int = 1, trust: Optional[dict] = None,
               proposals: Optional[dict] = None) -> FinalClaimPlan:
-        """A DRAFT plan for the case as it stands. Pure apart from the
-        applicability facts the reasoning engine always derives."""
+        """Union VF ∪ CF ∪ SELECTED ∪ CANDIDATE, then drop only via invalidation."""
         from ..knowledge_ingestion.graph import knowledge_id
         from ..manifest import kb_digest
         from .knowledge_matcher import KnowledgeMatcher
 
         code, _pofa = self.reasoning.applicability(case)
         code_version = getattr(code, "version_id", None)
-        facts = case.fact_view()
-        # P6.1: the VERIFIED legal findings the applicability run just recorded.
+        calc_codes = list(getattr(_pofa, "findings", []) or [])
+        facts = legal_findings.gate_facts(case.fact_view(), calc_codes)
         verified_findings = legal_findings.verified_types(
-            case.legal_findings, getattr(_pofa, "findings", []) or [])
+            case.legal_findings, calc_codes)
         proposals = proposals if proposals is not None else self.proposals(case)
         match = KnowledgeMatcher(self.kg).match(case, facts)
         kept, gate_why = self.reasoning.eligibility(facts, code)
@@ -488,138 +951,40 @@ class ClaimPlanBuilder:
                     if e.uploaded}
         digest = self.inputs_digest(case, facts, proposals, code_version)
         plan_id = str(uuid.uuid5(_NS, f"{case.case_id}:claim-plan:v{version}:{digest}"))
+        previous = latest_locked(case)
 
         decided: dict[str, dict] = {}
+        vf, inv_vf = self.build_verified_ground_set(
+            case, facts, verified_findings, match, kept, uploaded, previous, version)
+        cf, inv_cf = self.build_carried_forward_ground_set(
+            case, facts, verified_findings, match, kept_ids, gate_why, uploaded,
+            previous, version)
+        selected = self.build_selected_ground_set(
+            case, facts, verified_findings, match, kept_ids, gate_why, uploaded, proposals)
+        for mid, row in vf.items():
+            self._merge(decided, mid, row)
+        for mid, row in cf.items():
+            self._merge(decided, mid, row)
+        for mid, row in selected.items():
+            self._merge(decided, mid, row)
 
-        def put(mid: str, status: str, decision: str, reason: str, support=(), evidence=()):
-            if mid in decided:
-                return
-            m = self.kg.modules.get(mid)
-            decided[mid] = dict(status=status, decision=decision, reason=reason,
-                                support=list(support), evidence=list(evidence),
-                                claim_type=str(getattr(getattr(m, "route", None), "value",
-                                                       getattr(m, "route", "")) or ""),
-                                topic=getattr(m, "topic", "") or "")
+        verified_ids = set(vf)
+        invalidations, refused = self.apply_invalidations(
+            case, decided, proposals, verified_ids, previous, version, inv_vf + inv_cf)
 
-        # 1. Case Intelligence's selection - the only route to SUPPORTED.
-        for mid in proposals["selected"]:
-            m = self.kg.modules.get(mid)
-            cand = match.candidates.get(mid)
-            if m is None or m.status != "ACTIVE":
-                put(mid, REJECTED, NOT_ACTIVE, "not an in-force knowledge module")
-                continue
-            if cand is not None and cand.status == "BLOCKED":
-                put(mid, REJECTED, BLOCKED, cand.reason or "blocked by relationship")
-                continue
-            # P6.1: a defect ground stands or falls with its VERIFIED finding.
-            finding_refusal = legal_findings.rejection(m, facts, verified_findings)
-            if finding_refusal:
-                put(mid, REJECTED, NO_VERIFIED_FINDING, finding_refusal)
-                continue
-            if mid not in kept_ids:
-                why = gate_why.get(mid, "reasoning gate does not keep it")
-                if legal_findings.referenced_findings(m) and not (
-                        legal_findings.referenced_findings(m) & verified_findings):
-                    why = (f"{legal_findings.REJECTION_REASON}: no verified legal finding "
-                           "licenses this ground")
-                put(mid, REJECTED, GATE, why)
-                continue
-            support = self._support(m, cand, facts)
-            if not support:
-                put(mid, REJECTED, NO_SUPPORTING_FACTS,
-                    "no verified fact or uploaded evidence supports it")
-                continue
-            evidence = self._evidence(m, uploaded)
-            missing = self._required_evidence_missing(m, uploaded)
-            if missing:
-                put(mid, UNRESOLVED, EVIDENCE_REQUIRED,
-                    "evidence required before it can be argued: " + ", ".join(missing),
-                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
-                continue
-            put(mid, SUPPORTED, SELECTED,
-                "selected by Case Intelligence; gate holds, nothing blocks it, "
-                "supported by verified facts", support, evidence)
-
-        # 1b. P6.2: a ground licensed by a VERIFIED legal finding is argued on
-        # the calculation. Case Intelligence adds judgment grounds; it cannot
-        # subtract a statutory defect the deterministic engine proved.
-        for m in kept:
-            mid = m.module_id
-            if mid in decided:
-                continue
-            lic = legal_findings.referenced_findings(m) & verified_findings
-            if not lic:
-                continue
-            cand = match.candidates.get(mid)
-            if cand is not None and cand.status == "BLOCKED":
-                continue                      # step 3 records the block
-            support = self._support(m, cand, facts)
-            if not support:
-                continue
-            missing = self._required_evidence_missing(m, uploaded)
-            evidence = self._evidence(m, uploaded)
-            if missing:
-                put(mid, UNRESOLVED, EVIDENCE_REQUIRED,
-                    "evidence required before it can be argued: " + ", ".join(missing),
-                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
-                continue
-            put(mid, SUPPORTED, VERIFIED_FINDING,
-                "licensed by verified legal finding " + "/".join(sorted(lic)) +
-                "; a calculated statutory defect is argued independently of selection",
-                support, evidence)
-
-        # 1c. P6.2: grounds are cumulative across plan versions. A ground the
-        # latest LOCKED plan supported stays supported while its module is
-        # active, its gate holds, nothing blocks it and its support stands;
-        # a new customer fact can add grounds, never silently remove one.
-        previous = latest_locked(case)
-        for item in (previous.supported if previous is not None else []):
-            mid = item.module_id
-            m = self.kg.modules.get(mid)
-            if mid in decided or m is None or m.status != "ACTIVE":
-                continue
-            cand = match.candidates.get(mid)
-            if cand is not None and cand.status == "BLOCKED":
-                continue                      # step 3 records the block
-            if mid not in kept_ids:
-                put(mid, REJECTED, GATE,
-                    f"supported in plan v{previous.version} but the gate no longer holds "
-                    "on the current facts: " + gate_why.get(mid, "reasoning gate"))
-                continue
-            refusal = legal_findings.rejection(m, facts, verified_findings)
-            if refusal:
-                put(mid, REJECTED, NO_VERIFIED_FINDING, refusal)
-                continue
-            support = self._support(m, cand, facts)
-            if not support:
-                put(mid, REJECTED, NO_SUPPORTING_FACTS,
-                    f"supported in plan v{previous.version} but no verified fact or "
-                    "uploaded evidence supports it any more")
-                continue
-            missing = self._required_evidence_missing(m, uploaded)
-            evidence = self._evidence(m, uploaded)
-            if missing:
-                put(mid, UNRESOLVED, EVIDENCE_REQUIRED,
-                    "evidence required before it can be argued: " + ", ".join(missing),
-                    support, evidence + [{"kind": k, "uploaded": False} for k in missing])
-                continue
-            put(mid, SUPPORTED, CARRIED_FORWARD,
-                f"supported in plan v{previous.version}; gate and supporting facts "
-                "still hold", support, evidence)
-
-        # 2. Proposals the analysis-stage veto already refused.
+        # Veto / blocked / offered candidates fill the trace; they cannot subtract SUPPORTED.
         for mid, why in proposals["vetoed"].items():
+            if mid in decided and decided[mid].get("status") == SUPPORTED:
+                continue
             cand = match.candidates.get(mid)
             if cand is not None and cand.status == "BLOCKED":
-                put(mid, REJECTED, BLOCKED, cand.reason or why)
+                self._merge(decided, mid, self._row(mid, REJECTED, BLOCKED,
+                                                    cand.reason or why))
             else:
-                put(mid, REJECTED, VETOED, why)
-
-        # 3. Blocked knowledge, proposed or not: the trace must say what blocked it.
+                self._merge(decided, mid, self._row(mid, REJECTED, VETOED, why))
         for cand in match.blocked:
-            put(cand.module_id, REJECTED, BLOCKED, cand.reason or "blocked by relationship")
-
-        # 4. What was offered and not chosen.
+            self._merge(decided, cand.module_id, self._row(
+                cand.module_id, REJECTED, BLOCKED, cand.reason or "blocked by relationship"))
         offered = sorted(set(proposals["candidates"]) | set(proposals["omitted"])
                          | {c.module_id for c in match.supported})
         for mid in offered:
@@ -627,17 +992,19 @@ class ClaimPlanBuilder:
             if cand is None:
                 continue
             if cand.status == "SUPPORTED":
-                put(mid, REJECTED, NOT_SELECTED,
+                self._merge(decided, mid, self._row(
+                    mid, REJECTED, NOT_SELECTED,
                     "gate holds on the facts but Case Intelligence did not select it",
-                    self._support(self.kg.modules[mid], cand, facts))
+                    self._support(self.kg.modules[mid], cand, facts, case)))
             elif cand.status == "RELEVANT" and cand.missing:
-                put(mid, UNRESOLVED, MISSING_FACTS,
-                    "could apply; not established: " + ", ".join(cand.missing))
+                self._merge(decided, mid, self._row(
+                    mid, UNRESOLVED, MISSING_FACTS,
+                    "could apply; not established: " + ", ".join(cand.missing)))
             else:
-                put(mid, REJECTED, GATE, "offered, not argued: " + (cand.reason or
-                                                                 "gate does not hold"))
+                self._merge(decided, mid, self._row(
+                    mid, REJECTED, GATE,
+                    "offered, not argued: " + (cand.reason or "gate does not hold")))
 
-        # Priority: KB-GOV-07 drafting order over the supported claims only.
         order = [m.module_id for m in self.reasoning._drafting_priority(
             [self.kg.modules[mid] for mid, d in decided.items() if d["status"] == SUPPORTED])]
         rank = {mid: n for n, mid in enumerate(order, 1)}
@@ -650,6 +1017,8 @@ class ClaimPlanBuilder:
                            "relations_version": getattr(self.kg.relations, "version", None)},
             "practice_code_version": code_version,
             "builder_version": BUILDER_VERSION,
+            "invalidations": [i.as_dict() for i in invalidations],
+            "refused_invalidations": refused,
         })
         plan = FinalClaimPlan(claim_plan_id=plan_id, case_id=case.case_id,
                               analysis_run_id=run_uuid(case.case_id, case.run_id),
@@ -667,13 +1036,29 @@ class ClaimPlanBuilder:
                 if f.get("fact"):
                     used_facts.add(f["fact"])
                 for dep in f.get("because_of") or []:
-                    used_facts.add(dep["fact"])
+                    dname = dep.get("fact") if isinstance(dep, dict) else None
+                    if dname:
+                        used_facts.add(dname)
+            from ..drafting.support_contract import build_bundle, build_requirement
+            findings = [r for r in d["support"] if r.get("finding_id") or r.get("finding_type")]
+            bundle = build_bundle(d["support"], d["evidence"], rels,
+                                  finding_rows=findings, case=case)
+            req = build_requirement(
+                bundle,
+                prohibited=list(getattr(self.kg.modules.get(mid), "prohibited_claims", None) or []),
+                findings=[r for r in (case.legal_findings or [])
+                          if r.get("legal_module_id") == mid
+                          or r.get("finding_type") in {f.get("finding_type") for f in findings}],
+                claim_type=d["claim_type"],
+            )
             plan.add_item(ClaimPlanItem(
                 item_id=str(uuid.uuid5(uuid.UUID(plan_id), mid)), knowledge_id=knowledge_id(mid),
                 module_id=mid, claim_type=d["claim_type"], status=d["status"],
                 decision=d["decision"], reason=d["reason"],
                 supporting_facts=_freeze(d["support"]), evidence_refs=_freeze(d["evidence"]),
-                relationships=_freeze(rels), priority=rank.get(mid), topic=d["topic"]))
+                relationships=_freeze(rels), priority=rank.get(mid), topic=d["topic"],
+                support_bundle=_freeze(bundle.as_dict()),
+                draft_requirement=_freeze(req.as_dict())))
         trust["facts_used"] = self._facts_used(case, used_facts)
         trust["relationships_used"] = relationships
         trust["signals"] = {k: v["value"] for k, v in match.signals.items()}
@@ -682,7 +1067,29 @@ class ClaimPlanBuilder:
         plan.trust = _freeze(trust)
         return plan
 
-    # ------------------------------------------------------------- decide
+    def record_final_claim_plan(self, case: CaseFile, draft: FinalClaimPlan,
+                                current: Optional[FinalClaimPlan]) -> FinalClaimPlan:
+        """Lock the decided plan and take its grounds. The only write of record."""
+        if current is not None and current.inputs_digest == draft.inputs_digest:
+            case.audit.append({"event": "claim_plan_reused",
+                               "claim_plan_id": current.claim_plan_id,
+                               "version": current.version})
+            case.master.record_grounds(current)
+            return current
+        draft.confirm().lock()
+        if current is not None:
+            current.supersede(draft)
+        case.claim_plans.append(draft)
+        case.master.record_grounds(draft)
+        case.audit.append({"event": "claim_plan_locked", "claim_plan_id": draft.claim_plan_id,
+                           "version": draft.version, "approved": draft.supported_ids,
+                           "supersedes": current.claim_plan_id if current else None,
+                           "trace": draft.trace(),
+                           "source_trace": draft.source_trace(),
+                           "invalidations": _thaw(draft.trust).get("invalidations") or [],
+                           "changes": diff(current, draft) if current else None})
+        return draft
+
     def decide(self, case: CaseFile, *, trust: Optional[dict] = None) -> FinalClaimPlan:
         """The case's LOCKED plan for its current state.
 
@@ -694,37 +1101,24 @@ class ClaimPlanBuilder:
         proposals = self.proposals(case)
         draft = self.build(case, version=(current.version + 1) if current else 1,
                            trust=trust, proposals=proposals)
-        if current is not None and current.inputs_digest == draft.inputs_digest:
-            case.audit.append({"event": "claim_plan_reused",
-                               "claim_plan_id": current.claim_plan_id,
-                               "version": current.version})
-            return current
-        draft.confirm().lock()
-        if current is not None:
-            current.supersede(draft)
-        case.claim_plans.append(draft)
-        case.audit.append({"event": "claim_plan_locked", "claim_plan_id": draft.claim_plan_id,
-                           "version": draft.version, "approved": draft.supported_ids,
-                           "supersedes": current.claim_plan_id if current else None,
-                           "trace": draft.trace(),
-                           "changes": diff(current, draft) if current else None})
-        return draft
+        return self.record_final_claim_plan(case, draft, current)
 
     # ------------------------------------------------------------ details
     @staticmethod
-    def _support(module, cand, facts: dict) -> list[dict]:
+    def _support(module, cand, facts: dict, case=None) -> list[dict]:
         """The verified facts / evidence that make the gate hold, from the
-        relationship match; else the gate's own facts that are present."""
+        relationship match; else the gate's own facts that are present.
+        Derived rows carry their source facts (P8.5)."""
+        from ..drafting.support_contract import enrich_support_rows
         rows = [dict(r) for r in (cand.selected_because if cand is not None else [])]
-        if rows:
-            return sorted(rows, key=lambda r: json.dumps(r, sort_keys=True, default=str))
-        out = []
-        for name in sorted(referenced_facts(module.use_when)):
-            v = facts.get(name)
-            if v not in (None, "", [], False):
-                out.append({"condition": f"{name}={json.dumps(_plain(v), default=str)}",
-                            "fact": name, "value": _plain(v)})
-        return out
+        if not rows:
+            for name in sorted(referenced_facts(module.use_when)):
+                v = facts.get(name)
+                if v not in (None, "", [], False):
+                    rows.append({"condition": f"{name}={json.dumps(_plain(v), default=str)}",
+                                 "fact": name, "value": _plain(v)})
+        rows = enrich_support_rows(rows, case=case, module=module, facts=facts)
+        return sorted(rows, key=lambda r: json.dumps(r, sort_keys=True, default=str))
 
     def _evidence(self, module, uploaded: dict) -> list[dict]:
         kinds = set(module.evidence_helpful or [])
@@ -784,5 +1178,7 @@ class ClaimPlanBuilder:
 
 
 __all__ = ["FinalClaimPlan", "ClaimPlanItem", "ClaimPlanBuilder", "ClaimPlanLockedError",
-           "ClaimPlanIntegrityError", "diff", "latest_locked", "claim_label", "run_uuid",
-           "DRAFT", "CONFIRMED", "LOCKED", "SUPERSEDED", "SUPPORTED", "REJECTED", "UNRESOLVED"]
+           "ClaimPlanIntegrityError", "GroundInvalidation", "SilentGroundDropError",
+           "diff", "latest_locked", "claim_label", "run_uuid",
+           "DRAFT", "CONFIRMED", "LOCKED", "SUPERSEDED", "SUPPORTED", "REJECTED", "UNRESOLVED",
+           "VERIFIED_FINDING", "CARRIED_FORWARD", "SELECTED", "CANDIDATE", "ORIGIN_PRIORITY"]

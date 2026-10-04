@@ -1,0 +1,228 @@
+{
+  "case_id": "REF_70377302",
+  "dataset_version": "p9_v1",
+  "completeness": "NOTICE_ONLY",
+  "split": "DEVELOPMENT",
+  "approval_status": "REFERENCE_ONLY",
+  "family": "not_registered_or_exceeded_time",
+  "operator": "CPM (UK Car Park Management)",
+  "allegation": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+  "legal_route": "notice_derived_only",
+  "circumstance": "unknown",
+  "evidence_type": "front_notice_photo",
+  "notes": "NOTICE_ONLY reference from pcn_finetune_v1/70377302. gold_source=synthetic_from_exemplar. suggested_modules=[] are NOT approved grounds. Do not score reverse-page defects or unknown customer facts.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "[photograph] images/70377302_cpm_barking.png",
+    "notice_back": "",
+    "customer_narrative": "",
+    "customer_answers": {},
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E1",
+        "filename": "70377302_cpm_barking.png",
+        "kind": "PCN",
+        "doc_type": "PCN",
+        "text": "NOTICE TO KEEPER - PARKING CHARGE\nOperator: CPM (UK Car Park Management)\nParking Charge Number: 70377302\nVehicle Registration: LX26ZSE\nLocation: Weavers Quarter, Barking, IG11 7TS\nDate of Contravention: 13/05/2026\nDate Issued: 15/05/2026\nEntry Time: 17:42\nExit Time: 18:20\nAlleged Breach: Vehicle Not Registered Or Exceeded Allowed Time (ANPR)\nAmount: 100"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {
+      "operator_name": "CPM (UK Car Park Management)",
+      "pcn_number": "70377302",
+      "vrm": "LX26ZSE",
+      "parking_event_date": "13/05/2026",
+      "notice_issue_date": "15/05/2026",
+      "entry_time": "17:42",
+      "exit_time": "18:20",
+      "parking_location": "Weavers Quarter, Barking, IG11 7TS",
+      "site_postcode": "IG11 7TS",
+      "alleged_breach": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+      "charge_amount": 100,
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN"
+    },
+    "image_path": "C:\\Users\\Abdul\\Downloads\\New folder (4)\\pr\\datasets\\pcn_finetune_v1\\images\\70377302_cpm_barking.png"
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN",
+        "notice_type": "NTK"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "CPM (UK Car Park Management)",
+        "pcn_number": "70377302",
+        "vrm": "LX26ZSE",
+        "parking_event_date": "13/05/2026",
+        "notice_issue_date": "15/05/2026",
+        "entry_time": "17:42",
+        "exit_time": "18:20",
+        "parking_location": "Weavers Quarter, Barking, IG11 7TS",
+        "site_postcode": "IG11 7TS",
+        "alleged_breach": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+        "charge_amount": 100,
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "CPM (UK Car Park Management)",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "70377302",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "LX26ZSE",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "13/05/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "15/05/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "17:42",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "18:20",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "Weavers Quarter, Barking, IG11 7TS",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "site_postcode",
+          "value": "IG11 7TS",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "alleged_breach",
+          "value": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "suggested_not_approved": []
+      }
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_appeal_requirements": {
+      "evaluate": false,
+      "approval": "REFERENCE_ONLY",
+      "values": {
+        "gold_source": "synthetic_from_exemplar",
+        "style_only": true,
+        "must_not_use_as": [
+          "unknown_customer_circumstances",
+          "missing_reverse_page_defects",
+          "facts_not_visible_on_front",
+          "approved_supported_grounds"
+        ]
+      }
+    },
+    "ground_origins": {}
+  },
+  "governance": {
+    "approved_by": "labeler_from_photograph",
+    "approved_at": "2026-10-04",
+    "reason": "Front-notice field labels only. Not complete ground truth."
+  }
+}

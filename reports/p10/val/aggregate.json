@@ -1,0 +1,1198 @@
+{
+  "manifest": {
+    "dataset_id": "p9_v1",
+    "dataset_version": "p9_v1",
+    "evaluation_release": "P9_BASELINE_2026-10-04",
+    "immutable": true,
+    "governance": {
+      "client_approved_expectations_immutable": true,
+      "expectation_change_requires_new_dataset_version": true,
+      "blind_holdout_may_not_tune": [
+        "prompts",
+        "rules",
+        "kb_content",
+        "model_parameters"
+      ],
+      "no_silent_golden_edits": true,
+      "approved_by": "development_baseline",
+      "approved_at": "2026-10-04",
+      "why": "First honest P9 baseline. Journey snapshot approved-grounds were not copied. NOTICE_ONLY cases are not complete ground truth."
+    },
+    "split_policy": {
+      "COMPLETE": {
+        "DEVELOPMENT": 6,
+        "VALIDATION": 2,
+        "BLIND_HOLDOUT": 2
+      },
+      "NOTICE_ONLY": {
+        "DEVELOPMENT": 5,
+        "VALIDATION": 2,
+        "BLIND_HOLDOUT": 2
+      },
+      "leakage_controls": [
+        "Near-duplicate Acme overstay notices stay together in DEVELOPMENT.",
+        "LATE / LATE+ANPR additive pair both in DEVELOPMENT.",
+        "CP Plus NTK + reminder stay together in DEVELOPMENT.",
+        "APCOA Luton pair stay together in VALIDATION.",
+        "BLIND_HOLDOUT uses different operators, allegations, and evidence types."
+      ]
+    },
+    "counts": {
+      "total": 19,
+      "complete": 10,
+      "notice_only": 9,
+      "by_split": {
+        "DEVELOPMENT": 11,
+        "VALIDATION": 4,
+        "BLIND_HOLDOUT": 4
+      },
+      "complete_by_split": {
+        "DEVELOPMENT": 6,
+        "VALIDATION": 2,
+        "BLIND_HOLDOUT": 2
+      },
+      "notice_only_by_split": {
+        "DEVELOPMENT": 5,
+        "VALIDATION": 2,
+        "BLIND_HOLDOUT": 2
+      }
+    },
+    "complete_case_ids": [
+      "REG_late_ntk",
+      "REG_late_ntk_anpr",
+      "REG_overstay_skip_all",
+      "REG_overstay_yes_all",
+      "REG_overstay_dont_know",
+      "REG_notice_plus_payment",
+      "REG_payment_keying",
+      "REG_no_notice",
+      "REG_breakdown",
+      "REG_residential"
+    ],
+    "notice_only_case_ids": [
+      "REF_stn1947529",
+      "REF_lu3440789",
+      "REF_lu3489734",
+      "REF_new1936102153896",
+      "REF_88811908015",
+      "REF_00347261120013",
+      "REF_00347261100014",
+      "REF_70377302",
+      "REF_sp62712518"
+    ],
+    "split": {
+      "DEVELOPMENT": [
+        "REG_late_ntk",
+        "REG_late_ntk_anpr",
+        "REG_overstay_skip_all",
+        "REG_overstay_yes_all",
+        "REG_overstay_dont_know",
+        "REG_notice_plus_payment",
+        "REF_stn1947529",
+        "REF_88811908015",
+        "REF_00347261120013",
+        "REF_00347261100014",
+        "REF_70377302"
+      ],
+      "VALIDATION": [
+        "REG_payment_keying",
+        "REG_no_notice",
+        "REF_lu3440789",
+        "REF_lu3489734"
+      ],
+      "BLIND_HOLDOUT": [
+        "REG_breakdown",
+        "REG_residential",
+        "REF_new1936102153896",
+        "REF_sp62712518"
+      ]
+    },
+    "cases": [
+      {
+        "case_id": "REG_late_ntk",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "late_postal_ntk",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "POFA",
+        "circumstance": "none",
+        "evidence_type": "notice_only",
+        "paired_with": "REG_late_ntk_anpr",
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_late_ntk_anpr",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "late_postal_ntk",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "POFA+ANPR",
+        "circumstance": "multiple_visits",
+        "evidence_type": "notice_plus_narrative",
+        "paired_with": "REG_late_ntk",
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_overstay_skip_all",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "acme_overstay",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "unobserved",
+        "circumstance": "skip_all_questions",
+        "evidence_type": "notice_plus_narrative",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_overstay_yes_all",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "acme_overstay",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "unobserved",
+        "circumstance": "answer_yes_all",
+        "evidence_type": "notice_plus_narrative",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_overstay_dont_know",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "acme_overstay",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "unobserved",
+        "circumstance": "dont_know_answers",
+        "evidence_type": "notice_plus_narrative",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_notice_plus_payment",
+        "completeness": "COMPLETE",
+        "split": "DEVELOPMENT",
+        "family": "overstay_plus_receipt",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "unobserved",
+        "circumstance": "partial_payment_receipt",
+        "evidence_type": "notice_plus_receipt",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_payment_keying",
+        "completeness": "COMPLETE",
+        "split": "VALIDATION",
+        "family": "payment_keying",
+        "operator": "Acme Parking Ltd",
+        "allegation": "no_valid_payment",
+        "legal_route": "PAYMENT+KEYING",
+        "circumstance": "app_typo",
+        "evidence_type": "notice_plus_app_screenshot",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_no_notice",
+        "completeness": "COMPLETE",
+        "split": "VALIDATION",
+        "family": "not_a_pcn",
+        "operator": "unknown",
+        "allegation": "none",
+        "legal_route": "out_of_scope",
+        "circumstance": "receipt_only",
+        "evidence_type": "pay_and_display_ticket",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_breakdown",
+        "completeness": "COMPLETE",
+        "split": "BLIND_HOLDOUT",
+        "family": "breakdown",
+        "operator": "Acme Parking Ltd",
+        "allegation": "overstay",
+        "legal_route": "BREAKDOWN",
+        "circumstance": "battery_failure_recovery",
+        "evidence_type": "notice_plus_recovery_report",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REG_residential",
+        "completeness": "COMPLETE",
+        "split": "BLIND_HOLDOUT",
+        "family": "residential",
+        "operator": "Acme Parking Ltd",
+        "allegation": "no_permit",
+        "legal_route": "RESIDENTIAL",
+        "circumstance": "tenant_allocated_bay",
+        "evidence_type": "notice_plus_tenancy",
+        "paired_with": null,
+        "approval_status": "DEVELOPMENT_APPROVED"
+      },
+      {
+        "case_id": "REF_stn1947529",
+        "completeness": "NOTICE_ONLY",
+        "split": "DEVELOPMENT",
+        "family": "airport_dropoff_unpaid_short_stay",
+        "operator": "APCOA Parking",
+        "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_lu3440789",
+        "completeness": "NOTICE_ONLY",
+        "split": "VALIDATION",
+        "family": "airport_dropoff_unpaid_short_stay",
+        "operator": "APCOA Parking",
+        "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_lu3489734",
+        "completeness": "NOTICE_ONLY",
+        "split": "VALIDATION",
+        "family": "airport_dropoff_unpaid_short_stay",
+        "operator": "APCOA Parking",
+        "allegation": "Use of Pick Up / Drop Off Zone without making a valid payment",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_new1936102153896",
+        "completeness": "NOTICE_ONLY",
+        "split": "BLIND_HOLDOUT",
+        "family": "no_valid_session",
+        "operator": "ParkMaven",
+        "allegation": "No valid parking session",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_88811908015",
+        "completeness": "NOTICE_ONLY",
+        "split": "DEVELOPMENT",
+        "family": "overstay_max_stay",
+        "operator": "Euro Car Parks",
+        "allegation": "Your vehicle has overstayed the maximum time period allowed.",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_00347261120013",
+        "completeness": "NOTICE_ONLY",
+        "split": "DEVELOPMENT",
+        "family": "overstay_max_stay",
+        "operator": "CP Plus",
+        "allegation": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_00347261100014",
+        "completeness": "NOTICE_ONLY",
+        "split": "DEVELOPMENT",
+        "family": "overstay_reminder",
+        "operator": "CP Plus",
+        "allegation": "unreadable",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_70377302",
+        "completeness": "NOTICE_ONLY",
+        "split": "DEVELOPMENT",
+        "family": "not_registered_or_exceeded_time",
+        "operator": "CPM (UK Car Park Management)",
+        "allegation": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      },
+      {
+        "case_id": "REF_sp62712518",
+        "completeness": "NOTICE_ONLY",
+        "split": "BLIND_HOLDOUT",
+        "family": "retail_anpr",
+        "operator": "Smart Parking Ltd",
+        "allegation": "unreadable",
+        "legal_route": "notice_derived_only",
+        "circumstance": "unknown",
+        "evidence_type": "front_notice_photo",
+        "paired_with": null,
+        "approval_status": "REFERENCE_ONLY"
+      }
+    ]
+  },
+  "versions": {
+    "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+    "kb_release": null,
+    "prompt_versions": {
+      "extraction": 10,
+      "drafting": 16,
+      "case_analysis": 8,
+      "validation": 3,
+      "page_references": 2,
+      "classification": 2
+    },
+    "model_provider": "ReferenceAnalysisLLM",
+    "claim_plan_builder_version": "3",
+    "master_case_object_version": 1,
+    "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+  },
+  "rows": [
+    {
+      "case_id": "REG_no_notice",
+      "split": "VALIDATION",
+      "completeness": "COMPLETE",
+      "end_to_end_pass": true,
+      "first_failed_layer": null,
+      "supported_grounds": [],
+      "state": "NO_APPEAL_RIGHT",
+      "outcome": null,
+      "scores": {
+        "classification": {
+          "status": "SCORED",
+          "document_classes": {
+            "E1": "OTHER"
+          },
+          "scope_stop": "UNSUPPORTED",
+          "issues": [],
+          "passed": true
+        },
+        "extraction": {
+          "status": "N/A",
+          "reason": "no extraction gold",
+          "method": "INJECTED_EMPTY"
+        },
+        "facts": {
+          "status": "N/A"
+        },
+        "derived": {
+          "status": "N/A"
+        },
+        "questions": {
+          "status": "N/A",
+          "asked": [],
+          "zero_questions_valid": true
+        },
+        "findings": {
+          "status": "N/A"
+        },
+        "retrieval": {
+          "status": "N/A",
+          "retrieved": [],
+          "note": "retrieved candidate \u2260 approved ground"
+        },
+        "grounds": {
+          "status": "N/A",
+          "selected": []
+        },
+        "claim_plan": {
+          "status": "N/A",
+          "item_count": 0
+        },
+        "draft_context": {
+          "status": "N/A",
+          "draft_context_error": null
+        },
+        "draft": {
+          "status": "SCORED",
+          "must_express_missing": [],
+          "must_not_express_hit": [],
+          "placeholders": [],
+          "driver_unsafe": false,
+          "ground_coverage": "N/A",
+          "material_fact_coverage": 1.0,
+          "unsupported_assertion_rate": 0.0,
+          "passed": true
+        },
+        "validation": {
+          "status": "N/A",
+          "note": "no draft to validate"
+        },
+        "outcome": {
+          "status": "SCORED",
+          "state": "NO_APPEAL_RIGHT",
+          "outcome": null,
+          "issues": [],
+          "passed": true,
+          "consistency_ok": true
+        },
+        "persist": {
+          "status": "N/A"
+        }
+      }
+    },
+    {
+      "case_id": "REG_payment_keying",
+      "split": "VALIDATION",
+      "completeness": "COMPLETE",
+      "end_to_end_pass": false,
+      "first_failed_layer": "GROUND_SELECTION_ERROR",
+      "supported_grounds": [
+        "KB-POFA-01",
+        "KB-POFA-04",
+        "KB-POFA-05",
+        "KB-PAY-01",
+        "KB-KEY-01"
+      ],
+      "state": "MANUAL_REVIEW",
+      "outcome": "PROCESSING_ERROR",
+      "scores": {
+        "classification": {
+          "status": "SCORED",
+          "document_classes": {
+            "E1": "PCN",
+            "E4": "APP_SCREENSHOT"
+          },
+          "scope_stop": null,
+          "issues": [],
+          "passed": true
+        },
+        "extraction": {
+          "status": "SCORED",
+          "method": "INJECTED_FROM_DOCUMENT_GOLD",
+          "note": "Values were injected from document gold; this scores fact-graph landing, not OCR.",
+          "fields": {
+            "operator_name": {
+              "verdict": "correct",
+              "expected": "Acme Parking Ltd",
+              "actual": "Acme Parking Ltd",
+              "source": "DOCUMENT"
+            },
+            "pcn_number": {
+              "verdict": "correct",
+              "expected": "PCN123456",
+              "actual": "PCN123456",
+              "source": "DOCUMENT"
+            },
+            "vrm": {
+              "verdict": "correct",
+              "expected": "AB12 CDE",
+              "actual": "AB12CDE",
+              "source": "DOCUMENT"
+            },
+            "parking_event_date": {
+              "verdict": "correct",
+              "expected": "01/06/2026",
+              "actual": "2026-06-01",
+              "source": "DOCUMENT"
+            },
+            "notice_issue_date": {
+              "verdict": "correct",
+              "expected": "05/06/2026",
+              "actual": "2026-06-05",
+              "source": "DOCUMENT"
+            },
+            "entry_time": {
+              "verdict": "correct",
+              "expected": "10:00",
+              "actual": "10:00",
+              "source": "DOCUMENT"
+            },
+            "exit_time": {
+              "verdict": "correct",
+              "expected": "12:47",
+              "actual": "12:47",
+              "source": "DOCUMENT"
+            },
+            "parking_location": {
+              "verdict": "correct",
+              "expected": "Retail Park",
+              "actual": "Retail Park",
+              "source": "DOCUMENT"
+            },
+            "site_postcode": {
+              "verdict": "correct",
+              "expected": "M1 1AA",
+              "actual": "M1 1AA",
+              "source": "DOCUMENT"
+            },
+            "alleged_breach": {
+              "verdict": "correct",
+              "expected": "No valid payment for vehicle",
+              "actual": "No valid payment for vehicle",
+              "source": "DOCUMENT"
+            },
+            "notice_route": {
+              "verdict": "correct",
+              "expected": "POSTAL",
+              "actual": "POSTAL",
+              "source": "DOCUMENT"
+            },
+            "notice_type": {
+              "verdict": "correct",
+              "expected": "NTK",
+              "actual": "NTK",
+              "source": "DOCUMENT"
+            }
+          },
+          "counts": {
+            "correct": 12,
+            "incorrect": 0,
+            "missing": 0,
+            "unsupported": 0
+          },
+          "accuracy": 1.0,
+          "legal_critical_accuracy": 1.0,
+          "ordinary_accuracy": 1.0,
+          "invented": [],
+          "passed": true
+        },
+        "facts": {
+          "status": "SCORED",
+          "tp": [
+            "operator_name",
+            "pcn_number",
+            "vrm",
+            "parking_event_date",
+            "notice_issue_date",
+            "entry_time",
+            "exit_time",
+            "parking_location",
+            "site_postcode",
+            "alleged_breach"
+          ],
+          "fn": [],
+          "provenance_mismatch": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "by_kind": {
+            "document": {
+              "tp": 10,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_stated": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_confirmed": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "derived": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            }
+          },
+          "passed": true
+        },
+        "derived": {
+          "status": "SCORED",
+          "tp": [
+            "payment_made"
+          ],
+          "fn": [],
+          "lineage_failures": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "negation_preserved": true,
+          "uncertainty_preserved": true,
+          "passed": true
+        },
+        "questions": {
+          "status": "N/A",
+          "asked": [],
+          "zero_questions_valid": true
+        },
+        "findings": {
+          "status": "N/A"
+        },
+        "retrieval": {
+          "status": "SCORED",
+          "retrieved": [
+            "KB-POFA-05",
+            "KB-KEY-01",
+            "KB-POFA-04",
+            "KB-PAY-01",
+            "KB-POFA-01"
+          ],
+          "required": [
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "missed": [],
+          "irrelevant": [],
+          "precision": 0.4,
+          "recall": 1.0,
+          "passed": true,
+          "note": "retrieved candidate \u2260 approved ground"
+        },
+        "grounds": {
+          "status": "SCORED",
+          "selected": [
+            "KB-POFA-01",
+            "KB-POFA-04",
+            "KB-POFA-05",
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "expected": [
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "tp": [
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "fp": [
+            "KB-POFA-01",
+            "KB-POFA-04",
+            "KB-POFA-05"
+          ],
+          "fn": [],
+          "precision": 0.4,
+          "recall": 1.0,
+          "by_origin": {
+            "narrative": {
+              "expected": [
+                "KB-PAY-01",
+                "KB-KEY-01"
+              ],
+              "hit": [
+                "KB-PAY-01",
+                "KB-KEY-01"
+              ]
+            }
+          },
+          "passed": false
+        },
+        "claim_plan": {
+          "status": "SCORED",
+          "missing": [],
+          "bundles": [
+            {
+              "module_id": "KB-PAY-01",
+              "exists": true,
+              "supported": true,
+              "has_facts": true,
+              "has_reason": true
+            },
+            {
+              "module_id": "KB-KEY-01",
+              "exists": true,
+              "supported": true,
+              "has_facts": true,
+              "has_reason": true
+            }
+          ],
+          "coverage": 1.0,
+          "support_bundle_completeness": 1.0,
+          "passed": true
+        },
+        "draft_context": {
+          "status": "N/A",
+          "draft_context_error": null
+        },
+        "draft": {
+          "status": "SCORED",
+          "must_express_missing": [
+            "registration-entry error"
+          ],
+          "must_not_express_hit": [],
+          "placeholders": [],
+          "driver_unsafe": false,
+          "ground_coverage": 0.0,
+          "material_fact_coverage": 0.0,
+          "unsupported_assertion_rate": 0.0,
+          "passed": false
+        },
+        "validation": {
+          "status": "SCORED",
+          "passed": true,
+          "issues": [
+            {
+              "rule": "VAL-COVERAGE",
+              "severity": "BLOCK",
+              "message": "POFA is approved in the Claim Plan but the letter never argues it; every approved ground needs at least one grounded sentence"
+            }
+          ],
+          "placeholders": []
+        },
+        "outcome": {
+          "status": "SCORED",
+          "state": "MANUAL_REVIEW",
+          "outcome": "PROCESSING_ERROR",
+          "issues": [
+            "state RELEASED vs MANUAL_REVIEW",
+            "route PAYMENT vs POFA"
+          ],
+          "passed": false,
+          "consistency_ok": true
+        },
+        "persist": {
+          "passed": true,
+          "before": [
+            "KB-POFA-01",
+            "KB-POFA-04",
+            "KB-POFA-05",
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "after": [
+            "KB-POFA-01",
+            "KB-POFA-04",
+            "KB-POFA-05",
+            "KB-PAY-01",
+            "KB-KEY-01"
+          ],
+          "digest_before": "ca11bd88c557dde3f337e74a9c0e70d0729049894849bd32b4b2ba0531f7ba65",
+          "digest_after": "ca11bd88c557dde3f337e74a9c0e70d0729049894849bd32b4b2ba0531f7ba65",
+          "master_roundtrip_ok": true
+        }
+      }
+    },
+    {
+      "case_id": "REF_lu3440789",
+      "split": "VALIDATION",
+      "completeness": "NOTICE_ONLY",
+      "end_to_end_pass": true,
+      "first_failed_layer": null,
+      "supported_grounds": [],
+      "state": "MANUAL_REVIEW",
+      "outcome": "NEEDS_DOCUMENTS",
+      "scores": {
+        "classification": {
+          "status": "SCORED",
+          "document_classes": {
+            "E1": "PCN"
+          },
+          "scope_stop": null,
+          "issues": [],
+          "passed": true
+        },
+        "extraction": {
+          "status": "SCORED",
+          "method": "INJECTED_FROM_DOCUMENT_GOLD",
+          "note": "Values were injected from document gold; this scores fact-graph landing, not OCR.",
+          "fields": {
+            "operator_name": {
+              "verdict": "correct",
+              "expected": "APCOA Parking",
+              "actual": "APCOA Parking",
+              "source": "DOCUMENT"
+            },
+            "pcn_number": {
+              "verdict": "correct",
+              "expected": "LU3440789",
+              "actual": "LU3440789",
+              "source": "DOCUMENT"
+            },
+            "vrm": {
+              "verdict": "correct",
+              "expected": "SD58VOT",
+              "actual": "SD58VOT",
+              "source": "DOCUMENT"
+            },
+            "parking_event_date": {
+              "verdict": "correct",
+              "expected": "22/06/2026",
+              "actual": "2026-06-22",
+              "source": "DOCUMENT"
+            },
+            "notice_issue_date": {
+              "verdict": "correct",
+              "expected": "29/06/2026",
+              "actual": "2026-06-29",
+              "source": "DOCUMENT"
+            },
+            "entry_time": {
+              "verdict": "correct",
+              "expected": "02:38:06",
+              "actual": "02:38:06",
+              "source": "DOCUMENT"
+            },
+            "exit_time": {
+              "verdict": "correct",
+              "expected": "02:41:00",
+              "actual": "02:41:00",
+              "source": "DOCUMENT"
+            },
+            "parking_location": {
+              "verdict": "correct",
+              "expected": "Luton Airport Pick Up / Drop Off Zone",
+              "actual": "Luton Airport Pick Up / Drop Off Zone",
+              "source": "DOCUMENT"
+            },
+            "alleged_breach": {
+              "verdict": "correct",
+              "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+              "actual": "Use of Pick Up / Drop Off Zone without making a valid payment",
+              "source": "DOCUMENT"
+            },
+            "notice_route": {
+              "verdict": "correct",
+              "expected": "POSTAL",
+              "actual": "POSTAL",
+              "source": "DOCUMENT"
+            },
+            "notice_type": {
+              "verdict": "correct",
+              "expected": "NTK",
+              "actual": "NTK",
+              "source": "DOCUMENT"
+            }
+          },
+          "counts": {
+            "correct": 11,
+            "incorrect": 0,
+            "missing": 0,
+            "unsupported": 0
+          },
+          "accuracy": 1.0,
+          "legal_critical_accuracy": 1.0,
+          "ordinary_accuracy": 1.0,
+          "invented": [],
+          "passed": true
+        },
+        "facts": {
+          "status": "SCORED",
+          "tp": [
+            "operator_name",
+            "pcn_number",
+            "vrm",
+            "parking_event_date",
+            "notice_issue_date",
+            "entry_time",
+            "exit_time",
+            "parking_location",
+            "alleged_breach"
+          ],
+          "fn": [],
+          "provenance_mismatch": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "by_kind": {
+            "document": {
+              "tp": 9,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_stated": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_confirmed": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "derived": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            }
+          },
+          "passed": true
+        },
+        "derived": {
+          "status": "N/A"
+        },
+        "questions": {
+          "status": "N/A",
+          "asked": [],
+          "zero_questions_valid": true
+        },
+        "findings": {
+          "status": "N/A"
+        },
+        "retrieval": {
+          "status": "N/A",
+          "retrieved": [],
+          "note": "retrieved candidate \u2260 approved ground"
+        },
+        "grounds": {
+          "status": "N/A",
+          "selected": []
+        },
+        "claim_plan": {
+          "status": "N/A",
+          "item_count": 27
+        },
+        "draft_context": {
+          "status": "N/A",
+          "draft_context_error": null
+        },
+        "draft": {
+          "status": "N/A"
+        },
+        "validation": {
+          "status": "SCORED",
+          "passed": true,
+          "issues": [],
+          "placeholders": []
+        },
+        "outcome": {
+          "status": "N/A",
+          "state": "MANUAL_REVIEW",
+          "outcome": "NEEDS_DOCUMENTS"
+        },
+        "persist": {
+          "status": "N/A"
+        },
+        "notice_only_guard": {
+          "status": "SCORED",
+          "passed": true,
+          "note": "Customer circumstances, reverse-page defects, and suggested_modules were not treated as ground truth."
+        }
+      }
+    },
+    {
+      "case_id": "REF_lu3489734",
+      "split": "VALIDATION",
+      "completeness": "NOTICE_ONLY",
+      "end_to_end_pass": true,
+      "first_failed_layer": null,
+      "supported_grounds": [],
+      "state": "MANUAL_REVIEW",
+      "outcome": "NEEDS_DOCUMENTS",
+      "scores": {
+        "classification": {
+          "status": "SCORED",
+          "document_classes": {
+            "E1": "PCN"
+          },
+          "scope_stop": null,
+          "issues": [],
+          "passed": true
+        },
+        "extraction": {
+          "status": "SCORED",
+          "method": "INJECTED_FROM_DOCUMENT_GOLD",
+          "note": "Values were injected from document gold; this scores fact-graph landing, not OCR.",
+          "fields": {
+            "operator_name": {
+              "verdict": "correct",
+              "expected": "APCOA Parking",
+              "actual": "APCOA Parking",
+              "source": "DOCUMENT"
+            },
+            "pcn_number": {
+              "verdict": "correct",
+              "expected": "LU3489734",
+              "actual": "LU3489734",
+              "source": "DOCUMENT"
+            },
+            "vrm": {
+              "verdict": "correct",
+              "expected": "LT62PCO",
+              "actual": "LT62PCO",
+              "source": "DOCUMENT"
+            },
+            "parking_event_date": {
+              "verdict": "correct",
+              "expected": "09/07/2026",
+              "actual": "2026-07-09",
+              "source": "DOCUMENT"
+            },
+            "notice_issue_date": {
+              "verdict": "correct",
+              "expected": "20/07/2026",
+              "actual": "2026-07-20",
+              "source": "DOCUMENT"
+            },
+            "entry_time": {
+              "verdict": "correct",
+              "expected": "03:54:00",
+              "actual": "03:54:00",
+              "source": "DOCUMENT"
+            },
+            "exit_time": {
+              "verdict": "correct",
+              "expected": "03:57:22",
+              "actual": "03:57:22",
+              "source": "DOCUMENT"
+            },
+            "parking_location": {
+              "verdict": "correct",
+              "expected": "Luton Airport Pick Up / Drop Off Zone",
+              "actual": "Luton Airport Pick Up / Drop Off Zone",
+              "source": "DOCUMENT"
+            },
+            "alleged_breach": {
+              "verdict": "correct",
+              "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+              "actual": "Use of Pick Up / Drop Off Zone without making a valid payment",
+              "source": "DOCUMENT"
+            },
+            "notice_route": {
+              "verdict": "correct",
+              "expected": "POSTAL",
+              "actual": "POSTAL",
+              "source": "DOCUMENT"
+            },
+            "notice_type": {
+              "verdict": "correct",
+              "expected": "NTK",
+              "actual": "NTK",
+              "source": "DOCUMENT"
+            }
+          },
+          "counts": {
+            "correct": 11,
+            "incorrect": 0,
+            "missing": 0,
+            "unsupported": 0
+          },
+          "accuracy": 1.0,
+          "legal_critical_accuracy": 1.0,
+          "ordinary_accuracy": 1.0,
+          "invented": [],
+          "passed": true
+        },
+        "facts": {
+          "status": "SCORED",
+          "tp": [
+            "operator_name",
+            "pcn_number",
+            "vrm",
+            "parking_event_date",
+            "notice_issue_date",
+            "entry_time",
+            "exit_time",
+            "parking_location",
+            "alleged_breach"
+          ],
+          "fn": [],
+          "provenance_mismatch": [],
+          "precision": 1.0,
+          "recall": 1.0,
+          "by_kind": {
+            "document": {
+              "tp": 9,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_stated": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "customer_confirmed": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            },
+            "derived": {
+              "tp": 0,
+              "fp": 0,
+              "fn": 0
+            }
+          },
+          "passed": true
+        },
+        "derived": {
+          "status": "N/A"
+        },
+        "questions": {
+          "status": "N/A",
+          "asked": [],
+          "zero_questions_valid": true
+        },
+        "findings": {
+          "status": "N/A"
+        },
+        "retrieval": {
+          "status": "N/A",
+          "retrieved": [],
+          "note": "retrieved candidate \u2260 approved ground"
+        },
+        "grounds": {
+          "status": "N/A",
+          "selected": []
+        },
+        "claim_plan": {
+          "status": "N/A",
+          "item_count": 27
+        },
+        "draft_context": {
+          "status": "N/A",
+          "draft_context_error": null
+        },
+        "draft": {
+          "status": "N/A"
+        },
+        "validation": {
+          "status": "SCORED",
+          "passed": true,
+          "issues": [],
+          "placeholders": []
+        },
+        "outcome": {
+          "status": "N/A",
+          "state": "MANUAL_REVIEW",
+          "outcome": "NEEDS_DOCUMENTS"
+        },
+        "persist": {
+          "status": "N/A"
+        },
+        "notice_only_guard": {
+          "status": "SCORED",
+          "passed": true,
+          "note": "Customer circumstances, reverse-page defects, and suggested_modules were not treated as ground truth."
+        }
+      }
+    }
+  ],
+  "additive": {
+    "pair": [
+      "REG_late_ntk",
+      "REG_late_ntk_anpr"
+    ],
+    "run_a": [],
+    "run_b": [],
+    "dropped_without_check": [],
+    "added": [],
+    "passed": true,
+    "detail": "all still-valid A grounds remain in B",
+    "note": "This baseline cannot inspect InvalidationRecord if the ground is absent; any drop is treated as a silent remove."
+  },
+  "repeatability": {
+    "runs_per_case": 0,
+    "stability_rate": "N/A",
+    "note": "skipped"
+  },
+  "mutations": {
+    "status": "N/A",
+    "reason": "no released draft/pack available"
+  }
+}

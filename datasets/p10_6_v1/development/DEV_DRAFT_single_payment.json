@@ -1,0 +1,42 @@
+{
+  "case_id": "DEV_DRAFT_single_payment",
+  "split": "DEVELOPMENT",
+  "family": "single_ground",
+  "input": {
+    "customer_narrative": "I paid for parking on the app for the full stay.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP"
+    },
+    "extraction_fields": {
+      "operator_name": "Cedar Park Ltd",
+      "pcn_number": "CP610001",
+      "vrm": "AA11BBB",
+      "parking_location": "Cedar Retail",
+      "site_postcode": "B1 1AA",
+      "parking_event_date": "01/08/2026",
+      "notice_issue_date": "05/08/2026",
+      "alleged_breach": "No valid payment",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "pay.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "facts_any": {
+      "payment_made": true
+    },
+    "substantive_grounds_any": [
+      "KB-PAY-01"
+    ],
+    "draft_ground_coverage": 1.0,
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0
+  }
+}

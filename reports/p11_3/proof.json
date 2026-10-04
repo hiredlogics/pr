@@ -1,0 +1,296 @@
+{
+  "started_at": "2026-10-04T15:31:19Z",
+  "regression_offline": {
+    "cases": {
+      "forgot_wallet": {
+        "atom": {
+          "atom_id": "NA-departure_reason",
+          "name": "departure_reason",
+          "proposition": "a necessary item had been forgotten, prompting the departure",
+          "source_text": "forgot my wallet",
+          "source_excerpt": "I went shopping, forgot my wallet, left the site and returned later the same day.",
+          "attribution": "CUSTOMER",
+          "polarity": "AFFIRMED",
+          "confidence": 0.85
+        },
+        "departure_reason": "a necessary item had been forgotten, prompting the departure",
+        "bundle_has_departure_reason": true,
+        "passed": true
+      },
+      "collect_card": {
+        "atom": {
+          "atom_id": "NA-departure_reason",
+          "name": "departure_reason",
+          "proposition": "the departure was to collect a necessary item",
+          "source_text": "left to collect my payment",
+          "source_excerpt": "I left to collect my payment card and returned later the same day.",
+          "attribution": "CUSTOMER",
+          "polarity": "AFFIRMED",
+          "confidence": 0.85
+        },
+        "departure_reason": "the departure was to collect a necessary item",
+        "bundle_has_departure_reason": true,
+        "passed": true
+      },
+      "item_at_home": {
+        "atom": {
+          "atom_id": "NA-departure_reason",
+          "name": "departure_reason",
+          "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+          "source_text": "realised a necessary item was at home",
+          "source_excerpt": "I realised a necessary item was at home, left and returned the same day.",
+          "attribution": "CUSTOMER",
+          "polarity": "AFFIRMED",
+          "confidence": 0.85
+        },
+        "departure_reason": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "bundle_has_departure_reason": true,
+        "passed": true
+      }
+    },
+    "passed": true
+  },
+  "case_id": "2bcf17ff-aef2-416e-98a3-8b53d058293d",
+  "notice_sides_complete": true,
+  "raw_narrative": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+  "narrative_atom_pre": {
+    "atom_id": "NA-departure_reason",
+    "name": "departure_reason",
+    "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+    "source_text": "realised I had forgotten my purse at home",
+    "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+    "attribution": "CUSTOMER",
+    "polarity": "AFFIRMED",
+    "confidence": 0.85
+  },
+  "departure_reason_fact": "a necessary item was realised to have been left elsewhere, prompting the departure",
+  "narrative_atoms": [
+    {
+      "atom_id": "NA-departure_reason",
+      "name": "departure_reason",
+      "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+      "source_text": "realised I had forgotten my purse at home",
+      "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+      "attribution": "CUSTOMER",
+      "polarity": "AFFIRMED",
+      "confidence": 0.85
+    },
+    {
+      "atom_id": "NA-departure_reason",
+      "name": "departure_reason",
+      "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+      "source_text": "realised I had forgotten my purse at home",
+      "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+      "attribution": "CUSTOMER",
+      "polarity": "AFFIRMED",
+      "confidence": 0.85
+    }
+  ],
+  "provenance_departure": [],
+  "final_state": "MANUAL_REVIEW",
+  "validation": {
+    "passed": false,
+    "issues": [
+      "VAL-CONFLICT"
+    ]
+  },
+  "persisted": true,
+  "claim_plan_grounds": [
+    "KB-POFA-04",
+    "KB-POFA-02",
+    "KB-ANPR-01"
+  ],
+  "pofa_grounds": [
+    "KB-POFA-04",
+    "KB-POFA-02"
+  ],
+  "support_bundle_anpr": {
+    "_has_departure_in_support": true
+  },
+  "draft_plan_anpr": {
+    "section_id": "S03",
+    "ground_id": "KB-ANPR-01",
+    "ground_ids": [
+      "KB-ANPR-01"
+    ],
+    "purpose": "Express supported ground(s) KB-ANPR-01: ANPR. Include required particulars; do not invent facts. Explain WHY the vehicle left and returned using the departure_reason particular (a necessary item was realised to have been left elsewhere, prompting the departure); professionally rewrite, do not paste customer wording, do not identify the driver.",
+    "role": "SUBSTANTIVE_GROUND",
+    "supporting_fact_ids": [
+      "47de3769-9fbf-4055-ab94-e82392521c08",
+      "8eb67bd2-02a2-4098-8716-a2d911ac28a3",
+      "ae7c1837-d379-421b-a7d5-13da568783fc",
+      "562d9822-be61-4daa-92e7-2065d694a8d4",
+      "eae52df8-119f-40df-a5c4-486dbeb4cac7"
+    ],
+    "supporting_fact_names": [
+      "left_site",
+      "returned_same_day",
+      "visited_premises",
+      "purpose_of_visit",
+      "departure_reason"
+    ],
+    "derived_fact_ids": [
+      "21c6da7e-fa2e-408b-86fc-2fd4e070d64f"
+    ],
+    "evidence_ids": [],
+    "legal_finding_ids": [],
+    "required_particulars": [
+      "left_site",
+      "returned_same_day",
+      "visited_premises",
+      "purpose_of_visit",
+      "departure_reason",
+      "multiple_visits"
+    ],
+    "particular_values": {
+      "multiple_visits": true,
+      "left_site": true,
+      "returned_same_day": true,
+      "visited_premises": true,
+      "purpose_of_visit": "shopping",
+      "departure_reason": "a necessary item was realised to have been left elsewhere, prompting the departure"
+    },
+    "prohibited_claims": [
+      "10 minutes always cancels",
+      "breakdown automatically frustrates",
+      "calibration",
+      "defect inferred from unclear text",
+      "generic checklist of defects",
+      "genuine pre-estimate of loss",
+      "unlawful penalty",
+      "who was driving"
+    ],
+    "required_outcome": "express_ground",
+    "support_module_ids": [],
+    "context_chunk_ids": [
+      "KB-ANPR-01",
+      "PP-ANPR-005",
+      "PP-ANPR-003"
+    ],
+    "narrative_atoms": [
+      {
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "source_text": "realised I had forgotten my purse at home",
+        "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85
+      },
+      {
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "source_text": "realised I had forgotten my purse at home",
+        "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85
+      }
+    ],
+    "merged": false
+  },
+  "letter": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle EX15CZT. I do not admit to being the driver and will not be identifying the driver.\nThis Parking Charge Notice was issued by post.\nThe notice consists of front and back pages, and the contents have been checked against the Schedule 4 requirements for a postal Notice to Keeper.\nThat review confirms that the notice does not contain a compliant, route-specific keeper-liability warning, even though the document is complete.\nThe operator has therefore not met the applicable Schedule 4 content conditions and cannot rely on Schedule 4 to transfer liability to the registered keeper where the driver has not been identified.\nAccording to the notice, the alleged parking event at Canada Water Estate, SE16 7LL took place on 22 April 2026 and the postal Notice to Keeper was issued on 11 May 2026.\nFor a postal Notice to Keeper under Schedule 4 in England and Wales, the statutory deadline for delivery in these circumstances was 6 May 2026.\nUsing the standard presumption of delivery for post, the notice is treated as having been delivered on 13 May 2026.\nThis is 7 days after the statutory deadline.\nThe Notice to Keeper was therefore not delivered within the applicable statutory period for the postal notice route, and the operator has failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4.\nThe keeper's account is that the vehicle visited Canada Water Estate, SE16 7LL for shopping, left the site, and then returned later the same day.\nThe keeper states that a necessary item was realised to have been left elsewhere, which prompted the vehicle to leave the site before returning once that had been resolved.\nThis means the vehicle attended the site on more than one separate occasion on the date in question.\nIn these circumstances, the first recorded ANPR entry and the final recorded exit must not be assumed to represent a single continuous stay without checking all intermediate captures.\nThe operator is therefore requested to review and disclose the complete ANPR record for the vehicle on that date, including any intermediate entry and exit images, rather than relying solely on the two images selected for the Parking Charge Notice.\nFor the reasons set out above, CP Plus has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012, and the ANPR record relied on requires full review. As the driver has not been identified, there is no lawful basis to pursue this charge against the registered keeper on a Schedule 4 footing. I invite CP Plus to cancel the Parking Charge Notice 00347261120013 accordingly.",
+  "anpr_paragraph": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle EX15CZT. I do not admit to being the driver and will not be identifying the driver.\nThis Parking Charge Notice was issued by post.\nThe notice consists of front and back pages, and the contents have been checked against the Schedule 4 requirements for a postal Notice to Keeper.\nThat review confirms that the notice does not contain a compliant, route-specific keeper-liability warning, even though the document is complete.\nThe operator has therefore not met the applicable Schedule 4 content conditions and cannot rely on Schedule 4 to transfer liability to the registered keeper where the driver has not been identified.\nAccording to the notice, the alleged parking event at Canada Water Estate, SE16 7LL took place on 22 April 2026 and the postal Notice to Keeper was issued on 11 May 2026.\nFor a postal Notice to Keeper under Schedule 4 in England and Wales, the statutory deadline for delivery in these circumstances was 6 May 2026.\nUsing the standard presumption of delivery for post, the notice is treated as having been delivered on 13 May 2026.\nThis is 7 days after the statutory deadline.\nThe Notice to Keeper was therefore not delivered within the applicable statutory period for the postal notice route, and the operator has failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4.\nThe keeper's account is that the vehicle visited Canada Water Estate, SE16 7LL for shopping, left the site, and then returned later the same day.\nThe keeper states that a necessary item was realised to have been left elsewhere, which prompted the vehicle to leave the site before returning once that had been resolved.\nThis means the vehicle attended the site on more than one separate occasion on the date in question.\nIn these circumstances, the first recorded ANPR entry and the final recorded exit must not be assumed to represent a single continuous stay without checking all intermediate captures.\nThe operator is therefore requested to review and disclose the complete ANPR record for the vehicle on that date, including any intermediate entry and exit images, rather than relying solely on the two images selected for the Parking Charge Notice.\nFor the reasons set out above, CP Plus has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012, and the ANPR record relied on requires full review. As the driver has not been identified, there is no lawful basis to pursue this charge against the registered keeper on a Schedule 4 footing. I invite CP Plus to cancel the Parking Charge Notice 00347261120013 accordingly.",
+  "letter_coverage": {
+    "shopping": true,
+    "reason_for_leaving": true,
+    "left_site": true,
+    "returned": true,
+    "multiple_visits": true,
+    "driver_disclosure": false
+  },
+  "pofa_independent": true,
+  "pofa_findings": [
+    "POFA_POSTAL_LATE",
+    "NTK_CONTENT_DEFECT"
+  ],
+  "acceptance": {
+    "shopping_rendered": true,
+    "reason_for_leaving_rendered": true,
+    "left_site_rendered": true,
+    "returned_rendered": true,
+    "multiple_visits_rendered": true,
+    "pofa_preserved": true,
+    "unsupported_assertions_zero": false,
+    "driver_disclosure_zero": true,
+    "claim_plan_not_rewritten_by_drafter": false,
+    "departure_reason_in_bundle": true,
+    "regression_offline": true,
+    "released": false
+  },
+  "trace": {
+    "raw_narrative": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+    "narrative_atom": [
+      {
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "source_text": "realised I had forgotten my purse at home",
+        "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85
+      },
+      {
+        "atom_id": "NA-departure_reason",
+        "name": "departure_reason",
+        "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "source_text": "realised I had forgotten my purse at home",
+        "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+        "attribution": "CUSTOMER",
+        "polarity": "AFFIRMED",
+        "confidence": 0.85
+      }
+    ],
+    "support_bundle_particulars": {
+      "departure_in_support": true
+    },
+    "draft_plan_particulars": {
+      "required": [
+        "left_site",
+        "returned_same_day",
+        "visited_premises",
+        "purpose_of_visit",
+        "departure_reason",
+        "multiple_visits"
+      ],
+      "values": {
+        "purpose_of_visit": "shopping",
+        "left_site": true,
+        "returned_same_day": true,
+        "multiple_visits": true,
+        "departure_reason": "a necessary item was realised to have been left elsewhere, prompting the departure"
+      },
+      "narrative_atoms": [
+        {
+          "atom_id": "NA-departure_reason",
+          "name": "departure_reason",
+          "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+          "source_text": "realised I had forgotten my purse at home",
+          "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+          "attribution": "CUSTOMER",
+          "polarity": "AFFIRMED",
+          "confidence": 0.85
+        },
+        {
+          "atom_id": "NA-departure_reason",
+          "name": "departure_reason",
+          "proposition": "a necessary item was realised to have been left elsewhere, prompting the departure",
+          "source_text": "realised I had forgotten my purse at home",
+          "source_excerpt": "I attended the car park for shopping at the retail estate. Partway through I realised I had forgotten my purse at home, so I left the site. I returned later the same day to continue my visit.",
+          "attribution": "CUSTOMER",
+          "polarity": "AFFIRMED",
+          "confidence": 0.85
+        }
+      ]
+    },
+    "generated_section": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle EX15CZT. I do not admit to being the driver and will not be identifying the driver.\nThis Parking Charge Notice was issued by post.\nThe notice consists of front and back pages, and the contents have been checked against the Schedule 4 requirements for a postal Notice to Keeper.\nThat review confirms that the notice does not contain a compliant, route-specific keeper-liability warning, even though the document is complete.\nThe operator has therefore not met the applicable Schedule 4 content conditions and cannot rely on Schedule 4 to transfer liability to the registered keeper where the driver has not been identified.\nAccording to the notice, the alleged parking event at Canada Water Estate, SE16 7LL took place on 22 April 2026 and the postal Notice to Keeper was issued on 11 May 2026.\nFor a postal Notice to Keeper under Schedule 4 in England and Wales, the statutory deadline for delivery in these circumstances was 6 May 2026.\nUsing the standard presumption of delivery for post, the notice is treated as having been delivered on 13 May 2026.\nThis is 7 days after the statutory deadline.\nThe Notice to Keeper was therefore not delivered within the applicable statutory period for the postal notice route, and the operator has failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4.\nThe keeper's account is that the vehicle visited Canada Water Estate, SE16 7LL for shopping, left the site, and then returned later the same day.\nThe keeper states that a necessary item was realised to have been left elsewhere, which prompted the vehicle to leave the site before returning once that had been resolved.\nThis means the vehicle attended the site on more than one separate occasion on the date in question.\nIn these circumstances, the first recorded ANPR entry and the final recorded exit must not be assumed to represent a single continuous stay without checking all intermediate captures.\nThe operator is therefore requested to review and disclose the complete ANPR record for the vehicle on that date, including any intermediate entry and exit images, rather than relying solely on the two images selected for the Parking Charge Notice.\nFor the reasons set out above, CP Plus has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012, and the ANPR record relied on requires full review. As the driver has not been identified, there is no lawful basis to pursue this charge against the registered keeper on a Schedule 4 footing. I invite CP Plus to cancel the Parking Charge Notice 00347261120013 accordingly.",
+    "final_sentence": [
+      " I invite CP Plus to cancel the Parking Charge Notice 00347261120013 accordingly",
+      ""
+    ]
+  },
+  "verdict": "MATERIAL_PROPAGATION_FIX_REQUIRED"
+}

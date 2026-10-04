@@ -1,0 +1,27 @@
+{
+  "case_id": "HOLDOUT_DRAFT_D",
+  "split": "HOLDOUT",
+  "family": "no_ground_unseen",
+  "input": {
+    "customer_narrative": "I have nothing particular to add about the visit.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Holdout Park D",
+      "pcn_number": "HD011201",
+      "vrm": "OO55PPP",
+      "parking_location": "Holdout Plaza D",
+      "site_postcode": "BT1 1AA",
+      "parking_event_date": "06/09/2026",
+      "notice_issue_date": "10/09/2026",
+      "alleged_breach": "Breach of terms",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "outcome_any": [
+      "NO_SUPPORTED_GROUNDS",
+      "NEED_MORE_INFORMATION"
+    ],
+    "must_not_release_empty_appeal": true
+  }
+}

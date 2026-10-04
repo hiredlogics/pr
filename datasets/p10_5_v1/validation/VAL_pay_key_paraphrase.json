@@ -1,0 +1,42 @@
+{
+  "case_id": "VAL_pay_key_paraphrase",
+  "split": "VALIDATION",
+  "family": "payment_keying",
+  "input": {
+    "customer_narrative": "I settled parking on the phone app but one character of the plate was wrong.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS786237",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "app.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [
+      "PAYMENT_MADE",
+      "KEYING_ERROR"
+    ],
+    "substantive_grounds_any": [
+      "KB-PAY-01",
+      "KB-KEY-01"
+    ]
+  }
+}

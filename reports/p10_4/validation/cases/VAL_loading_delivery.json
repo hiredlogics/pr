@@ -1,0 +1,1465 @@
+{
+  "spec": {
+    "case_id": "VAL_loading_delivery",
+    "split": "VALIDATION",
+    "family": "loading_delivery",
+    "notes": "Fresh VAL wording \u2014 not copied from DEV_loading_delivery.",
+    "input": {
+      "customer_narrative": "Stopped briefly while unloading stock for a courier delivery to unit 4.",
+      "customer_answers": {},
+      "extraction_fields": {
+        "operator_name": "Oakridge Parking Services",
+        "pcn_number": "OR410103",
+        "vrm": "MT24KPL",
+        "parking_location": "Oakridge Trade Yard",
+        "site_postcode": "NG1 3BB",
+        "parking_event_date": "04/08/2026",
+        "notice_issue_date": "08/08/2026",
+        "alleged_breach": "Parked in a loading bay",
+        "operator_ata": "IPC"
+      }
+    },
+    "expected": {
+      "semantic_concepts_any": [
+        "LOADING",
+        "DELIVERY"
+      ],
+      "facts_any": {
+        "loading_activity": true
+      },
+      "must_not_affirm_concepts": [
+        "BROKEN_DOWN",
+        "PAYMENT_MADE"
+      ],
+      "must_not_include_grounds": [
+        "KB-POFA-01",
+        "KB-POFA-05"
+      ],
+      "invariants": [
+        "no_legal_conclusion_independent"
+      ]
+    }
+  },
+  "expected_scored": {
+    "semantic_concepts_any": [
+      "LOADING",
+      "DELIVERY"
+    ],
+    "facts_any": {
+      "loading_activity": true
+    },
+    "must_not_affirm_concepts": [
+      "BROKEN_DOWN",
+      "PAYMENT_MADE"
+    ],
+    "must_not_include_grounds": [
+      "KB-POFA-01",
+      "KB-POFA-05"
+    ],
+    "invariants": [
+      "no_legal_conclusion_independent"
+    ]
+  },
+  "actual": {
+    "ok": true,
+    "error": null,
+    "state": "RELEASED",
+    "outcome": null,
+    "asked_questions": [],
+    "facts": {
+      "operator_name": {
+        "value": "Oakridge Parking Services",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_name",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_number": {
+        "value": "OR410103",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-pcn_number",
+        "authority": null,
+        "lineage": null
+      },
+      "vrm": {
+        "value": "MT24KPL",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-vrm",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_location": {
+        "value": "Oakridge Trade Yard",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_location",
+        "authority": null,
+        "lineage": null
+      },
+      "site_postcode": {
+        "value": "NG1 3BB",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-site_postcode",
+        "authority": null,
+        "lineage": null
+      },
+      "parking_event_date": {
+        "value": "2026-08-04",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-parking_event_date",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_issue_date": {
+        "value": "2026-08-08",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-notice_issue_date",
+        "authority": null,
+        "lineage": null
+      },
+      "alleged_breach": {
+        "value": "Parked in a loading bay",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-alleged_breach",
+        "authority": null,
+        "lineage": null
+      },
+      "operator_ata": {
+        "value": "IPC",
+        "status": "CONFIRMED",
+        "source": "DOCUMENT",
+        "fact_id": "F-operator_ata",
+        "authority": null,
+        "lineage": null
+      },
+      "restricted_bay_alleged": {
+        "value": true,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-restricted_bay_alleged",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_sides_complete": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_sides_complete",
+        "authority": null,
+        "lineage": null
+      },
+      "jurisdiction": {
+        "value": "ENGLAND_WALES",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-jurisdiction",
+        "authority": null,
+        "lineage": null
+      },
+      "notice_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-notice_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pcn_conflict": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "ANSWER",
+        "fact_id": "F-pcn_conflict",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_parking_clause_found": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_parking_clause_found",
+        "authority": null,
+        "lineage": null
+      },
+      "lease_has_regulations_clause": {
+        "value": false,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-lease_has_regulations_clause",
+        "authority": null,
+        "lineage": null
+      },
+      "loading_activity": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT",
+        "fact_id": "F-loading_activity",
+        "authority": null,
+        "lineage": null
+      },
+      "account_contradicts_allegation": {
+        "value": true,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-account_contradicts_allegation",
+        "authority": null,
+        "lineage": null
+      },
+      "material_account_propositions": {
+        "value": [
+          "the vehicle's presence was connected with genuine loading or unloading activity"
+        ],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-material_account_propositions",
+        "authority": null,
+        "lineage": null
+      },
+      "material_account_proposition": {
+        "value": "the vehicle's presence was connected with genuine loading or unloading activity",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-material_account_proposition",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_route": {
+        "value": "POSTAL",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_route",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_findings": {
+        "value": [],
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_findings",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_finding": {
+        "value": null,
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_finding",
+        "authority": null,
+        "lineage": null
+      },
+      "pofa_9_2_e_status": {
+        "value": "UNRESOLVED",
+        "status": "DERIVED",
+        "source": "CALCULATION",
+        "fact_id": "F-pofa_9_2_e_status",
+        "authority": null,
+        "lineage": null
+      }
+    },
+    "findings": [
+      {
+        "finding_id": "ff4006ae-a32a-5fbd-b3a5-9672be9e9973",
+        "case_id": "VAL_loading_delivery",
+        "finding_type": "POFA_POSTAL_LATE",
+        "created_at": "2026-10-04T02:59:16.219019+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "parking_event_date",
+            "fact_id": "F-parking_event_date"
+          },
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-04",
+          "notice_issue_date": "2026-08-08",
+          "deadline": "2026-08-18",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -7,
+          "note": "timing compliant on the established dates"
+        },
+        "legal_module_id": "KB-POFA-02",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "d134fa69-00f6-50e2-aa17-fd3cb6715257",
+        "case_id": "VAL_loading_delivery",
+        "finding_type": "POFA_NTD_NTK_LATE",
+        "created_at": "2026-10-04T02:59:16.219019+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-04",
+          "notice_issue_date": "2026-08-08",
+          "deadline": "2026-08-18",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -7,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "de242152-eadc-52aa-b79c-d9b4e07a1424",
+        "case_id": "VAL_loading_delivery",
+        "finding_type": "POFA_NTD_NTK_TOO_EARLY",
+        "created_at": "2026-10-04T02:59:16.219019+00:00",
+        "status": "NOT_SUPPORTED",
+        "supporting_facts": [
+          {
+            "fact": "notice_issue_date",
+            "fact_id": "F-notice_issue_date"
+          },
+          {
+            "fact": "notice_route",
+            "fact_id": "F-notice_route"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-04",
+          "notice_issue_date": "2026-08-08",
+          "deadline": "2026-08-18",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -7,
+          "note": "no Notice to Driver route"
+        },
+        "legal_module_id": "KB-POFA-03",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "4ac586c7-536d-59e7-adac-6493d92383ac",
+        "case_id": "VAL_loading_delivery",
+        "finding_type": "POFA_NTK_INVITATION_DEFECT",
+        "created_at": "2026-10-04T02:59:16.219019+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "pofa_9_2_e_status",
+            "fact_id": "F-pofa_9_2_e_status"
+          },
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-04",
+          "notice_issue_date": "2026-08-08",
+          "deadline": "2026-08-18",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -7,
+          "note": "notice content not yet fully reviewed"
+        },
+        "legal_module_id": "KB-POFA-05",
+        "run_id": 1,
+        "_persisted": true
+      },
+      {
+        "finding_id": "94816db1-7808-5dce-bba0-fa5ae9860a27",
+        "case_id": "VAL_loading_delivery",
+        "finding_type": "NTK_CONTENT_DEFECT",
+        "created_at": "2026-10-04T02:59:16.219019+00:00",
+        "status": "UNRESOLVED",
+        "supporting_facts": [
+          {
+            "fact": "notice_sides_complete",
+            "fact_id": "F-notice_sides_complete"
+          }
+        ],
+        "calculation_result": {
+          "pofa_route": "POSTAL",
+          "parking_event_date": "2026-08-04",
+          "notice_issue_date": "2026-08-08",
+          "deadline": "2026-08-18",
+          "presumed_delivery": "2026-08-11",
+          "days_between": -7,
+          "note": "both notice sides required before a content defect"
+        },
+        "legal_module_id": null,
+        "run_id": 1,
+        "_persisted": true
+      }
+    ],
+    "concepts": [
+      {
+        "concept": "LOADING",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "Stopped briefly while unloading stock for a courier delivery to unit 4.",
+        "confidence": 0.85,
+        "provenance": "deterministic_pattern"
+      },
+      {
+        "concept": "DELIVERY",
+        "polarity": "AFFIRMED",
+        "attribution": "CUSTOMER",
+        "source_text": "Stopped briefly while unloading stock for a courier delivery to unit 4.",
+        "confidence": 0.85,
+        "provenance": "deterministic_pattern"
+      }
+    ],
+    "retrieved_modules": [
+      "KB-BAY-02",
+      "KB-ACT-01",
+      "KB-POFA-01"
+    ],
+    "supported_grounds": [
+      "KB-ACT-01",
+      "KB-BAY-02"
+    ],
+    "claim_plan_items": [
+      {
+        "module_id": "KB-ACT-01",
+        "status": "SUPPORTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "SELECTED",
+        "supporting_facts": [
+          "{'condition': 'alleged_breach present', 'fact': 'alleged_breach', 'value': 'Parked in a loading bay', 'source': 'E1#p1', 'source_kind': 'DOCUMENT', 'fact_id': '68b02f15-5c1b-430a-ad9a-c5d056267850'}",
+          "{'condition': 'loading_activity=true', 'fact': 'loading_activity', 'value': True, 'source': 'semantic:loading_activity', 'source_kind': 'CUSTOMER_FREE_TEXT', 'fact_id': '8ffe0dee-4bb7-4df5-9f58-50df274ea12d'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts"
+      },
+      {
+        "module_id": "KB-BAY-02",
+        "status": "SUPPORTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "SELECTED",
+        "supporting_facts": [
+          "{'condition': 'restricted_bay_alleged=true', 'fact': 'restricted_bay_alleged', 'value': True, 'source': 'breach_classify', 'source_kind': 'CALCULATION', 'fact_id': 'a787e5d0-fdae-4ae8-87ac-08c3ad06fbd2', 'because_of': (mappingproxy({'fact': 'alleged_breach', 'value': 'Parked in a loading bay', 'source': 'E1#p1'}),)}",
+          "{'condition': 'account_contradicts_allegation=true', 'fact': 'account_contradicts_allegation', 'value': True, 'source': 'material_account', 'source_kind': 'CALCULATION', 'fact_id': '5c4649f6-f4e9-4203-b5fd-7a48de988ff7', 'because_of': (mappingproxy({'fact': 'loading_activity', 'value': True, 'source': 'semantic:loading_activity'}), mappingproxy({'fact': 'alleged_breach', 'value': 'Parked in a loading bay', 'source': 'E1#p1'}))}",
+          "{'condition': 'material_account_proposition', 'fact': 'material_account_proposition', 'value': \"the vehicle's presence was connected with genuine loading or unloading activity\", 'fact_id': '6f97e22b-69da-4918-83bf-f95ea9648525'}"
+        ],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "selected by Case Intelligence; gate holds, nothing blocks it, supported by verified facts"
+      },
+      {
+        "module_id": "KB-ACT-03",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source, collection_or_checkin_delay, genuine_customer"
+      },
+      {
+        "module_id": "KB-AUTH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: authorisation_source"
+      },
+      {
+        "module_id": "KB-BAY-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: observation_window_min"
+      },
+      {
+        "module_id": "KB-EQ-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: disability_extra_time"
+      },
+      {
+        "module_id": "KB-EQ-03",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: blue_badge_displayed, disability_extra_time"
+      },
+      {
+        "module_id": "KB-EVCH-01",
+        "status": "UNRESOLVED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ev_charging_session"
+      },
+      {
+        "module_id": "KB-POFA-05",
+        "status": "UNRESOLVED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "MISSING_FACTS",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "could apply; not established: ntk_defect_charge_amount, ntk_defect_creditor, ntk_defect_document_confirmed, ntk_defect_keeper_warning, ntk_defect_parking_details, ntk_defect_statutory_invitation"
+      },
+      {
+        "module_id": "KB-AUTH-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed permit_held=true"
+      },
+      {
+        "module_id": "KB-AUTH-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed visitor_authorised=true"
+      },
+      {
+        "module_id": "KB-BREAK-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true"
+      },
+      {
+        "module_id": "KB-BREAK-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed immobilisation_prevented_departure=true; no confirmed immobilisation_cause present"
+      },
+      {
+        "module_id": "KB-BREAK-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed vehicle_immobilised=true; no confirmed recovery_attended=true"
+      },
+      {
+        "module_id": "KB-CON-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed short_presence_before_acceptance=true"
+      },
+      {
+        "module_id": "KB-CON-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed no_parking_took_place=true"
+      },
+      {
+        "module_id": "KB-EQ-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed disability_extra_time=true; no confirmed disability_time_relates_to_breach=true"
+      },
+      {
+        "module_id": "KB-GRACE-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed permitted_period_ended=true; no confirmed exit_delay_min present"
+      },
+      {
+        "module_id": "KB-HOSP-03",
+        "status": "REJECTED",
+        "role": "SUPPORTING_PROPOSITION",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed hospital_attendance=true; no confirmed landholder_cancellation_route_available=true"
+      },
+      {
+        "module_id": "KB-INFRA-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed barrier_or_access_failure=true"
+      },
+      {
+        "module_id": "KB-PAY-01",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed payment_made=true"
+      },
+      {
+        "module_id": "KB-PAY-02",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: payment_method!=MACHINE"
+      },
+      {
+        "module_id": "KB-PAY-03",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: do_not_use_when"
+      },
+      {
+        "module_id": "KB-POFA-01",
+        "status": "REJECTED",
+        "role": "LEGAL_CONCLUSION",
+        "origin": "ROLE_INELIGIBLE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "module role LEGAL_CONCLUSION cannot independently create a Claim Plan ground (use_when/retrieval is not enough)"
+      },
+      {
+        "module_id": "KB-POFA-04",
+        "status": "REJECTED",
+        "role": "SUBSTANTIVE_GROUND",
+        "origin": "BLOCKED",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "blocked condition holds: notice_sides_complete=false, ntk_invites_pass_to_driver!=false"
+      },
+      {
+        "module_id": "KB-SIGN-02",
+        "status": "REJECTED",
+        "role": "SUPPORTING_PROPOSITION",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed signage_issue_raised=true; no confirmed signage_issue_type=TERM_PROMINENCE"
+      },
+      {
+        "module_id": "KB-SIGN-04",
+        "status": "REJECTED",
+        "role": "SUPPORTING_PROPOSITION",
+        "origin": "GATE",
+        "supporting_facts": [],
+        "derived_facts": [],
+        "findings": [],
+        "evidence_refs": [],
+        "required_particulars": [],
+        "reason": "offered, not argued: use_when not yet met: no confirmed signage_issue_raised=true; no confirmed signage_issue_type=CHANGED_OR_DAMAGED"
+      }
+    ],
+    "role_partition": {
+      "substantive": [
+        "KB-ACT-01",
+        "KB-BAY-02"
+      ],
+      "support_only": [],
+      "other": [],
+      "orphan_support": false
+    },
+    "plan_digest": "0dfb62057e0e704daea37c72799d17577f0e2513a2612f1e40bde04f1d8e24dc",
+    "plan_id": "7cea2ff7-d90d-524a-b5de-e55210f46a27",
+    "primary_route": "ACTIVITY",
+    "secondary_routes": [
+      "BAY"
+    ],
+    "draft_context": {
+      "primary_route": "ACTIVITY",
+      "secondary_routes": [
+        "BAY"
+      ],
+      "verified_facts": {
+        "operator_name": "Oakridge Parking Services",
+        "pcn_number": "OR410103",
+        "vrm": "MT24KPL",
+        "parking_location": "Oakridge Trade Yard",
+        "site_postcode": "NG1 3BB",
+        "parking_event_date": "2026-08-04",
+        "notice_issue_date": "2026-08-08",
+        "alleged_breach": "Parked in a loading bay",
+        "operator_ata": "IPC",
+        "restricted_bay_alleged": true,
+        "notice_sides_complete": false,
+        "jurisdiction": "ENGLAND_WALES",
+        "notice_route": "POSTAL",
+        "pcn_conflict": false,
+        "lease_parking_clause_found": false,
+        "lease_has_regulations_clause": false,
+        "loading_activity": true,
+        "account_contradicts_allegation": true,
+        "material_account_propositions": [
+          "the vehicle's presence was connected with genuine loading or unloading activity"
+        ],
+        "material_account_proposition": "the vehicle's presence was connected with genuine loading or unloading activity",
+        "pofa_route": "POSTAL",
+        "pofa_findings": [],
+        "pofa_finding": null,
+        "pofa_9_2_e_status": "UNRESOLVED",
+        "driver_status": "UNIDENTIFIED",
+        "evidence_kinds": [
+          "PCN"
+        ]
+      },
+      "fact_refs": {
+        "operator_name": "F-operator_name",
+        "pcn_number": "F-pcn_number",
+        "vrm": "F-vrm",
+        "parking_location": "F-parking_location",
+        "site_postcode": "F-site_postcode",
+        "parking_event_date": "F-parking_event_date",
+        "notice_issue_date": "F-notice_issue_date",
+        "alleged_breach": "F-alleged_breach",
+        "operator_ata": "F-operator_ata",
+        "restricted_bay_alleged": "F-restricted_bay_alleged",
+        "notice_sides_complete": "F-notice_sides_complete",
+        "jurisdiction": "F-jurisdiction",
+        "notice_route": "F-notice_route",
+        "pcn_conflict": "F-pcn_conflict",
+        "lease_parking_clause_found": "F-lease_parking_clause_found",
+        "lease_has_regulations_clause": "F-lease_has_regulations_clause",
+        "loading_activity": "F-loading_activity",
+        "account_contradicts_allegation": "F-account_contradicts_allegation",
+        "material_account_propositions": "F-material_account_propositions",
+        "material_account_proposition": "F-material_account_proposition",
+        "pofa_route": "F-pofa_route",
+        "pofa_findings": "F-pofa_findings",
+        "pofa_finding": "F-pofa_finding",
+        "pofa_9_2_e_status": "F-pofa_9_2_e_status"
+      },
+      "evidence_refs": [
+        "E1"
+      ],
+      "prohibited_claims": [
+        "10 minutes always cancels",
+        "asserting legal entitlement solely from child presence",
+        "automatic exemption",
+        "breakdown automatically frustrates",
+        "genuine pre-estimate of loss",
+        "inventing entitlement",
+        "loading is always exempt",
+        "pasting customer free text",
+        "the bay was not reserved",
+        "unlawful penalty",
+        "who was driving"
+      ],
+      "code_version": "SCOP-1.1",
+      "pofa_route": "POSTAL",
+      "pofa_findings": [],
+      "driver_status": "UNIDENTIFIED",
+      "context_chunks": [
+        {
+          "id": "KB-BAY-02",
+          "module_id": "KB-BAY-02",
+          "kind": "module",
+          "text": "Keeper account inconsistent with restricted-bay eligibility premise. The keeper's professionally restated account is inconsistent with the factual premise that the bay's conditions of use were unmet. Incorporate material_account_proposition only. Never paste customer free text. Never invent who was driving. Do not equate child presence with legal entitlement beyond the inconsistency with the allegation's premise.",
+          "sources": [
+            {
+              "id": "CL-evidential-weight",
+              "title": "Evidential weight of operator records and ANPR timestamps",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        },
+        {
+          "id": "KB-ACT-01",
+          "module_id": "KB-ACT-01",
+          "kind": "module",
+          "text": "Loading / unloading. Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence. Do not assume loading is always exempt on private land - the argument is about the site terms actually in force.",
+          "sources": [
+            {
+              "id": "CL-contract-formation",
+              "title": "Contract formation / acceptance of parking terms",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        },
+        {
+          "id": "AI-ACT-001",
+          "module_id": "KB-ACT-01",
+          "kind": "block",
+          "text": "The vehicle's presence was connected with genuine loading/unloading activity. The operator should assess the actual site terms and the factual distinction between temporary stopping for that activity and ordinary parking, rather than assuming that every stationary period is parking.",
+          "sources": [
+            {
+              "id": "CL-contract-formation",
+              "title": "Contract formation / acceptance of parking terms",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        },
+        {
+          "id": "PP-BAY-002",
+          "module_id": "KB-BAY-02",
+          "kind": "block",
+          "text": "Further, the information available to the registered keeper indicates that the vehicle's presence was connected with genuine loading or unloading activity. That is inconsistent with the factual premise of the allegation that the bay's conditions of use were unmet. The operator is requested to identify the evidence relied upon to conclude otherwise.",
+          "sources": [
+            {
+              "id": "CL-evidential-weight",
+              "title": "Evidential weight of operator records and ANPR timestamps",
+              "case_law_enabled": false,
+              "in_source_register": false
+            }
+          ]
+        }
+      ],
+      "lease_clauses": [],
+      "case_context": {
+        "operator_name": "Oakridge Parking Services",
+        "parking_location": "Oakridge Trade Yard",
+        "alleged_breach": "Parked in a loading bay",
+        "parking_event_date": "2026-08-04",
+        "pcn_number": "OR410103",
+        "vrm": "MT24KPL",
+        "evidence": [
+          {
+            "evidence_id": "E1",
+            "kind": "PCN",
+            "filename": "notice.txt"
+          }
+        ],
+        "unresolved_topics": [],
+        "validation_status": null,
+        "shopping_receipt_enclosed": false,
+        "material_account_propositions": [
+          "the vehicle's presence was connected with genuine loading or unloading activity"
+        ],
+        "material_account_proposition": "the vehicle's presence was connected with genuine loading or unloading activity",
+        "account_contradicts_allegation": true,
+        "child_occupant_present": false,
+        "customer_reported_facts": [
+          "loading_activity",
+          "pcn_conflict"
+        ],
+        "document_established_facts": [
+          "account_contradicts_allegation",
+          "alleged_breach",
+          "jurisdiction",
+          "lease_has_regulations_clause",
+          "lease_parking_clause_found",
+          "material_account_proposition",
+          "material_account_propositions",
+          "notice_issue_date",
+          "notice_route",
+          "notice_sides_complete",
+          "operator_ata",
+          "operator_name",
+          "parking_event_date",
+          "parking_location",
+          "pcn_number",
+          "pofa_9_2_e_status",
+          "pofa_finding",
+          "pofa_findings",
+          "pofa_route",
+          "restricted_bay_alleged",
+          "site_postcode",
+          "vrm"
+        ],
+        "customer_quotations": [],
+        "factual_rebuttal": {
+          "account_contradicts_allegation": true,
+          "propositions": [
+            "the vehicle's presence was connected with genuine loading or unloading activity"
+          ],
+          "child_occupant_present": false,
+          "independent_of_timing": true
+        },
+        "timing_argument": {
+          "observation_window_min": null,
+          "observation_time": null,
+          "event_time": null,
+          "bay_timing_selected": false
+        },
+        "claim_plan": {
+          "claim_plan_id": "7cea2ff7-d90d-524a-b5de-e55210f46a27",
+          "version": 1,
+          "status": "LOCKED",
+          "module_ids": [
+            "KB-ACT-01",
+            "KB-BAY-02"
+          ],
+          "claims": [
+            {
+              "module_id": "KB-ACT-01",
+              "claim_type": "ACTIVITY",
+              "priority": 1,
+              "supported_by": [
+                "alleged_breach present",
+                "loading_activity=true"
+              ]
+            },
+            {
+              "module_id": "KB-BAY-02",
+              "claim_type": "BAY",
+              "priority": 2,
+              "supported_by": [
+                "restricted_bay_alleged=true",
+                "account_contradicts_allegation=true",
+                "material_account_proposition"
+              ]
+            }
+          ],
+          "support_bundles": {
+            "KB-ACT-01": {
+              "source_fact_ids": [
+                "68b02f15-5c1b-430a-ad9a-c5d056267850",
+                "8ffe0dee-4bb7-4df5-9f58-50df274ea12d"
+              ],
+              "derived_fact_ids": [],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "6ee734da-9336-593d-89b8-943b7f6a99df",
+                "d6a976ed-ffc7-5ee1-b10d-1d19bab1834d"
+              ],
+              "source_fact_names": [
+                "alleged_breach",
+                "loading_activity"
+              ],
+              "derived_fact_names": [],
+              "values": {
+                "alleged_breach": "Parked in a loading bay",
+                "loading_activity": true
+              }
+            },
+            "KB-BAY-02": {
+              "source_fact_ids": [
+                "alleged_breach",
+                "loading_activity",
+                "6f97e22b-69da-4918-83bf-f95ea9648525"
+              ],
+              "derived_fact_ids": [
+                "a787e5d0-fdae-4ae8-87ac-08c3ad06fbd2",
+                "5c4649f6-f4e9-4203-b5fd-7a48de988ff7"
+              ],
+              "evidence_ids": [],
+              "legal_finding_ids": [],
+              "relationship_ids": [
+                "2d346304-9473-58bd-92bb-662f4eb2d9db",
+                "ee58b70b-a454-58a0-be4c-4343dec4d4e2"
+              ],
+              "source_fact_names": [
+                "alleged_breach",
+                "loading_activity",
+                "material_account_proposition"
+              ],
+              "derived_fact_names": [
+                "restricted_bay_alleged",
+                "account_contradicts_allegation"
+              ],
+              "values": {
+                "restricted_bay_alleged": true,
+                "alleged_breach": "Parked in a loading bay",
+                "account_contradicts_allegation": true,
+                "loading_activity": true,
+                "material_account_proposition": "the vehicle's presence was connected with genuine loading or unloading activity"
+              }
+            }
+          },
+          "draft_requirements": {
+            "KB-ACT-01": {
+              "required_particulars": [
+                "alleged_breach",
+                "loading_activity"
+              ],
+              "prohibited_content": [
+                "loading is always exempt",
+                "automatic exemption",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the supporting facts"
+              ]
+            },
+            "KB-BAY-02": {
+              "required_particulars": [
+                "alleged_breach",
+                "loading_activity",
+                "material_account_proposition",
+                "restricted_bay_alleged",
+                "account_contradicts_allegation"
+              ],
+              "prohibited_content": [
+                "the bay was not reserved",
+                "inventing entitlement",
+                "pasting customer free text",
+                "asserting legal entitlement solely from child presence",
+                "driver_identity_unless_formally_identified"
+              ],
+              "explanation_goal": [
+                "state the source sequence that produces the derived conclusion"
+              ]
+            }
+          },
+          "material_fact_accounting": [
+            {
+              "fact_name": "loading_activity",
+              "disposition": "used",
+              "reason": "supports KB-ACT-01",
+              "relations": [
+                {
+                  "module_id": "KB-BAY-02",
+                  "relation": "neutral"
+                },
+                {
+                  "module_id": "KB-ACT-01",
+                  "relation": "supports"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "account_contradicts_allegation",
+              "disposition": "used",
+              "reason": "supports KB-BAY-02",
+              "relations": [
+                {
+                  "module_id": "KB-BAY-02",
+                  "relation": "supports"
+                },
+                {
+                  "module_id": "KB-ACT-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "material_account_proposition",
+              "disposition": "used",
+              "reason": "supports KB-BAY-02",
+              "relations": [
+                {
+                  "module_id": "KB-BAY-02",
+                  "relation": "supports"
+                },
+                {
+                  "module_id": "KB-ACT-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            },
+            {
+              "fact_name": "material_account_propositions",
+              "disposition": "used",
+              "reason": "supports KB-BAY-02",
+              "relations": [
+                {
+                  "module_id": "KB-BAY-02",
+                  "relation": "supports"
+                },
+                {
+                  "module_id": "KB-ACT-01",
+                  "relation": "neutral"
+                }
+              ],
+              "value_present": true
+            }
+          ]
+        },
+        "supported_grounds": [
+          {
+            "module_id": "KB-ACT-01",
+            "route": "ACTIVITY",
+            "topic": "Loading / unloading",
+            "proposition": "Distinguish the activity from ordinary parking where the contract/site rights recognise the distinction; analyse actual terms and evidence."
+          },
+          {
+            "module_id": "KB-BAY-02",
+            "route": "BAY",
+            "topic": "Keeper account inconsistent with restricted-bay eligibility premise",
+            "proposition": "The keeper's professionally restated account is inconsistent with the factual premise that the bay's conditions of use were unmet."
+          }
+        ],
+        "particulars": {
+          "alleged_breach": "Parked in a loading bay",
+          "loading_activity": true,
+          "restricted_bay_alleged": true,
+          "account_contradicts_allegation": true,
+          "material_account_proposition": "the vehicle's presence was connected with genuine loading or unloading activity"
+        }
+      },
+      "module_ids": [
+        "KB-ACT-01",
+        "KB-BAY-02"
+      ],
+      "evidence_index": {
+        "E1": "PCN"
+      },
+      "fact_basis": {
+        "operator_name": "DOCUMENT",
+        "pcn_number": "DOCUMENT",
+        "vrm": "DOCUMENT",
+        "parking_location": "DOCUMENT",
+        "site_postcode": "DOCUMENT",
+        "parking_event_date": "DOCUMENT",
+        "notice_issue_date": "DOCUMENT",
+        "alleged_breach": "DOCUMENT",
+        "operator_ata": "DOCUMENT",
+        "restricted_bay_alleged": "DOCUMENT",
+        "notice_sides_complete": "DOCUMENT",
+        "jurisdiction": "DOCUMENT",
+        "notice_route": "DOCUMENT",
+        "pcn_conflict": "CUSTOMER_ACCOUNT",
+        "lease_parking_clause_found": "DOCUMENT",
+        "lease_has_regulations_clause": "DOCUMENT",
+        "loading_activity": "CUSTOMER_ACCOUNT",
+        "account_contradicts_allegation": "CUSTOMER_ACCOUNT",
+        "material_account_propositions": "CUSTOMER_ACCOUNT",
+        "material_account_proposition": "CUSTOMER_ACCOUNT",
+        "pofa_route": "DOCUMENT",
+        "pofa_findings": "DOCUMENT",
+        "pofa_finding": "DOCUMENT",
+        "pofa_9_2_e_status": "DOCUMENT",
+        "driver_status": "DERIVED",
+        "evidence_kinds": "DERIVED"
+      },
+      "driver_rule": "Write about the keeper and the vehicle. Never say or imply who parked, drove, left or returned. Never write 'I parked' or 'the driver parked'.",
+      "verified_legal_findings": [],
+      "support_bundles": {
+        "KB-ACT-01": {
+          "source_fact_ids": [
+            "68b02f15-5c1b-430a-ad9a-c5d056267850",
+            "8ffe0dee-4bb7-4df5-9f58-50df274ea12d"
+          ],
+          "derived_fact_ids": [],
+          "evidence_ids": [],
+          "legal_finding_ids": [],
+          "relationship_ids": [
+            "6ee734da-9336-593d-89b8-943b7f6a99df",
+            "d6a976ed-ffc7-5ee1-b10d-1d19bab1834d"
+          ],
+          "source_fact_names": [
+            "alleged_breach",
+            "loading_activity"
+          ],
+          "derived_fact_names": [],
+          "values": {
+            "alleged_breach": "Parked in a loading bay",
+            "loading_activity": true
+          }
+        },
+        "KB-BAY-02": {
+          "source_fact_ids": [
+            "alleged_breach",
+            "loading_activity",
+            "6f97e22b-69da-4918-83bf-f95ea9648525"
+          ],
+          "derived_fact_ids": [
+            "a787e5d0-fdae-4ae8-87ac-08c3ad06fbd2",
+            "5c4649f6-f4e9-4203-b5fd-7a48de988ff7"
+          ],
+          "evidence_ids": [],
+          "legal_finding_ids": [],
+          "relationship_ids": [
+            "2d346304-9473-58bd-92bb-662f4eb2d9db",
+            "ee58b70b-a454-58a0-be4c-4343dec4d4e2"
+          ],
+          "source_fact_names": [
+            "alleged_breach",
+            "loading_activity",
+            "material_account_proposition"
+          ],
+          "derived_fact_names": [
+            "restricted_bay_alleged",
+            "account_contradicts_allegation"
+          ],
+          "values": {
+            "restricted_bay_alleged": true,
+            "alleged_breach": "Parked in a loading bay",
+            "account_contradicts_allegation": true,
+            "loading_activity": true,
+            "material_account_proposition": "the vehicle's presence was connected with genuine loading or unloading activity"
+          }
+        }
+      },
+      "draft_requirements": {
+        "KB-ACT-01": {
+          "required_particulars": [
+            "alleged_breach",
+            "loading_activity"
+          ],
+          "prohibited_content": [
+            "loading is always exempt",
+            "automatic exemption",
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the supporting facts"
+          ]
+        },
+        "KB-BAY-02": {
+          "required_particulars": [
+            "alleged_breach",
+            "loading_activity",
+            "material_account_proposition",
+            "restricted_bay_alleged",
+            "account_contradicts_allegation"
+          ],
+          "prohibited_content": [
+            "the bay was not reserved",
+            "inventing entitlement",
+            "pasting customer free text",
+            "asserting legal entitlement solely from child presence",
+            "driver_identity_unless_formally_identified"
+          ],
+          "explanation_goal": [
+            "state the source sequence that produces the derived conclusion"
+          ]
+        }
+      }
+    },
+    "draft_context_error": null,
+    "draft_context_complete": true,
+    "support_bundle_complete": true,
+    "letter": "I write as the registered keeper of vehicle MT24KPL in respect of Parking Charge Notice OR410103. I dispute liability for this parking charge and require the operator to consider this appeal.\n\nThe Parking Charge Notice alleges: Parked in a loading bay at Oakridge Trade Yard.\n\nThe vehicle's presence was connected with genuine loading/unloading activity. The operator should assess the actual site terms and the factual distinction between temporary stopping for that activity and ordinary parking, rather than assuming that every stationary period is parking.\n\nFurther, the information available to the registered keeper indicates that the vehicle's presence was connected with genuine loading or unloading activity. That is inconsistent with the factual premise of the allegation that the bay's conditions of use were unmet. The operator is requested to identify the evidence relied upon to conclude otherwise.\n\nFor the reasons set out above, the parking charge is disputed and the operator is requested to cancel the Parking Charge Notice.",
+    "letter_empty": false,
+    "validation_passed": true,
+    "validation_issues": [],
+    "master_digest": "80877c83e30997dcb25ba87f23488af17668153cff01ea6a751f8a4660b1182a",
+    "versions": {
+      "git_commit": "be577e4111cefe0e9d22ad562aa1bf89d82542f2",
+      "kb_release": null,
+      "prompt_versions": {
+        "extraction": 10,
+        "drafting": 16,
+        "case_analysis": 8,
+        "validation": 3,
+        "page_references": 2,
+        "classification": 2
+      },
+      "model_provider": "ReferenceAnalysisLLM",
+      "claim_plan_builder_version": "3",
+      "master_case_object_version": 1,
+      "extractor": "INJECTED_FROM_DOCUMENT_GOLD"
+    },
+    "persist": {
+      "passed": true,
+      "before": [
+        "KB-ACT-01",
+        "KB-BAY-02"
+      ],
+      "after": [
+        "KB-ACT-01",
+        "KB-BAY-02"
+      ],
+      "digest_before": "0dfb62057e0e704daea37c72799d17577f0e2513a2612f1e40bde04f1d8e24dc",
+      "digest_after": "0dfb62057e0e704daea37c72799d17577f0e2513a2612f1e40bde04f1d8e24dc",
+      "master_roundtrip_ok": true
+    }
+  },
+  "scores": {
+    "scores": {
+      "semantic": {
+        "status": "SCORED",
+        "semantic_concept_precision": 1.0,
+        "semantic_concept_recall": 1.0,
+        "concept_tp": [
+          "DELIVERY",
+          "LOADING"
+        ],
+        "concept_fp": [],
+        "concept_fn": [],
+        "concept_misses_partial": [],
+        "concept_unexpected_affirmed": [],
+        "narrative_fact_precision": 1.0,
+        "narrative_fact_recall": 1.0,
+        "fact_tp": [
+          "loading_activity"
+        ],
+        "fact_fp": [],
+        "fact_fn": [],
+        "negation_accuracy": 1.0,
+        "uncertainty_accuracy": 1.0,
+        "attribution_accuracy": 1.0,
+        "fact_promotion_accuracy": 1.0,
+        "derived_lineage_completeness": "N/A",
+        "passed": true
+      },
+      "kb_ground": {
+        "status": "SCORED",
+        "kb_candidate_precision": "N/A",
+        "kb_candidate_recall": "N/A",
+        "candidate_tp": [],
+        "candidate_fp": [],
+        "candidate_fn": [],
+        "role_filter_precision": 1.0,
+        "role_filter_recall": 1.0,
+        "ground_precision": "N/A",
+        "ground_recall": "N/A",
+        "ground_tp": [],
+        "ground_fp": [],
+        "ground_fn": [],
+        "orphan_support": false,
+        "orphan_support_letter": false,
+        "unsupported_leading_ground_rate": 0.0,
+        "supporting_incorrectly_in_claim_plan": 0,
+        "legal_conclusion_independent_grounds": 0,
+        "legal_in_plan": [],
+        "support_in_plan": [],
+        "structural_in_plan": [],
+        "evidence_in_plan": [],
+        "primary_route_ok": true,
+        "passed": true
+      },
+      "invariants": {
+        "status": "SCORED",
+        "checks": {
+          "no_legal_conclusion_independent": true
+        },
+        "legal_conclusion_in_plan": [],
+        "supporting_in_plan": [],
+        "passed": true
+      },
+      "draft": {
+        "status": "SCORED",
+        "clean_upstream": true,
+        "draft_ground_coverage": 0.5,
+        "material_fact_coverage": 1.0,
+        "required_particular_coverage": "N/A",
+        "unsupported_assertion_rate": 0.0,
+        "validation_passed": true,
+        "passed": true
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null
+  },
+  "persist": {
+    "passed": true,
+    "before": [
+      "KB-ACT-01",
+      "KB-BAY-02"
+    ],
+    "after": [
+      "KB-ACT-01",
+      "KB-BAY-02"
+    ],
+    "digest_before": "0dfb62057e0e704daea37c72799d17577f0e2513a2612f1e40bde04f1d8e24dc",
+    "digest_after": "0dfb62057e0e704daea37c72799d17577f0e2513a2612f1e40bde04f1d8e24dc",
+    "master_roundtrip_ok": true
+  }
+}

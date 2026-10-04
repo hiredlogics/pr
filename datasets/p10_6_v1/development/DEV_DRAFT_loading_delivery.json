@@ -1,0 +1,32 @@
+{
+  "case_id": "DEV_DRAFT_loading_delivery",
+  "split": "DEVELOPMENT",
+  "family": "loading_delivery",
+  "input": {
+    "customer_narrative": "I was collecting a parcel from the retail unit and loading it into the car.",
+    "customer_answers": {
+      "loading_activity": "yes",
+      "activity_type": "COLLECTION"
+    },
+    "extraction_fields": {
+      "operator_name": "LoadBay Parking",
+      "pcn_number": "LB100301",
+      "vrm": "FF66GGG",
+      "parking_location": "LoadBay Retail",
+      "site_postcode": "S1 2AA",
+      "parking_event_date": "12/08/2026",
+      "notice_issue_date": "16/08/2026",
+      "alleged_breach": "Parked in loading bay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "facts_any": {
+      "loading_activity": true
+    },
+    "substantive_grounds_any": [
+      "KB-ACT-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

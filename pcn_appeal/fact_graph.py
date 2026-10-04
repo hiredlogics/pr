@@ -71,6 +71,21 @@ RESOLVED = "RESOLVED"
 
 # Outcomes of a write, as fact_history records them.
 APPLIED, CONFLICT, IGNORED, RETRACTED = "APPLIED", "CONFLICT", "IGNORED", "RETRACTED"
+IGNORED_DUPLICATE = "IGNORED_DUPLICATE"
+
+# P8.7 fact authority. Higher rank cannot be overwritten by a lower write.
+DOCUMENT_CONFIRMED = "DOCUMENT_CONFIRMED"
+VERIFIED_FINDING_AUTH = "VERIFIED_FINDING"
+CUSTOMER_CONFIRMED = "CUSTOMER_CONFIRMED"
+CUSTOMER_ASSERTED = "CUSTOMER_ASSERTED"
+INFERRED = "INFERRED"
+AUTHORITY_RANK = {
+    DOCUMENT_CONFIRMED: 50,
+    VERIFIED_FINDING_AUTH: 40,
+    CUSTOMER_CONFIRMED: 30,
+    CUSTOMER_ASSERTED: 20,
+    INFERRED: 10,
+}
 
 # Values that hold no information.
 PLACEHOLDERS = (None, "", "UNKNOWN", [])
@@ -153,6 +168,54 @@ def from_customer(f: Fact) -> bool:
     return f.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT)
 
 
+def fact_authority(f: Fact) -> str:
+    """P8.7 authority label for a held or incoming fact."""
+    kind = f.source.kind
+    status = f.status
+    ref = (f.source.ref or "").lower()
+    if kind == SourceKind.DOCUMENT:
+        return DOCUMENT_CONFIRMED
+    if kind == SourceKind.CALCULATION and any(
+            tok in ref for tok in ("pofa", "legal.", "findings", "verified")):
+        return VERIFIED_FINDING_AUTH
+    if status in (FactStatus.CONFIRMED, FactStatus.CORRECTED):
+        return CUSTOMER_CONFIRMED
+    if kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT):
+        return CUSTOMER_ASSERTED
+    return INFERRED
+
+
+def authority_rank(label: str) -> int:
+    return AUTHORITY_RANK.get(label, 0)
+
+
+def _standing(f: Fact) -> int:
+    """Numeric authority for two readings of the same value (P8.7)."""
+    return authority_rank(fact_authority(f))
+
+
+def _explicit_correction(fact: Fact, reason: str) -> bool:
+    if fact.status == FactStatus.CORRECTED:
+        return True
+    low = (reason or "").lower()
+    return any(tok in low for tok in ("correction", "conflict_resolved", "customer chose"))
+
+
+def _may_replace(old: Fact, fact: Fact, reason: str) -> bool:
+    """True only for an explicit correction, a customer answer change, a
+    customer settling a machine value, or a derived recompute. Account /
+    extraction restatements never overwrite."""
+    if _explicit_correction(fact, reason):
+        return True
+    if is_explicit_customer(fact) and is_machine(old):
+        return True
+    if is_explicit_customer(fact) and fact.source.kind == SourceKind.ANSWER:
+        return True
+    if old.status == FactStatus.DERIVED and fact.status == FactStatus.DERIVED:
+        return True
+    return False
+
+
 def from_document(f: Fact) -> bool:
     return f.source.kind in (SourceKind.DOCUMENT, SourceKind.CALCULATION)
 
@@ -197,8 +260,10 @@ def default_changed_by(f: Fact) -> str:
 
 @dataclass
 class UpdateResult:
-    outcome: str                          # APPLIED / CONFLICT / IGNORED
+    outcome: str                          # APPLIED / CONFLICT / IGNORED / IGNORED_DUPLICATE
     conflict: Optional[dict] = None
+    reason: str = ""
+    existing_fact_id: Optional[str] = None
 
     @property
     def applied(self) -> bool:
@@ -217,8 +282,10 @@ class FactManager:
 
           1. no fact held, or a placeholder held          -> apply
           2. the customer resolving an open conflict      -> apply, RESOLVED
-          3. the same value                               -> keep the stronger
-                                                             status, note the source
+          3. the same value                               -> IGNORED_DUPLICATE
+                                                             (keep source, status,
+                                                             confidence; record
+                                                             incoming provenance)
           4. a placeholder over a customer's value        -> IGNORED (keep)
           5. who owns the fact, and may this source override it:
                DOCUMENT  a confident reading is not overwritten by the customer:
@@ -244,23 +311,55 @@ class FactManager:
                 if chosen is not None:
                     return cls._resolve(case, pending, old, fact, chosen, changed_by, reason)
             if same_value(old.value, fact.value):
+                # P8.7: same value is never a rewrite. Record the incoming
+                # source as extra provenance and leave the held fact alone.
                 cls._source(case, fact, accepted=True)
                 Hypotheses.settle(case, fact)
-                if is_explicit_customer(old) and not is_explicit_customer(fact):
-                    return UpdateResult(IGNORED)          # never demote a confirmation
+                why = reason or "same value already exists"
+                if authority_rank(fact_authority(fact)) < authority_rank(fact_authority(old)):
+                    why = "Existing fact has higher authority."
+                node_id = case.facts.node_id(fact.name) or old.fact_id
+                cls._history(case, old, fact, IGNORED_DUPLICATE, why, changed_by)
+                case.audit.append({
+                    "event": "fact_ignored_duplicate",
+                    "existing_fact_id": node_id,
+                    "incoming_source": {
+                        "kind": fact.source.kind.value, "ref": fact.source.ref,
+                        "authority": fact_authority(fact),
+                    },
+                    "held_authority": fact_authority(old),
+                    "reason": why, "name": fact.name,
+                })
+                return UpdateResult(IGNORED_DUPLICATE, reason=why,
+                                    existing_fact_id=node_id)
             elif fact.value in PLACEHOLDERS and old.value not in PLACEHOLDERS \
                     and is_machine(fact) and (is_explicit_customer(old) or from_customer(old)):
                 cls._history(case, old, fact, IGNORED, reason or "placeholder_over_customer_value",
                              changed_by)
                 cls._source(case, fact, accepted=False)
-                return UpdateResult(IGNORED)
+                return UpdateResult(IGNORED, reason="placeholder_over_customer_value")
             elif old.value not in PLACEHOLDERS and fact.value not in PLACEHOLDERS:
                 refused = cls._refusal(old, fact)
                 if refused:
                     rule, state = refused
                     return cls._conflict(case, old, fact, rule, state, changed_by, reason)
+                if not _may_replace(old, fact, reason):
+                    return cls._conflict(case, old, fact, "no_silent_overwrite",
+                                         KEPT_EXISTING, changed_by, reason)
 
+        if old is not None and not same_value(old.value, fact.value):
+            from .fact_lifecycle import SUPERSEDED, note_version
+            note_version(case, old, lifecycle=SUPERSEDED,
+                         reason=reason or "value_changed", created_by=changed_by,
+                         supersedes=None)
         cls._apply(case, old, fact, changed_by, reason)
+        if old is None or not same_value(old.value, fact.value):
+            from .fact_lifecycle import ACTIVE, note_version
+            prev = None
+            if old is not None:
+                prev = old.fact_id
+            note_version(case, fact, lifecycle=ACTIVE, reason=reason or "fact_set",
+                         created_by=changed_by, supersedes=prev)
         return UpdateResult(APPLIED)
 
     @staticmethod
@@ -388,21 +487,39 @@ class FactManager:
         cls._history(case, old, fact, APPLIED, reason, changed_by)
         cls._source(case, fact, accepted=True)
         Hypotheses.settle(case, fact)
+        # P8.1: a derived fact records what it was derived from, as it lands.
+        # The calculator declares its inputs with case_state.derives(...); one
+        # that declares nothing still gets a lineage row naming it, which
+        # MasterCase.lineage_gaps reports.
+        from .case_state import note_derivation
+        note_derivation(case, fact)
         case.audit.append({"event": "fact_set", "name": fact.name,
                            "status": fact.status.value, "source": fact.source.ref})
 
     @classmethod
     def _conflict(cls, case, old, fact, rule, state, changed_by, reason) -> UpdateResult:
+        stamp = now()
+        held_type, proposed_type = source_type(case, old).value, source_type(case, fact).value
         conflict = {
             "conflict_id": str(uuid.uuid4()), "fact": fact.name,
+            "fact_name": fact.name,
             "fact_id": case.facts.node_id(fact.name),
             "held_value": plain(old.value), "proposed_value": plain(fact.value),
+            "previous_value": plain(old.value), "new_value": plain(fact.value),
             "held_status": old.status.value, "proposed_status": fact.status.value,
-            "held_source_type": source_type(case, old).value, "held_source": old.source.ref,
-            "proposed_source_type": source_type(case, fact).value,
+            "held_source_type": held_type, "held_source": old.source.ref,
+            "proposed_source_type": proposed_type,
             "proposed_source": fact.source.ref,
-            "rule": rule, "status": state, "resolution": None, "resolved_by": None,
-            "run_id": case.run_id, "at": now(), "resolved_at": None,
+            "sources": [
+                {"kind": held_type, "ref": old.source.ref,
+                 "authority": fact_authority(old)},
+                {"kind": proposed_type, "ref": fact.source.ref,
+                 "authority": fact_authority(fact)},
+            ],
+            "timestamps": {"previous": stamp, "new": stamp},
+            "rule": rule, "status": state, "resolution_status": state,
+            "resolution": None, "resolved_by": None,
+            "run_id": case.run_id, "at": stamp, "resolved_at": None,
             # The typed values, so a resolution restores a date as a date.
             "_held": old.value, "_proposed": fact.value,
         }
@@ -469,13 +586,16 @@ class FactManager:
 
 
 def _shown(value: Any) -> str:
+    d = None
     if isinstance(value, str) and len(value) == 10 and value[4] == "-" and value[7] == "-":
         try:
-            return date.fromisoformat(value).strftime("%-d %B %Y")
+            d = date.fromisoformat(value)
         except ValueError:
             return value
-    if isinstance(value, date):
-        return value.strftime("%-d %B %Y")
+    elif isinstance(value, date):
+        d = value
+    if d is not None:
+        return f"{d.day} {d.strftime('%B %Y')}"
     return str(value)
 
 

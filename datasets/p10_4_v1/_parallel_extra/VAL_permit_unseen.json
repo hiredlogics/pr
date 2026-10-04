@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_permit_unseen",
+  "split": "VALIDATION",
+  "family": "permit",
+  "input": {
+    "customer_narrative": "I am a permit holder for that block; the windscreen disc was on display.",
+    "customer_answers": {"resident_status": "LEASEHOLDER", "permit_held": "yes"},
+    "extraction_fields": {
+      "operator_name": "Quayside Management Parking",
+      "pcn_number": "QM550021",
+      "vrm": "TR14NOP",
+      "parking_location": "Quayside Court",
+      "site_postcode": "L3 1BY",
+      "parking_event_date": "14/07/2026",
+      "notice_issue_date": "18/07/2026",
+      "alleged_breach": "No valid permit displayed",
+      "operator_ata": "IPC",
+      "allocated_bay": "22",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed_any": ["PERMIT_HELD", "PERMIT_DISPLAYED"],
+    "promoted_facts": {"permit_held": true},
+    "orphan_support": false
+  }
+}

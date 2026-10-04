@@ -1,0 +1,26 @@
+{
+  "case_id": "HOLDOUT_A",
+  "split": "HOLDOUT",
+  "sealed": true,
+  "family": "sealed_holdout",
+  "notes": "Untouched holdout for next evaluation cycle. Do not inspect expected outputs during P10.3 implementation.",
+  "input": {
+    "customer_narrative": "Vehicle would not restart after a short stop; waited for roadside help before leaving.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Crestline Mobility",
+      "pcn_number": "CL700201",
+      "vrm": "QP58RTY",
+      "parking_location": "Crestline Hub",
+      "site_postcode": "B1 1AA",
+      "parking_event_date": "12/07/2026",
+      "notice_issue_date": "16/07/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "sealed": true,
+    "note": "Expectations sealed until next evaluation cycle."
+  }
+}

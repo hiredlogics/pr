@@ -1,0 +1,22 @@
+{
+  "case_id": "HOLDOUT_D",
+  "split": "HOLDOUT",
+  "sealed": true,
+  "family": "sealed_holdout",
+  "input": {
+    "customer_narrative": "Not certain whether a permit was shown; possibly left site briefly.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Harborfield Estates Parking",
+      "pcn_number": "HF300304",
+      "vrm": "JK19MNO",
+      "parking_location": "Harborfield Court",
+      "site_postcode": "G2 3CC",
+      "parking_event_date": "15/07/2026",
+      "notice_issue_date": "19/07/2026",
+      "alleged_breach": "No valid permit displayed",
+      "operator_ata": "IPC"
+    }
+  },
+  "expected": {"sealed": true}
+}

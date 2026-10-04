@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from .. import case_state
 from ..legal import code_versions, pofa
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from ..disclosure import keeper_route_blocked
@@ -341,15 +342,24 @@ class FactRecoveryEngine:
         report.calculated["pofa_route"] = res.route
         report.calculated["pofa_findings"] = list(res.findings)
         report.calculated["pofa_notes"] = list(res.notes)
-        case.put(Fact(
-            "F-pofa_route", "pofa_route", res.route, FactStatus.DERIVED,
-            FactSource(SourceKind.CALCULATION, "pofa.assess"),
-        ))
-        case.put(Fact(
-            "F-pofa_finding", "pofa_finding",
-            res.findings[0] if res.findings else None, FactStatus.DERIVED,
-            FactSource(SourceKind.CALCULATION, "pofa.assess"),
-        ))
+        with case_state.derives(case, "jurisdiction", "relevant_land", "notice_route",
+                                "parking_event_date", "notice_issue_date", "ntd_date",
+                                "notice_received_date", "delivery_date_proven",
+                                rule="pofa.assess"):
+            case.put(Fact(
+                "F-pofa_route", "pofa_route", res.route, FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "pofa.assess"),
+            ))
+            case.put(Fact(
+                "F-pofa_findings", "pofa_findings",
+                list(res.findings or []), FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "pofa.assess"),
+            ))
+            case.put(Fact(
+                "F-pofa_finding", "pofa_finding",
+                res.findings[0] if res.findings else None, FactStatus.DERIVED,
+                FactSource(SourceKind.CALCULATION, "pofa.assess"),
+            ))
         if res.deadline:
             report.calculated["pofa_deadline"] = res.deadline.isoformat()
         if res.presumed_delivery:

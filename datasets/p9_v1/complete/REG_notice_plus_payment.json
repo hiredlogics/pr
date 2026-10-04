@@ -1,0 +1,226 @@
+{
+  "case_id": "REG_notice_plus_payment",
+  "dataset_version": "p9_v1",
+  "completeness": "COMPLETE",
+  "split": "DEVELOPMENT",
+  "approval_status": "DEVELOPMENT_APPROVED",
+  "family": "overstay_plus_receipt",
+  "operator": "Acme Parking Ltd",
+  "allegation": "overstay",
+  "legal_route": "unobserved",
+  "circumstance": "partial_payment_receipt",
+  "evidence_type": "notice_plus_receipt",
+  "notes": "Receipt is evidence, not an approved ground. Grounds UNOBSERVED.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "PARKING CHARGE NOTICE\nOperator Name: Acme Parking Ltd\nPCN Number: PCN778899\nVehicle Registration: KX19 PLT\nLocation: Riverside Retail Park\nPostcode: M1 4BT\nDate of Contravention: 12/06/2026\nDate of Issue: 02/07/2026\nEntry Time: 14:05\nExit Time: 16:58\nCharge: 100\nAlleged Breach: Overstayed the maximum permitted period\nTrade Association: BPA",
+    "notice_back": "HOW TO APPEAL\nIf you were not the driver, you may pass this notice to the driver or\nname them. We are seeking recovery from the keeper under Schedule 4 of\nthe Protection of Freedoms Act 2012 if the driver is not identified.\nIf your appeal to us is rejected you may appeal to the independent\nappeals service (POPLA) within 28 days using the code we will give you.\nPay or appeal within 28 days of the date of issue.",
+    "customer_narrative": "I paid at the machine when I arrived. I did not realise the time had run out.",
+    "customer_answers": {},
+    "answer_policy": "no",
+    "evidence": [
+      {
+        "evidence_id": "E2",
+        "filename": "receipt.txt",
+        "kind": "OTHER",
+        "doc_type": "OTHER",
+        "text": "Riverside Retail Park - Pay and Display\nTicket 00412  12/06/2026 14:10\nPaid: 2.00  Expires: 16:10"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {
+      "operator_name": "Acme Parking Ltd",
+      "pcn_number": "PCN778899",
+      "vrm": "KX19 PLT",
+      "parking_location": "Riverside Retail Park",
+      "site_postcode": "M1 4BT",
+      "parking_event_date": "12/06/2026",
+      "notice_issue_date": "02/07/2026",
+      "entry_time": "14:05",
+      "exit_time": "16:58",
+      "charge_amount": "100",
+      "alleged_breach": "Overstayed the maximum permitted period",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN",
+      "E2": "OTHER"
+    },
+    "image_path": null
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "Acme Parking Ltd",
+        "pcn_number": "PCN778899",
+        "vrm": "KX19 PLT",
+        "parking_location": "Riverside Retail Park",
+        "site_postcode": "M1 4BT",
+        "parking_event_date": "12/06/2026",
+        "notice_issue_date": "02/07/2026",
+        "entry_time": "14:05",
+        "exit_time": "16:58",
+        "charge_amount": "100",
+        "alleged_breach": "Overstayed the maximum permitted period",
+        "operator_ata": "BPA",
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "Acme Parking Ltd",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "PCN778899",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "KX19 PLT",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "12/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "02/07/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "14:05",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "16:58",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "Riverside Retail Park",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "site_postcode",
+          "value": "M1 4BT",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "alleged_breach",
+          "value": "Overstayed the maximum permitted period",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_appeal_requirements": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "must_express": [],
+        "must_not_express": [
+          "I parked",
+          "I drove"
+        ],
+        "exact_wording_approved": false
+      }
+    },
+    "ground_origins": {}
+  },
+  "governance": {
+    "approved_by": "development_test_suite",
+    "approved_at": "2026-10-04",
+    "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+  }
+}

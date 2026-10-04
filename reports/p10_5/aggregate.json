@@ -1,0 +1,302 @@
+{
+  "development": {
+    "n_cases": 54,
+    "e2e_pass_rate": 0.7777777777777778,
+    "semantic_concept_precision": 1.0,
+    "semantic_concept_recall": 0.7941176470588235,
+    "semantic_confusion_totals": {
+      "tp": 54,
+      "fp": 0,
+      "fn": 14
+    },
+    "scored_concepts": [
+      "BROKEN_DOWN",
+      "COLLECTION",
+      "DELIVERY",
+      "DROP_OFF",
+      "IMMOBILISED",
+      "KEYING_ERROR",
+      "LEFT_SITE",
+      "LOADING",
+      "MULTIPLE_VISITS",
+      "PAYMENT_MADE",
+      "PERMIT_DISPLAYED",
+      "PERMIT_HELD",
+      "REGISTRATION_MISMATCH",
+      "RETURNED",
+      "SHOPPING"
+    ],
+    "unscored_concepts": [],
+    "metric_note": "semantic_concept P/R derived from confusion-table sums so aggregate equals per-concept TP/FP/FN totals",
+    "narrative_fact_precision": 0.0,
+    "narrative_fact_recall": "N/A",
+    "negation_accuracy": 0.9814814814814815,
+    "uncertainty_accuracy": 0.9629629629629629,
+    "attribution_accuracy": 1.0,
+    "fact_promotion_accuracy": 1.0,
+    "derived_lineage_completeness": "N/A",
+    "kb_candidate_precision": "N/A",
+    "kb_candidate_recall": "N/A",
+    "role_filter_precision": 1.0,
+    "role_filter_recall": 1.0,
+    "ground_precision": "N/A",
+    "ground_recall": "N/A",
+    "orphan_support_letter_count": 0,
+    "supporting_incorrectly_reached_claim_plan": 0,
+    "legal_conclusion_independent_grounds": 0,
+    "supporting_incorrect_expected": 0,
+    "legal_conclusion_incorrect_expected": 0,
+    "clean_upstream_draft_cases": 19,
+    "draft_ground_coverage": 0.05263157894736842,
+    "material_fact_coverage": "N/A",
+    "required_particular_coverage": "N/A",
+    "unsupported_assertion_rate": 0.0,
+    "confusion_by_concept": {
+      "BROKEN_DOWN": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 9
+      },
+      "IMMOBILISED": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 6
+      },
+      "KEYING_ERROR": {
+        "fp": 0,
+        "fn": 4,
+        "tp": 7
+      },
+      "REGISTRATION_MISMATCH": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "PAYMENT_MADE": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 5
+      },
+      "LEFT_SITE": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 7
+      },
+      "RETURNED": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 5
+      },
+      "SHOPPING": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "MULTIPLE_VISITS": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 1
+      },
+      "LOADING": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 3
+      },
+      "DELIVERY": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 4
+      },
+      "COLLECTION": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 1
+      },
+      "DROP_OFF": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "PERMIT_HELD": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 2
+      },
+      "PERMIT_DISPLAYED": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      }
+    }
+  },
+  "validation": {
+    "n_cases": 10,
+    "e2e_pass_rate": 0.7,
+    "semantic_concept_precision": 1.0,
+    "semantic_concept_recall": 0.7333333333333333,
+    "semantic_confusion_totals": {
+      "tp": 11,
+      "fp": 0,
+      "fn": 4
+    },
+    "scored_concepts": [
+      "BROKEN_DOWN",
+      "IMMOBILISED",
+      "KEYING_ERROR",
+      "LEFT_SITE",
+      "LOADING",
+      "MULTIPLE_VISITS",
+      "PAYMENT_MADE",
+      "PERMIT_HELD",
+      "RETURNED"
+    ],
+    "unscored_concepts": [],
+    "metric_note": "semantic_concept P/R derived from confusion-table sums so aggregate equals per-concept TP/FP/FN totals",
+    "narrative_fact_precision": 0.0,
+    "narrative_fact_recall": "N/A",
+    "negation_accuracy": 1.0,
+    "uncertainty_accuracy": 1.0,
+    "attribution_accuracy": 1.0,
+    "fact_promotion_accuracy": 1.0,
+    "derived_lineage_completeness": "N/A",
+    "kb_candidate_precision": "N/A",
+    "kb_candidate_recall": "N/A",
+    "role_filter_precision": 1.0,
+    "role_filter_recall": 1.0,
+    "ground_precision": 1.0,
+    "ground_recall": 0.5,
+    "orphan_support_letter_count": 0,
+    "supporting_incorrectly_reached_claim_plan": 0,
+    "legal_conclusion_independent_grounds": 0,
+    "supporting_incorrect_expected": 0,
+    "legal_conclusion_incorrect_expected": 0,
+    "clean_upstream_draft_cases": 5,
+    "draft_ground_coverage": 0.2,
+    "material_fact_coverage": "N/A",
+    "required_particular_coverage": "N/A",
+    "unsupported_assertion_rate": 0.0,
+    "confusion_by_concept": {
+      "LEFT_SITE": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 1
+      },
+      "MULTIPLE_VISITS": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "RETURNED": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 2
+      },
+      "LOADING": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "BROKEN_DOWN": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "IMMOBILISED": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "KEYING_ERROR": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 2
+      },
+      "PAYMENT_MADE": {
+        "fp": 0,
+        "fn": 2,
+        "tp": 1
+      },
+      "PERMIT_HELD": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      }
+    }
+  },
+  "holdout": {
+    "n_cases": 4,
+    "e2e_pass_rate": 1.0,
+    "semantic_concept_precision": 1.0,
+    "semantic_concept_recall": 1.0,
+    "semantic_confusion_totals": {
+      "tp": 6,
+      "fp": 0,
+      "fn": 0
+    },
+    "scored_concepts": [
+      "BROKEN_DOWN",
+      "COLLECTION",
+      "IMMOBILISED",
+      "KEYING_ERROR",
+      "PAYMENT_MADE",
+      "PICK_UP"
+    ],
+    "unscored_concepts": [],
+    "metric_note": "semantic_concept P/R derived from confusion-table sums so aggregate equals per-concept TP/FP/FN totals",
+    "narrative_fact_precision": "N/A",
+    "narrative_fact_recall": "N/A",
+    "negation_accuracy": 1.0,
+    "uncertainty_accuracy": 1.0,
+    "attribution_accuracy": 1.0,
+    "fact_promotion_accuracy": 1.0,
+    "derived_lineage_completeness": "N/A",
+    "kb_candidate_precision": "N/A",
+    "kb_candidate_recall": "N/A",
+    "role_filter_precision": 1.0,
+    "role_filter_recall": 1.0,
+    "ground_precision": "N/A",
+    "ground_recall": "N/A",
+    "orphan_support_letter_count": 0,
+    "supporting_incorrectly_reached_claim_plan": 0,
+    "legal_conclusion_independent_grounds": 0,
+    "supporting_incorrect_expected": 0,
+    "legal_conclusion_incorrect_expected": 0,
+    "clean_upstream_draft_cases": 2,
+    "draft_ground_coverage": 0.0,
+    "material_fact_coverage": "N/A",
+    "required_particular_coverage": "N/A",
+    "unsupported_assertion_rate": 0.0,
+    "confusion_by_concept": {
+      "BROKEN_DOWN": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "IMMOBILISED": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "KEYING_ERROR": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "PAYMENT_MADE": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "COLLECTION": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      },
+      "PICK_UP": {
+        "fp": 0,
+        "fn": 0,
+        "tp": 1
+      }
+    }
+  }
+}

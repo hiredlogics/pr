@@ -1,0 +1,140 @@
+{
+  "case_id": "REG_no_notice",
+  "dataset_version": "p9_v1",
+  "completeness": "COMPLETE",
+  "split": "VALIDATION",
+  "approval_status": "DEVELOPMENT_APPROVED",
+  "family": "not_a_pcn",
+  "operator": "unknown",
+  "allegation": "none",
+  "legal_route": "out_of_scope",
+  "circumstance": "receipt_only",
+  "evidence_type": "pay_and_display_ticket",
+  "notes": "Not a PCN. Must stop cleanly with no letter and no KB/VAL leak.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "",
+    "notice_back": "",
+    "customer_narrative": "I paid for parking, here is my ticket.",
+    "customer_answers": {},
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E1",
+        "filename": "receipt.txt",
+        "kind": "OTHER",
+        "doc_type": "OTHER",
+        "text": "Riverside Retail Park - Pay and Display\nTicket 00412  12/06/2026 14:10\nPaid: 2.00  Expires: 16:10\nThank you for your visit"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {},
+    "doc_types": {
+      "E1": "OTHER"
+    },
+    "image_path": null
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "not_pcn": true
+      }
+    },
+    "extraction": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "derived_facts": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "supported_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "letter_must_be_empty": true,
+        "letter_excludes": [
+          "KB-",
+          "VAL-"
+        ]
+      }
+    },
+    "final_appeal_requirements": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "must_express": [],
+        "must_not_express": [
+          "KB-",
+          "VAL-"
+        ],
+        "exact_wording_approved": false
+      }
+    },
+    "ground_origins": {}
+  },
+  "governance": {
+    "approved_by": "development_test_suite",
+    "approved_at": "2026-10-04",
+    "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+  }
+}

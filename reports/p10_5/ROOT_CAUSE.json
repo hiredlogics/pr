@@ -1,0 +1,49 @@
+{
+  "evidence": {
+    "p10_4_validation_e2e": 1.0,
+    "p10_4_holdout_e2e": 0.25,
+    "p10_4_holdout_semantic_precision": 1.0,
+    "p10_4_holdout_semantic_recall": 0.333,
+    "first_defective_layer": "SEMANTIC x3"
+  },
+  "trace": [
+    "raw narrative",
+    "deterministic patterns (primary in P10.4)",
+    "optional LLM semantic_extraction (NOT INVOKED \u2014 llm never passed)",
+    "validate_concepts",
+    "concept promotion",
+    "FactManager"
+  ],
+  "holdout_classifications": {
+    "HOLDOUT_A": {
+      "missed": [
+        "BROKEN_DOWN",
+        "IMMOBILISED"
+      ],
+      "classes": [
+        "A",
+        "B"
+      ],
+      "first_defective_transition": "deterministic phrase matcher miss ('would not restart' \u2260 'would not start'); LLM extractor not invoked (assess_material_account passed no llm)"
+    },
+    "HOLDOUT_B": {
+      "missed": [
+        "PAYMENT_MADE",
+        "KEYING_ERROR"
+      ],
+      "classes": [
+        "A",
+        "B"
+      ],
+      "first_defective_transition": "deterministic miss on 'Completed payment' / 'keyed plate'; LLM extractor not invoked"
+    },
+    "HOLDOUT_D": {
+      "issue": "uncertainty/negation polarity handling",
+      "classes": [
+        "E"
+      ],
+      "first_defective_transition": "attribution/polarity prevented clean scoring under uncertain permit/site"
+    }
+  },
+  "summary": "Precision strong, recall weak because meaning extraction depended on exact phrase matchers and the LLM semantic path was never called."
+}

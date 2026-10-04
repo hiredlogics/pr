@@ -1,0 +1,25 @@
+{
+  "case_id": "DEV_permit_mismatch",
+  "split": "DEVELOPMENT",
+  "family": "permit_mismatch",
+  "input": {
+    "customer_narrative": "I hold a resident permit; the bay allocation on the notice does not match my agreement.",
+    "customer_answers": {"resident_status": "TENANT", "permit_held": "yes"},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900104",
+      "vrm": "XY12ZAB",
+      "parking_location": "Harbour Quay Residences",
+      "site_postcode": "LS1 2BB",
+      "parking_event_date": "04/06/2026",
+      "notice_issue_date": "08/06/2026",
+      "alleged_breach": "No valid permit displayed",
+      "operator_ata": "BPA",
+      "allocated_bay": "9"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["PERMIT_HELD"],
+    "facts": {"permit_held": true}
+  }
+}

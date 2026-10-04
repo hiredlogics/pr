@@ -1,0 +1,23 @@
+{
+  "case_id": "DEV_loading_delivery",
+  "split": "DEVELOPMENT",
+  "family": "loading_delivery",
+  "input": {
+    "customer_narrative": "I was unloading a delivery for the hardware store next door.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900105",
+      "vrm": "XY12ZAB",
+      "parking_location": "Trade Yard",
+      "site_postcode": "LS1 3CC",
+      "parking_event_date": "05/06/2026",
+      "notice_issue_date": "09/06/2026",
+      "alleged_breach": "Parked in a loading bay",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["LOADING", "DELIVERY"]
+  }
+}

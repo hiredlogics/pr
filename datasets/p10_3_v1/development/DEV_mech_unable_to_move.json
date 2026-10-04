@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_mech_unable_to_move",
+  "split": "DEVELOPMENT",
+  "family": "vehicle_unable_to_move",
+  "notes": "Synthetic DEV. Wording distinct from REG_breakdown holdout.",
+  "input": {
+    "customer_narrative": "The engine cut out on the forecourt and we could not move the car until assistance arrived.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Northbridge Parking Ltd",
+      "pcn_number": "NB900101",
+      "vrm": "XY12ZAB",
+      "parking_location": "Northbridge Retail",
+      "site_postcode": "LS1 1AA",
+      "parking_event_date": "01/06/2026",
+      "notice_issue_date": "05/06/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA",
+      "entry_time": "10:00",
+      "exit_time": "12:47"
+    }
+  },
+  "expected": {
+    "semantic_concepts_any": ["BROKEN_DOWN", "IMMOBILISED"],
+    "facts": {"vehicle_immobilised": true},
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"]
+  }
+}

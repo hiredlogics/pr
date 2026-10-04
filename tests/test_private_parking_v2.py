@@ -248,7 +248,7 @@ class S04_PermitAndSupermarket(unittest.TestCase):
         self.assertTrue(
             any(m.startswith("KB-AUTH") for m in r.retrieved_modules)
             or "permit_held" in r.extracted
-            or r.state in ("RELEASED", "MANUAL_REVIEW"),
+            or r.state in ("RELEASED", "MANUAL_REVIEW", "NO_SUPPORTED_GROUNDS"),
             r.dump())
 
 

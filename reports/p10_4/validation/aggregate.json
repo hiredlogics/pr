@@ -1,0 +1,81 @@
+{
+  "n_cases": 10,
+  "e2e_pass_rate": 1.0,
+  "semantic_concept_precision": 1.0,
+  "semantic_concept_recall": 1.0,
+  "narrative_fact_precision": 1.0,
+  "narrative_fact_recall": 1.0,
+  "negation_accuracy": 1.0,
+  "uncertainty_accuracy": 1.0,
+  "attribution_accuracy": 1.0,
+  "fact_promotion_accuracy": 1.0,
+  "derived_lineage_completeness": "N/A",
+  "kb_candidate_precision": 1.0,
+  "kb_candidate_recall": 1.0,
+  "role_filter_precision": 1.0,
+  "role_filter_recall": 1.0,
+  "ground_precision": 1.0,
+  "ground_recall": 1.0,
+  "orphan_support_letter_count": 0,
+  "supporting_incorrectly_reached_claim_plan": 0,
+  "legal_conclusion_independent_grounds": 0,
+  "supporting_incorrect_expected": 0,
+  "legal_conclusion_incorrect_expected": 0,
+  "clean_upstream_draft_cases": 7,
+  "draft_ground_coverage": 0.7142857142857143,
+  "material_fact_coverage": 1.0,
+  "required_particular_coverage": "N/A",
+  "unsupported_assertion_rate": 0.0,
+  "confusion_by_concept": {
+    "DELIVERY": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "LOADING": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "BROKEN_DOWN": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "IMMOBILISED": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "LEFT_SITE": {
+      "fp": 0,
+      "fn": 1,
+      "tp": 0
+    },
+    "MULTIPLE_VISITS": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "RETURNED": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "KEYING_ERROR": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "PAYMENT_MADE": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    },
+    "PERMIT_HELD": {
+      "fp": 0,
+      "fn": 0,
+      "tp": 1
+    }
+  }
+}

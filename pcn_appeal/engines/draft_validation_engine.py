@@ -112,6 +112,7 @@ ATTRIBUTED = _R(
     rf"|\b{_KEEPER}\s+(states?|says|reports?|has reported|has told|has explained|"
     r"explains|understands|believes|recalls|contends|maintains|advises|asserts)\b"
     rf"|\baccording to {_KEEPER}\b|\bthe account (given|provided) by {_KEEPER}\b"
+    r"|\bthe account is (therefore )?that\b"
     rf"|\bit is {_KEEPER}(?:'s|’s)\b"
     r"|\b(information|account|instructions|evidence|details)\b[^.]{0,40}\b(available to|"
     rf"given by|provided by|received from|supplied by|reported by)\s+{_KEEPER}\b"
@@ -120,7 +121,11 @@ ATTRIBUTED = _R(
     rf"|\b{_KEEPER} (?:was|is) (?:told|informed|advised)\b")
 
 ENCLOSED = _R(r"\b(enclosed|attached|enclosure|appended|exhibit)\b")
-PLACEHOLDER = _R(r"\{\{|\}\}|\[image \d+\]|<document id=|\bTODO\b|\bXXX+\b")
+PLACEHOLDER = _R(
+    r"\{\{|\}\}|\[image \d+\]|"
+    r"\[(?:PLACEHOLDER|TODO|TBD)[^\]]*\]|<document id=|\bTODO\b|\bXXX+\b"
+)
+UNRESOLVED_TOKEN = re.compile(r"\{[A-Z][A-Z0-9_]{2,}\}")
 TRACE_WORDS = _R(r"\b(use_when|do_not_use_when|RetrievalPack|module_id|claim_plan|fact_id|run_id|"
                  r"building_block|knowledge_match|case_analysis|supporting_facts|inputs_digest|"
                  r"validator_feedback|claim plan|fact graph)\b")
@@ -278,7 +283,8 @@ class DraftValidationEngine:
                 reasons.append("case_law")
 
             # ---- LEAK
-            leak = (internal_ids(t) or PLACEHOLDER.search(t) or TRACE_WORDS.search(t)
+            leak = (internal_ids(t) or PLACEHOLDER.search(t) or UNRESOLVED_TOKEN.search(t)
+                    or TRACE_WORDS.search(t)
                     or SELF_REFERENCE.search(t) or any(f in t for f in fragments))
             if leak:
                 add("DV-LEAK", "Internal identifiers, placeholders, prompt or trace wording "
@@ -344,6 +350,180 @@ class DraftValidationEngine:
                         f"{labels.get(mid) or mid} is approved in the Claim Plan but the "
                         "letter never argues it; every approved ground needs at least one "
                         "grounded sentence", None)
+
+        # ---- GROUND COVERAGE via DraftPlan (P10.6): section + text + semantic expression.
+        # Filler-only paragraphs do not count. BLOCK RELEASE on failure.
+        from ..drafting.plan import (
+            build_draft_plan, particular_expressed, section_expresses_ground,
+        )
+        from ..module_roles import (
+            SUPPORTING_PROPOSITION,
+            LEGAL_CONCLUSION as MODULE_LEGAL_CONCLUSION,
+            role_of,
+        )
+        draft_plan = build_draft_plan(pack)
+        letter_by_ground: dict[str, str] = {}
+        for s in draft.sentences() if draft.paragraphs else []:
+            for mid in s.module_refs or []:
+                letter_by_ground[mid] = (letter_by_ground.get(mid) or "") + " " + (s.text or "")
+        owned = draft_plan.owned_grounds()
+        for section in draft_plan.sections:
+            text = " ".join(letter_by_ground.get(m, "") for m in section.ground_ids).strip()
+            if not text:
+                # Merged ownership may put text under one ground_id only
+                text = " ".join(
+                    letter_by_ground.get(m, "") for m in section.ground_ids
+                ).strip() or letter
+            expressed = section_expresses_ground(text, section)
+            if not expressed:
+                add("VAL-GROUND-COVERAGE",
+                    f"DraftSection {section.section_id} for "
+                    f"{', '.join(section.ground_ids)} has no semantic expression in the "
+                    f"letter (section must exist, render text, and express the ground; "
+                    f"generic filler does not count)", None)
+            # Also alias into VAL-COVERAGE for grounds missing from sentence links
+            for mid in section.ground_ids:
+                if mid not in owned:
+                    continue
+                linked = bool((letter_by_ground.get(mid) or "").strip())
+                if not linked and not expressed:
+                    add("VAL-COVERAGE",
+                        f"{labels.get(mid) or mid} is in the DraftPlan but was not linked "
+                        "to any rendered section text", None)
+
+        # ---- LINEAGE / SUPPORT / PARTICULARS (P8.5 + P10.6)
+        from ..drafting.support_contract import DraftRequirement, SupportBundle
+        from .narrative import NARRATIVE_FACTS
+        support_facts = (plan.get("support_facts") or {}) if isinstance(plan, dict) else {}
+        bundles = (plan.get("support_bundles") or {}) if isinstance(plan, dict) else {}
+        reqs = (plan.get("draft_requirements") or {}) if isinstance(plan, dict) else {}
+        cited_by_ground: dict[str, set] = {}
+        for g in result.grounding:
+            for mid in g.get("claim_plan_items") or []:
+                cited_by_ground.setdefault(mid, set()).update(g.get("facts") or [])
+        for mid in approved:
+            if mid == STRUCTURAL:
+                continue
+            # Support-only modules do not require standalone particular coverage.
+            # Legal conclusions still need finding particulars when they appear.
+            if role_of(mid) == SUPPORTING_PROPOSITION:
+                continue
+            names = list(support_facts.get(mid) or [])
+            bundle = SupportBundle.from_dict(bundles.get(mid))
+            req = DraftRequirement.from_dict(reqs.get(mid))
+            derived = list(bundle.derived_fact_names)
+            sources = list(bundle.source_fact_names)
+            if derived and not sources:
+                add("VAL-LINEAGE",
+                    f"{labels.get(mid) or mid} uses a derived fact "
+                    f"({', '.join(derived)}) without source facts or a derivation "
+                    "relationship", None)
+            narrative_deps = [n for n in names if n in NARRATIVE_FACTS]
+            bridge = [n for n in names if n not in NARRATIVE_FACTS]
+            if narrative_deps and bridge and not any(n in facts for n in bridge):
+                add("VAL-LINEAGE",
+                    f"{labels.get(mid) or mid} is supported by narrative atoms "
+                    f"({', '.join(narrative_deps)}) that drafting withholds; a derived "
+                    f"fact ({', '.join(bridge)}) must remain in the draft context so the "
+                    "letter can particularise the ground without customer prose",
+                    None)
+            elif narrative_deps and not bridge and not any(
+                    n in facts for n in ("multiple_visits", "account_contradicts_allegation")):
+                add("VAL-LINEAGE",
+                    f"{labels.get(mid) or mid} depends on withheld narrative atoms "
+                    f"({', '.join(narrative_deps)}) with no derived fact in draft context",
+                    None)
+            if mid in bundles or mid in reqs:
+                if not bundle.complete() or not req.required_particulars:
+                    add("VAL-CLAIM-PLAN-SUPPORT",
+                        f"{labels.get(mid) or mid} cannot proceed to drafting: every "
+                        "SUPPORTED claim needs a complete SupportBundle and a "
+                        "DraftRequirement", None)
+            if not draft.paragraphs:
+                continue
+            from ..drafting.plan import LETTER_PARTICULARS, NON_LETTER_PARTICULARS
+            section = next((s for s in draft_plan.sections if mid in s.ground_ids), None)
+            section_text = ""
+            if section:
+                section_text = " ".join(
+                    letter_by_ground.get(m, "") for m in section.ground_ids
+                ).strip() or letter
+            cited = cited_by_ground.get(mid, set())
+            missing_part = []
+            linked_findings = [f for f in (pack.legal_findings or [])
+                               if f.get("legal_module_id") == mid
+                               or (f.get("finding_id") or f.get("finding_type") or "")
+                               in bundle.legal_finding_ids]
+            # Material letter particulars only (not gating meta-facts).
+            material = []
+            if section and section.required_particulars:
+                material.extend(
+                    n for n in section.required_particulars
+                    if n not in NON_LETTER_PARTICULARS
+                )
+            else:
+                material.extend(n for n in req.required_particulars if n in NARRATIVE_FACTS)
+                material.extend(
+                    n for n in req.required_particulars
+                    if n in LETTER_PARTICULARS and n not in NON_LETTER_PARTICULARS
+                )
+            for f in linked_findings:
+                p = legal.particulars(f)
+                material.extend(p.get("dates") or {})
+                if p.get("days") is not None:
+                    material.append("days_late")
+            material = list(dict.fromkeys(material))
+            for name in material:
+                if name in NON_LETTER_PARTICULARS:
+                    continue
+                value = (section.particular_values.get(name) if section else None)
+                if value in (None, "", False):
+                    value = facts.get(name)
+                if value in (None, "", False) and name not in ("days_late", "days"):
+                    if not any(
+                            name in ((legal.particulars(f).get("dates") or {}))
+                            or (name in ("days_late", "days") and legal.particulars(f).get("days"))
+                            for f in linked_findings):
+                        continue
+                if name in cited:
+                    continue
+                check_text = section_text or letter
+                if check_text and particular_expressed(check_text, name, value):
+                    continue
+                if value not in (None, "", False) and legal.date_stated(str(value), letter):
+                    continue
+                found = False
+                for f in linked_findings:
+                    p = legal.particulars(f)
+                    dates = p.get("dates") or {}
+                    if name in dates and legal.date_stated(dates[name], letter):
+                        found = True
+                        break
+                    if name in ("days_late", "days") and p.get("days") \
+                            and legal.days_stated(p["days"], letter):
+                        found = True
+                        break
+                if found:
+                    continue
+                missing_part.append(name)
+            for f in linked_findings:
+                p = legal.particulars(f)
+                for key, value in sorted((p.get("dates") or {}).items()):
+                    if not legal.date_stated(value, letter) and key not in missing_part:
+                        missing_part.append(key)
+                days = p.get("days")
+                if days and not legal.days_stated(days, letter) and "days_late" not in missing_part:
+                    missing_part.append("days_late")
+            if missing_part:
+                sid = section.section_id if section else "?"
+                fact_hint = ", ".join(
+                    (section.supporting_fact_ids[:3] if section else []) or []
+                ) or "n/a"
+                add("VAL-DRAFT-PARTICULARS",
+                    f"ground_id={mid}; section_id={sid}; missing particular(s)="
+                    f"{', '.join(missing_part)}; supporting_fact_ids={fact_hint}; "
+                    "a summary of the conclusion is not a substitute for the material "
+                    "factual sequence", None)
         return result
 
     # --------------------------------------------------------------- internals

@@ -40,6 +40,8 @@ _EVENT_STAGE = {
     "knowledge_match": "KNOWLEDGE_MATCH",
     "case_analysis_completed": "CASE_ANALYSIS", "case_analysis_error": "CASE_ANALYSIS",
     "case_analysis": "CASE_ANALYSIS", "case_analysis_reassessment_error": "CASE_ANALYSIS",
+    "document_baseline": "CASE_ANALYSIS", "document_baseline_reused": "CASE_ANALYSIS",
+    "case_analysis_state": "CASE_ANALYSIS",
     "analysis_claim_plan": "CASE_ANALYSIS", "claim_plan": "CASE_ANALYSIS",
     "analysis_round": "CASE_ANALYSIS", "ground_recovery": "CASE_ANALYSIS",
     "ground_recovery_preserved": "CASE_ANALYSIS",

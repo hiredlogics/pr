@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_negation",
+  "split": "VALIDATION",
+  "family": "negation",
+  "notes": "Fresh VAL wording — not copied from DEV_negated_statement.",
+  "input": {
+    "customer_narrative": "There was never a payment made and no mechanical fault occurred that day.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410106",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "07/08/2026",
+      "notice_issue_date": "11/08/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "IPC"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": ["PAYMENT_MADE", "BROKEN_DOWN"],
+    "negated_concepts_any": ["PAYMENT_MADE", "BROKEN_DOWN"],
+    "must_not_promote_facts": ["payment_made", "vehicle_immobilised"],
+    "must_not_include_grounds": ["KB-PAY-01", "KB-BREAK-01"],
+    "invariants": ["negation_accuracy", "no_legal_conclusion_independent"]
+  }
+}

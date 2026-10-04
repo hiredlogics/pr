@@ -1,0 +1,28 @@
+{
+  "case_id": "VAL_negation_unseen",
+  "split": "VALIDATION",
+  "family": "negation",
+  "input": {
+    "customer_narrative": "There was no payment and the car did not break down.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Riverbank Control Ltd",
+      "pcn_number": "RB440015",
+      "vrm": "GH21KLM",
+      "parking_location": "Riverbank Mall",
+      "site_postcode": "BS1 4AQ",
+      "parking_event_date": "15/07/2026",
+      "notice_issue_date": "19/07/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    }
+  },
+  "expected": {
+    "semantic_concepts_affirmed": [],
+    "must_not_affirm": ["PAYMENT_MADE", "BROKEN_DOWN", "IMMOBILISED"],
+    "negation_concepts_any": ["PAYMENT_MADE", "BROKEN_DOWN"],
+    "orphan_support": false
+  }
+}

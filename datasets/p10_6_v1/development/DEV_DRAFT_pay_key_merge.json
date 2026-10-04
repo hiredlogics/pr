@@ -1,0 +1,43 @@
+{
+  "case_id": "DEV_DRAFT_pay_key_merge",
+  "split": "DEVELOPMENT",
+  "family": "merged_compatible",
+  "input": {
+    "customer_narrative": "I paid on the app but mistyped one character of the plate.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking",
+      "pcn_number": "OR610201",
+      "vrm": "CC33DDD",
+      "parking_location": "Oakridge Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "03/08/2026",
+      "notice_issue_date": "07/08/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "pay.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "facts_any": {
+      "payment_made": true,
+      "keying_error_type": "MINOR"
+    },
+    "substantive_grounds_any": [
+      "KB-PAY-01",
+      "KB-KEY-01"
+    ],
+    "draft_ground_coverage": 1.0
+  }
+}

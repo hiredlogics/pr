@@ -1,0 +1,17 @@
+{
+  "case_id": "HOLDOUT_DRAFT_D",
+  "family": "no_ground_unseen",
+  "state": "MANUAL_REVIEW",
+  "outcome_code": null,
+  "result_class": "HOLD",
+  "e2e_ok": true,
+  "latency_ms": 2577,
+  "drafting": {
+    "status": "N/A",
+    "reason": "upstream incomplete or not released",
+    "clean_upstream": false,
+    "passed": null
+  },
+  "supported_grounds": [],
+  "coverage_trace": []
+}

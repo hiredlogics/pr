@@ -1,0 +1,44 @@
+{
+  "case_id": "DEV_DRAFT_multi_particulars",
+  "split": "DEVELOPMENT",
+  "family": "multi_particulars",
+  "input": {
+    "customer_narrative": "Paid via app for AB12 CDE; one character was mistyped at the terminal.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR",
+      "payment_amount": "3.50"
+    },
+    "extraction_fields": {
+      "operator_name": "Particulars Park",
+      "pcn_number": "PP400601",
+      "vrm": "II99JJJ",
+      "parking_location": "Particulars Site",
+      "site_postcode": "M1 1AA",
+      "parking_event_date": "20/08/2026",
+      "notice_issue_date": "24/08/2026",
+      "alleged_breach": "No valid payment",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "kind": "APP_SCREENSHOT",
+        "filename": "pay.png",
+        "doc_type": "APP_SCREENSHOT"
+      }
+    ]
+  },
+  "expected": {
+    "facts_any": {
+      "payment_made": true,
+      "keying_error_type": "MINOR"
+    },
+    "substantive_grounds_any": [
+      "KB-PAY-01",
+      "KB-KEY-01"
+    ],
+    "required_particular_coverage": 1.0
+  }
+}

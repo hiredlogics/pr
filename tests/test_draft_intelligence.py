@@ -461,7 +461,8 @@ class DraftVersions(unittest.TestCase):
             self.assertEqual(r["claim_plan_id"], plan.claim_plan_id)
             self.assertRegex(r["content_hash"], r"^[0-9a-f]{64}$")
             self.assertTrue(r["model"])
-            self.assertEqual(r["prompt_version"], 13)
+            from pcn_appeal import prompts
+            self.assertEqual(r["prompt_version"], prompts.version("drafting"))
             self.assertIn(r["validation_status"], ("PASSED", "FAILED"))
             self.assertTrue(r["created_at"])
         released = [r for r in rows if r["released"]]

@@ -1,0 +1,37 @@
+{
+  "case_id": "VAL_payment_keying",
+  "split": "VALIDATION",
+  "family": "payment_keying",
+  "notes": "Fresh VAL wording — not copied from DEV_payment_reg_mismatch.",
+  "input": {
+    "customer_narrative": "I paid using the parking app, but the registration I typed was wrong.",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410102",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "03/08/2026",
+      "notice_issue_date": "07/08/2026",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA"
+    },
+    "evidence": [
+      {"evidence_id": "E4", "kind": "APP_SCREENSHOT", "filename": "pay_app.png", "doc_type": "APP_SCREENSHOT"}
+    ]
+  },
+  "expected": {
+    "semantic_concepts_any": ["PAYMENT_MADE", "KEYING_ERROR"],
+    "facts_any": {"payment_made": true, "keying_error_type": "MINOR"},
+    "substantive_grounds_any": ["KB-PAY-01", "KB-KEY-01"],
+    "kb_candidates_any": ["KB-PAY-01", "KB-KEY-01"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "primary_route_any": ["PAYMENT"],
+    "invariants": ["no_legal_conclusion_independent", "support_cannot_lead_alone"]
+  }
+}

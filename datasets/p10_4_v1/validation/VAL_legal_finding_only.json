@@ -1,0 +1,29 @@
+{
+  "case_id": "VAL_legal_finding_only",
+  "split": "VALIDATION",
+  "family": "legal_finding_only",
+  "notes": "Late postal NTK — verified finding may support KB-POFA-02; companions must not independently lead.",
+  "input": {
+    "customer_narrative": "The notice arrived long after the parking event; I only saw it weeks later.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410109",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "01/08/2026",
+      "notice_issue_date": "25/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "substantive_grounds_any": ["KB-POFA-02"],
+    "kb_candidates_any": ["KB-POFA-02"],
+    "must_not_include_grounds": ["KB-POFA-01", "KB-POFA-05"],
+    "legal_conclusion_independent_count": 0,
+    "findings_any_types": ["POFA_LATE_NTK", "NTK_LATE", "POFA"],
+    "invariants": ["no_legal_conclusion_independent", "support_cannot_lead_alone"]
+  }
+}

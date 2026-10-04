@@ -1,0 +1,32 @@
+{
+  "case_id": "VAL_irrelevant",
+  "split": "VALIDATION",
+  "family": "irrelevant_narrative",
+  "notes": "Irrelevant customer chatter — must not invent parking defence concepts.",
+  "input": {
+    "customer_narrative": "Sunny afternoon. Queued for coffee near the entrance. Nothing about the charge itself.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Oakridge Parking Services",
+      "pcn_number": "OR410108",
+      "vrm": "MT24KPL",
+      "parking_location": "Oakridge Retail Quarter",
+      "site_postcode": "NG1 2AA",
+      "parking_event_date": "09/08/2026",
+      "notice_issue_date": "13/08/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": [
+      "PAYMENT_MADE", "KEYING_ERROR", "BROKEN_DOWN", "IMMOBILISED",
+      "LOADING", "DELIVERY", "PERMIT_HELD", "MULTIPLE_VISITS"
+    ],
+    "must_not_promote_facts": [
+      "payment_made", "vehicle_immobilised", "loading_activity",
+      "permit_held", "multiple_visits", "keying_error_type"
+    ],
+    "invariants": ["no_legal_conclusion_independent"]
+  }
+}

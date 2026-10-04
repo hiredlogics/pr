@@ -119,6 +119,7 @@ class AppealPipeline:
         llm = ai_log.audited(llm)
         if judge is not None:
             judge = ai_log.audited(judge)
+        self.llm = llm  # P10.5: semantic extraction uses the same client
         self.extraction = ExtractionEngine(llm)
         self.questions = QuestionEngine(self.kg)
         self.reasoning = ReasoningEngine(self.kg)
@@ -176,7 +177,7 @@ class AppealPipeline:
         changes what is material: it can settle a ground, open one, or make a
         question that looked necessary pointless.
         """
-        assess_material_account(case)
+        assess_material_account(case, llm=self.llm)
         analysis = self.analysis_of(case, narrative)
         case.analysis_module_ids = analysis.module_ids
         if getattr(analysis, "claim_plan", None):
@@ -268,15 +269,20 @@ class AppealPipeline:
         }]
 
     def analysis_of(self, case: CaseFile, narrative: str):
-        """Case analysis with the deterministic inputs it must respect.
+        """Case analysis against a completed document baseline.
 
-        Order: recover from documents/calculators → applicability → LLM analysis.
-        Questions are only proposed after recovery has exhausted automatic sources.
+        Order: document belt (enrich → recovery → legal findings) → persist
+        DocumentBaseline → Case Intelligence (proposal only) → analysis state.
+        A later round loads the baseline and adds a customer delta; it does not
+        replace document truth.
         """
-        self.recovery.recover(case)
+        from .document_baseline import establish_document_baseline, record_analysis_state
+        baseline = establish_document_baseline(self, case)
         version, pofa_res = self.reasoning.applicability(case)
-        return self.analysis.analyse(case, narrative, pofa=pofa_res,
-                                     code_version=getattr(version, "version_id", None))
+        analysis = self.analysis.analyse(case, narrative, pofa=pofa_res,
+                                         code_version=getattr(version, "version_id", None))
+        record_analysis_state(case, analysis, baseline)
+        return analysis
 
     # ---------------------------------------------------------------- one click
     def auto_appeal(self, case: CaseFile, narrative: str = "", answers: Optional[dict] = None,
@@ -480,6 +486,9 @@ class AppealPipeline:
                 AppealOutput(case.state, None, empty, Draft(case.case_id, []),
                              ValidationResult(False, issues), []),
                 case)
+        # P8.3: document belt before any further Case Intelligence proposal.
+        from .document_baseline import establish_document_baseline
+        establish_document_baseline(self, case)
         # Proposals: case analysis and ground recovery may still re-propose here.
         self._analyse_until_a_ground_can_lead(case)
         # P5: the decision. One LOCKED claim plan; from here on nothing adds,
@@ -540,8 +549,25 @@ class AppealPipeline:
         draft = result = dv = version = None
         widened = False
         attempt = 0
+        section_retries = 0
+        MAX_SECTION_RETRIES = 2
         # P6: what the drafter is given, as ids and a digest (no text).
-        case.audit.append({"event": "draft_context", **DraftContext.from_pack(pack).audit()})
+        ctx_audit = DraftContext.from_pack(pack).audit()
+        case.audit.append({"event": "draft_context", **ctx_audit})
+        # P10.6: first-defective-layer trace for clean-upstream drafting.
+        try:
+            from .drafting.plan import build_draft_plan, coverage_trace
+            dplan = build_draft_plan(pack, case_id=case.case_id)
+            case.audit.append({
+                "event": "draft_plan",
+                "draft_plan_version": dplan.version,
+                "sections": [s.section_id for s in dplan.sections],
+                "leading_ground_ids": list(dplan.leading_ground_ids),
+                "support_only_ids": list(dplan.support_only_ids),
+            })
+        except Exception as exc:
+            dplan = None
+            case.audit.append({"event": "draft_plan_error", "error": str(exc)})
         while attempt < MAX_ATTEMPTS:
             attempt += 1
             try:
@@ -579,16 +605,59 @@ class AppealPipeline:
                                    "blocks": closing_blocks})
             case.state = CaseState.DRAFTED
             result, dv = self._validate(case, draft, pack)
+            if dplan is not None:
+                case.audit.append({
+                    "event": "draft_coverage_trace",
+                    "attempt": attempt,
+                    "rows": coverage_trace(dplan, draft, pack),
+                })
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
-            version = self._record_version(case, plan, draft, result, dv, pack,
-                                           released=result.passed)
             if result.passed:
+                hold = self._release_gate(case, result, pack, draft)
+                if hold is not None:
+                    self._record_version(case, plan, draft, hold.validation, dv, pack,
+                                         released=False)
+                    return hold
+                version = self._record_version(case, plan, draft, result, dv, pack,
+                                               released=True)
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
                                  self._evidence_list(case)), case)
+            version = self._record_version(case, plan, draft, result, dv, pack,
+                                           released=False)
             case.state = CaseState.VALIDATION_FAILED
+            # P10.6: regenerate only failed DraftSections before whole-letter retry.
+            failed_sections = _failed_section_ids(result.issues, dplan, draft)
+            if (failed_sections and section_retries < MAX_SECTION_RETRIES
+                    and hasattr(self.drafter, "regenerate_sections")):
+                section_retries += 1
+                section_feedback = [
+                    _CLAIM_ID.sub("an unapproved claim", f"{i.rule}: {i.message}")
+                    for i in result.issues
+                    if i.rule in ("VAL-GROUND-COVERAGE", "VAL-DRAFT-PARTICULARS",
+                                  "VAL-COVERAGE", "VAL-PARTICULARS")
+                ]
+                try:
+                    draft = self.drafter.regenerate_sections(
+                        case.case_id, pack, draft, failed_sections,
+                        section_feedback, attempt)
+                    case.audit.append({
+                        "event": "section_regeneration",
+                        "attempt": attempt,
+                        "section_ids": failed_sections,
+                        "section_retry": section_retries,
+                    })
+                    attempt -= 1  # section regen does not consume a full-letter attempt
+                    feedback = section_feedback
+                    continue
+                except Exception as exc:
+                    case.audit.append({
+                        "event": "section_regeneration_error",
+                        "error": str(exc),
+                        "section_ids": failed_sections,
+                    })
             # P6: back to the drafter without internal ids - it is told what failed,
             # never which modules the plan holds or rejected.
             feedback = [_CLAIM_ID.sub("an unapproved claim",
@@ -604,13 +673,22 @@ class AppealPipeline:
             case.audit.append({"event": "dropped_failing_sentences",
                                "dropped": dropped, "passed": checked.passed,
                                "issues": [i.rule for i in checked.issues]})
-            self._record_version(case, plan, trimmed, checked, dv, pack,
-                                 released=checked.passed, parent=(version or {}).get("draft_id"))
             if checked.passed:
+                hold = self._release_gate(case, checked, pack, trimmed)
+                if hold is not None:
+                    self._record_version(case, plan, trimmed, hold.validation, dv, pack,
+                                         released=False,
+                                         parent=(version or {}).get("draft_id"))
+                    return hold
+                self._record_version(case, plan, trimmed, checked, dv, pack,
+                                     released=True,
+                                     parent=(version or {}).get("draft_id"))
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(trimmed), pack, trimmed, checked,
                                  self._evidence_list(case)), case)
+            self._record_version(case, plan, trimmed, checked, dv, pack,
+                                 released=False, parent=(version or {}).get("draft_id"))
 
         case.state = CaseState.MANUAL_REVIEW
         if result is None:
@@ -620,6 +698,32 @@ class AppealPipeline:
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
+
+    def _release_gate(self, case: CaseFile, result: ValidationResult, pack, draft):
+        """P11.1: block RELEASED when immutable release identity is incomplete."""
+        from .release_trace import (
+            OUTCOME_RELEASE_METADATA_INCOMPLETE,
+            gate_before_release,
+        )
+        blocked = gate_before_release(case, self)
+        if blocked is None:
+            return None
+        case.state = CaseState.MANUAL_REVIEW
+        issues = list(getattr(result, "issues", None) or [])
+        issues.append(ValidationIssue(
+            "RELEASE_METADATA",
+            "BLOCK",
+            "Release blocked: incomplete release metadata",
+        ))
+        held = ValidationResult(False, issues)
+        out = AppealOutput(case.state, None, pack, draft, held, self._evidence_list(case))
+        # Customer copy stays processing-safe; internal reason is audit-only.
+        case.audit.append({
+            "event": "release_blocked",
+            "reason": OUTCOME_RELEASE_METADATA_INCOMPLETE,
+            "missing": blocked.get("missing"),
+        })
+        return _with_outcome(out, case)
 
     # ------------------------------------------------------------------ P6
     def _validate(self, case: CaseFile, draft: Draft, pack):
@@ -706,15 +810,18 @@ class AppealPipeline:
         """No ground that can lead the letter: a detail is missing that would
         unlock one (the site postcode, `postcode_unlocks`), or nothing we can
         stand behind was found. Neither drafts a letter."""
-        case.state = CaseState.MANUAL_REVIEW
         unlocks = postcode_unlocks(case, self.kg)
         q = self.kg.question_for("site_postcode")
         if unlocks and q:
+            # Missing unlock fact — not a merits no-grounds finding.
+            case.state = CaseState.MANUAL_REVIEW
             case.pending_questions = [{"fact": "site_postcode", "type": q.get("type", "text"),
                                        "text": q["text"]}]
             case.audit.append({"event": "held_needs_site_postcode", "unlocks": unlocks,
                                "module_ids": list(pack.module_ids or [])})
         else:
+            # Authoritative no-grounds terminal: state + outcome agree.
+            case.state = CaseState.NO_SUPPORTED_GROUNDS
             case.audit.append({"event": "analysis_complete_no_supported_grounds",
                                "module_ids": list(pack.module_ids or []), "reason": reason})
         return _with_outcome(
@@ -791,12 +898,50 @@ class AppealPipeline:
         # Same letter, fewer sentences: it keeps the provenance of the draft it
         # came from, or a trimmed release records no model and no prompt version.
         return Draft(draft.case_id, kept, draft.attempt,
-                     model=draft.model, prompt_version=draft.prompt_version), dropped
+                     model=draft.model, prompt_version=draft.prompt_version,
+                     section_ownership=draft.section_ownership), dropped
 
     @staticmethod
     def _evidence_list(case: CaseFile) -> list[str]:
         return [f"{e.kind}: {e.filename}" for e in case.evidence.values()
                 if e.uploaded and e.kind not in ("PCN", "NTK", "NTD")]
+
+
+def _failed_section_ids(issues, draft_plan, draft) -> list[str]:
+    """Map coverage / particulars failures to DraftPlan section_ids (P10.6)."""
+    if draft_plan is None:
+        return []
+    rules = {"VAL-GROUND-COVERAGE", "VAL-DRAFT-PARTICULARS", "VAL-COVERAGE",
+             "VAL-PARTICULARS"}
+    hit = [i for i in (issues or []) if getattr(i, "rule", None) in rules]
+    if not hit:
+        return []
+    ids: list[str] = []
+    for issue in hit:
+        msg = getattr(issue, "message", "") or ""
+        m = re.search(r"section_id=([A-Za-z0-9_-]+)", msg)
+        if m and m.group(1) not in ids and m.group(1) != "?":
+            ids.append(m.group(1))
+            continue
+        m = re.search(r"DraftSection\s+([A-Za-z0-9_-]+)", msg)
+        if m and m.group(1) not in ids:
+            ids.append(m.group(1))
+            continue
+        for mid in re.findall(r"\bKB-[A-Z]+(?:-[A-Z0-9]+)+\b", msg):
+            for sec in draft_plan.sections:
+                if mid in sec.ground_ids and sec.section_id not in ids:
+                    ids.append(sec.section_id)
+    if not ids:
+        # Ownership map fallback: any section whose grounds lack letter text
+        ownership = (draft.section_ownership if draft else None) or {}
+        letter = (draft.plain_text() if draft else "") or ""
+        for sec in draft_plan.sections:
+            owned = ownership.get(sec.section_id) or {}
+            grounds = owned.get("ground_ids") or sec.ground_ids
+            if not any(g.lower() in letter.lower() for g in grounds):
+                if sec.section_id not in ids:
+                    ids.append(sec.section_id)
+    return ids
 
 
 # A request to cancel, not any mention of cancelling ("not an automatic

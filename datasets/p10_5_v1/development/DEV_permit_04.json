@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_permit_04",
+  "split": "DEVELOPMENT",
+  "family": "permit",
+  "input": {
+    "customer_narrative": "Not certain whether a permit was shown.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS848484",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "uncertain_concepts_any": [
+      "PERMIT_DISPLAYED"
+    ],
+    "must_not_promote_facts": [
+      "permit_held"
+    ]
+  }
+}

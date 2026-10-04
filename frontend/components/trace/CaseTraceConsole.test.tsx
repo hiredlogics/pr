@@ -93,6 +93,30 @@ const mockConsole: CaseConsole = {
     BLOCKED: [],
     UNRESOLVED: [],
   },
+  module_journey: [
+    {
+      module_id: "KB-ANPR-01",
+      knowledge: { decision: "MATCHED" },
+      case_intelligence: { decision: "SELECTED" },
+      claim_plan: { decision: "SUPPORTED" },
+      draft: { decision: "USED" },
+      required_facts: ["left_site", "returned_same_day"],
+      missing_facts: [],
+      expected_rejection: false,
+      integrity: "PASS",
+    },
+    {
+      module_id: "KB-PAY-01",
+      knowledge: { decision: "MATCHED" },
+      case_intelligence: { decision: "REJECTED", reason: "payment_made missing" },
+      claim_plan: { decision: "REJECTED", reason: "payment_made missing" },
+      draft: { decision: "—" },
+      required_facts: [],
+      missing_facts: ["payment_made"],
+      expected_rejection: true,
+      integrity: "PASS",
+    },
+  ],
   grounds: {
     independent_notice: [{ module_id: "KB-POFA-02", decision: "VERIFIED_FINDING" }],
     narrative: [{ module_id: "KB-ANPR-01", decision: "SELECTED" }],
@@ -265,6 +289,14 @@ describe("CaseTraceConsole", () => {
     expect(document.querySelector(".trace-pipeline-name")?.textContent).toBeTruthy();
     expect(screen.getByText("DRAFT REQUIREMENTS")).toBeInTheDocument();
     expect(screen.getAllByText("FAIL").length).toBeGreaterThan(0);
+  });
+
+  it("shows the module journey chain", async () => {
+    render(<CaseTraceConsole caseId="C-TEST" />);
+    await waitFor(() => expect(screen.getByTestId("module-journey")).toBeInTheDocument());
+    expect(screen.getAllByText(/Knowledge Matcher: MATCHED/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/payment_made missing/)).toBeInTheDocument();
+    expect(screen.getByText(/Expected rejection · Integrity: PASS/)).toBeInTheDocument();
   });
 
   it("6. Claim Plan support bundle displays", async () => {

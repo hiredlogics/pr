@@ -185,8 +185,9 @@ class GenerateShortCircuit(unittest.TestCase):
         pipe.reasoning.leading_grounds = lambda ids: False  # type: ignore[method-assign]
 
         out = pipe.generate(case)
-        self.assertEqual(out.state, CaseState.MANUAL_REVIEW)
+        self.assertEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
         self.assertEqual(out.outcome, OUTCOME_NO_SUPPORTED_GROUNDS)
+        self.assertEqual(case.state, CaseState.NO_SUPPORTED_GROUNDS)
         events = [a.get("event") for a in case.audit]
         self.assertIn("analysis_complete_no_supported_grounds", events)
         self.assertNotIn("no_ground", events)

@@ -1,0 +1,133 @@
+{
+  "case_id": "DEV_DRAFT_legal_finding_rebuttal",
+  "family": "legal_finding_factual",
+  "actual": {
+    "state": "RELEASED",
+    "supported_grounds": [
+      "KB-POFA-02"
+    ],
+    "validation_passed": true,
+    "letter_preview": "I write as the registered keeper of vehicle DD44EEE in respect of Parking Charge Notice LN800001. I dispute liability for this parking charge and require the operator to consider this appeal.\n\nThe Parking Charge Notice alleges: Failure to display ticket at Riverside Car Park.\n\nOn the operator's own documents the parking event took place on 1 June 2026, the Notice to Keeper was issued on 28 June 20",
+    "validation_issues": []
+  },
+  "drafting": {
+    "status": "SCORED",
+    "clean_upstream": true,
+    "draft_ground_coverage": 1.0,
+    "material_fact_coverage": "N/A",
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validation_passed": true,
+    "draft_plan_sections": 1,
+    "passed": true
+  },
+  "layer": {
+    "claim_plan_complete": true,
+    "support_bundle_complete": true,
+    "draft_requirements_complete": true,
+    "draft_context_complete": true,
+    "state": "RELEASED",
+    "letter_empty": false,
+    "draft_plan_sections": 1,
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "first_defective_layer": "NONE"
+  },
+  "coverage_trace": [
+    {
+      "ground_ids": [
+        "KB-POFA-02"
+      ],
+      "section_id": "S01",
+      "support_bundle_complete": true,
+      "draft_requirement_particulars": [
+        "parking_event_date",
+        "notice_issue_date",
+        "days_late",
+        "deadline",
+        "presumed_delivery"
+      ],
+      "rendered_text_present": true,
+      "semantic_expression": true,
+      "missing_particulars": [],
+      "verdict": "OK"
+    }
+  ],
+  "score": {
+    "scores": {
+      "semantic": {
+        "status": "SCORED",
+        "semantic_concept_precision": "N/A",
+        "semantic_concept_recall": "N/A",
+        "concept_tp": [],
+        "concept_fp": [],
+        "concept_fn": [],
+        "concept_misses_partial": [],
+        "concept_unexpected_affirmed": [],
+        "narrative_fact_precision": "N/A",
+        "narrative_fact_recall": "N/A",
+        "fact_tp": [],
+        "fact_fp": [],
+        "fact_fn": [],
+        "negation_accuracy": 1.0,
+        "uncertainty_accuracy": 1.0,
+        "attribution_accuracy": 1.0,
+        "fact_promotion_accuracy": "N/A",
+        "derived_lineage_completeness": "N/A",
+        "passed": true
+      },
+      "kb_ground": {
+        "status": "SCORED",
+        "kb_candidate_precision": "N/A",
+        "kb_candidate_recall": "N/A",
+        "candidate_tp": [],
+        "candidate_fp": [],
+        "candidate_fn": [],
+        "role_filter_precision": 1.0,
+        "role_filter_recall": 1.0,
+        "ground_precision": 1.0,
+        "ground_recall": 1.0,
+        "ground_tp": [
+          "KB-POFA-02"
+        ],
+        "ground_fp": [],
+        "ground_fn": [],
+        "orphan_support": false,
+        "orphan_support_letter": false,
+        "unsupported_leading_ground_rate": 0.0,
+        "supporting_incorrectly_in_claim_plan": 0,
+        "legal_conclusion_independent_grounds": 0,
+        "legal_in_plan": [],
+        "support_in_plan": [],
+        "structural_in_plan": [],
+        "evidence_in_plan": [],
+        "primary_route_ok": true,
+        "passed": true
+      },
+      "invariants": {
+        "status": "SCORED",
+        "checks": {
+          "support_cannot_lead_alone": true,
+          "no_support_orphan_letter": true,
+          "no_legal_conclusion_independent": true,
+          "no_structural_lead": true
+        },
+        "legal_conclusion_in_plan": [],
+        "supporting_in_plan": [],
+        "passed": true
+      },
+      "draft": {
+        "status": "SCORED",
+        "clean_upstream": true,
+        "draft_ground_coverage": 1.0,
+        "material_fact_coverage": "N/A",
+        "required_particular_coverage": 1.0,
+        "unsupported_assertion_rate": 0.0,
+        "validation_passed": true,
+        "draft_plan_sections": 1,
+        "passed": true
+      }
+    },
+    "end_to_end_pass": true,
+    "first_failed_layer": null
+  }
+}

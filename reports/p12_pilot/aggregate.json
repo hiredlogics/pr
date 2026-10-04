@@ -1,0 +1,241 @@
+{
+  "phase": "P12-PRODUCTION-PILOT",
+  "freeze": {
+    "evaluation_release": "P12_PILOT_2026-10-04",
+    "git_commit": "ba41e052df09659f9b073b04774be53e65390da5",
+    "git_branch": "feature/p8-architecture-hardening",
+    "working_tree_clean": true,
+    "deployment_version": "version_2",
+    "build_id": "unknown",
+    "environment": "development",
+    "kb_release_id": "yaml-feabf179f9097464",
+    "kb_release_digest": "feabf179f90974644404262d1a637f47f8fe68acbe20463150690183dc7d5ef5",
+    "kb_release_null_forbidden": true,
+    "module_count": 55,
+    "ontology_version": "p10_5_ontology_v1",
+    "ontology_digest": "a23fb0172da385d5",
+    "module_role_version": "p10_5_roles_v1",
+    "module_role_digest": "b777ffd2a9758a44",
+    "claim_plan_builder_version": "3",
+    "draft_plan_version": "p10_6_draft_plan_v1",
+    "master_case_schema_version": 1,
+    "validation_engine_version": "VAL-5",
+    "draft_validation_version": "DV-1",
+    "prompt_versions": {
+      "classification": 2,
+      "extraction": 10,
+      "case_analysis": 8,
+      "drafting": 17,
+      "validation": 3
+    },
+    "model_provider_probe": {
+      "provider": "openai",
+      "models": {
+        "classification": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1",
+        "case_analysis": "gpt-5.1",
+        "drafting": "gpt-5.1",
+        "validation": "gpt-5-mini"
+      },
+      "reason": ""
+    },
+    "database_migration_version": 12,
+    "database_migration_numbers": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "commit_short": "ba41e052df09",
+    "change_control": {
+      "prompt_edits_during_pilot": "FORBIDDEN",
+      "kb_edits_during_pilot": "FORBIDDEN",
+      "ontology_edits_during_pilot": "FORBIDDEN",
+      "module_role_edits_during_pilot": "FORBIDDEN",
+      "claim_plan_rule_edits_during_pilot": "FORBIDDEN",
+      "requires_new_release_for_behavioural_change": true
+    }
+  },
+  "preflight": {
+    "passed": true,
+    "blockers": {
+      "nsg_state_consistent": true,
+      "kb_release_pinned": true,
+      "secrets_scan_clean": true,
+      "photo_smoke_safe": true,
+      "rollback_documented": true
+    },
+    "nsg": {
+      "passed": true,
+      "enum_present": true,
+      "pipeline_state": "NO_SUPPORTED_GROUNDS",
+      "case_state": "NO_SUPPORTED_GROUNDS",
+      "outcome": "NO_SUPPORTED_GROUNDS",
+      "not_manual_review": true
+    },
+    "kb_pin": {
+      "passed": true,
+      "kb_release_id": "yaml-feabf179f9097464",
+      "kb_release_digest": "feabf179f90974644404262d1a637f47f8fe68acbe20463150690183dc7d5ef5",
+      "null_forbidden": true
+    },
+    "secrets": {
+      "passed": true,
+      "files_scanned": 176,
+      "critical_count": 0,
+      "note": "Rotate/revoke any historically exposed production/provider credentials before pilot traffic. This scan only covers the repo.",
+      "operator_action_required": true
+    },
+    "rollback": {
+      "passed": true,
+      "migration_count": 12,
+      "with_rollback_section": 12,
+      "procedure": "1) Redeploy previous git commit / deployment_version. 2) Keep DATABASE_URL pointing at compatible schema (migrations append-only; do not DROP history tables). 3) Pin previous prompts via published KB release or prior yaml-{digest} pin. 4) Do not UPDATE/DELETE append-only fact_history / claim_plans / draft_versions (triggers block). 5) Verify /health commit + kb_release match the prior freeze."
+    },
+    "photo_smoke": {
+      "passed": true,
+      "ran": true,
+      "legal_critical_accuracy_mean": 0.6797619047619048,
+      "n_passed": 13,
+      "n_rows": 15
+    }
+  },
+  "photo_smoke_summary": {
+    "ran": true,
+    "passed": true,
+    "physical_photos_present": true,
+    "n_rows": 15,
+    "n_passed": 13,
+    "n_base_photos": 3,
+    "legal_critical_accuracy_mean": 0.6797619047619048,
+    "normal_all_passed": true,
+    "modes": [
+      "normal",
+      "angled",
+      "low_light",
+      "glare",
+      "blur",
+      "front_back_pair_on_normal"
+    ],
+    "note": "Real phone/scan PNGs from pcn_finetune_v1; degraded variants simulate angle/low-light/glare/blur. Labels used only for scoring."
+  },
+  "cohort": {
+    "n_real_cases": 0,
+    "cohort_cap": 20,
+    "auto_scale_forbidden": true,
+    "outcome_distribution": {},
+    "legal_critical_extraction_accuracy": null,
+    "semantic_precision": null,
+    "semantic_recall": null,
+    "ground_precision": null,
+    "ground_recall": null,
+    "claim_plan_completeness": null,
+    "draft_plan_completeness": null,
+    "draft_ground_coverage": null,
+    "material_fact_coverage": null,
+    "required_particular_coverage": null,
+    "unsupported_assertion_rate": null,
+    "validation_failure_rate": null,
+    "processing_error_rate": null,
+    "no_supported_grounds_rate": null,
+    "latency_p50_ms": null,
+    "latency_p95_ms": null,
+    "openai_calls_per_case": null,
+    "input_tokens_per_case": null,
+    "output_tokens_per_case": null,
+    "cost_per_case": null,
+    "retry_rate": null,
+    "http_429_rate": null,
+    "http_5xx_rate": null,
+    "structured_output_retry_rate": null,
+    "db_failures": 0,
+    "provider_failures": 0,
+    "safety_incidents": [],
+    "rollback_events": []
+  },
+  "observability_schema": {
+    "case_record_fields": [
+      "case_id",
+      "run_id",
+      "deployment_version",
+      "kb_release_id",
+      "kb_release_digest",
+      "ontology_version",
+      "model_versions",
+      "prompt_versions",
+      "extraction_latency_ms",
+      "semantic_latency_ms",
+      "draft_latency_ms",
+      "facts_created",
+      "legal_findings",
+      "eligible_modules",
+      "selected_grounds",
+      "claim_plan_id",
+      "draft_plan_version",
+      "validation_passed",
+      "final_outcome",
+      "final_state"
+    ],
+    "safety_stops": [
+      "incorrect_deterministic_legal_calculation",
+      "unsupported_substantive_legal_ground",
+      "invented_material_fact_released",
+      "driver_identity_improperly_inferred",
+      "claim_plan_ground_silently_lost",
+      "validation_block_but_draft_released",
+      "processing_error_shown_as_released",
+      "cross_customer_data_exposure",
+      "duplicate_appeal_submission",
+      "corrupted_authoritative_state"
+    ],
+    "release_conditions": [
+      "claim_plan_valid",
+      "support_bundle_complete",
+      "draft_plan_complete",
+      "ground_coverage_pass",
+      "material_fact_coverage_pass",
+      "required_particulars_pass",
+      "no_unsupported_material_assertion",
+      "no_driver_safety_violation",
+      "no_unresolved_placeholder",
+      "no_calculation_contradiction",
+      "outcome_resolver_released"
+    ]
+  },
+  "invariants": {
+    "passed": true,
+    "tests_run": 112,
+    "checks": {
+      "Master Case": true,
+      "FactManager / P8 architecture": true,
+      "P10.3 semantic + roles": true,
+      "P10 remediation": true
+    }
+  },
+  "customer_path": [
+    "upload_front_back",
+    "classification_extraction",
+    "customer_confirmation",
+    "semantic_extraction",
+    "questions_where_needed",
+    "legal_findings",
+    "kb_eligibility",
+    "claim_plan",
+    "draft_plan",
+    "live_llm_drafting",
+    "validation",
+    "customer_outcome"
+  ],
+  "recommendation": "PILOT_EXTENSION_REQUIRED",
+  "auto_broaden_rollout": false
+}

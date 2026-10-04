@@ -1,0 +1,97 @@
+{
+  "dataset_id": "p10_6_v1",
+  "purpose": "P10.6 draft fidelity \u2014 DEVELOPMENT + fresh drafting holdout",
+  "note": "Do not tune against previously sealed P10.5 semantic holdout",
+  "cases": [
+    {
+      "case_id": "DEV_DRAFT_single_payment",
+      "split": "DEVELOPMENT",
+      "family": "single_ground",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_single_payment.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_multi_independent",
+      "split": "DEVELOPMENT",
+      "family": "multiple_independent",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_multi_independent.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_pay_key_merge",
+      "split": "DEVELOPMENT",
+      "family": "merged_compatible",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_pay_key_merge.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_legal_finding_rebuttal",
+      "split": "DEVELOPMENT",
+      "family": "legal_finding_factual",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_legal_finding_rebuttal.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_multiple_visits",
+      "split": "DEVELOPMENT",
+      "family": "multiple_visits",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_multiple_visits.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_loading_delivery",
+      "split": "DEVELOPMENT",
+      "family": "loading_delivery",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_loading_delivery.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_permit",
+      "split": "DEVELOPMENT",
+      "family": "permit",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_permit.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_mechanical",
+      "split": "DEVELOPMENT",
+      "family": "mechanical",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_mechanical.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_multi_particulars",
+      "split": "DEVELOPMENT",
+      "family": "multi_particulars",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_multi_particulars.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_support_only",
+      "split": "DEVELOPMENT",
+      "family": "support_only",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_support_only.json"
+    },
+    {
+      "case_id": "DEV_DRAFT_no_ground",
+      "split": "DEVELOPMENT",
+      "family": "no_supported_ground",
+      "path": "datasets\\p10_6_v1\\development\\DEV_DRAFT_no_ground.json"
+    },
+    {
+      "case_id": "HOLDOUT_DRAFT_A",
+      "split": "HOLDOUT",
+      "family": "pay_key_unseen",
+      "path": "datasets\\p10_6_v1\\holdout\\HOLDOUT_DRAFT_A.json"
+    },
+    {
+      "case_id": "HOLDOUT_DRAFT_B",
+      "split": "HOLDOUT",
+      "family": "mechanical_unseen",
+      "path": "datasets\\p10_6_v1\\holdout\\HOLDOUT_DRAFT_B.json"
+    },
+    {
+      "case_id": "HOLDOUT_DRAFT_C",
+      "split": "HOLDOUT",
+      "family": "visits_unseen",
+      "path": "datasets\\p10_6_v1\\holdout\\HOLDOUT_DRAFT_C.json"
+    },
+    {
+      "case_id": "HOLDOUT_DRAFT_D",
+      "split": "HOLDOUT",
+      "family": "no_ground_unseen",
+      "path": "datasets\\p10_6_v1\\holdout\\HOLDOUT_DRAFT_D.json"
+    }
+  ]
+}

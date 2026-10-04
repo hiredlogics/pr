@@ -1,0 +1,28 @@
+{
+  "case_id": "DEV_broken_down_07",
+  "split": "DEVELOPMENT",
+  "family": "broken_down",
+  "input": {
+    "customer_narrative": "There was no mechanical fault that day.",
+    "customer_answers": {},
+    "extraction_fields": {
+      "operator_name": "Fieldstone Parking Ltd",
+      "pcn_number": "FS545947",
+      "vrm": "AB12CDE",
+      "parking_location": "Fieldstone Retail",
+      "site_postcode": "M2 2AA",
+      "parking_event_date": "01/09/2026",
+      "notice_issue_date": "05/09/2026",
+      "alleged_breach": "Overstayed paid time",
+      "operator_ata": "BPA"
+    }
+  },
+  "expected": {
+    "must_not_affirm_concepts": [
+      "BROKEN_DOWN"
+    ],
+    "negated_concepts_any": [
+      "BROKEN_DOWN"
+    ]
+  }
+}

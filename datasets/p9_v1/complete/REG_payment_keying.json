@@ -1,0 +1,259 @@
+{
+  "case_id": "REG_payment_keying",
+  "dataset_version": "p9_v1",
+  "completeness": "COMPLETE",
+  "split": "VALIDATION",
+  "approval_status": "DEVELOPMENT_APPROVED",
+  "family": "payment_keying",
+  "operator": "Acme Parking Ltd",
+  "allegation": "no_valid_payment",
+  "legal_route": "PAYMENT+KEYING",
+  "circumstance": "app_typo",
+  "evidence_type": "notice_plus_app_screenshot",
+  "notes": "Development-approved from scenario suite C. Not client-signed wording.",
+  "paired_with": null,
+  "input": {
+    "notice_front": "PARKING CHARGE NOTICE\nOperator Name: Acme Parking Ltd\nPCN Number: PCN123456\nVehicle Registration: AB12 CDE\nLocation: Retail Park\nPostcode: M1 1AA\nDate of Contravention: 01/06/2026\nDate of Issue: 05/06/2026\nEntry Time: 10:00\nExit Time: 12:47\nCharge: \u00a3100\nAlleged Breach: No valid payment for vehicle\nTrade Association: BPA",
+    "notice_back": "HOW TO APPEAL\nIf you were not the driver, you may pass this notice to the driver or\nname them. We are seeking recovery from the keeper under Schedule 4 of\nthe Protection of Freedoms Act 2012 if the driver is not identified.\nIf your appeal to us is rejected you may appeal to the independent\nappeals service (POPLA) within 28 days using the code we will give you.\nPay or appeal within 28 days of the date of issue.",
+    "customer_narrative": "I paid on the app but typo in reg",
+    "customer_answers": {
+      "payment_made": "yes",
+      "payment_method": "APP",
+      "keying_error_type": "MINOR"
+    },
+    "answer_policy": "skip",
+    "evidence": [
+      {
+        "evidence_id": "E4",
+        "filename": "app.png",
+        "kind": "APP_SCREENSHOT",
+        "doc_type": "APP_SCREENSHOT",
+        "text": "Payment confirmed for AB12 CDF"
+      }
+    ],
+    "corrections": {},
+    "extraction_fields": {
+      "operator_name": "Acme Parking Ltd",
+      "pcn_number": "PCN123456",
+      "vrm": "AB12 CDE",
+      "parking_location": "Retail Park",
+      "site_postcode": "M1 1AA",
+      "parking_event_date": "01/06/2026",
+      "notice_issue_date": "05/06/2026",
+      "entry_time": "10:00",
+      "exit_time": "12:47",
+      "charge_amount": "\u00a3100",
+      "alleged_breach": "No valid payment for vehicle",
+      "operator_ata": "BPA",
+      "notice_route": "POSTAL",
+      "notice_type": "NTK"
+    },
+    "doc_types": {
+      "E1": "PCN",
+      "E4": "APP_SCREENSHOT"
+    },
+    "image_path": null
+  },
+  "expected": {
+    "classification": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "document_class": "PCN"
+      }
+    },
+    "extraction": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "operator_name": "Acme Parking Ltd",
+        "pcn_number": "PCN123456",
+        "vrm": "AB12 CDE",
+        "parking_location": "Retail Park",
+        "site_postcode": "M1 1AA",
+        "parking_event_date": "01/06/2026",
+        "notice_issue_date": "05/06/2026",
+        "entry_time": "10:00",
+        "exit_time": "12:47",
+        "charge_amount": "\u00a3100",
+        "alleged_breach": "No valid payment for vehicle",
+        "operator_ata": "BPA",
+        "notice_route": "POSTAL",
+        "notice_type": "NTK"
+      }
+    },
+    "facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "operator_name",
+          "value": "Acme Parking Ltd",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "pcn_number",
+          "value": "PCN123456",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "vrm",
+          "value": "AB12 CDE",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_event_date",
+          "value": "01/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "notice_issue_date",
+          "value": "05/06/2026",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "entry_time",
+          "value": "10:00",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "exit_time",
+          "value": "12:47",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "parking_location",
+          "value": "Retail Park",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "site_postcode",
+          "value": "M1 1AA",
+          "source": "DOCUMENT",
+          "kind": "document"
+        },
+        {
+          "name": "alleged_breach",
+          "value": "No valid payment for vehicle",
+          "source": "DOCUMENT",
+          "kind": "document"
+        }
+      ]
+    },
+    "derived_facts": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        {
+          "name": "payment_made",
+          "value": true,
+          "source": "ANSWER",
+          "kind": "customer_confirmed"
+        }
+      ]
+    },
+    "relationships": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "questions": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "legal_findings": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "knowledge_matches": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "required": [
+          "KB-PAY-01",
+          "KB-KEY-01"
+        ]
+      }
+    },
+    "supported_grounds": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": [
+        "KB-PAY-01",
+        "KB-KEY-01"
+      ]
+    },
+    "rejected_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "invalidated_grounds": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "claim_plan": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "must_include": [
+          "KB-PAY-01",
+          "KB-KEY-01"
+        ]
+      }
+    },
+    "required_particulars": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "prohibited_claims": {
+      "evaluate": false,
+      "approval": "UNOBSERVED",
+      "values": null
+    },
+    "final_outcome": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "state": "RELEASED",
+        "primary_route": "PAYMENT"
+      }
+    },
+    "final_appeal_requirements": {
+      "evaluate": true,
+      "approval": "DEVELOPMENT_APPROVED",
+      "values": {
+        "must_express": [
+          "registration-entry error"
+        ],
+        "must_not_express": [
+          "I paid",
+          "I parked",
+          "I drove"
+        ],
+        "exact_wording_approved": false
+      }
+    },
+    "ground_origins": {
+      "KB-PAY-01": "narrative",
+      "KB-KEY-01": "narrative"
+    }
+  },
+  "governance": {
+    "approved_by": "development_test_suite",
+    "approved_at": "2026-10-04",
+    "reason": "Independent document-visible fields and/or pre-existing scenario assertions. Not a client-signed release of final appeal wording."
+  }
+}

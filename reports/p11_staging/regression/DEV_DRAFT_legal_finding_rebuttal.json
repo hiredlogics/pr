@@ -1,0 +1,43 @@
+{
+  "case_id": "DEV_DRAFT_legal_finding_rebuttal",
+  "family": "legal_finding_factual",
+  "state": "RELEASED",
+  "outcome_code": null,
+  "result_class": "RELEASED",
+  "e2e_ok": true,
+  "latency_ms": 2989,
+  "drafting": {
+    "status": "SCORED",
+    "clean_upstream": true,
+    "draft_ground_coverage": 1.0,
+    "material_fact_coverage": "N/A",
+    "required_particular_coverage": 1.0,
+    "unsupported_assertion_rate": 0.0,
+    "validation_passed": true,
+    "draft_plan_sections": 1,
+    "passed": true
+  },
+  "supported_grounds": [
+    "KB-POFA-02"
+  ],
+  "coverage_trace": [
+    {
+      "ground_ids": [
+        "KB-POFA-02"
+      ],
+      "section_id": "S01",
+      "support_bundle_complete": true,
+      "draft_requirement_particulars": [
+        "parking_event_date",
+        "notice_issue_date",
+        "days_late",
+        "deadline",
+        "presumed_delivery"
+      ],
+      "rendered_text_present": true,
+      "semantic_expression": true,
+      "missing_particulars": [],
+      "verdict": "OK"
+    }
+  ]
+}
