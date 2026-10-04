@@ -213,6 +213,40 @@ def apply_locked_plan_particulars(draft: Draft, pack: RetrievalPack) -> Draft:
     draft = apply_one_argument_rules(draft)
     letter = (draft.plain_text() or "")
     extra: list[list[DraftSentence]] = []
+    paras = list(draft.paragraphs)
+
+    # Identity: when the pack knows the PCN, the letter must name it. Structured
+    # openings sometimes omit it; VAL-CONFLICT then holds an otherwise-sound draft.
+    pcn = str((pack.verified_facts or {}).get("pcn_number") or "").strip()
+    if pcn:
+        from ..engines.validation import _contains_token, _ident
+        if not _contains_token(letter, _ident(pcn)):
+            refs = ([pack.fact_refs["pcn_number"]]
+                    if getattr(pack, "fact_refs", None) and "pcn_number" in pack.fact_refs
+                    else [])
+            clause = f"This appeal concerns Parking Charge Notice {pcn}."
+            injected = False
+            if paras:
+                first = list(paras[0])
+                if first and set(first[0].module_refs or []) <= {"STRUCTURAL"}:
+                    base = (first[0].text or "").rstrip()
+                    if base and not base.endswith("."):
+                        base += "."
+                    first[0] = DraftSentence(
+                        f"{base} {clause}".strip(),
+                        list(first[0].fact_refs or []) + refs,
+                        list(first[0].module_refs or ["STRUCTURAL"]),
+                        list(first[0].evidence_refs or []),
+                    )
+                    paras[0] = first
+                    injected = True
+                    letter = " ".join(
+                        s.text for para in paras for s in para if getattr(s, "text", None)
+                    )
+            if not injected:
+                extra.append([DraftSentence(clause, refs, ["STRUCTURAL"], [])])
+                letter += " " + clause
+
     res_ids = [m for m in (pack.module_ids or []) if str(m).startswith("KB-RES-")]
     clauses = list(pack.lease_clauses or [])
     if res_ids and clauses and not any((c.get("text") or "") and (c.get("text") or "") in letter
@@ -237,9 +271,8 @@ def apply_locked_plan_particulars(draft: Draft, pack: RetrievalPack) -> Draft:
             f"requirement relied upon was validly made and notified under that provision, "
             f"and how it is said to qualify the parking right set out above.",
             [], ["KB-RES-06"], [])])
-    if not extra:
+    if not extra and paras == list(draft.paragraphs):
         return draft
-    paras = list(draft.paragraphs)
     insert_at = 1 if paras else 0
     for block in extra:
         paras.insert(insert_at, block)
