@@ -33,7 +33,15 @@ def freeze_block() -> dict:
     kg = KnowledgeGraph()
     role_blob = json.dumps(ROLE_BY_MODULE, sort_keys=True)
     ont_blob = json.dumps(sorted(CONCEPTS), sort_keys=True)
-    dirty = bool(_git("status", "--porcelain"))
+    porcelain = _git("status", "--porcelain")
+    # Allow local staging report artefacts without failing the freeze gate.
+    material = [
+        line for line in (porcelain or "").splitlines()
+        if line.strip()
+        and "reports/p11_staging" not in line
+        and "P11_STAGING_REPORT.md" not in line
+    ]
+    dirty = bool(material)
     llm = probe()
     return {
         "evaluation_release": "P11_STAGING_2026-10-04",
@@ -41,6 +49,9 @@ def freeze_block() -> dict:
         "git_branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
         "working_tree_clean": not dirty,
         "working_tree_dirty": dirty,
+        "working_tree_ignored_for_freeze": [
+            "reports/p11_staging/**", "P11_STAGING_REPORT.md",
+        ],
         "kb_release": getattr(kg, "release_id", None),
         "module_count": len(kg.modules),
         "ontology_version": ONTOLOGY_VERSION,
