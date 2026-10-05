@@ -391,5 +391,54 @@ class TheReadingThatProducedTheProductIsNamed(unittest.TestCase):
         self.assertEqual(row["semantic_mode"], SEMANTIC_FALLBACK)
 
 
+# ------------------------------------------------- 5. the letter ends once
+class TheLetterReachesItsConclusionOnce(unittest.TestCase):
+    """A closing appended on top of an existing one ended the letter twice.
+
+    The statutory conclusion was detected by one exact wording, so a letter
+    that reached it in other words had the block appended word for word on top
+    of itself, after the paragraph asking for cancellation.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.case, pipe, _llm, _asked = _run(
+            ACCOUNT_TEXT, LEGAL_PLUS_ACCOUNT,
+            doc={"notice_issue_date": "26/06/2026"})
+        cls.out = pipe.generate(cls.case)
+        cls.paras = [[s.text.strip() for s in p]
+                     for p in cls.out.draft.paragraphs if p]
+
+    def test_the_letter_was_written(self):
+        self.assertTrue(self.out.pack.pofa_findings)
+        self.assertGreater(len(self.paras), 3)
+
+    def test_no_sentence_is_said_twice(self):
+        """Compared as sentences of the letter: one DraftSentence may hold
+        several, and the appended copy split them differently."""
+        import re as _re
+        seen: dict[str, int] = {}
+        for s in _re.split(r"(?<=[.?!])\s+",
+                           self.out.draft.plain_text().replace("\n", " ")):
+            key = "".join(c for c in s.lower() if c.isalnum())
+            if len(key) > 25:
+                seen[key] = seen.get(key, 0) + 1
+        self.assertEqual([k[:60] for k, n in seen.items() if n > 1], [])
+
+    def test_the_closing_is_short_and_last(self):
+        from pcn_appeal.orchestrator import _CANCEL_REQUEST
+        last = self.paras[-1]
+        self.assertEqual(len(last), 1, f"closing is {len(last)} sentences: {last}")
+        self.assertTrue(_CANCEL_REQUEST.search(last[0]), last)
+
+    def test_the_statutory_conclusion_comes_before_the_closing(self):
+        """Not after it: the letter asked to cancel and then carried on."""
+        where = [i for i, p in enumerate(self.paras)
+                 if any("not established keeper liability" in s.lower()
+                        for s in p)]
+        self.assertTrue(where, "the Schedule 4 conclusion is missing")
+        self.assertLess(where[-1], len(self.paras) - 1)
+
+
 if __name__ == "__main__":
     unittest.main()

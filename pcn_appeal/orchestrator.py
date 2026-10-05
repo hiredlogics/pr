@@ -995,6 +995,7 @@ class AppealPipeline:
         if not draft.paragraphs:
             return []
         text = draft.plain_text()
+        said = _said(text)
         closing: list = []
         used: list[str] = []
         pofa_failed = bool(getattr(pack, "pofa_findings", None))
@@ -1004,7 +1005,18 @@ class AppealPipeline:
             blk = self.kg.blocks.get(bid)
             if blk is None or blk.status != "ACTIVE":
                 return False
-            closing.extend(self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL"))
+            sentences = self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL")
+            # A block the letter already contains is not added a second time.
+            # `has_pofa_close` asks whether the letter reaches the Schedule 4
+            # conclusion in ONE particular wording; a letter that reaches it in
+            # another ("liability cannot be transferred to the registered keeper
+            # under Schedule 4") used to have the block appended on top of
+            # itself, word for word. The test is the block against the letter,
+            # so it holds for every block and needs no phrase added to any list.
+            body = _said(" ".join(s.text for s in sentences))
+            if body and body in said:
+                return True
+            closing.extend(sentences)
             used.append(bid)
             return True
 
@@ -1023,7 +1035,15 @@ class AppealPipeline:
 
         if not closing:
             return []
-        draft.paragraphs.append(closing)
+        # The letter ends with its closing. When the drafter has already written
+        # one, a statutory conclusion appended after it left the letter asking
+        # for cancellation and then carrying on, so the conclusion goes before
+        # that last paragraph and the request to cancel stays last.
+        if len(draft.paragraphs) > 1 and _CANCEL_REQUEST.search(
+                " ".join(s.text for s in draft.paragraphs[-1])):
+            draft.paragraphs.insert(len(draft.paragraphs) - 1, closing)
+        else:
+            draft.paragraphs.append(closing)
         return used
 
     @staticmethod
@@ -1097,6 +1117,12 @@ def _failed_section_ids(issues, draft_plan, draft) -> list[str]:
 # cancellation ground" asks for nothing).
 _CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
 _POFA_CONCLUSION = re.compile(r"keeper liability under Schedule 4", re.I)
+
+
+def _said(text: str) -> str:
+    """Letter text reduced to words, for asking whether a block is already in it."""
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
 # Module ids, which feedback to the drafter never carries (rule names may stay).
 _CLAIM_ID = re.compile(r"\bKB-[A-Z]+(?:-[A-Z0-9]+)+\b")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
