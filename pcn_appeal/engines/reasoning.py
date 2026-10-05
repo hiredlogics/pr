@@ -24,6 +24,7 @@ Rule pack
 """
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
@@ -44,14 +45,54 @@ GLOBAL_PROHIBITED = [
 ]
 
 
+def _semantic_material_relevance(case: CaseFile) -> list:
+    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    if not raw:
+        return []
+    try:
+        return list(json.loads(raw).get("material_relevance") or [])
+    except (TypeError, ValueError):
+        return []
+
+
 def _narrative_atoms_for_pack(case: CaseFile) -> list:
-    """Professional narrative atoms for DraftPlan lineage (not raw customer prose)."""
-    atoms = []
+    """Narrative atoms for DraftPlan lineage (SemanticCaseState + audit).
+
+    Prefer the normalized SemanticCaseState handoff so unmapped material meaning
+    is not dropped when it never became an ontology fact.
+    """
+    import json
+    atoms: list = []
+    compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+    if compact:
+        try:
+            atoms.extend(list(json.loads(compact) or []))
+        except (TypeError, ValueError):
+            pass
+    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    if raw and not atoms:
+        try:
+            state = json.loads(raw)
+            atoms.extend(list(state.get("narrative_atoms") or []))
+        except (TypeError, ValueError):
+            pass
     for ev in case.audit or []:
         if ev.get("event") == "narrative_atom":
             atoms.extend(list(ev.get("atoms") or []))
     if atoms:
-        return atoms
+        # Deduplicate by atom_id / excerpt.
+        seen: set = set()
+        out = []
+        for a in atoms:
+            if not isinstance(a, dict):
+                continue
+            key = (a.get("atom_id"), a.get("name"),
+                   (a.get("source_excerpt") or "")[:60])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(a)
+        return out
     dep = case.get("departure_reason")
     if not dep:
         return []
@@ -111,6 +152,59 @@ class ReasoningEngine:
         version, status = code_versions.resolve(case.get("parking_event_date"), case.get("operator_ata"),
                                                 case.get("operator_transitioned"))
         trace.append(f"code_version={getattr(version, 'version_id', None)} status={status}")
+        # P17.8: do not run timing legal calculations on unresolved identity dates.
+        from ..document_identity import (
+            location_identity_ready, timing_identity_ready,
+        )
+        timing_ok, timing_deps = timing_identity_ready(case)
+        loc_ok, loc_deps = location_identity_ready(case)
+        if not timing_ok:
+            trace.append(f"pofa:identity_timing_blocked:{','.join(timing_deps)}")
+            from ..legal.pofa import PofaResult
+            findings: list[str] = []
+            notes = [
+                f"Timing identity not verified ({', '.join(timing_deps)}); "
+                "legal timing calculation withheld."
+            ]
+            route = "UNRESOLVED"
+            # Preserve independently verified invitation-content findings.
+            if (case.get("ntk_defect_statutory_invitation")
+                    or case.get("pofa_finding") == "POFA_NTK_INVITATION_DEFECT"):
+                findings.append("POFA_NTK_INVITATION_DEFECT")
+                notes.append("Preserved Schedule 4 invitation-content finding from notice scan.")
+                if (not keeper_route_blocked(case)
+                        and case.get("jurisdiction") == "ENGLAND_WALES"
+                        and case.get("notice_route") == "POSTAL"):
+                    route = "POSTAL"
+            res = PofaResult(route, findings, notes)
+            with case_state.derives(case, "jurisdiction", "relevant_land", "notice_route",
+                                    "parking_event_date", "notice_issue_date", "ntd_date",
+                                    "notice_received_date", "delivery_date_proven",
+                                    "ntk_defect_statutory_invitation",
+                                    rule="pofa.assess"):
+                case.put(Fact("F-pofa_route", "pofa_route", res.route, FactStatus.DERIVED,
+                              FactSource(SourceKind.CALCULATION, "pofa.assess")))
+                case.put(Fact("F-pofa_findings", "pofa_findings", list(findings),
+                              FactStatus.DERIVED,
+                              FactSource(SourceKind.CALCULATION, "pofa.assess")))
+                case.put(Fact("F-pofa_finding", "pofa_finding",
+                              findings[0] if findings else None, FactStatus.DERIVED,
+                              FactSource(SourceKind.CALCULATION, "pofa.assess")))
+            before = {r.get("finding_type"): r.get("status") for r in case.legal_findings}
+            records = legal_findings.evaluate(case, res, self.kg.active_modules())
+            after = {r["finding_type"]: r["status"] for r in records}
+            if after != before:
+                case.audit.append({"event": "legal_findings", "run_id": case.run_id,
+                                   "findings": [{"finding_type": t, "status": s}
+                                                for t, s in sorted(after.items())],
+                                   "identity_timing_blocked": timing_deps})
+            return version if status == "RESOLVED" else None, res
+        if not loc_ok:
+            trace.append(f"pofa:identity_location_blocked:{','.join(loc_deps)}")
+            case.audit.append({
+                "event": "identity_location_dependency",
+                "deps": loc_deps,
+            })
         res = pofa.assess(
             jurisdiction=derive_jurisdiction(case),
             relevant_land=case.get("relevant_land"),
@@ -488,6 +582,7 @@ class ReasoningEngine:
         if len(narrative) >= 12:
             source_texts.append(narrative)
 
+        from ..document_identity import authoritative_identity_values
         case_context = {
             "operator_name": case.get("operator_name"),
             "parking_location": case.get("parking_location"),
@@ -510,8 +605,17 @@ class ReasoningEngine:
             "account_contradicts_allegation": bool(
                 case.get("account_contradicts_allegation")),
             "child_occupant_present": bool(case.get("child_occupant_present")),
-            # Narrative atoms (departure_reason etc.) for DraftPlan lineage.
+            # Narrative atoms (mapped + unmapped) for DraftPlan lineage.
             "narrative_atoms": _narrative_atoms_for_pack(case),
+            # Semantic handoff digest (events / relevance) — not raw customer prose.
+            "semantic_revision": (case.raw_answers or {}).get("_semantic_revision"),
+            "semantic_material_relevance": _semantic_material_relevance(case),
+            # P17.8: authoritative critical identity for VAL-CRITICAL-DOCUMENT-IDENTITY.
+            "authoritative_identity": authoritative_identity_values(case),
+            "identity_revision": (case.raw_answers or {}).get("_document_identity_revision"),
+            # Missing critical values fail only when the draft asserts them /
+            # DraftPlan requires them — not every letter must restate location.
+            "identity_required_in_draft": ["pcn_number", "vrm"],
 
             # Customer-reported vs independently established — drafting must not
             # present the former as if proven by the notice alone.

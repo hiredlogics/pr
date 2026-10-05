@@ -11,13 +11,17 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional
 
-from .ontology import CONCEPT_TO_FACTS
+from .ontology import CONCEPT_EXTRA_FACTS, CONCEPT_TO_FACTS
 
 # Material consistency conflicts block Claim Plan lock (not last-write-wins).
 FACT_CONFLICT = "FACT_CONFLICT"
 
 # Facts promoted only via semantic → FactManager (not CircumstanceRule / narrative).
-SEMANTIC_OWNED_FACTS = frozenset(name for name, _ in CONCEPT_TO_FACTS.values())
+SEMANTIC_OWNED_FACTS = frozenset(
+    name for name, _ in CONCEPT_TO_FACTS.values()
+) | frozenset(
+    name for extras in CONCEPT_EXTRA_FACTS.values() for name, _ in extras
+)
 
 # Visit-sequence facts used for consistency and timeline.
 _VISIT_FACTS = frozenset({"left_site", "returned_same_day", "multiple_visits"})
@@ -28,7 +32,8 @@ _MATERIAL_BY_ALLEGATION: dict[str, frozenset[str]] = {
         "entry_time", "exit_time", "total_recorded_duration_min",
         "permitted_duration_min", "left_site", "returned_same_day",
         "multiple_visits", "payment_made", "purpose_of_visit",
-        "departure_reason", "anpr_sequence_incomplete", "grace_period_min",
+        "departure_reason", "dropoff_activity", "pickup_activity",
+        "anpr_sequence_incomplete", "grace_period_min",
     }),
     "payment": frozenset({
         "payment_made", "payment_attempt_failed", "keying_error_type",
@@ -55,6 +60,9 @@ class SemanticCaseState:
     evidence_links: list[dict] = field(default_factory=list)
     provenance: list[dict] = field(default_factory=list)
     confidence: list[dict] = field(default_factory=list)
+    material_relevance: list[dict] = field(default_factory=list)
+    operator_observed_events: list[dict] = field(default_factory=list)
+    customer_reported_events: list[dict] = field(default_factory=list)
     revision: int = 0
     ontology_version: str = ""
 
@@ -141,19 +149,26 @@ def _concept_events(concepts: list[Any], texts: list[str]) -> list[dict]:
 
     if by.get("SHOPPING") and by["SHOPPING"].polarity == "AFFIRMED":
         _ev("E-visit-1", "VISIT", "SHOPPING", attribution="CUSTOMER")
+    if by.get("DROP_OFF") and by["DROP_OFF"].polarity == "AFFIRMED":
+        _ev("E-dropoff", "DROP_OFF", "DROP_OFF", attribution="CUSTOMER")
     if by.get("LEFT_SITE") and by["LEFT_SITE"].polarity == "AFFIRMED":
-        _ev("E-depart", "DEPARTURE", "LEFT_SITE", attribution="CUSTOMER")
+        _ev("E-depart", "DEPART_SITE", "LEFT_SITE", attribution="CUSTOMER")
     if by.get("RETURNED") and by["RETURNED"].polarity == "AFFIRMED":
-        _ev("E-return", "RETURN", "RETURNED", attribution="CUSTOMER")
+        _ev("E-return", "RETURN_SITE", "RETURNED", attribution="CUSTOMER")
+    if by.get("PICK_UP") and by["PICK_UP"].polarity == "AFFIRMED":
+        _ev("E-pickup", "PICK_UP", "PICK_UP", attribution="CUSTOMER")
     if by.get("MULTIPLE_VISITS") and by["MULTIPLE_VISITS"].polarity == "AFFIRMED":
-        _ev("E-visit-2", "VISIT", "MULTIPLE_VISITS", attribution="CUSTOMER")
+        if "DROP_OFF" not in by and "SHOPPING" not in by:
+            _ev("E-visit-2", "VISIT", "MULTIPLE_VISITS", attribution="CUSTOMER")
     return events
 
 
 def _timeline_from_events(events: list[dict], case) -> list[dict]:
     """Ordered customer visit sequence + operator observation anchors."""
-    # visit → departure → return → second visit (not kind-alphabet order).
-    preferred = ("E-visit-1", "E-depart", "E-return", "E-visit-2")
+    # DROP_OFF → DEPART_SITE → RETURN_SITE → PICK_UP (activity sequence).
+    preferred = (
+        "E-visit-1", "E-dropoff", "E-depart", "E-return", "E-pickup", "E-visit-2",
+    )
     rank = {eid: i for i, eid in enumerate(preferred)}
     cust = sorted(
         [e for e in events if e.get("attribution") == "CUSTOMER"],
@@ -165,12 +180,12 @@ def _timeline_from_events(events: list[dict], case) -> list[dict]:
         seq += 1
         label = {
             "E-visit-1": "visit",
-            "E-depart": "departure",
-            "E-return": "return",
+            "E-dropoff": "drop_off",
+            "E-depart": "depart_site",
+            "E-return": "return_site",
+            "E-pickup": "pick_up",
             "E-visit-2": "second_visit",
-        }.get(e["event_id"], {
-            "VISIT": "visit", "DEPARTURE": "departure", "RETURN": "return",
-        }.get(e["kind"], e["kind"].lower()))
+        }.get(e["event_id"], e["kind"].lower())
         timeline.append({
             "seq": seq,
             "event_id": e["event_id"],
@@ -218,17 +233,31 @@ def _relationships(concepts: list[Any], atoms: list[dict]) -> list[dict]:
             "source_excerpt": (dep.get("source_text") or dep.get("source_excerpt") or "")[:240],
             "confidence": float(dep.get("confidence") or 0.8),
         })
+    if "DROP_OFF" in affirmed and "LEFT_SITE" in affirmed:
+        rel.append({
+            "subject": "DROP_OFF",
+            "predicate": "PRECEDES",
+            "object": "DEPART_SITE",
+            "confidence": 0.85,
+        })
     if "LEFT_SITE" in affirmed and "RETURNED" in affirmed:
         rel.append({
-            "subject": "departure_from_site",
+            "subject": "DEPART_SITE",
             "predicate": "PRECEDES",
-            "object": "return_to_site",
+            "object": "RETURN_SITE",
             "confidence": 0.85,
         })
         rel.append({
             "subject": "left_site+returned_same_day",
             "predicate": "SUPPORTS",
             "object": "multiple_visits",
+            "confidence": 0.85,
+        })
+    if "RETURNED" in affirmed and "PICK_UP" in affirmed:
+        rel.append({
+            "subject": "RETURN_SITE",
+            "predicate": "PRECEDES",
+            "object": "PICK_UP",
             "confidence": 0.85,
         })
     if "MULTIPLE_VISITS" in affirmed:
@@ -324,6 +353,34 @@ def build_semantic_case_state(
 
     contradictions = list_material_contradictions(case)
 
+    customer_events = [e for e in events if e.get("attribution") == "CUSTOMER"]
+    operator_events = [
+        t for t in timeline if t.get("attribution") == "OPERATOR_ALLEGATION"
+    ]
+    material_relevance = []
+    for row in fact_rows:
+        material_relevance.append({
+            "kind": "fact",
+            "name": row.get("name"),
+            "material_to": list(row.get("material_to") or []),
+            "polarity": row.get("polarity"),
+        })
+    for a in atoms:
+        material_relevance.append({
+            "kind": "narrative_atom",
+            "name": a.get("name") or a.get("category"),
+            "material_to": list(a.get("material_to") or ["supporting_context"]),
+            "polarity": a.get("polarity"),
+            "mapped_to_ontology": bool(a.get("mapped_to_ontology")),
+        })
+    for e in customer_events:
+        material_relevance.append({
+            "kind": "event",
+            "name": e.get("kind") or e.get("event_id"),
+            "material_to": ["timeline", "allegation"],
+            "polarity": e.get("polarity"),
+        })
+
     return SemanticCaseState(
         document_entities=_doc_entities(case),
         facts=fact_rows,
@@ -337,6 +394,9 @@ def build_semantic_case_state(
         evidence_links=evidence_links,
         provenance=provenance,
         confidence=conf,
+        material_relevance=material_relevance,
+        operator_observed_events=operator_events,
+        customer_reported_events=customer_events,
         revision=revision,
         ontology_version=ontology_version,
     )
@@ -418,8 +478,23 @@ def _json_safe(obj: Any) -> Any:
 def attach_semantic_state(case, state: SemanticCaseState) -> None:
     """Persist SemanticCaseState for knowledge handoff + claim-plan gate."""
     payload = _json_safe(state.as_dict())
-    case.raw_answers["_semantic_case_state"] = json.dumps(payload)[:12000]
+    # Cap large excerpt fields so the full structure remains valid JSON.
+    for key in ("narrative_atoms", "provenance", "events", "timeline",
+                "concepts", "facts", "material_relevance"):
+        rows = payload.get(key)
+        if isinstance(rows, list) and len(rows) > 40:
+            payload[key] = rows[:40]
+    for row in payload.get("narrative_atoms") or []:
+        if isinstance(row, dict):
+            for ek in ("source_text", "source_excerpt", "proposition"):
+                if isinstance(row.get(ek), str) and len(row[ek]) > 180:
+                    row[ek] = row[ek][:180]
+    blob = json.dumps(payload, default=str)
+    case.raw_answers["_semantic_case_state"] = blob[:24000]
     case.raw_answers["_semantic_revision"] = str(state.revision)
+    # Compact atom list for pack/DraftPlan if the full blob is truncated.
+    case.raw_answers["_semantic_narrative_atoms"] = json.dumps(
+        payload.get("narrative_atoms") or [])[:8000]
     # Lightweight attribute for in-process consumers (not a redesign of CaseFile).
     setattr(case, "semantic_case_state", payload)
     case.audit.append({

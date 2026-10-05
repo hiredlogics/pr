@@ -1,16 +1,1 @@
-{
-  "projectId": "prj_UVQ2dejGskGUooVQktQil7iZXT1e",
-  "orgId": "team_rQjpyWuszSoCj1ZaVJLJ1sCp",
-  "projectName": "pcn-appeal-api",
-  "settings": {
-    "createdAt": 1790634004535,
-    "framework": "fastapi",
-    "devCommand": null,
-    "installCommand": null,
-    "buildCommand": null,
-    "outputDirectory": null,
-    "rootDirectory": null,
-    "directoryListing": false,
-    "nodeVersion": "24.x"
-  }
-}
+{"projectId":"prj_lxMqQtaxx3uSaw4Nb914we7GaAJE","orgId":"team_gGNkGSrtmWSOGCcAMr7mPDIC","projectName":"pcn-appeal-p75-api"}

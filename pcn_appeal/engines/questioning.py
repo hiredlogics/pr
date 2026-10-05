@@ -118,7 +118,12 @@ class QuestionEngine:
                 case.state = CaseState.QUESTIONING
                 return
             else:
-                value = answer_polarity(raw) is True
+                # Unclear bool answers must not become False by default.
+                pol = answer_polarity(raw)
+                if pol is None:
+                    case.state = CaseState.QUESTIONING
+                    return
+                value = pol is True
         elif t == "int":
             value = int(raw)
         elif t == "choice":

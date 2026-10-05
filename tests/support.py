@@ -62,6 +62,11 @@ class ReferenceAnalysisLLM:
             if queued:
                 return queued.pop(0)
             return {"issues": []}
+        if task == "identity_verification":
+            queued = self.responses.get(task)
+            if queued:
+                return queued.pop(0)
+            return {"fields": {}}
         queued = self.responses.get(task)
         if not queued and task == "classification":
             # Intake's neutral classifier. A fixture that scripts no

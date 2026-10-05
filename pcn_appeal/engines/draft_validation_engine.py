@@ -358,6 +358,7 @@ class DraftValidationEngine:
         )
         from ..module_roles import (
             SUPPORTING_PROPOSITION,
+            SUBSTANTIVE_GROUND,
             LEGAL_CONCLUSION as MODULE_LEGAL_CONCLUSION,
             role_of,
         )
@@ -524,6 +525,13 @@ class DraftValidationEngine:
                     f"{', '.join(missing_part)}; supporting_fact_ids={fact_hint}; "
                     "a summary of the conclusion is not a substitute for the material "
                     "factual sequence", None)
+                # Explicit material-coverage block for substantive grounds.
+                if role_of(mid) in (SUBSTANTIVE_GROUND,):
+                    add("VAL-MATERIAL-FACT-COVERAGE",
+                        f"ground_id={mid}; section_id={sid}; material particular(s) "
+                        f"missing from letter meaning: {', '.join(missing_part)}; "
+                        "BLOCK release — professional paraphrase required, not omission",
+                        None)
         return result
 
     # --------------------------------------------------------------- internals

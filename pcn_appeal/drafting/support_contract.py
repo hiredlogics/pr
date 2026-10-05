@@ -186,7 +186,8 @@ def _lineage_map(case) -> dict[str, list[str]]:
     if case.get("multiple_visits") is True:
         atoms = []
         for src in ("left_site", "returned_same_day", "visited_premises",
-                    "purpose_of_visit", "departure_reason"):
+                    "purpose_of_visit", "departure_reason",
+                    "dropoff_activity", "pickup_activity"):
             if case.has(src) and case.get(src) not in (None, "", [], False):
                 atoms.append(src)
         if atoms:

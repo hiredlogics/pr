@@ -123,14 +123,16 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
         r"went (off site|elsewhere|away)|drove (away|out)|"
         r"drove away before|exited (the )?(site|car park)|was no longer on site|"
         r"not on site during|went off-site|off-site|"
-        r"later left|then left)\b", re.I)),
+        r"later left|then left|left after\b|"
+        r"left,?\s+and\s+(then\s+)?(returned|came|come)|"
+        r"left and (then )?(came|come) back|left and (then )?returned)\b", re.I)),
     ("RETURNED", re.compile(
-        r"\b(came back|returned (to|later)|went back (to|in)|"
+        r"\b(came back|come back|returned(?:\s+(to|later))?|went back (to|in)|"
         r"re-?entered|came back (later|afterwards)|"
         r"before (coming|returning) back|coming back)\b", re.I)),
     ("MULTIPLE_VISITS", re.compile(
         r"\b(two visits|more than one visit|visited twice|second (visit|entry|stay)|"
-        r"another stay|left and (then )?returned|came back later|"
+        r"another stay|left and (then )?(returned|came back|come back)|came back later|"
         r"more than one (entry|stay)|two stays|second short stay)\b", re.I)),
     ("LOADING", re.compile(
         r"\b(loading|unloading|loaded|unloaded|"
@@ -140,8 +142,14 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
         r"\b(collection|collecting (goods|a parcel|an order|stock)|"
         r"take a parcel|parcel (from|order)|collection point)\b", re.I)),
     ("PICK_UP", re.compile(
-        r"\b(pick[ -]?up|picked up|collect(ing|ed) (a )?(passenger|friend))\b", re.I)),
-    ("DROP_OFF", re.compile(r"\b(drop[ -]?off|dropped (off|someone))\b", re.I)),
+        r"\b(pick[ -]?up|picking up|"
+        r"pick(?:ed|ing)?\b.{0,24}\bup\b|"
+        r"collect(?:ing|ed)?\b.{0,24}\b(them|him|her|a passenger|the passenger|"
+        r"a friend))\b", re.I)),
+    ("DROP_OFF", re.compile(
+        r"\b(drop[ -]?off|dropping off|"
+        r"drop(?:ped|ping)?\b.{0,40}\boff\b|"
+        r"set(?:ting)? down (a )?(passenger|rider))\b", re.I)),
     ("SHOPPING", re.compile(r"\b(shopping|bought|purchases?|supermarket)\b", re.I)),
     ("PERMIT_HELD", re.compile(
         r"\b(have a permit|hold a permit|resident('s)? permit|permit holder|"

@@ -49,6 +49,8 @@ LETTER_PARTICULARS = frozenset({
     "purpose_of_visit", "visited_premises",
     # Generic narrative-atom particular: professional reason for leaving.
     "departure_reason",
+    # Passenger activity facts (KB-ACT-02 / ANPR sequence particulars).
+    "dropoff_activity", "pickup_activity",
 })
 
 # Soft semantic cues that a ground's topic was expressed (not exact wording).
@@ -59,11 +61,14 @@ _TOPIC_CUES: dict[str, re.Pattern] = {
     "POFA": re.compile(r"\b(schedule 4|keeper liability|notice to keeper|statutory|days)\b", re.I),
     "RESIDENTIAL": re.compile(r"\b(permit|resident|lease|tenan|bay)\b", re.I),
     "ANPR": re.compile(
-        r"\b(anpr|visit|entry|exit|capture|camera|left|return|depart)\b", re.I),
+        r"\b(anpr|visit|entry|exit|capture|camera|left|return|depart|"
+        r"drop.?off|pick.?up|separate)\b", re.I),
     "AUTHORISATION": re.compile(r"\b(authoris|permit|consent|whitelist)\b", re.I),
     "EVIDENCE": re.compile(r"\b(evidence|record|proof|contradict|receipt|validation)\b", re.I),
     "BAY": re.compile(r"\b(bay|restriction|occup)\b", re.I),
-    "ACTIVITY": re.compile(r"\b(load|deliver|collect|unload|parcel|courier)\b", re.I),
+    "ACTIVITY": re.compile(
+        r"\b(load|deliver|collect|unload|parcel|courier|drop.?off|pick.?up|"
+        r"passenger|set down)\b", re.I),
     "GRACE": re.compile(r"\b(grace|consideration|period)\b", re.I),
     "LAND": re.compile(r"\b(landowner|authority)\b", re.I),
     "SIGN": re.compile(r"\b(sign|signage)\b", re.I),
@@ -323,6 +328,46 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
                 }]
                 if "departure_reason" not in kept:
                     kept.append("departure_reason")
+            # Preserve passenger activity sequence when present (generic meaning).
+            drop = values.get("dropoff_activity") or facts.get("dropoff_activity")
+            pick = values.get("pickup_activity") or facts.get("pickup_activity")
+            if drop or pick:
+                purpose += (
+                    " Express the customer activity sequence using valued "
+                    "particulars (drop-off / leave / return / pick-up as present); "
+                    "professionally rewrite; do not collapse into generic ANPR "
+                    "timestamp wording alone; do not identify the driver."
+                )
+                for name, val in (("dropoff_activity", drop), ("pickup_activity", pick)):
+                    if val not in (None, "", False) and name not in kept:
+                        kept.append(name)
+                        values.setdefault(name, val)
+            # Attach material narrative atoms (including unmapped) for this ground.
+            ctx_atoms = list((getattr(pack, "case_context", None) or {})
+                             .get("narrative_atoms") or [])
+            material_atoms = [
+                a for a in ctx_atoms
+                if isinstance(a, dict)
+                and a.get("polarity") in (None, "AFFIRMED", "NEGATED", "UNCERTAIN")
+                and (
+                    a.get("mapped_to_ontology") is False
+                    or a.get("category") in (
+                        "departure_reason", "departure_event", "return_event",
+                        "visit_activity", "multiple_attendance", "unmapped_reason",
+                    )
+                    or a.get("name") in (
+                        "departure_reason", "unmapped_reason",
+                    )
+                )
+            ]
+            if material_atoms and not narrative_atoms:
+                narrative_atoms = material_atoms[:8]
+            elif material_atoms:
+                seen_ids = {a.get("atom_id") for a in narrative_atoms}
+                for a in material_atoms:
+                    if a.get("atom_id") not in seen_ids:
+                        narrative_atoms.append(a)
+                narrative_atoms = narrative_atoms[:12]
         # Meta / gating facts stay in the SupportBundle for audit but must not
         # be offered to the drafter as citable fact_refs (VAL-FACT).
         letter_names = [
@@ -363,9 +408,11 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         "Name PCN / VRM when present",
         "Do not argue grounds in the introduction",
     ]
+    # One closing requirement — avoid repeating keeper-liability / cancel twice.
     closing = [
-        "Clear cancellation request",
-        "Schedule 4 keeper-liability conclusion only if pofa_findings non-empty",
+        "One concise cancellation request; mention Schedule 4 keeper-liability "
+        "only once if pofa_findings are non-empty (do not repeat the same "
+        "conclusion)",
     ]
     return DraftPlan(
         case_id=case_id or "",
@@ -441,7 +488,16 @@ def particular_expressed(text: str, name: str, value: Any = None) -> bool:
         "account_contradicts_allegation": (
             r"\bcontradict", r"\binconsistent with\b", r"\binconsistency\b"),
         "material_account_proposition": (r"\bkeeper'?s account\b", r"\baccount is that\b"),
-        "purpose_of_visit": (r"\bshop", r"\bpurchas", r"\bretail"),
+        "purpose_of_visit": (
+            r"\bshop", r"\bpurchas", r"\bretail",
+            r"\bdrop.?off\b", r"\bpick.?up\b", r"\bpassenger\b",
+        ),
+        "dropoff_activity": (
+            r"\bdrop.?off\b", r"\bdropped\b", r"\bset down\b", r"\bpassenger\b",
+        ),
+        "pickup_activity": (
+            r"\bpick.?up\b", r"\bcollect", r"\bpassenger\b",
+        ),
         "departure_reason": (
             r"\bforgot", r"\bforgotten\b", r"\bretriev", r"\bcollect",
             r"\bwallet\b", r"\bpurse\b", r"\bnecessary item\b", r"\bat home\b",

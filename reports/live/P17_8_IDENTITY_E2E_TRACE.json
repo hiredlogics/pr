@@ -1,0 +1,140 @@
+{
+  "meta": {
+    "base": "https://api-p7-production.up.railway.app",
+    "build_id": "252bb4bd-a272-4ef2-b5a4-6b4d8f63f7e6",
+    "case_id": "e4945801-bd4b-4401-8500-4029253bf2e6",
+    "front": "original CP Plus WhatsApp photo",
+    "back": "GENERIC_p174 reverse (different notice identity)"
+  },
+  "path": {
+    "original_document": "front photo + generic reverse",
+    "initial_critical_extraction": {
+      "notice_issue_date": {
+        "value": "2020-07-13",
+        "status": "UNCERTAIN",
+        "confidence": 0.96,
+        "usable": false,
+        "provenance": "DOCUMENT:E1#p1"
+      },
+      "operator_name": {
+        "value": "CP Plus",
+        "status": "CONFIRMED",
+        "confidence": 0.98,
+        "usable": true,
+        "provenance": "DOCUMENT:E1#p1"
+      },
+      "parking_event_date": {
+        "value": "2020-06-27",
+        "status": "UNCERTAIN",
+        "confidence": 0.9,
+        "usable": false,
+        "provenance": "DOCUMENT:E1#p1"
+      },
+      "parking_location": {
+        "value": "Canada Water Estate, SE16 7LL",
+        "status": "UNCERTAIN",
+        "confidence": 0.9,
+        "usable": false,
+        "provenance": "DOCUMENT:E1#p1"
+      },
+      "pcn_number": {
+        "value": "DES247579200",
+        "status": "UNCERTAIN",
+        "confidence": 0.97,
+        "usable": false,
+        "provenance": "DOCUMENT:E1#p1"
+      },
+      "vrm": {
+        "value": "EX63KZT",
+        "status": "UNCERTAIN",
+        "confidence": 0.96,
+        "usable": false,
+        "provenance": "DOCUMENT:E1#p1"
+      }
+    },
+    "independent_critical_reread": "identity_verification model=gpt-5.1 (see health models)",
+    "reconciliation": "DOCUMENT_IDENTITY_CONFLICT (pair / field)",
+    "DocumentIdentityState": {
+      "complete": false,
+      "document_identity_complete_fact": null
+    },
+    "FactManager": "critical IDs not promoted as CONFIRMED usable identity",
+    "legal_findings": [
+      {
+        "finding_id": "99726a08-3cb3-535d-8a98-e6897d1bce92",
+        "family": "POFA_POSTAL_LATE",
+        "status": "UNRESOLVED",
+        "legal_module_id": "KB-POFA-02",
+        "particulars": {},
+        "calculation": {
+          "pofa_route": "UNRESOLVED",
+          "note": "Timing identity not verified (conflict:parking_event_date, conflict:notice_issue_date); legal timing calculation withheld."
+        },
+        "reason": null
+      },
+      {
+        "finding_id": "aa396c08-3030-5a4a-a8c1-b0ed004ff3f3",
+        "family": "POFA_NTD_NTK_LATE",
+        "status": "UNRESOLVED",
+        "legal_module_id": "KB-POFA-03",
+        "particulars": {},
+        "calculation": {
+          "pofa_route": "UNRESOLVED",
+          "note": "Timing identity not verified (conflict:parking_event_date, conflict:notice_issue_date); legal timing calculation withheld."
+        },
+        "reason": null
+      },
+      {
+        "finding_id": "308f4992-ca2a-5f41-9b0b-940fbfe5b60f",
+        "family": "POFA_NTD_NTK_TOO_EARLY",
+        "status": "UNRESOLVED",
+        "legal_module_id": "KB-POFA-03",
+        "particulars": {},
+        "calculation": {
+          "pofa_route": "UNRESOLVED",
+          "note": "Timing identity not verified (conflict:parking_event_date, conflict:notice_issue_date); legal timing calculation withheld."
+        },
+        "reason": null
+      },
+      {
+        "finding_id": "51ed0734-8efe-59dd-9d1d-ce366ae6f78f",
+        "family": "POFA_NTK_INVITATION_DEFECT",
+        "status": "NOT_SUPPORTED",
+        "legal_module_id": "KB-POFA-05",
+        "particulars": {},
+        "calculation": {
+          "pofa_route": "UNRESOLVED",
+          "note": "mandatory invitation wording present"
+        },
+        "reason": null
+      },
+      {
+        "finding_id": "f1eab028-599d-5052-b54f-4a83ebbaa3b8",
+        "family": "NTK_CONTENT_DEFECT",
+        "status": "NOT_SUPPORTED",
+        "legal_module_id": null,
+        "particulars": {},
+        "calculation": {
+          "pofa_route": "UNRESOLVED",
+          "note": "no document-confirmed content defect"
+        },
+        "reason": null
+      }
+    ],
+    "Claim_Plan": null,
+    "DraftPlan": null,
+    "draft": null,
+    "VAL_CRITICAL_DOCUMENT_IDENTITY": [
+      "VAL-CRITICAL-DOCUMENT-IDENTITY: Critical document identity incomplete or conflicted (DOCUMENT_IDENTITY_CONFLICT). Confirm or re-upload the notice before a letter can be released.",
+      "VAL-IDENTITY: pcn_number missing \u2014 heading would render unresolved placeholder"
+    ],
+    "final_outcome": "NEEDS_FACTS",
+    "final_state": "MANUAL_REVIEW"
+  },
+  "first_disagreement": {
+    "layer": "document pair / critical identity reconciliation",
+    "signal": "DOCUMENT_IDENTITY_CONFLICT",
+    "event": "HELD_DOCUMENT_IDENTITY",
+    "note": "Generic reverse does not share strong identifiers with the original front; Claim Plan not locked; release blocked."
+  }
+}

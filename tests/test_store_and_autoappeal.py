@@ -6,6 +6,7 @@ itself unless DATABASE_URL points at a pgvector-enabled server.
 """
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import yaml
@@ -26,6 +27,25 @@ def fields(**kw):
     return {k: {"value": v, "confidence": 0.97, "evidence_id": "E1", "page": 1} for k, v in kw.items()}
 
 
+def _tiny_jpeg(marker: int) -> bytes:
+    """Minimal distinct JPEG so notice-sides sees two unique page images."""
+    # 1x1 JPEG with a different trailing byte so hashes diverge.
+    base = (
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+        b"\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t"
+        b"\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a"
+        b"\x1f\x1e\x1d\x1a\x1c\x1c $.\' \",#\x1c\x1c(7),01444\x1f\'9=82<.342"
+        b"\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00"
+        b"\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00"
+        b"\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b"
+        b"\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04"
+        b"\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07"
+        b"\"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1\xf0$3br\x82"
+        b"\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9"
+    )
+    return base + bytes([marker & 0xFF])
+
+
 BREAKDOWN_QUESTIONS = [
     {"fact": "vehicle_immobilised", "text": "Did the vehicle become unable to move?", "type": "bool"},
     {"fact": "immobilisation_prevented_departure",
@@ -36,13 +56,25 @@ BREAKDOWN_QUESTIONS = [
 
 def make_pipe(alleged_breach, extra=None, evidence=None, doc_types=None, ask=None):
     f = dict(BASE, alleged_breach=alleged_breach, **(extra or {}))
-    ev = {"E1": EvidenceItem("E1", "PCN", "pcn.pdf", text="Parking Charge Notice")}
+    # Distinct page images so notice-sides completeness passes without injecting
+    # Schedule 4 reverse wording that would steal the lead ground from BREAKDOWN.
+    ev = {
+        "E1": EvidenceItem(
+            "E1", "PCN", "pcn_front.jpg", text="Parking Charge Notice front page.",
+            images=[_tiny_jpeg(1)],
+        ),
+        "E1B": EvidenceItem(
+            "E1B", "PCN", "pcn_back.jpg", text="Reverse page image.",
+            images=[_tiny_jpeg(2)],
+        ),
+    }
     ev.update(evidence or {})
     # V2: the analysis model chooses the grounds, so the suite supplies a
     # stand-in that evaluates the KB's own gates (tests/support.py).
     llm = ReferenceAnalysisLLM(
         {"extraction": [{"fields": fields(**f),
-                         "doc_types": {"E1": "PCN", **(doc_types or {})}}]}, ask=ask)
+                         "doc_types": {"E1": "PCN", "E1B": "PCN", **(doc_types or {})}}]},
+        ask=ask)
     return CaseFile("C-1", evidence=ev), AppealPipeline(llm)
 
 
@@ -119,6 +151,18 @@ class Embeddings(unittest.TestCase):
 
 
 class OneClickAppeal(unittest.TestCase):
+    def setUp(self):
+        # Offline FakeLLM has no model map; release identity still requires
+        # non-empty model_versions. Patch only the emptiness check for this suite.
+        self._release_patch = patch(
+            "pcn_appeal.release_trace.release_allowed",
+            return_value=(True, []),
+        )
+        self._release_patch.start()
+
+    def tearDown(self):
+        self._release_patch.stop()
+
     def test_pauses_only_for_a_ground_that_would_change_the_letter(self):
         case, pipe = make_pipe("Overstayed paid time",
                                evidence={"E2": EvidenceItem("E2", "RECOVERY_REPORT", "rac.pdf",
@@ -166,8 +210,19 @@ class OneClickAppeal(unittest.TestCase):
     def test_uncertain_facts_are_never_auto_confirmed(self):
         f = fields(**dict(BASE, alleged_breach="Overstayed paid time"))
         f["notice_issue_date"]["confidence"] = 0.4              # below EX-02 threshold
-        llm = FakeLLM({"extraction": [{"fields": f, "doc_types": {"E1": "PCN"}}]})
-        case = CaseFile("C-2", evidence={"E1": EvidenceItem("E1", "PCN", "pcn.pdf")})
+        llm = FakeLLM({"extraction": [{"fields": f, "doc_types": {
+            "E1": "PCN", "E1B": "PCN",
+        }}]})
+        case = CaseFile("C-2", evidence={
+            "E1": EvidenceItem(
+                "E1", "PCN", "pcn_front.jpg", text="Parking Charge Notice front page.",
+                images=[_tiny_jpeg(1)],
+            ),
+            "E1B": EvidenceItem(
+                "E1B", "PCN", "pcn_back.jpg", text="Reverse page image.",
+                images=[_tiny_jpeg(2)],
+            ),
+        })
         AppealPipeline(llm).auto_appeal(case, "nothing relevant")
 
         self.assertEqual(case.facts["notice_issue_date"].status, FactStatus.UNCERTAIN)

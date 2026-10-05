@@ -106,6 +106,8 @@ CONCEPT_DEFINITIONS: dict[str, str] = {
 
 # Concept → FactManager fact name + value (typed promotion).
 # Negated / uncertain concepts are not promoted as affirmative facts.
+# DROP_OFF / PICK_UP promote activity facts (KB-ACT-02 gates on dropoff_activity),
+# not only purpose_of_visit labels.
 CONCEPT_TO_FACTS: dict[str, tuple[str, object]] = {
     "LEFT_SITE": ("left_site", True),
     "RETURNED": ("returned_same_day", True),
@@ -115,8 +117,8 @@ CONCEPT_TO_FACTS: dict[str, tuple[str, object]] = {
     "PAYMENT_FAILED": ("payment_attempt_failed", True),
     "KEYING_ERROR": ("keying_error_type", "MINOR"),
     "SHOPPING": ("purpose_of_visit", "shopping"),
-    "DROP_OFF": ("purpose_of_visit", "drop_off"),
-    "PICK_UP": ("purpose_of_visit", "pick_up"),
+    "DROP_OFF": ("dropoff_activity", True),
+    "PICK_UP": ("pickup_activity", True),
     "LOADING": ("loading_activity", True),
     "DELIVERY": ("loading_activity", True),
     "COLLECTION": ("loading_activity", True),
@@ -127,6 +129,13 @@ CONCEPT_TO_FACTS: dict[str, tuple[str, object]] = {
     "REGISTRATION_MISMATCH": ("keying_error_type", "MINOR"),
     "CHILD_PRESENT": ("child_occupant_present", True),
     "DISABLED_PASSENGER": ("disability_extra_time", True),
+}
+
+# Additional FactManager writes when a concept is AFFIRMED (same provenance).
+# Used so DROP_OFF/PICK_UP also label purpose_of_visit when not already set.
+CONCEPT_EXTRA_FACTS: dict[str, tuple[tuple[str, object], ...]] = {
+    "DROP_OFF": (("purpose_of_visit", "drop_off"),),
+    "PICK_UP": (("purpose_of_visit", "pick_up"),),
 }
 
 ONTOLOGY_VERSION = "p10_5_ontology_v1"

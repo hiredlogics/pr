@@ -1,0 +1,617 @@
+{
+  "health": {
+    "commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+    "build_id": "2fd356e5-ba98-4107-835a-f686a3be182e",
+    "kb_release": "kb-20261004T174817Z",
+    "prompt_versions": {
+      "drafting": 17,
+      "extraction": 10,
+      "validation": 3,
+      "case_analysis": 8,
+      "classification": 2,
+      "page_references": 2,
+      "semantic_extraction": 1
+    },
+    "kb_drift": []
+  },
+  "runs": [
+    {
+      "run": 1,
+      "case_id": "cf552ea3-fcf9-4cf7-a101-a2068add0e38",
+      "state": "RELEASED",
+      "outcome": null,
+      "ms": 33687,
+      "coverage": {
+        "shopping": true,
+        "reason": true,
+        "left": true,
+        "returned": true,
+        "cancel": true,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "pass": true,
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle LT12EST. The driver has not been identified and will not be named. This appeal concerns Parking Charge Notice LIVE_TEST_PCN_CPPLUS_R1.\n\nI note that LIVE_TEST Parking Ltd alleges a parking event at LIVE_TEST Retail Park, M1 1AA on 1 June 2026 and that a Notice to Keeper was issued by post dated 20 June 2026. The notice was issued by the postal route in England and Wales and is therefore subject to the Schedule 4 timing requirements for a postal Notice to Keeper. On the verified calculation, for a parking event on 1 June 2026 the statutory deadline for delivery was 15 June 2026, with deemed delivery of the posted notice calculated as 23 June 2026, which is 8 days outside that period. The Notice to Keeper was therefore not delivered within the applicable statutory period for the relevant postal-notice route. T",
+      "admin": {
+        "claim_plans": {
+          "status": 200,
+          "ok": true,
+          "approved": null
+        },
+        "console": {
+          "status": 200,
+          "why_stopped": null,
+          "health": [
+            {
+              "label": "Extraction",
+              "status": "PASS"
+            },
+            {
+              "label": "Facts",
+              "status": "PASS"
+            },
+            {
+              "label": "Narrative",
+              "status": "PASS"
+            },
+            {
+              "label": "Legal findings",
+              "status": "VERIFIED"
+            },
+            {
+              "label": "Ground merge",
+              "status": "PASS"
+            },
+            {
+              "label": "Claim Plan",
+              "status": "PASS"
+            },
+            {
+              "label": "Draft",
+              "status": "PASS"
+            },
+            {
+              "label": "Validation",
+              "status": "PASS"
+            }
+          ],
+          "summary": {
+            "case_id": "cf552ea3-fcf9-4cf7-a101-a2068add0e38",
+            "execution_id": "c1129f3a-3ae2-5be3-a615-983aefafb892",
+            "case_revision": 1,
+            "final_outcome": "RELEASED",
+            "final_state": "RELEASED",
+            "app_version": "2fd356e5-ba98-4107-835a-f686a3be182e",
+            "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+            "kb_release": "kb-20261004T174817Z",
+            "prompt_versions": {
+              "drafting": 17,
+              "extraction": 10,
+              "validation": 3,
+              "case_analysis": 8,
+              "classification": 2,
+              "page_references": 2,
+              "semantic_extraction": 1
+            },
+            "models": {
+              "classification": "gpt-5.1",
+              "extraction": "gpt-5.1",
+              "page_references": "gpt-5.1",
+              "semantic_extraction": "gpt-5.1",
+              "case_analysis": "gpt-5.1",
+              "drafting": "gpt-5.1",
+              "validation": "gpt-5-mini"
+            },
+            "provider": "openai",
+            "claim_plan_version": 1,
+            "synthetic_label": null
+          },
+          "validation": {
+            "checks": [
+              {
+                "rule": "VALIDATION",
+                "status": "PASS",
+                "reason": "all clear"
+              },
+              {
+                "rule": "VAL-PLAN",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-GROUND-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MATERIAL-FACT-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PARTICULARS",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-LEGAL-FINDING",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-POFA-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DRIVER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EVIDENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-CONFLICT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-IDENTITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PLACEHOLDER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-INTEGRITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MODULE-TRACE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-VERIFIED-GROUND-PRESENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EXPECTED-REJECTION",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-STABILITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "NOT_RUN",
+                "reason": ""
+              }
+            ],
+            "ran": true
+          }
+        }
+      }
+    },
+    {
+      "run": 2,
+      "case_id": "a2760748-2f92-4c48-8109-796ce216e8a9",
+      "state": "RELEASED",
+      "outcome": null,
+      "ms": 33255,
+      "coverage": {
+        "shopping": true,
+        "reason": true,
+        "left": true,
+        "returned": true,
+        "cancel": true,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "pass": true,
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle LT12EST. The driver will not be identified. This appeal concerns Parking Charge Notice LIVE_TEST_PCN_CPPLUS_R2.\n\nThe Parking Charge Notice states that the parking event at LIVE_TEST Retail Park took place on 1 June 2026 and that the Notice to Keeper was issued on 20 June 2026. For a postal Notice to Keeper in England and Wales, the applicable Schedule 4 route is the postal route under paragraph 9. On that basis, the latest date by which the Notice to Keeper had to be delivered in order to comply with Schedule 4 was 15 June 2026, whereas the presumed date of delivery of a notice issued on 20 June 2026 is 23 June 2026, which is 8 days after the statutory deadline. Accordingly, the Notice to Keeper was not delivered within the applicable statutory period for the relevant postal-notice route. The operator has t",
+      "admin": {
+        "claim_plans": {
+          "status": 200,
+          "ok": true,
+          "approved": null
+        },
+        "console": {
+          "status": 200,
+          "why_stopped": null,
+          "health": [
+            {
+              "label": "Extraction",
+              "status": "PASS"
+            },
+            {
+              "label": "Facts",
+              "status": "PASS"
+            },
+            {
+              "label": "Narrative",
+              "status": "PASS"
+            },
+            {
+              "label": "Legal findings",
+              "status": "VERIFIED"
+            },
+            {
+              "label": "Ground merge",
+              "status": "PASS"
+            },
+            {
+              "label": "Claim Plan",
+              "status": "PASS"
+            },
+            {
+              "label": "Draft",
+              "status": "PASS"
+            },
+            {
+              "label": "Validation",
+              "status": "PASS"
+            }
+          ],
+          "summary": {
+            "case_id": "a2760748-2f92-4c48-8109-796ce216e8a9",
+            "execution_id": "8cd459f1-3a22-5542-872a-dcebf24e91fa",
+            "case_revision": 1,
+            "final_outcome": "RELEASED",
+            "final_state": "RELEASED",
+            "app_version": "2fd356e5-ba98-4107-835a-f686a3be182e",
+            "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+            "kb_release": "kb-20261004T174817Z",
+            "prompt_versions": {
+              "drafting": 17,
+              "extraction": 10,
+              "validation": 3,
+              "case_analysis": 8,
+              "classification": 2,
+              "page_references": 2,
+              "semantic_extraction": 1
+            },
+            "models": {
+              "classification": "gpt-5.1",
+              "extraction": "gpt-5.1",
+              "page_references": "gpt-5.1",
+              "semantic_extraction": "gpt-5.1",
+              "case_analysis": "gpt-5.1",
+              "drafting": "gpt-5.1",
+              "validation": "gpt-5-mini"
+            },
+            "provider": "openai",
+            "claim_plan_version": 1,
+            "synthetic_label": null
+          },
+          "validation": {
+            "checks": [
+              {
+                "rule": "VALIDATION",
+                "status": "PASS",
+                "reason": "all clear"
+              },
+              {
+                "rule": "VAL-PLAN",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-GROUND-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MATERIAL-FACT-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PARTICULARS",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-LEGAL-FINDING",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-POFA-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DRIVER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EVIDENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-CONFLICT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-IDENTITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PLACEHOLDER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-INTEGRITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MODULE-TRACE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-VERIFIED-GROUND-PRESENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EXPECTED-REJECTION",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-STABILITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "NOT_RUN",
+                "reason": ""
+              }
+            ],
+            "ran": true
+          }
+        }
+      }
+    },
+    {
+      "run": 3,
+      "case_id": "eeed42b6-9c0a-484f-8e84-227da8081ce0",
+      "state": "RELEASED",
+      "outcome": null,
+      "ms": 28642,
+      "coverage": {
+        "shopping": true,
+        "reason": true,
+        "left": true,
+        "returned": true,
+        "cancel": true,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "pass": true,
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle LT12EST. The driver has not been identified and will not be named.\n\nThe Notice to Keeper for LIVE_TEST_PCN_CPPLUS_R3 relates to an event on 1 June 2026 at LIVE_TEST Retail Park, M1 1AA and was issued as a postal notice in England and Wales. The notice itself is dated 20 June 2026, whereas for a postal Notice to Keeper relating to an incident on 1 June 2026 the statutory deadline for delivery was 15 June 2026, with presumed delivery of this notice falling on 23 June 2026. On that basis, the Notice to Keeper was not delivered within the applicable statutory period for the relevant postal-notice route and is calculated to be 8 days outside that period. The operator has therefore failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4, and as the identity of the dr",
+      "admin": {
+        "claim_plans": {
+          "status": 200,
+          "ok": true,
+          "approved": null
+        },
+        "console": {
+          "status": 200,
+          "why_stopped": null,
+          "health": [
+            {
+              "label": "Extraction",
+              "status": "PASS"
+            },
+            {
+              "label": "Facts",
+              "status": "PASS"
+            },
+            {
+              "label": "Narrative",
+              "status": "PASS"
+            },
+            {
+              "label": "Legal findings",
+              "status": "VERIFIED"
+            },
+            {
+              "label": "Ground merge",
+              "status": "PASS"
+            },
+            {
+              "label": "Claim Plan",
+              "status": "PASS"
+            },
+            {
+              "label": "Draft",
+              "status": "PASS"
+            },
+            {
+              "label": "Validation",
+              "status": "PASS"
+            }
+          ],
+          "summary": {
+            "case_id": "eeed42b6-9c0a-484f-8e84-227da8081ce0",
+            "execution_id": "77826e43-b94a-5fe1-b572-924ba49aaeab",
+            "case_revision": 1,
+            "final_outcome": "RELEASED",
+            "final_state": "RELEASED",
+            "app_version": "2fd356e5-ba98-4107-835a-f686a3be182e",
+            "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+            "kb_release": "kb-20261004T174817Z",
+            "prompt_versions": {
+              "drafting": 17,
+              "extraction": 10,
+              "validation": 3,
+              "case_analysis": 8,
+              "classification": 2,
+              "page_references": 2,
+              "semantic_extraction": 1
+            },
+            "models": {
+              "classification": "gpt-5.1",
+              "extraction": "gpt-5.1",
+              "page_references": "gpt-5.1",
+              "semantic_extraction": "gpt-5.1",
+              "case_analysis": "gpt-5.1",
+              "drafting": "gpt-5.1",
+              "validation": "gpt-5-mini"
+            },
+            "provider": "openai",
+            "claim_plan_version": 1,
+            "synthetic_label": null
+          },
+          "validation": {
+            "checks": [
+              {
+                "rule": "VALIDATION",
+                "status": "PASS",
+                "reason": "all clear"
+              },
+              {
+                "rule": "VAL-PLAN",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-GROUND-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MATERIAL-FACT-COVERAGE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PARTICULARS",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-LEGAL-FINDING",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-POFA-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DRIVER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EVIDENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-CONFLICT",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-IDENTITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-PLACEHOLDER",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-INTEGRITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-MODULE-TRACE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-VERIFIED-GROUND-PRESENCE",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-EXPECTED-REJECTION",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-AUTHORITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-FACT-STABILITY",
+                "status": "NOT_RUN",
+                "reason": ""
+              },
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "NOT_RUN",
+                "reason": ""
+              }
+            ],
+            "ran": true
+          }
+        }
+      }
+    }
+  ],
+  "all_pass": true
+}

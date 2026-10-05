@@ -617,6 +617,22 @@ class ValidationEngine:
             # such as RX7V5FP for RX7V5PP is the error that reaches operators.
             for tok in _near_variants(full, vrm, min_len=5, max_len=8, spaced=True):
                 block("VAL-CONFLICT", f"VRM {tok} does not match source VRM")
+
+        # P17.8: draft vs authoritative FactManager identity (verified document evidence).
+        case_ctx = getattr(pack, "case_context", None) or {}
+        auth = case_ctx.get("authoritative_identity") or {}
+        id_rev = case_ctx.get("identity_revision")
+        if auth and full.strip():
+            from ..document_identity import draft_identity_mismatches
+            required = set(case_ctx.get("identity_required_in_draft") or [])
+            for row in draft_identity_mismatches(full, auth, required=required):
+                block(
+                    "VAL-CRITICAL-DOCUMENT-IDENTITY",
+                    f"field={row.get('field')}; draft_value={row.get('draft_value')}; "
+                    f"authoritative_value={row.get('authoritative_value')}; "
+                    f"source_ref=fact_manager; identity_revision={id_rev}; "
+                    f"result={row.get('result')}",
+                )
         if facts.get("lease_has_regulations_clause") and "KB-RES-06" in pack.module_ids and \
                 not any("KB-RES-06" in s.module_refs for s in draft.sentences()):
             block("VAL-RES", "Lease regulations/permit clause exists but the draft does not address it")

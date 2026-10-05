@@ -1,0 +1,252 @@
+{
+  "meta": {
+    "base": "https://api-p7-production.up.railway.app",
+    "started": "2026-10-05T01:01:49Z",
+    "health": {
+      "status": "ok",
+      "modules": 55,
+      "blocks": 74,
+      "app_version": "p7-staging",
+      "environment": "staging",
+      "build_id": "b44ec687-9547-4e52-97c6-b5f26342688d",
+      "commit": "81a1397",
+      "kb_release": "kb-20261004T174817Z",
+      "kb_release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+      "kb_source": "postgres-release",
+      "kb_source_note": "",
+      "kb_drift": [],
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "validator_version": "VAL-5",
+      "store": "postgres",
+      "provider": "openai",
+      "models": {
+        "classification": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1",
+        "case_analysis": "gpt-5.1",
+        "drafting": "gpt-5.1",
+        "validation": "gpt-5-mini"
+      },
+      "provider_note": "",
+      "vision": true,
+      "max_upload_bytes": 10485760
+    },
+    "admin_configured": true,
+    "env_keys_present": {
+      "ADMIN_TOKEN": true,
+      "ADMIN_TRACE_TOKEN": true,
+      "PCN_ADMIN_TOKEN": false,
+      "OPENAI_API_KEY": true,
+      "DATABASE_URL": true,
+      "PCN_API_URL": false
+    },
+    "generic_back": "C:\\Users\\Abdul\\Downloads\\New folder (4)\\pr\\reports\\live\\p174_fixtures\\FRONTEND_LIVE_TEST_CPPLUS_back.jpg",
+    "note": "Original WhatsApp front photos + generic NTK reverse page"
+  },
+  "cases": [
+    {
+      "tag": "CPPLUS_PCN_00347261120013",
+      "case_id": "b889e2d3-df78-4b37-9463-de35aca61576",
+      "http_status": 200,
+      "ms_total": 39589,
+      "state": "RELEASED",
+      "outcome": null,
+      "rejected": [],
+      "needs_documents": null,
+      "rounds": [
+        {
+          "round": 0,
+          "state": "RELEASED",
+          "n_questions": 0,
+          "facts": [],
+          "has_letter": true,
+          "outcome": null
+        }
+      ],
+      "questions_final": [],
+      "selected_grounds": [
+        "KB-POFA-02"
+      ],
+      "facts_view": {},
+      "letter_flags": {
+        "has_letter": true,
+        "chars": 1656,
+        "shopping": false,
+        "left": false,
+        "returned": false,
+        "dropoff_or_passenger": false,
+        "cancel": true,
+        "driver_id": true,
+        "placeholder": false
+      },
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle EX64ZZT in respect of CP Plus PCN 00347261120013.\n\nI note that CP Plus allege that the vehicle overstayed on 27 August 2020 at Canada Water Estates, SE16 7LL, and that a Notice to Keeper was later issued by post. According to the Notice to Keeper, the parking event date is stated as 27 August 2020 and the notice itself is stated as having been issued on 11 September 2020. For a postal Notice to Keeper on relevant land in England and Wales, the applicable Schedule 4 route is the postal route, under which the notice must be delivered by the statutory deadline of 10 September 2020. On the basis of the verified timing calculation for this notice, the presumed date of delivery is 15 September 2020, which is five days after the statutory deadline for delivery. The Notice to Keeper was therefore not delivered within the applicable statutory period for the relevant postal-notice route, and CP Plus has failed to satisfy a condition required to transfer liability to the registered keeper under Schedule 4 of the Protection of Freedoms Act 2012. CP Plus has not established the identity of the driver. As the applicable Schedule 4 requirements have also not been satisfied, liability cannot be transferred to the registered keeper under Schedule 4.\n\nFor the reasons set out above, CP Plus has not established keeper liability under Schedule 4 of the Protection of Freedoms Act 2012; as the driver has not been iden",
+      "expected_field_hits": {
+        "operator": true,
+        "pcn": true,
+        "vrm": false,
+        "location": true,
+        "postcode": true
+      },
+      "front_bytes": 75161,
+      "back_bytes": 67414,
+      "back_source": "GENERIC_p174_CPPLUS_back",
+      "extract_notes": {
+        "notice_issue_date_used": "2020-09-11 (OCR from photo; notice text shows 11-05-2026)",
+        "letter_vrm": "EX64ZZT (OCR drift from EX15CZT)",
+        "location_ok": "Canada Water / SE16 7LL",
+        "customer_narrative_in_letter": false,
+        "primary_ground": "PoFA postal late NTK"
+      }
+    },
+    {
+      "tag": "CPPLUS_REMINDER_00347261100014",
+      "case_id": "46b31e60-1942-4eb4-8c80-4e2469d7c0c5",
+      "http_status": 200,
+      "ms_total": 22729,
+      "state": "NO_APPEAL_RIGHT",
+      "outcome": null,
+      "rejected": [],
+      "needs_documents": null,
+      "rounds": [
+        {
+          "round": 0,
+          "state": "NO_APPEAL_RIGHT",
+          "n_questions": 0,
+          "facts": [],
+          "has_letter": false,
+          "outcome": null
+        }
+      ],
+      "questions_final": [],
+      "selected_grounds": [],
+      "facts_view": {},
+      "letter_flags": {
+        "has_letter": false,
+        "chars": 0,
+        "shopping": false,
+        "left": false,
+        "returned": false,
+        "dropoff_or_passenger": false,
+        "cancel": false,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "letter_excerpt": "",
+      "expected_field_hits": {
+        "operator": false,
+        "pcn": false,
+        "vrm": false,
+        "location": false,
+        "postcode": false
+      },
+      "front_bytes": 83706,
+      "back_bytes": 67414,
+      "back_source": "GENERIC_p174_CPPLUS_back",
+      "stop": {
+        "code": "OUT_OF_STAGE",
+        "stage": "REMINDER",
+        "reason": "This notice says the time to appeal or challenge it has already passed"
+      }
+    },
+    {
+      "tag": "CPM_70377302",
+      "case_id": "365229d9-40f1-454c-9cc2-c5c2ecdeed56",
+      "http_status": 200,
+      "ms_total": 45831,
+      "state": "RELEASED",
+      "outcome": null,
+      "rejected": [],
+      "needs_documents": null,
+      "rounds": [
+        {
+          "round": 0,
+          "state": "RELEASED",
+          "n_questions": 0,
+          "facts": [],
+          "has_letter": true,
+          "outcome": null
+        }
+      ],
+      "questions_final": [],
+      "selected_grounds": [
+        "KB-ACT-02",
+        "KB-ACT-01"
+      ],
+      "facts_view": {},
+      "letter_flags": {
+        "has_letter": true,
+        "chars": 1863,
+        "shopping": false,
+        "left": true,
+        "returned": false,
+        "dropoff_or_passenger": true,
+        "cancel": true,
+        "driver_id": false,
+        "placeholder": false
+      },
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle LX26ZSE.\n\nUK Car Park Management Ltd allege that at Chamberlain Mansions, 10 Refleries Crescent, Barking, the vehicle was left or parked on site without permission and without displaying a valid permit, with the signage said to state that unauthorised parking is not permitted and that a valid CPM window sticker or dashboard permit must be clearly displayed at all times and the vehicle fully parked within a marked bay. According to your own ANPR data, the vehicle is recorded as being on site only from 17:42 to 17:48, a total of 6 minutes, during which the keeper's account is that the vehicle was present briefly in connection with dropping off a passenger rather than being left parked in a bay as described on the signs. I note that an entry/exit timestamp alone does not show that the entire 6\u2011minute interval represented a period of parking within a marked bay or that there was clear acceptance of a parking contract on the permit terms you rely upon, particularly where the vehicle was only briefly on site for passenger drop\u2011off activity.\n\nThe allegation again refers to the need to display a valid CPM permit and to be fully parked within a marked bay, but the keeper's account is that the vehicle's brief presence on site was connected with genuine loading and unloading activity rather than ordinary parking on those permit terms. I therefore ask UK Car Park Management Ltd to take into account the fact",
+      "expected_field_hits": {
+        "operator": true,
+        "pcn": true,
+        "vrm": true,
+        "location": false,
+        "postcode": false
+      },
+      "front_bytes": 129818,
+      "back_bytes": 67414,
+      "back_source": "GENERIC_p174_CPPLUS_back",
+      "extract_notes": {
+        "vrm_ok": "LX26ZSE",
+        "entry_exit": "17:42-17:48 (6 min; notice also shows 18:20 duration 37 mins \u2014 OCR/time conflict)",
+        "dropoff_activity": true,
+        "source": "semantic:dropoff_activity",
+        "location_drift": "letter says Chamberlain Mansions / Barking vs Weavers Quarter IG11 7TS on notice",
+        "customer_narrative_in_letter": true
+      }
+    }
+  ],
+  "compare": {
+    "api": "https://api-p7-production.up.railway.app",
+    "build_id": "b44ec687-9547-4e52-97c6-b5f26342688d",
+    "back_image": "GENERIC_p174 reverse (not original backs)",
+    "states": {
+      "CPPLUS_PCN_00347261120013": "RELEASED",
+      "CPPLUS_REMINDER_00347261100014": "NO_APPEAL_RIGHT",
+      "CPM_70377302": "RELEASED"
+    },
+    "grounds": {
+      "CPPLUS_PCN_00347261120013": [
+        "KB-POFA-02"
+      ],
+      "CPPLUS_REMINDER_00347261100014": [],
+      "CPM_70377302": [
+        "KB-ACT-02",
+        "KB-ACT-01"
+      ]
+    },
+    "letter_present": {
+      "CPPLUS_PCN_00347261120013": true,
+      "CPPLUS_REMINDER_00347261100014": false,
+      "CPM_70377302": true
+    },
+    "narrative_survived_in_letter": {
+      "CPPLUS_PCN_00347261120013": false,
+      "CPPLUS_REMINDER_00347261100014": false,
+      "CPM_70377302": true
+    },
+    "summary": [
+      "CP Plus PCN photo \u2192 RELEASED on KB-POFA-02 only; shopping leave/return narrative not in letter; VRM/date OCR drift",
+      "CP Plus Reminder photo \u2192 NO_APPEAL_RIGHT / OUT_OF_STAGE (reminder stage)",
+      "CPM photo \u2192 RELEASED on KB-ACT-02 + KB-ACT-01; drop-off narrative survived into letter; location OCR drift"
+    ]
+  }
+}

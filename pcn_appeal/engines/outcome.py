@@ -110,6 +110,17 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if "held_needs_fact_confirmation" in events:
         return _pack(OUTCOME_NEEDS_FACTS, case, detail="fact_confirmation")
 
+    # P17.8: critical document identity conflict / incomplete → needs documents/facts.
+    if "held_document_identity" in events:
+        detail = "document_identity"
+        for a in audit:
+            if a.get("event") == "held_document_identity":
+                detail = a.get("reason") or detail
+                break
+        if "PAIR" in str(detail).upper() or "DOCUMENT_PAIR" in str(detail).upper():
+            return _pack(OUTCOME_NEEDS_DOCUMENTS, case, detail=detail)
+        return _pack(OUTCOME_NEEDS_FACTS, case, detail=detail)
+
     if "draft_error" in events:
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="draft_error")
 

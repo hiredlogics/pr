@@ -568,27 +568,68 @@ class ExtractionEngine:
         case.put(Fact("F-notice_route", "notice_route", route, FactStatus.DERIVED,
                       FactSource(SourceKind.CALCULATION, "notice_route_rule")))
 
+        # P17.8: critical identity verify → reconcile → FactManager (before confirm).
+        from ..document_identity import establish_document_identity
+        id_state = establish_document_identity(case, llm=self.llm)
+        flags.extend(
+            f"identity:{k}={v}" for k, v in sorted((id_state.field_status or {}).items())
+        )
+
         case.state = CaseState.EXTRACTED
         return flags
 
     @staticmethod
-    def confirm(case: CaseFile, corrections: dict[str, Any], confirmed: list[str]) -> None:
+    def confirm(case: CaseFile, corrections: dict[str, Any], confirmed: list[str],
+                llm=None) -> None:
         """Confirmation screen result. Corrections override extraction; confirmed
         fields are promoted. Driver-identification status is asked HERE as a
         status question (has it already been given to the operator?), never as
         'who was driving'."""
+        from ..document_identity import (
+            CRITICAL_FIELDS, STATUS_CONFLICT, STATUS_VERIFIED,
+            load_identity_state,
+        )
+        identity = load_identity_state(case) or {}
+        field_status = identity.get("field_status") or {}
         for name, value in corrections.items():
             if name in DATE_FIELDS:
                 value = parse_uk_date(value)
             if name == "operator_ata":
                 value = normalise_operator_ata(value) or value
+            # Customer confirmation must not silently override clear document
+            # evidence that already conflicts with a different strong reading.
+            if name in CRITICAL_FIELDS and field_status.get(name) == STATUS_CONFLICT:
+                case.audit.append({
+                    "event": "identity_confirmation_blocked",
+                    "field": name,
+                    "reason": "document_identity_conflict",
+                    "attempted": str(value)[:80],
+                })
+                continue
             case.put(Fact(f"F-{name}", name, value, FactStatus.CORRECTED,
                           FactSource(SourceKind.ANSWER, f"confirm:{name}")))
         for name in confirmed:
-            if name in case.facts and case.facts[name].status in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
-                case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
-        # Explicit confirm/correct of the PCN clears a cross-document conflict gate.
-        if "pcn_number" in corrections or "pcn_number" in confirmed:
+            if name not in case.facts:
+                continue
+            if case.facts[name].status not in (FactStatus.EXTRACTED, FactStatus.UNCERTAIN):
+                continue
+            # Critical fields: only promote when identity reconciliation verified them
+            # (or the customer supplied a correction above).
+            if name in CRITICAL_FIELDS and field_status.get(name) != STATUS_VERIFIED:
+                case.audit.append({
+                    "event": "identity_confirm_skipped",
+                    "field": name,
+                    "status": field_status.get(name),
+                })
+                continue
+            case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
+        # Explicit confirm/correct of the PCN clears a cross-document conflict gate
+        # only when identity is not in conflict on that field.
+        if (("pcn_number" in corrections or "pcn_number" in confirmed)
+                and field_status.get("pcn_number") != STATUS_CONFLICT):
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
                           FactSource(SourceKind.ANSWER, "confirm:pcn_number")))
+        # Re-run identity after confirmation corrections so revision tracks changes.
+        from ..document_identity import establish_document_identity
+        establish_document_identity(case, llm=llm)
         case.state = CaseState.CONFIRMED

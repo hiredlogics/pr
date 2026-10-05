@@ -41,6 +41,8 @@ OPENAI_PREFERENCES = {
     "classification": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # vision-capable: PCN photos and scanned notices
     "extraction":  ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
+    # P17.8: independent critical-identity reread (vision; not seeded with extract)
+    "identity_verification": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
     # one document's printed PCN / VRM, read from its own pages only, so a
     # reference on one notice cannot be attributed to another (intake gate)
     "page_references": ["gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
@@ -144,6 +146,9 @@ class FakeLLM:
             legacy = legacy_classification(self.responses)
             if legacy is not None:
                 return legacy
+        if not q and task == "identity_verification":
+            # Default: no independent candidates (deterministic sources still run).
+            return {"fields": {}}
         if not q:
             raise RuntimeError(f"FakeLLM has no response queued for task {task!r}")
         return q.pop(0)
@@ -293,6 +298,8 @@ class DemoLLM:
                 "concepts": extract_concepts_meaning_bridge(texts),
                 "model_kind": "DemoLLM_meaning_bridge",
             }
+        if task == "identity_verification":
+            return {"fields": {}}
         if task == "drafting":
             # Demo must still produce a letter when grounds are selected. This is
             # not TemplateDrafter-after-AI-failure: the demo *is* the drafter when

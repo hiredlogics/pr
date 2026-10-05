@@ -1,0 +1,681 @@
+{
+  "verdict": "FRONTEND_FIXES_REQUIRED",
+  "identity": {
+    "frontend": {
+      "url": "https://pcn-appeal-p75.vercel.app",
+      "home_status": 200,
+      "security_headers": {
+        "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+        "content-security-policy": null,
+        "x-content-type-options": null,
+        "x-frame-options": null,
+        "referrer-policy": null,
+        "permissions-policy": null,
+        "content-type": "text/html; charset=utf-8",
+        "x-vercel-id": "fra1::g5b9g-1791139377701-83678b1360e5",
+        "x-vercel-cache": "HIT",
+        "cache-control": "public, max-age=0, must-revalidate"
+      },
+      "next_static_ids": [
+        "immutable"
+      ],
+      "x_vercel_id": "fra1::g5b9g-1791139377701-83678b1360e5",
+      "api_base_url_server_side": "PCN_API_URL (server-only; not exposed to browser)",
+      "browser_api_surface": "https://pcn-appeal-p75.vercel.app/api/* \u2192 proxy"
+    },
+    "backend_direct": {
+      "commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+      "kb_release": "kb-20261004T174817Z",
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "kb_drift": [],
+      "build_id": "2fd356e5-ba98-4107-835a-f686a3be182e",
+      "environment": "staging"
+    },
+    "backend_via_frontend_proxy": {
+      "status": 200,
+      "ok": true,
+      "commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+      "kb_release": "kb-20261004T174817Z",
+      "prompt_versions": {
+        "drafting": 17,
+        "extraction": 10,
+        "validation": 3,
+        "case_analysis": 8,
+        "classification": 2,
+        "page_references": 2,
+        "semantic_extraction": 1
+      },
+      "kb_drift": [],
+      "build_id": "2fd356e5-ba98-4107-835a-f686a3be182e",
+      "environment": "staging",
+      "proxy_security_headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "referrer-policy": "no-referrer",
+        "permissions-policy": null,
+        "content-type": "application/json",
+        "x-vercel-id": "fra1::iad1::svghr-1791139378507-4f5c4a1a5b10",
+        "x-vercel-cache": "MISS",
+        "cache-control": "no-store"
+      }
+    },
+    "version_match": true,
+    "mismatch_reasons": [],
+    "verdict_if_stop": null
+  },
+  "results": [
+    {
+      "id": "F02",
+      "result": "PASS",
+      "detail": {
+        "upload_disabled": true,
+        "ui_instruction": true,
+        "excerpt": "PARKING APPEALS GROUP\n\nChecking service\u2026\n\n1\nUpload\n2\nCheck details\n3\nYour situation\n4\nDownload\nUpload your Private Parking Notice\n\nUpload a clear photo or PDF of your notice and we will extract the key details for you.\n\nPlease upload the front and back of your notice. Both sides are mandatory, even if the back is blank. You cannot continue until both sides have been uploaded.\n\nUse two photos (front and reverse), or one multipage PDF of the whole notice.\n\nDrag and drop front and back here, or click to upload\n\nAccepted formats: JPG, PNG, PDF (Max 10MB)\n\nPhotograph the notice\nParking Charge Notice\nNotice to Keeper\nReminder Notice\nFinal Notice\n\nYour information is secure and used only to generate your appeal.\n\nUpload notice\nHow this works\nWe read the operator, charge and dates off your notice.\nYou check what we read and correct anything wrong.\nWe ask only what is still missing.\nYou get a letter to check and send.\nWritten as the keeper\n\nWe never ask who was driving. Nothing we produce identifies a driver, because that protection is often the strongest part of an appeal.\n\nYour deadline\n\nMost operators allow 28 days from the date on the notice. Check yours and send before it passes.\n\nWe w",
+        "note": "UploadStep blocks front-only (button disabled) before backend call."
+      }
+    },
+    {
+      "id": "MOBILE",
+      "result": "PASS",
+      "detail": {
+        "upload_visible": true
+      }
+    },
+    {
+      "id": "F01",
+      "result": "PASS",
+      "detail": {
+        "case_id": "e143fcbf-7cab-40ed-88c3-7d061857d70a",
+        "state": "RELEASED",
+        "notice_sides_complete": {
+          "value": true,
+          "status": "EXTRACTED",
+          "source": "DOCUMENT"
+        },
+        "extracted": {
+          "operator_name": {
+            "value": "LIVE_TEST Parking Ltd",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "pcn_number": {
+            "value": "FRONTEND_LIVE_TEST_F01",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "vrm": {
+            "value": "LT12EST",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "parking_location": {
+            "value": "LIVE_TEST Retail Park",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "parking_event_date": {
+            "value": "2026-06-01",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "notice_issue_date": {
+            "value": "2026-06-20",
+            "status": "CONFIRMED",
+            "source": "DOCUMENT"
+          },
+          "alleged_breach": {
+            "value": "Overstayed paid time",
+            "status": "EXTRACTED",
+            "source": "DOCUMENT"
+          }
+        },
+        "title": "Your appeal letter",
+        "js_errors": [
+          "console: Failed to load resource: the server responded with a status of 422 ()"
+        ],
+        "latency_ms": 62670
+      }
+    },
+    {
+      "id": "F03",
+      "result": "PASS",
+      "detail": {
+        "ui": {
+          "case_id": "863978b7-65cc-41b0-8f89-547ace9a756b",
+          "title": "Upload your Private Parking Notice",
+          "body_excerpt": "PARKING APPEALS GROUP\n\np7-staging \u00b7 openai reader \u00b7 55 legal modules\n\n1\nUpload\n2\nCheck details\n3\nYour situation\n4\nDownload\nWe could not carry on\n\nPlease upload the front and back of your notice. Both sides are mandatory, even if the back is blank. You cannot continue until both sides have been uploaded.\n\nUpload your Private Parking Notice\n\nUpload a clear photo or PDF of your notice and we will extract the key details for you.\n\nPlease upload the front and back of your notice. Both sides are mandatory, even if the back is blank. You cannot continue until both sides have been uploaded.\n\nUse two photos (front and reverse), or one multipage PDF of the whole notice.\n\nDrag and drop front and back here, or click to upload\n\nAccepted formats: JPG, PNG, PDF (Max 10MB)\n\nPhotograph the notice\nParking Charge Notice\nNotice to Keeper\nReminder Notice\nFinal Notice\nFRONTEND_LIVE_TEST_F03_front.jpg\n70 KB\n\u00d7\nFRONTEND_LIVE_TEST_F03_front_dup.jpg\n70 KB\n\u00d7\n\nYour information is secure and used only to generate your appeal.\n\nUpload notice\nHow this works\nWe read the operator, charge and dates off your notice.\nYou check what we read and correct anything wrong.\nWe ask only what is still missing.\nYou get a letter to check and send.\nWritten as the keeper\n\nWe never ask who was driving. Nothing we produce identifies a driver, because that protection is often the strongest part of an appeal.\n\nYour deadline\n\nMost operators allow 28 days from the date on the notice. Check yours and send before it passes.\n\nWe write your appeal as the registered keeper. We never ask who was driving, and nothing we produce identifies a driver.",
+          "details_excerpt": "",
+          "ms_extract": 14153,
+          "ms_to_situation_submit": 14153,
+          "ms_total": 14153,
+          "js_errors": [
+            "console: Failed to load resource: the server responded with a status of 422 ()"
+          ],
+          "failed_requests": [
+            {
+              "url": "https://pcn-appeal-p75.vercel.app/api/cases/863978b7-65cc-41b0-8f89-547ace9a756b/blobs",
+              "status": 422
+            }
+          ],
+          "has_processing_error_copy": false,
+          "has_needs_docs_copy": true,
+          "has_letter": false,
+          "stopped_before_confirm": true
+        },
+        "backend_state": "CREATED",
+        "outcome": "CREATED",
+        "notice_sides_complete": null
+      }
+    },
+    {
+      "id": "F04",
+      "result": "PASS",
+      "detail": {
+        "ui": {
+          "case_id": "ed387633-1db1-477a-9bb5-9ddb210ac537",
+          "title": "Both sides of the notice are required",
+          "has_letter": false,
+          "has_needs_docs_copy": true,
+          "has_processing_error_copy": false,
+          "ms_total": 35390
+        },
+        "backend_state": "EXTRACTED",
+        "outcome": "EXTRACTED",
+        "notice_sides_complete": {
+          "value": false,
+          "status": "EXTRACTED",
+          "source": "DOCUMENT"
+        }
+      }
+    },
+    {
+      "id": "F05",
+      "result": "PASS",
+      "detail": {
+        "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+        "state": "RELEASED",
+        "outcome": "RELEASED",
+        "coverage": {
+          "shopping": true,
+          "reason": true,
+          "left": true,
+          "returned": true,
+          "cancel": true,
+          "driver_id": false,
+          "placeholder": false
+        },
+        "material_facts": {
+          "purpose_of_visit": {
+            "value": "shopping",
+            "status": "ANSWERED",
+            "source": "CUSTOMER_FREE_TEXT"
+          },
+          "departure_reason": {
+            "value": "a necessary item was realised to have been left elsewhere, prompting the departure",
+            "status": "DERIVED",
+            "source": "CUSTOMER_FREE_TEXT"
+          },
+          "left_site": {
+            "value": true,
+            "status": "ANSWERED",
+            "source": "CUSTOMER_FREE_TEXT"
+          },
+          "returned_same_day": {
+            "value": true,
+            "status": "ANSWERED",
+            "source": "CUSTOMER_FREE_TEXT"
+          },
+          "multiple_visits": {
+            "value": true,
+            "status": "ANSWERED",
+            "source": "ANSWER"
+          }
+        },
+        "claim_plan": [
+          "KB-POFA-02",
+          "KB-ANPR-01"
+        ],
+        "pofa_in_letter": true,
+        "disclosure_fact": {
+          "value": "UNKNOWN",
+          "status": "DERIVED",
+          "source": "ANSWER"
+        },
+        "asked_who_driving": false,
+        "processing_error_ui": false,
+        "pdf": {
+          "ok": true,
+          "status": 200,
+          "bytes": 18019,
+          "content_type": "application/pdf",
+          "content_disposition": "inline; filename=\"appeal-a82323a6-0940-467a-8ebd-fcc738796de6.pdf\""
+        },
+        "release_meta": {
+          "summary": {
+            "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+            "execution_id": "1c8266dc-2f17-5a7d-a5de-4b5256f02ec5",
+            "case_revision": 1,
+            "final_outcome": "RELEASED",
+            "final_state": "RELEASED",
+            "app_version": "2fd356e5-ba98-4107-835a-f686a3be182e",
+            "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+            "kb_release": "kb-20261004T174817Z",
+            "prompt_versions": {
+              "drafting": 17,
+              "extraction": 10,
+              "validation": 3,
+              "case_analysis": 8,
+              "classification": 2,
+              "page_references": 2,
+              "semantic_extraction": 1
+            },
+            "models": {
+              "classification": "gpt-5.1",
+              "extraction": "gpt-5.1",
+              "page_references": "gpt-5.1",
+              "semantic_extraction": "gpt-5.1",
+              "case_analysis": "gpt-5.1",
+              "drafting": "gpt-5.1",
+              "validation": "gpt-5-mini"
+            },
+            "provider": "openai",
+            "claim_plan_version": 1,
+            "synthetic_label": null
+          },
+          "db": {
+            "state": "RELEASED",
+            "kb_release_id": "kb-20261004T174817Z",
+            "release_metadata_raw": "{\"route\": \"PRIVATE_PARKING\", \"stage\": \"INITIAL_NOTICE\", \"commit_sha\": \"3fe19f1c8fb639be1e75265034bc56a536489ddc\", \"llm_provider\": \"openai\", \"document_type\": \"PRIVATE_PARKING_NOTICE\", \"kb_release_id\": \"kb-20261004T174817Z\", \"model_versions\": {\"drafting\": \"gpt-5.1\", \"extraction\": \"gpt-5.1\", \"validation\": \"gpt-5-mini\", \"case_analysis\": \"gpt-5.1\", \"classification\": \"gpt-5.1\", \"page_references\": \"gpt-5.1\", \"semantic_extraction\": \"gpt-5.1\"}, \"prompt_versions\": {\"drafting\": 17, \"extraction\": 10, \"validation\": 3, \"case_analysis\": 8, \"classification\": 2, \"page_references\": 2, \"semantic_extraction\": 1}, \"frontend_version\": \"unknown\", \"ontology_version\": \"p10_5_ontology_v1\", \"kb_release_digest\": \"780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee\", \"draft_plan_version\": \"p10_6_draft_plan_v1\", \"validation_version\": \"VAL-5\", \"module_role_version\": \"p10_5_roles_v1\", \"draft_validation_version\": \"DV-1\", \"claim_plan_builder_version\": \"3\"}",
+            "commit_sha_col": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+            "release_metadata": {
+              "route": "PRIVATE_PARKING",
+              "stage": "INITIAL_NOTICE",
+              "commit_sha": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+              "llm_provider": "openai",
+              "document_type": "PRIVATE_PARKING_NOTICE",
+              "kb_release_id": "kb-20261004T174817Z",
+              "model_versions": {
+                "drafting": "gpt-5.1",
+                "extraction": "gpt-5.1",
+                "validation": "gpt-5-mini",
+                "case_analysis": "gpt-5.1",
+                "classification": "gpt-5.1",
+                "page_references": "gpt-5.1",
+                "semantic_extraction": "gpt-5.1"
+              },
+              "prompt_versions": {
+                "drafting": 17,
+                "extraction": 10,
+                "validation": 3,
+                "case_analysis": 8,
+                "classification": 2,
+                "page_references": 2,
+                "semantic_extraction": 1
+              },
+              "frontend_version": "unknown",
+              "ontology_version": "p10_5_ontology_v1",
+              "kb_release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+              "draft_plan_version": "p10_6_draft_plan_v1",
+              "validation_version": "VAL-5",
+              "module_role_version": "p10_5_roles_v1",
+              "draft_validation_version": "DV-1",
+              "claim_plan_builder_version": "3"
+            }
+          },
+          "audit_keys": [
+            "case_id",
+            "claim_plan",
+            "integrity",
+            "regression",
+            "report",
+            "run_id",
+            "state",
+            "trace"
+          ]
+        },
+        "soft_integrity": [
+          {
+            "check": "VAL-DERIVED-CONSISTENCY",
+            "status": "FAIL",
+            "detail": [
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "FAIL",
+                "fact": "departure_reason",
+                "message": "departure_reason regenerated without a source change"
+              },
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "FAIL",
+                "fact": "possible_vehicle_departure",
+                "message": "possible_vehicle_departure regenerated without a source change"
+              },
+              {
+                "rule": "VAL-DERIVED-CONSISTENCY",
+                "status": "FAIL",
+                "fact": "visited_premises",
+                "message": "visited_premises regenerated without a source change"
+              }
+            ]
+          }
+        ],
+        "js_errors": [],
+        "failed_requests": [],
+        "latency_ms": {
+          "extract": 24739,
+          "to_situation_submit": 25334,
+          "total": 62908
+        },
+        "title": "Your appeal letter",
+        "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+        "kb_release": "kb-20261004T174817Z",
+        "prompt_versions": {
+          "drafting": 17,
+          "extraction": 10,
+          "validation": 3,
+          "case_analysis": 8,
+          "classification": 2,
+          "page_references": 2,
+          "semantic_extraction": 1
+        }
+      }
+    },
+    {
+      "id": "F07",
+      "result": "PASS",
+      "detail": {
+        "homepage_keeper_copy": true,
+        "situation_asks_driver": false,
+        "driver_checkbox_present": false,
+        "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+        "disclosure": {
+          "value": "UNKNOWN",
+          "status": "DERIVED",
+          "source": "ANSWER"
+        },
+        "note": "Re-verified; prior FAIL was false positive on reassurance copy containing who was driving."
+      }
+    },
+    {
+      "id": "F08",
+      "result": "PASS",
+      "detail": {
+        "note": "Client SPA: hard refresh without case URL returns to upload (no deep-link resume). Before reload was on situation.",
+        "returned_to_upload": true,
+        "situation_retained": false,
+        "before_excerpt": "PARKING APPEALS GROUP\n\np7-staging \u00b7 openai reader \u00b7 55 legal modules\n\n\u2713\nUpload\n\u2713\nCheck details\n3\nYour situation\n4\nDownload\nWhat happened?\n\nIn your own words \u2014 anything that helps explain the charge. You do not need legal language.\n\nYour account\nContinue\nHow this works\nWe read the operator, charge and dates off your notice.\nYou check what we read and correct anything wrong.\nWe ask only what is stil"
+      }
+    },
+    {
+      "id": "F09",
+      "result": "PASS",
+      "detail": {
+        "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+        "status_1": 200,
+        "status_2": 200,
+        "state_1": "VALIDATION_FAILED",
+        "state_2": "RELEASED",
+        "claim_plan_count": 1,
+        "approved": [
+          "KB-POFA-02",
+          "KB-ANPR-01"
+        ]
+      }
+    },
+    {
+      "id": "F10",
+      "result": "PASS",
+      "detail": {
+        "ok": true,
+        "status": 200,
+        "bytes": 18019,
+        "content_type": "application/pdf",
+        "content_disposition": "inline; filename=\"appeal-a82323a6-0940-467a-8ebd-fcc738796de6.pdf\""
+      }
+    },
+    {
+      "id": "F06",
+      "result": "PASS",
+      "detail": {
+        "case_id": "fe0c4509-198a-4912-a79f-6347590eb256",
+        "state": "NO_SUPPORTED_GROUNDS",
+        "outcome": "NO_SUPPORTED_GROUNDS",
+        "title": "We could not write an appeal we can stand behind",
+        "note": "Timely NTK may still RELEASE on other grounds; mapping recorded.",
+        "no_grounds_ui": true
+      }
+    }
+  ],
+  "gates": {
+    "f05_released": true,
+    "no_processing_error_on_success": true,
+    "identity_ok": true,
+    "f02_docs": true,
+    "f10_pdf": true,
+    "f07_disclosure": true,
+    "security_hsts": true
+  },
+  "outcome_mapping": {
+    "RELEASED": "Your appeal letter",
+    "NEEDS_DOCUMENTS": "We need clearer documents",
+    "NEEDS_FACTS": "A few more details are needed",
+    "NO_SUPPORTED_GROUNDS": "We could not write an appeal we can stand behind",
+    "PROCESSING_ERROR / VALIDATION_FAILED": "Something went wrong while preparing your appeal (processing-safe; not merits)",
+    "code_note": "ResultStep distinguishes NEEDS_DOCUMENTS / NO_SUPPORTED_GROUNDS / PROCESSING_ERROR; VALIDATION_FAILED uses processing copy via outcome PROCESSING_ERROR"
+  },
+  "security_missing": [
+    "content-security-policy",
+    "x-content-type-options",
+    "x-frame-options",
+    "referrer-policy",
+    "permissions-policy"
+  ],
+  "summary": {
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  "cp_plus": {
+    "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+    "state": "RELEASED",
+    "outcome": "RELEASED",
+    "coverage": {
+      "shopping": true,
+      "reason": true,
+      "left": true,
+      "returned": true,
+      "cancel": true,
+      "driver_id": false,
+      "placeholder": false
+    },
+    "material_facts": {
+      "purpose_of_visit": {
+        "value": "shopping",
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT"
+      },
+      "departure_reason": {
+        "value": "a necessary item was realised to have been left elsewhere, prompting the departure",
+        "status": "DERIVED",
+        "source": "CUSTOMER_FREE_TEXT"
+      },
+      "left_site": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT"
+      },
+      "returned_same_day": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "CUSTOMER_FREE_TEXT"
+      },
+      "multiple_visits": {
+        "value": true,
+        "status": "ANSWERED",
+        "source": "ANSWER"
+      }
+    },
+    "claim_plan": [
+      "KB-POFA-02",
+      "KB-ANPR-01"
+    ],
+    "pofa_in_letter": true,
+    "disclosure_fact": {
+      "value": "UNKNOWN",
+      "status": "DERIVED",
+      "source": "ANSWER"
+    },
+    "asked_who_driving": false,
+    "processing_error_ui": false,
+    "pdf": {
+      "ok": true,
+      "status": 200,
+      "bytes": 18019,
+      "content_type": "application/pdf",
+      "content_disposition": "inline; filename=\"appeal-a82323a6-0940-467a-8ebd-fcc738796de6.pdf\""
+    },
+    "release_meta": {
+      "summary": {
+        "case_id": "a82323a6-0940-467a-8ebd-fcc738796de6",
+        "execution_id": "1c8266dc-2f17-5a7d-a5de-4b5256f02ec5",
+        "case_revision": 1,
+        "final_outcome": "RELEASED",
+        "final_state": "RELEASED",
+        "app_version": "2fd356e5-ba98-4107-835a-f686a3be182e",
+        "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+        "kb_release": "kb-20261004T174817Z",
+        "prompt_versions": {
+          "drafting": 17,
+          "extraction": 10,
+          "validation": 3,
+          "case_analysis": 8,
+          "classification": 2,
+          "page_references": 2,
+          "semantic_extraction": 1
+        },
+        "models": {
+          "classification": "gpt-5.1",
+          "extraction": "gpt-5.1",
+          "page_references": "gpt-5.1",
+          "semantic_extraction": "gpt-5.1",
+          "case_analysis": "gpt-5.1",
+          "drafting": "gpt-5.1",
+          "validation": "gpt-5-mini"
+        },
+        "provider": "openai",
+        "claim_plan_version": 1,
+        "synthetic_label": null
+      },
+      "db": {
+        "state": "RELEASED",
+        "kb_release_id": "kb-20261004T174817Z",
+        "release_metadata_raw": "{\"route\": \"PRIVATE_PARKING\", \"stage\": \"INITIAL_NOTICE\", \"commit_sha\": \"3fe19f1c8fb639be1e75265034bc56a536489ddc\", \"llm_provider\": \"openai\", \"document_type\": \"PRIVATE_PARKING_NOTICE\", \"kb_release_id\": \"kb-20261004T174817Z\", \"model_versions\": {\"drafting\": \"gpt-5.1\", \"extraction\": \"gpt-5.1\", \"validation\": \"gpt-5-mini\", \"case_analysis\": \"gpt-5.1\", \"classification\": \"gpt-5.1\", \"page_references\": \"gpt-5.1\", \"semantic_extraction\": \"gpt-5.1\"}, \"prompt_versions\": {\"drafting\": 17, \"extraction\": 10, \"validation\": 3, \"case_analysis\": 8, \"classification\": 2, \"page_references\": 2, \"semantic_extraction\": 1}, \"frontend_version\": \"unknown\", \"ontology_version\": \"p10_5_ontology_v1\", \"kb_release_digest\": \"780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee\", \"draft_plan_version\": \"p10_6_draft_plan_v1\", \"validation_version\": \"VAL-5\", \"module_role_version\": \"p10_5_roles_v1\", \"draft_validation_version\": \"DV-1\", \"claim_plan_builder_version\": \"3\"}",
+        "commit_sha_col": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+        "release_metadata": {
+          "route": "PRIVATE_PARKING",
+          "stage": "INITIAL_NOTICE",
+          "commit_sha": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+          "llm_provider": "openai",
+          "document_type": "PRIVATE_PARKING_NOTICE",
+          "kb_release_id": "kb-20261004T174817Z",
+          "model_versions": {
+            "drafting": "gpt-5.1",
+            "extraction": "gpt-5.1",
+            "validation": "gpt-5-mini",
+            "case_analysis": "gpt-5.1",
+            "classification": "gpt-5.1",
+            "page_references": "gpt-5.1",
+            "semantic_extraction": "gpt-5.1"
+          },
+          "prompt_versions": {
+            "drafting": 17,
+            "extraction": 10,
+            "validation": 3,
+            "case_analysis": 8,
+            "classification": 2,
+            "page_references": 2,
+            "semantic_extraction": 1
+          },
+          "frontend_version": "unknown",
+          "ontology_version": "p10_5_ontology_v1",
+          "kb_release_digest": "780bed81012ce05c887d75284fc0079965c0893d588034703d6e10251073c7ee",
+          "draft_plan_version": "p10_6_draft_plan_v1",
+          "validation_version": "VAL-5",
+          "module_role_version": "p10_5_roles_v1",
+          "draft_validation_version": "DV-1",
+          "claim_plan_builder_version": "3"
+        }
+      },
+      "audit_keys": [
+        "case_id",
+        "claim_plan",
+        "integrity",
+        "regression",
+        "report",
+        "run_id",
+        "state",
+        "trace"
+      ]
+    },
+    "soft_integrity": [
+      {
+        "check": "VAL-DERIVED-CONSISTENCY",
+        "status": "FAIL",
+        "detail": [
+          {
+            "rule": "VAL-DERIVED-CONSISTENCY",
+            "status": "FAIL",
+            "fact": "departure_reason",
+            "message": "departure_reason regenerated without a source change"
+          },
+          {
+            "rule": "VAL-DERIVED-CONSISTENCY",
+            "status": "FAIL",
+            "fact": "possible_vehicle_departure",
+            "message": "possible_vehicle_departure regenerated without a source change"
+          },
+          {
+            "rule": "VAL-DERIVED-CONSISTENCY",
+            "status": "FAIL",
+            "fact": "visited_premises",
+            "message": "visited_premises regenerated without a source change"
+          }
+        ]
+      }
+    ],
+    "js_errors": [],
+    "failed_requests": [],
+    "latency_ms": {
+      "extract": 24739,
+      "to_situation_submit": 25334,
+      "total": 62908
+    },
+    "title": "Your appeal letter",
+    "git_commit": "3fe19f1c8fb639be1e75265034bc56a536489ddc",
+    "kb_release": "kb-20261004T174817Z",
+    "prompt_versions": {
+      "drafting": 17,
+      "extraction": 10,
+      "validation": 3,
+      "case_analysis": 8,
+      "classification": 2,
+      "page_references": 2,
+      "semantic_extraction": 1
+    }
+  },
+  "remaining_blockers": [
+    "Frontend response missing CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy (HSTS present)",
+    "Hard refresh during situation returns to upload \u2014 no case deep-link / resume URL",
+    "release_metadata.frontend_version=unknown (VERCEL_GIT_COMMIT_SHA not reaching proxy)"
+  ]
+}

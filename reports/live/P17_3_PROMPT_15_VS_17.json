@@ -1,0 +1,51 @@
+{
+  "mode": "controlled_non_customer_comparison",
+  "model": "gpt-5.1",
+  "prompt_bodies_in_db": {
+    "15": {
+      "present": true,
+      "version": 15,
+      "body_chars": 11952
+    },
+    "17": {
+      "present": true,
+      "version": 17,
+      "body_chars": 13951
+    }
+  },
+  "prompt_15_historical": {
+    "case_id": "1341a256-8de3-430e-8f53-106467fa78fd",
+    "prompt": 15,
+    "draft_complete": true,
+    "material_in_letter": true,
+    "validation": [
+      "VAL-SUBSTANCE",
+      "VAL-CONFLICT"
+    ],
+    "integrity": [
+      "GROUND_INTEGRITY_FAILURE KB-POFA-01 ROLE_INELIGIBLE"
+    ],
+    "state": "MANUAL_REVIEW",
+    "outcome": "PROCESSING_ERROR",
+    "note": "Failure was validation/integrity, not prompt-15 rendering."
+  },
+  "prompt_17_aligned": {
+    "case_id": "cf552ea3-fcf9-4cf7-a101-a2068add0e38",
+    "prompt": 17,
+    "draft_complete": true,
+    "material_coverage": {
+      "shopping": true,
+      "reason": true,
+      "left": true,
+      "returned": true,
+      "cancel": true,
+      "driver_id": false,
+      "placeholder": false
+    },
+    "state": "RELEASED",
+    "validation": "PASS",
+    "note": "Aligned release: drafting 17 + ROLE_INELIGIBLE expected + PCN identity inject."
+  },
+  "conclusion": "Prompt drift (15\u219217) alone did NOT explain T07. The letter under prompt 15 already contained shopping/departure/left/returned/cancel. First defective layers were GROUND_MERGE integrity (ROLE_INELIGIBLE) and VAL-CONFLICT/VAL-SUBSTANCE false positives. Prompt 17 remains the approved pin; material coverage under 17 matches the accepted CP Plus account.",
+  "explains_t07": false
+}

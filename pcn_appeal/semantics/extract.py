@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
 from .ontology import (
-    CONCEPT_DEFINITIONS, CONCEPT_TO_FACTS, CONCEPTS,
+    CONCEPT_DEFINITIONS, CONCEPT_EXTRA_FACTS, CONCEPT_TO_FACTS, CONCEPTS,
     ONTOLOGY_VERSION, PROMOTE_MIN_CONFIDENCE,
 )
 
@@ -43,7 +43,8 @@ _PATTERNS: tuple[tuple[str, re.Pattern], ...] = (
     ("PAYMENT_MADE", re.compile(
         r"\b(I paid|we paid|payment (was )?(made|completed|taken)|"
         r"paid (for|via|using|with|on)|paid (the|my) parking|"
-        r"(did not|didn't|do not|don't) pay|not paid|no payment (was )?made)\b", re.I)),
+        r"(did not|didn't|do not|don't) pay|not paid|no payment (was )?made)\b"
+        r"|(?<![A-Za-z])Paid(?![A-Za-z])|(?<![A-Za-z])paid(?![A-Za-z])", re.I)),
     ("PAYMENT_ATTEMPTED", re.compile(
         r"\b(tried to pay|attempted (to )?pay|went to pay)\b", re.I)),
     ("PAYMENT_FAILED", re.compile(
@@ -57,16 +58,28 @@ _PATTERNS: tuple[tuple[str, re.Pattern], ...] = (
         r"entered .{0,12}(wrong|incorrect) (reg|registration|plate))\b", re.I)),
     ("LEFT_SITE", re.compile(
         r"\b(left (the )?(site|car park|retail park)|went (off site|elsewhere)|"
-        r"drove away (and|then)|exited (the )?(site|car park))\b", re.I)),
+        r"drove away (and|then)|exited (the )?(site|car park)|"
+        r"left after\b|left,?\s+and\s+(then\s+)?(returned|came|come)|"
+        r"left and (then )?(came|come) back|left and (then )?returned)\b", re.I)),
     ("RETURNED", re.compile(
-        r"\b(came back|returned (to|later)|went back (to|in))\b", re.I)),
+        r"\b(came back|come back|returned(?:\s+(to|later))?|went back (to|in))\b",
+        re.I)),
     ("MULTIPLE_VISITS", re.compile(
         r"\b(two(\s+\w+)?\s+visits|more than one visit|visited twice|"
         r"second (visit|entry)|separate visits|"
-        r"left and (then )?returned|came back later)\b", re.I)),
+        r"left and (then )?(returned|came back|come back)|came back later)\b",
+        re.I)),
     ("SHOPPING", re.compile(r"\b(shopping|bought|purchases?|supermarket)\b", re.I)),
-    ("DROP_OFF", re.compile(r"\b(drop[ -]?off|dropped (off|someone))\b", re.I)),
-    ("PICK_UP", re.compile(r"\b(pick[ -]?up|picked up|collect(ing|ed) (a )?(passenger|friend))\b", re.I)),
+    # Passenger set-down / collection meaning (structural; not person-name cues).
+    ("DROP_OFF", re.compile(
+        r"\b(drop[ -]?off|dropping off|"
+        r"drop(?:ped|ping)?\b.{0,40}\boff\b|"
+        r"set(?:ting)? down (a )?(passenger|rider))\b", re.I)),
+    ("PICK_UP", re.compile(
+        r"\b(pick[ -]?up|picking up|"
+        r"pick(?:ed|ing)?\b.{0,24}\bup\b|"
+        r"collect(?:ing|ed)?\b.{0,24}\b(them|him|her|a passenger|the passenger))\b",
+        re.I)),
     ("LOADING", re.compile(r"\b(loading|unloading)\b", re.I)),
     ("DELIVERY", re.compile(r"\b(deliver(y|ing|ed)|courier)\b", re.I)),
     ("COLLECTION", re.compile(r"\b(collection|collecting (goods|a parcel|an order))\b", re.I)),
@@ -223,19 +236,27 @@ def validate_concepts(raw: list[Any]) -> list[SemanticConcept]:
 def concepts_to_intended_facts(concepts: list[SemanticConcept]) -> dict[str, Any]:
     """Affirmed, attributable, above-threshold concepts → FactManager values."""
     intended: dict[str, Any] = {}
+    affirmed = {
+        c.concept for c in concepts
+        if c.polarity == "AFFIRMED"
+        and c.attribution not in ("THIRD_PARTY",)
+        and float(c.confidence or 0) >= PROMOTE_MIN_CONFIDENCE
+    }
     for c in concepts:
-        if c.polarity != "AFFIRMED":
-            continue
-        if c.attribution in ("THIRD_PARTY",):
-            # Preserve attribution; do not auto-promote third-party claims.
-            continue
-        if float(c.confidence or 0) < PROMOTE_MIN_CONFIDENCE:
+        if c.concept not in affirmed:
             continue
         mapping = CONCEPT_TO_FACTS.get(c.concept)
         if not mapping:
             continue
         fact_name, value = mapping
         intended[fact_name] = value
+        for extra_name, extra_val in CONCEPT_EXTRA_FACTS.get(c.concept, ()):
+            # When both drop-off and pick-up are affirmed, keep drop_off as the
+            # purpose label; both activity facts still promote independently.
+            if (extra_name == "purpose_of_visit" and c.concept == "PICK_UP"
+                    and "DROP_OFF" in affirmed):
+                continue
+            intended.setdefault(extra_name, extra_val)
     return intended
 
 
@@ -363,6 +384,10 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
 
     concepts = extract_concepts(list(texts or []), llm=llm, confirmed_facts=confirmed)
     concepts = derive_multiple_visits_concept(concepts)
+    # Preserve unmapped / uncertain / frame-level meaning as narrative atoms.
+    from .atoms import collect_narrative_atoms
+    narrative_atoms = collect_narrative_atoms(
+        list(texts or []), concepts, existing=list(narrative_atoms or []))
     intended = concepts_to_intended_facts(concepts)
     # Preserve non-ontology free-text facts (e.g. departure_reason) across delta.
     delta_intended = dict(intended)

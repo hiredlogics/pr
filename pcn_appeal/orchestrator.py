@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .drafting.drafter import LLMDrafter, TemplateDrafter
-from .engines.account import assess_material_account
+from .engines.account import assess_material_account  # thin path retained for tests
+from .semantics.resolver import SemanticCaseResolver
 from .engines.analysis import AnalysisEngine
 from .engines.claim_plan_authority import ClaimPlanBuilder
 from .integrity import ai_log
@@ -152,7 +153,7 @@ class AppealPipeline:
 
     def confirm(self, case: CaseFile, corrections: dict, confirmed: list[str], narrative: str) -> list[dict]:
         case.ensure_run("confirm")
-        self.extraction.confirm(case, corrections, confirmed)
+        self.extraction.confirm(case, corrections, confirmed, llm=self.llm)
         # Store narrative before any scope stop so free-text provenance survives
         # out-of-scope routing. Does not change disclosure status.
         case.raw_answers["narrative"] = narrative
@@ -177,7 +178,8 @@ class AppealPipeline:
         changes what is material: it can settle a ground, open one, or make a
         question that looked necessary pointless.
         """
-        assess_material_account(case, llm=self.llm)
+        # P17.9: single semantic boundary → FactManager (no raw→fact bypass).
+        SemanticCaseResolver.resolve(case, llm=self.llm, narrative=narrative)
         analysis = self.analysis_of(case, narrative)
         case.analysis_module_ids = analysis.module_ids
         if getattr(analysis, "claim_plan", None):
@@ -194,6 +196,26 @@ class AppealPipeline:
                       for q in Hypotheses.questions(case, self._could_change_a_ground)]
         candidates = conflict + confirm + hypothesis + list(analysis.questions)
         candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
+        # Materiality gate: suppress background / already-resolved questions.
+        # Integrity conflicts and FactManager confirmations always remain.
+        from .engines.question_materiality import filter_material
+        integrity = {CONFLICT, CONFIRMATION}
+        must = [q for q in candidates if q.get("source") in integrity]
+        rest = [q for q in candidates if q.get("source") not in integrity]
+        keep, suppressed = filter_material(case, self.kg, rest)
+        if suppressed:
+            case.audit.append({
+                "event": "question_materiality",
+                "suppressed": [
+                    {k: s.get("materiality", {}).get(k)
+                     for k in ("question_id", "target_fact", "suppress_reason",
+                               "requesting_module_ids", "why_answer_can_change_outcome",
+                               "existing_sources_checked", "case_revision")}
+                    for s in suppressed
+                ],
+                "kept": [k.get("fact") for k in keep],
+            })
+        candidates = must + keep
         review = self.authority.review(
             case, candidates, selected=analysis.module_ids,
             prior_rejections=getattr(analysis, "question_rejections", []))
@@ -227,16 +249,48 @@ class AppealPipeline:
         letter and knowing the site is in England & Wales would unlock a
         leading Schedule 4 ground (`postcode_unlocks`). Otherwise an unreadable
         postcode silently withheld PoFA and the letter fell back to landowner
-        authority alone. Asked once; never the keeper's address."""
+        authority alone. Asked once; never the keeper's address.
+
+        Not asked when a fact-specific non-PoFA ground already clears its gates
+        (e.g. ANPR multiple visits, activity) — the answer would not change
+        eligibility or outcome. Not asked when jurisdiction is already known
+        from document/location evidence.
+        """
         if "site_postcode" in case.asked_questions or any(q.get("fact") == "site_postcode" for q in already):
             return []
         if self.reasoning.leading_grounds(module_ids):
             return []
+        if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
+            case.audit.append({
+                "event": "site_postcode_skipped",
+                "reason": "jurisdiction_already_established",
+                "jurisdiction": case.get("jurisdiction"),
+            })
+            return []
+        # Fact-specific ANPR/ACTIVITY/etc. already open — postcode is background.
+        try:
+            if self.recovery._fact_specific_ground_open(case):
+                case.audit.append({
+                    "event": "site_postcode_skipped",
+                    "reason": "fact_specific_ground_open_without_postcode",
+                })
+                return []
+        except Exception:
+            pass
         unlocks = postcode_unlocks(case, self.kg)
         q = self.kg.question_for("site_postcode")
         if not unlocks or not q:
             return []
-        case.audit.append({"event": "site_postcode_material", "unlocks": unlocks})
+        case.audit.append({
+            "event": "site_postcode_material",
+            "unlocks": unlocks,
+            "reason": (
+                "jurisdiction UNKNOWN and postcode would unlock leading Schedule 4 "
+                "ground(s); no fact-specific non-PoFA path already open"
+            ),
+            "could_change_outcome": True,
+            "already_resolved": False,
+        })
         # `source` and `unlocks` are for the Question Authority; the customer
         # gets only fact/text/type (customer_safe.customer_question).
         return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
@@ -403,8 +457,21 @@ class AppealPipeline:
     def _auto_confirmable(case: CaseFile) -> list[str]:
         """Names of facts the extractor read above the confidence threshold.
         UNCERTAIN facts are deliberately excluded - auto-confirming a value the
-        model was unsure of is exactly how a fabricated defect gets into a letter."""
-        return [n for n, f in case.facts.items() if f.status == FactStatus.EXTRACTED]
+        model was unsure of is exactly how a fabricated defect gets into a letter.
+
+        P17.8: critical document identity fields are auto-confirmed only when
+        DocumentIdentityState marked them VERIFIED (not CONFLICT / UNCERTAIN).
+        """
+        from .document_identity import CRITICAL_FIELDS, critical_fields_auto_confirmable
+        allowed_critical = critical_fields_auto_confirmable(case)
+        out = []
+        for n, f in case.facts.items():
+            if f.status != FactStatus.EXTRACTED:
+                continue
+            if n in CRITICAL_FIELDS and n not in allowed_critical:
+                continue
+            out.append(n)
+        return out
 
 
     # step 4-6
@@ -435,6 +502,34 @@ class AppealPipeline:
             return _with_outcome(
                 AppealOutput(case.state, None, empty,
                              Draft(case.case_id, []), ValidationResult(False, []), []),
+                case)
+        # P17.8: critical document identity must pass before Claim Plan LOCK.
+        from .document_identity import identity_blocks_claim_plan
+        identity_block = identity_blocks_claim_plan(case)
+        if identity_block:
+            case.state = CaseState.MANUAL_REVIEW
+            case.audit.append({
+                "event": "held_document_identity",
+                "reason": identity_block,
+                "identity": (case.raw_answers or {}).get("_document_identity_compact"),
+            })
+            empty = RetrievalPack(
+                primary_route=None, secondary_routes=[], module_ids=[],
+                verified_facts=case.fact_view(), fact_refs={},
+                missing_facts=["document_identity"],
+                evidence_refs=[], prohibited_claims=[], code_version=None,
+                pofa_route="UNRESOLVED", pofa_findings=[],
+                driver_status=case.driver_status.value,
+                jurisdiction=str(case.get("jurisdiction") or "UNKNOWN"),
+                context_chunks=[], lease_clauses=[],
+                trace=[f"held: document identity ({identity_block})"])
+            issues = [ValidationIssue(
+                "VAL-CRITICAL-DOCUMENT-IDENTITY", "BLOCK",
+                f"Critical document identity incomplete or conflicted ({identity_block}). "
+                "Confirm or re-upload the notice before a letter can be released.")]
+            return _with_outcome(
+                AppealOutput(case.state, None, empty, Draft(case.case_id, []),
+                             ValidationResult(False, issues), []),
                 case)
         # Semantic → FactManager handoff must be current before Claim Plan lock.
         from .semantics.state import handoff_blocks_claim_plan, open_material_fact_conflicts

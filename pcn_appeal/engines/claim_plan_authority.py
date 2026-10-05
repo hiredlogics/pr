@@ -934,7 +934,7 @@ class ClaimPlanBuilder:
         """Union VF ∪ CF ∪ SELECTED ∪ CANDIDATE, then drop only via invalidation."""
         from ..knowledge_ingestion.graph import knowledge_id
         from ..manifest import kb_digest
-        from .knowledge_matcher import KnowledgeMatcher
+        from .module_resolver import KnowledgeModuleResolver
 
         code, _pofa = self.reasoning.applicability(case)
         code_version = getattr(code, "version_id", None)
@@ -943,8 +943,14 @@ class ClaimPlanBuilder:
         verified_findings = legal_findings.verified_types(
             case.legal_findings, calc_codes)
         proposals = proposals if proposals is not None else self.proposals(case)
-        match = KnowledgeMatcher(self.kg).match(case, facts)
-        kept, gate_why = self.reasoning.eligibility(facts, code)
+        # P17.9: one KnowledgeModuleResolver pass (candidate ≠ eligibility).
+        resolved = KnowledgeModuleResolver(
+            self.kg, reasoning=self.reasoning,
+        ).resolve(case, fact_view=facts, code_version=code)
+        match = resolved.match
+        kept = [self.kg.modules[mid] for mid in resolved.eligible_ids
+                if mid in self.kg.modules]
+        gate_why = dict(resolved.gate_why or {})
         kept_ids = {m.module_id for m in kept}
         uploaded = {e.kind: e.evidence_id for e in sorted(case.evidence.values(),
                                                            key=lambda e: e.evidence_id)
@@ -1043,6 +1049,16 @@ class ClaimPlanBuilder:
             findings = [r for r in d["support"] if r.get("finding_id") or r.get("finding_type")]
             bundle = build_bundle(d["support"], d["evidence"], rels,
                                   finding_rows=findings, case=case)
+            # P17.9: attach material semantic events/atoms from module resolver.
+            row = resolved.rows.get(mid)
+            bundle_dict = bundle.as_dict()
+            if row is not None and d["status"] == SUPPORTED:
+                if row.narrative_atoms:
+                    bundle_dict["material_atoms"] = list(row.narrative_atoms)[:8]
+                if row.supporting_events:
+                    bundle_dict["supporting_events"] = list(row.supporting_events)[:8]
+                if row.required_particulars:
+                    bundle_dict.setdefault("required_particulars", list(row.required_particulars))
             req = build_requirement(
                 bundle,
                 prohibited=list(getattr(self.kg.modules.get(mid), "prohibited_claims", None) or []),
@@ -1057,11 +1073,20 @@ class ClaimPlanBuilder:
                 decision=d["decision"], reason=d["reason"],
                 supporting_facts=_freeze(d["support"]), evidence_refs=_freeze(d["evidence"]),
                 relationships=_freeze(rels), priority=rank.get(mid), topic=d["topic"],
-                support_bundle=_freeze(bundle.as_dict()),
+                support_bundle=_freeze(bundle_dict),
                 draft_requirement=_freeze(req.as_dict())))
         trust["facts_used"] = self._facts_used(case, used_facts)
         trust["relationships_used"] = relationships
-        trust["signals"] = {k: v["value"] for k, v in match.signals.items()}
+        trust["signals"] = {
+            k: v["value"] for k, v in ((match.signals if match else {}) or {}).items()
+            if isinstance(v, dict) and "value" in v
+        }
+        trust["module_resolver"] = {
+            "eligible_ids": list(resolved.eligible_ids),
+            "unresolved_ids": list(resolved.unresolved_ids),
+            "candidates": list(resolved.candidates),
+            "invariant_candidate_ne_eligibility": True,
+        }
         trust["proposals"] = {k: v for k, v in proposals.items()
                               if k != "material_fact_accounting"}
         plan.trust = _freeze(trust)

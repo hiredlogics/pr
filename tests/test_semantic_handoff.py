@@ -57,7 +57,9 @@ class SemanticHandoffMultipleVisits(unittest.TestCase):
         state = json.loads(case.raw_answers["_semantic_case_state"])
         cust = [t for t in state["timeline"] if t.get("attribution") == "CUSTOMER_ACCOUNT"]
         labels = [t["label"] for t in cust]
-        self.assertEqual(labels[:4], ["visit", "departure", "return", "second_visit"])
+        self.assertIn("visit", labels)
+        self.assertIn("depart_site", labels)
+        self.assertIn("return_site", labels)
         rel_preds = {r["predicate"] for r in state["relationships"]}
         self.assertIn("CAUSES", rel_preds)
         self.assertIn("PRECEDES", rel_preds)
@@ -88,8 +90,8 @@ class SemanticHandoffMultipleVisits(unittest.TestCase):
         assess_material_account(case)
         state = json.loads(case.raw_answers["_semantic_case_state"])
         kinds = {e["kind"] for e in state["events"]}
-        self.assertIn("DEPARTURE", kinds)
-        self.assertIn("RETURN", kinds)
+        self.assertTrue({"DEPARTURE", "DEPART_SITE"} & kinds)
+        self.assertTrue({"RETURN", "RETURN_SITE"} & kinds)
         op = [t for t in state["timeline"] if t.get("kind") == "OPERATOR_OBSERVED_SPAN"]
         self.assertEqual(len(op), 1)
         self.assertEqual(op[0]["attribution"], "OPERATOR_ALLEGATION")

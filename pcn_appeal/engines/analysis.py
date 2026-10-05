@@ -206,15 +206,24 @@ class AnalysisEngine:
                 pofa: Any = None, code_version: Optional[str] = None) -> CaseAnalysis:
         facts = case.fact_view()
         result = CaseAnalysis()
-        # P4: verified facts + evidence -> knowledge candidates through explicit
-        # relationships. Blocked and impossible modules are never offered.
-        result.knowledge = KnowledgeMatcher(self.kg).match(case, facts)
+        # P17.9: KnowledgeModuleResolver — candidate discovery ≠ eligibility.
+        # Vector/LLM may rank candidates; matcher + eligibility remain authoritative.
+        from .module_resolver import KnowledgeModuleResolver
         from ..manifest import kb_digest
+        resolved = KnowledgeModuleResolver(
+            self.kg, reasoning=None, retriever=self.retriever,
+        ).resolve(
+            case, fact_view=facts, circumstances=circumstances,
+            analysis_engine=self,
+        )
+        result.knowledge = resolved.match or KnowledgeMatcher(self.kg).match(case, facts)
         case.audit.append({"event": "knowledge_match", "kb_digest": kb_digest(self.kg),
                            **result.knowledge.trace()})
-        candidates = self._candidates(case, circumstances, facts, result.knowledge)
+        by_id = {m.module_id: m for m in self.kg.active_modules()}
+        candidates = [by_id[mid] for mid in resolved.candidates if mid in by_id]
         result.candidate_ids = [m.module_id for m in candidates]
-        result.trace.append(f"candidates={len(candidates)} (semantic + metadata filter + rerank)")
+        result.trace.append(
+            f"candidates={len(candidates)} (module_resolver; candidate≠eligibility)")
 
         rounds = sum(1 for a in case.audit if a.get("event") == "analysis_round")
         if rounds >= self.max_rounds:
