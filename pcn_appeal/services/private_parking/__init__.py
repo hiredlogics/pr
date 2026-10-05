@@ -10,17 +10,17 @@ from __future__ import annotations
 from typing import Optional
 
 from ...models import CaseFile
-from ...notice_completeness import notice_pages_sufficient
+from ...notice_completeness import front_page_present
 from ...rules import scope
 from ...rules.scope import ScopeStop
 from ..base import CompletenessPolicy, ServiceEngine
 
 ROUTE = "PRIVATE_PARKING"
 
-FRONT_AND_BACK = CompletenessPolicy(
-    "FRONT_AND_BACK_OR_MULTIPAGE",
-    "Both sides of the notice as distinct images, or a multipage PDF of the whole notice.",
-    check=notice_pages_sufficient)
+FRONT_REQUIRED = CompletenessPolicy(
+    "FRONT_REQUIRED_BACK_OPTIONAL",
+    "The front of the notice. The back is optional and is read when it is provided.",
+    check=front_page_present)
 
 # DRAFT customer wording - for client approval.
 APPEAL_RESPONSE_STOP = ScopeStop(
@@ -46,7 +46,7 @@ STAGE_STOPS: dict[str, ScopeStop] = {
 class PrivateParkingService(ServiceEngine):
     route = ROUTE
     live = True
-    completeness = FRONT_AND_BACK
+    completeness = FRONT_REQUIRED
 
     def __init__(self, pipeline=None):
         # AppealPipeline. Optional so the route's stops and policy can be read

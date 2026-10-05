@@ -150,14 +150,13 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if "VAL-CONFLICT" in issues and case.get("pcn_conflict"):
         return _pack(OUTCOME_NEEDS_FACTS, case, detail="pcn_conflict")
 
-    # Incomplete notice sides that blocked content grounds.
-    if case.get("notice_sides_complete") is False:
-        module_ids_preview = list(
-            (pack.module_ids if pack else None) or case.analysis_module_ids or [])
-        if not module_ids_preview and any(
-                "notice sides" in str(a).lower() or "notice_sides" in str(a).lower()
-                for a in audit):
-            return _pack(OUTCOME_NEEDS_DOCUMENTS, case)
+    # A missing reverse page is deliberately NOT an outcome. It used to turn a
+    # front-only case with no grounds into "we need clearer documents — add the
+    # other side of the notice", which told a customer whose notice is printed
+    # on one side to fetch a page that does not exist. The back page is
+    # optional: the case reports the outcome it actually reached, and the
+    # findings that need reverse wording stay unresolved. NEEDS_DOCUMENTS is
+    # still returned above for a document-pair identity conflict.
 
     # Analysis never ran (model/provider failure): an empty selection says
     # nothing about the case. Checked before any no-supported-grounds path.

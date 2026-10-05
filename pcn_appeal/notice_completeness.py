@@ -40,6 +40,51 @@ BOTH_SIDES_MESSAGE = (
     "even if the back is blank. You cannot continue until both sides have been uploaded."
 )
 
+FRONT_REQUIRED_MESSAGE = (
+    "Please upload the front of your notice. The back is optional — add it if you "
+    "have it, and we will check the wording printed there too."
+)
+OPTIONAL_REVERSE_REJECTED_MESSAGE = (
+    "The extra page you added looks like it comes from a different notice: the charge "
+    "number or the vehicle registration does not match. We have set it aside and kept "
+    "going with the front of your notice. You can remove it or upload the right one."
+)
+
+
+def front_page_present(case: CaseFile) -> tuple[bool, str]:
+    """The private-parking upload rule: a front page, and nothing more.
+
+    The reverse is optional. It is not asked for, and its absence does not stop
+    the case: it leaves `notice_sides_complete` False, which is what the PoFA
+    content findings already gate on, so a finding that needs reverse wording
+    stays unresolved instead of being invented. Completeness is still assessed
+    and recorded by `assess_notice_sides` — it just no longer gates progress.
+
+    Whether that page can be read at all is the classifier's judgement, not
+    this gate's: an unreadable upload already stops at intake.
+    """
+    for e in _notice_evidence(case) or list(case.evidence.values()):
+        if (getattr(e, "images", None) or []) or (getattr(e, "text", "") or "").strip():
+            return True, "front_page_present"
+    return False, "no_page_uploaded"
+
+
+def rejectable_optional_page(case: CaseFile) -> Optional[str]:
+    """The evidence id of an optional extra page that belongs to another notice.
+
+    Returns None when the pages agree, when only one page was uploaded, or when
+    the mismatch implicates the first page — the front is what the customer is
+    appealing, so it is never the page set aside.
+    """
+    differed = different_notices(case)
+    if not differed:
+        return None
+    order = [e.evidence_id for e in _notice_evidence(case)] or list(case.evidence)
+    later = [d for d in (differed.get("documents") or []) if d in order[1:]]
+    if not later or len(order) < 2:
+        return None
+    return max(later, key=order.index)
+
 
 def upload_pages_sufficient(evidence_items: list) -> tuple[bool, str]:
     """Pre-classification gate: enough distinct pages / multipage PDF?
@@ -87,6 +132,8 @@ def rejection_message(reason: str) -> str:
         return DIFFERENT_NOTICES_MESSAGE
     if reason == "duplicate_front_images":
         return DUPLICATE_PAGES_MESSAGE
+    if reason == "no_readable_page":
+        return FRONT_REQUIRED_MESSAGE
     return BOTH_SIDES_MESSAGE
 
 
@@ -324,27 +371,9 @@ def apply_notice_sides_fact(case: CaseFile) -> dict[str, Any]:
     return assessed
 
 
-def requires_complete_notice(case: CaseFile) -> bool:
-    assessed = assess_notice_sides(case)
-    return bool(assessed["applicable"] and assessed["complete"] is False)
-
-
-def incompleteness_payload(case: CaseFile) -> dict[str, Any]:
-    """Customer-facing hold: preserve case; ask for reverse / continuation pages."""
-    assessed = assess_notice_sides(case)
-    return {
-        "case_id": case.case_id,
-        "state": case.state.value,
-        "outcome": "NEEDS_DOCUMENTS",
-        "outcome_title": "Both sides of the notice are required",
-        "outcome_message": BOTH_SIDES_MESSAGE,
-        "outcome_next": (
-            "Add the missing page(s) to this case. Your answers so far are kept."
-        ),
-        "can_continue": True,
-        "cta": {"label": "Add the other side", "action": "CONTINUE_CASE"},
-        "questions": [],
-        "flags": ["notice_sides_incomplete"],
-        "skipped_questions": [],
-        "notice_sides": assessed,
-    }
+# `requires_complete_notice` and `incompleteness_payload` are deliberately gone.
+# They held a case whose reverse page was missing and returned a NEEDS_DOCUMENTS
+# screen asking for it. The reverse is optional: its absence is recorded in
+# `notice_sides_complete` and read by the findings that need reverse wording,
+# and it stops nothing. Removing the hold rather than making it always-false
+# keeps it from being reintroduced by accident.

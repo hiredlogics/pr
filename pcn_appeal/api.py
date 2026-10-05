@@ -46,7 +46,8 @@ def _intake(rec: dict[str, Any], enforce_completeness: bool = True) -> Optional[
 
     A failed completeness check for the route keeps the case CREATED and clears
     the upload, so the customer can retry on the same case without a 409. That
-    check is the route's own: a debt letter is never asked for "both sides".
+    check is the route's own: a debt letter is never asked for "both sides",
+    and private parking now asks only for the front.
     `enforce_completeness=False` is for the JSON text routes, which carry no
     page images and never had the upload page check.
     """
@@ -59,16 +60,42 @@ def _intake(rec: dict[str, Any], enforce_completeness: bool = True) -> Optional[
         return _stopped_payload(case)
     if enforce_completeness and not result.check.ok:
         _reject_incomplete(case, result.check.reason, result.check.policy)
+    # An optional page from another notice is set aside, not a refusal: the
+    # front the customer is appealing stays valid and the case continues.
+    _set_aside_foreign_optional_page(case)
     return None
 
 
-def _require_both_sides(case: CaseFile) -> None:
-    """The private parking route's upload rule: front and reverse as distinct
-    pages, or a multipage PDF. Raises the 422 below when they are missing."""
-    from .services.private_parking import FRONT_AND_BACK
-    ok, reason = FRONT_AND_BACK.check(case)
+def _require_front_page(case: CaseFile) -> None:
+    """The private parking route's upload rule: the front of the notice.
+
+    The reverse is optional, so only an upload with no readable page at all is
+    refused. A missing back page is recorded by the notice-sides assessment and
+    never raises.
+    """
+    from .services.private_parking import FRONT_REQUIRED
+    ok, reason = FRONT_REQUIRED.check(case)
     if not ok:
-        _reject_incomplete(case, reason, FRONT_AND_BACK.name)
+        _reject_incomplete(case, reason, FRONT_REQUIRED.name)
+
+
+def _set_aside_foreign_optional_page(case: CaseFile) -> Optional[str]:
+    """Drop an optional extra page that belongs to a different notice.
+
+    The front is what is being appealed, so a page that disagrees with it is
+    set aside on its own: the case is not restarted and the front stays valid.
+    Returns the evidence id removed, or None.
+    """
+    from .notice_completeness import rejectable_optional_page
+    ev_id = rejectable_optional_page(case)
+    if ev_id is None:
+        return None
+    case.evidence.pop(ev_id, None)
+    (case.classifications or {}).pop(ev_id, None)
+    case.document_classes.pop(ev_id, None)
+    case.audit.append({"event": "optional_reverse_set_aside",
+                       "evidence_id": ev_id, "reason": "different_notices"})
+    return ev_id
 
 
 def _reject_incomplete(case: CaseFile, reason: str, policy: str) -> None:
@@ -1119,18 +1146,9 @@ def confirm(case_id: str, body: ConfirmIn):
     from .disclosure import apply_disclosure
     apply_disclosure(case, body.driver_already_named_to_operator, source="cases_confirm")
 
-    from .notice_completeness import incompleteness_payload, requires_complete_notice
-    # Server-side completeness gate for in-scope private parking. Preserve answers;
-    # do not run merits analysis on a front-only notice.
-    if requires_complete_notice(case):
-        # Still accept narrative into audit so the account is not lost.
-        if body.narrative:
-            case.raw_answers["narrative"] = body.narrative
-        case.audit.append({"event": "blocked_notice_sides_incomplete",
-                           "stage": "confirm"})
-        _persist(case)
-        return incompleteness_payload(case)
-
+    # No completeness gate here. A front-only notice is analysed normally; the
+    # reverse is optional, and `notice_sides_complete` carries its absence to
+    # the findings that need the wording printed there.
     rec["questions"] = rec["pipe"].confirm(case, body.corrections, body.confirmed, body.narrative)
     _persist(case)
     if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):

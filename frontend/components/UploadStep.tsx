@@ -10,8 +10,8 @@ import { MAX_UPLOAD_BYTES } from "@/lib/upload";
 const ACCEPT = "image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf";
 const MAX_LABEL = 1024 * 1024;
 
-const BOTH_SIDES_MESSAGE =
-  "Please upload the front and back of your notice. Both sides are mandatory, even if the back is blank. You cannot continue until both sides have been uploaded.";
+const FRONT_REQUIRED_MESSAGE =
+  "Please upload the front of your notice before continuing. The back is optional.";
 
 /** The four documents an operator sends, so it is obvious what to photograph. */
 const SAMPLES: { label: string; tone?: "warn" }[] = [
@@ -26,14 +26,9 @@ function size(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function isPdf(f: File): boolean {
-  return f.type === "application/pdf" || /\.pdf$/i.test(f.name);
-}
-
-/** Photos need front + reverse (2 files). One multipage PDF is enough. */
-function sidesReady(files: File[]): boolean {
-  if (files.some(isPdf)) return true;
-  return files.length >= 2;
+/** The front is required; the back is optional, so one file is enough. */
+function frontReady(files: File[]): boolean {
+  return files.length >= 1;
 }
 
 export default function UploadStep({
@@ -57,7 +52,7 @@ export default function UploadStep({
   const pickRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  const ready = sidesReady(files);
+  const ready = frontReady(files);
 
   function add(incoming: FileList | null) {
     if (!incoming || incoming.length === 0) return;
@@ -78,7 +73,7 @@ export default function UploadStep({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!ready) {
-      setLocalError(BOTH_SIDES_MESSAGE);
+      setLocalError(FRONT_REQUIRED_MESSAGE);
       return;
     }
     onSubmit();
@@ -95,11 +90,12 @@ export default function UploadStep({
 
       <div className="notice" data-tone="attention" role="status">
         <p>
-          <b>Please upload the front and back of your notice.</b> Both sides are mandatory, even if
-          the back is blank. You cannot continue until both sides have been uploaded.
+          <b>Front of the notice — required.</b> This is the page with the charge number and
+          your vehicle registration on it.
         </p>
         <p style={{ marginTop: 8 }}>
-          Use two photos (front and reverse), or one multipage PDF of the whole notice.
+          <b>Back of the notice — optional.</b> Add it if you have it and we will check the
+          wording printed there as well. You can continue without it.
         </p>
       </div>
 
@@ -153,7 +149,9 @@ export default function UploadStep({
                 <path d="M20 16.6A4.5 4.5 0 0 0 17.5 8h-1A6.5 6.5 0 1 0 5 14.2" />
               </svg>
             </div>
-            <p className="dz-title">Drag and drop front and back here, or click to upload</p>
+            <p className="dz-title">
+              Drag and drop the front here, or click to upload
+            </p>
             <p className="dz-sub">
               {vision
                 ? `Accepted formats: JPG, PNG, PDF (Max ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB)`
@@ -227,9 +225,9 @@ export default function UploadStep({
           </ul>
         )}
 
-        {files.length > 0 && !ready && (
+        {files.length === 1 && (
           <p className="lede" style={{ marginTop: 8 }}>
-            Add the other side of the notice (or a multipage PDF) before continuing.
+            You can add the back of the notice too, or continue with the front alone.
           </p>
         )}
 

@@ -289,21 +289,31 @@ class ApiDisclosureAndCompleteness(unittest.TestCase):
         self.assertEqual(case.get("driver_disclosure_to_operator"), DISCLOSURE_UNKNOWN)
         self.assertEqual(case.driver_status, DriverStatus.UNIDENTIFIED)
 
-    def test_files_upload_rejects_single_side(self):
-        """Server gate used by /cases/.../files before ingest advances the case."""
-        from fastapi import HTTPException
-        from pcn_appeal.api import _require_both_sides
+    def test_files_upload_accepts_the_front_alone(self):
+        """Server gate used by /cases/.../files before ingest advances the case.
+
+        The back page is optional, so a front-only upload is not refused and
+        the evidence is left in place.
+        """
+        from pcn_appeal.api import _require_front_page
 
         case = CaseFile("C-one")
         case.evidence["E1"] = EvidenceItem(
             "E1", "NTK", "front.jpg", images=[b"ONLY_ONE_PAGE_JPEG_BYTES"],
         )
+        _require_front_page(case)          # must not raise
+        self.assertEqual(len(case.evidence), 1)
+
+    def test_files_upload_rejects_an_upload_with_no_page_at_all(self):
+        from fastapi import HTTPException
+        from pcn_appeal.api import _require_front_page
+
+        case = CaseFile("C-none")
+        case.evidence["E1"] = EvidenceItem("E1", "NTK", "empty.jpg", text="  ")
         with self.assertRaises(HTTPException) as ctx:
-            _require_both_sides(case)
+            _require_front_page(case)
         self.assertEqual(ctx.exception.status_code, 422)
-        detail = ctx.exception.detail
-        self.assertEqual(detail.get("code"), "NOTICE_SIDES_REQUIRED")
-        self.assertIn("Both sides are mandatory", detail.get("message", ""))
+        self.assertEqual(ctx.exception.detail.get("code"), "NOTICE_SIDES_REQUIRED")
         self.assertEqual(len(case.evidence), 0)
         self.assertEqual(case.state, CaseState.CREATED)
 
@@ -327,7 +337,9 @@ class ApiDisclosureAndCompleteness(unittest.TestCase):
         self.assertFalse(ok)
         self.assertEqual(reason, "duplicate_front_images")
 
-    def test_confirm_blocks_incomplete_notice_server_side(self):
+    def test_confirm_continues_on_a_front_only_notice(self):
+        """The reverse is optional: confirm proceeds instead of holding the case
+        on a NEEDS_DOCUMENTS screen, and the narrative is still kept."""
         created = self.client.post("/cases").json()
         cid = created["case_id"]
         self.client.post(f"/cases/{cid}/documents", json={
@@ -344,10 +356,14 @@ class ApiDisclosureAndCompleteness(unittest.TestCase):
             "narrative": "nothing",
         })
         body = res.json()
-        self.assertEqual(body.get("outcome"), "NEEDS_DOCUMENTS", body)
+        self.assertNotEqual(body.get("outcome"), "NEEDS_DOCUMENTS", body)
+        self.assertNotIn("notice_sides_incomplete", body.get("flags") or [])
+        # No question asks for the back page, and none offers a free-text box
+        # to describe it.
+        self.assertNotIn("notice_reverse_pages",
+                         [q.get("fact") for q in body.get("questions") or []])
         case = CASES[cid]["case"]
         self.assertEqual(case.raw_answers.get("narrative"), "nothing")
-        self.assertIsNone(CASES[cid].get("output"))
 
     def test_explicit_yes_sets_formally_identified(self):
         created = self.client.post("/cases").json()

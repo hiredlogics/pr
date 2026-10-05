@@ -168,18 +168,22 @@ class PrivateParkingStillReachesItsEngine(unittest.TestCase):
         self.assertNotIn("stop_code", body)
         self.assertEqual([c["task"] for c in llm.calls], ["classification", "extraction"])
         self.assertEqual(engine_for("PRIVATE_PARKING").completeness.name,
-                         "FRONT_AND_BACK_OR_MULTIPAGE")
+                         "FRONT_REQUIRED_BACK_OPTIONAL")
 
-    def test_private_notice_still_needs_both_sides(self):
-        llm = FakeLLM({"classification": [classified(doc("E1", T.PRIVATE_PARKING_NOTICE))]})
+    def test_private_notice_needs_only_the_front(self):
+        """The back page is optional: a front-only upload reaches extraction."""
+        llm = ReferenceAnalysisLLM({
+            "classification": [classified(doc("E1", T.PRIVATE_PARKING_NOTICE))],
+            "extraction": [{"fields": NOTICE_FIELDS, "doc_types": {"E1": "NTK"}}]})
         patch_client(self, llm)
         case_id, res = upload(TestClient(api.app), [("front.txt", "front only")])
-        self.assertEqual(res.status_code, 422)
-        self.assertEqual(res.json()["detail"]["code"], "NOTICE_SIDES_REQUIRED")
+        self.assertEqual(res.status_code, 200, res.text)
+        body = res.json()
+        self.assertEqual(body["route"], "PRIVATE_PARKING")
+        self.assertEqual(body["state"], CaseState.EXTRACTED.value)
+        self.assertIn("extraction", [c["task"] for c in llm.calls])
         case = api.CASES[case_id]["case"]
-        self.assertEqual(case.state, CaseState.CREATED, "the customer can retry the same case")
-        self.assertIsNone(case.route, "a retry is classified afresh")
-        self.assertNotIn("extraction", [c["task"] for c in llm.calls])
+        self.assertEqual(len(case.evidence), 1, "the front page is kept")
 
     def test_civil_enforcement_ltd_notice_is_not_debt_recovery(self):
         """The company name used to match the debt regex. Classified as a notice,
