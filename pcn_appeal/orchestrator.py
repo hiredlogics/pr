@@ -190,11 +190,17 @@ class AppealPipeline:
         #   P2: what the account might mean, its own wording replacing any
         #       analysis question for the same fact.
         #   Analysis: the model's questions and the KB gates of grounds it chose.
+        from .document_identity import identity_customer_questions
         conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)]
         confirm = [dict(q, source=CONFIRMATION) for q in FactManager.confirmation_questions(case)]
+        # P17.8/P17.10: identity uncertainty/pair conflict must pause with a
+        # customer question — never fall through to generate → empty hold.
+        identity_qs = [
+            dict(q, source=CONFIRMATION) for q in identity_customer_questions(case)
+        ]
         hypothesis = [dict(q, source=HYPOTHESIS)
                       for q in Hypotheses.questions(case, self._could_change_a_ground)]
-        candidates = conflict + confirm + hypothesis + list(analysis.questions)
+        candidates = conflict + confirm + identity_qs + hypothesis + list(analysis.questions)
         candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
         # Materiality gate: suppress background / already-resolved questions.
         # Integrity conflicts and FactManager confirmations always remain.

@@ -318,6 +318,44 @@ class IdentityPipelineTests(unittest.TestCase):
         self.assertNotIn("vrm", names)
         self.assertIn("pcn_number", names)
 
+    def test_identity_questions_and_confirm_clear_block(self):
+        from pcn_appeal.document_identity import (
+            DocumentIdentityState, FieldRecord, confirm_identity_field,
+            identity_blocks_claim_plan, identity_customer_questions,
+        )
+        case = _case_with_identity(vrm="AB12CDE", pcn_number="1234567890")
+        st = DocumentIdentityState(
+            vrm=FieldRecord("vrm", status=STATUS_UNCERTAIN, canonical_value="AB12CDE"),
+            pcn_number=FieldRecord("pcn_number", status=STATUS_VERIFIED,
+                                   canonical_value="1234567890"),
+            field_status={"vrm": STATUS_UNCERTAIN, "pcn_number": STATUS_VERIFIED},
+            identity_revision=1,
+            complete=False,
+        )
+        attach_identity_state(case, st)
+        self.assertTrue(identity_blocks_claim_plan(case))
+        qs = identity_customer_questions(case)
+        self.assertTrue(qs)
+        self.assertEqual(qs[0]["fact"], "vrm")
+        self.assertTrue(confirm_identity_field(case, "vrm", "AB12CDE"))
+        self.assertIsNone(identity_blocks_claim_plan(case))
+        self.assertEqual(case.get("vrm"), "AB12CDE")
+
+    def test_pair_conflict_asks_for_matching_reverse(self):
+        from pcn_appeal.document_identity import (
+            DocumentIdentityState, identity_customer_questions,
+        )
+        case = _case_with_identity(vrm="AB12CDE", pcn_number="1234567890")
+        st = DocumentIdentityState(
+            document_pair_conflict=True,
+            field_status={"vrm": STATUS_VERIFIED, "pcn_number": STATUS_VERIFIED},
+            identity_revision=1,
+            complete=False,
+        )
+        attach_identity_state(case, st)
+        qs = identity_customer_questions(case)
+        self.assertEqual(qs[0]["fact"], "notice_reverse_pages")
+
 
 class NoOperatorSpecificTests(unittest.TestCase):
     def test_module_has_no_named_operators(self):

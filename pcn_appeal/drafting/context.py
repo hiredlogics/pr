@@ -104,6 +104,11 @@ CASE_CONTEXT_ALLOWED = (
     # Professional narrative atoms (propositions + attribution). Source spans are
     # for lineage; the drafter must rewrite, never paste customer wording.
     "narrative_atoms",
+    "material_narrative_atoms",
+    "supporting_events",
+    "material_events",
+    "semantic_material_relevance",
+    "customer_reported_events",
 )
 
 PACK_KEYS = (

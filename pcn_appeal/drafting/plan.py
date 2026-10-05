@@ -299,75 +299,80 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
             f"Express supported ground(s) {', '.join(group)}: {topic}. "
             f"Include required particulars; do not invent facts."
         )
+        # P17.9: material semantic particulars for EVERY substantive ground
+        # (not ANPR-only). Drafter renders; does not rediscover meaning.
         narrative_atoms: list[dict] = []
-        if any(str(m).startswith("KB-ANPR") for m in group):
-            dep = values.get("departure_reason")
-            ctx = getattr(pack, "case_context", None) or {}
-            if not dep:
-                for a in (ctx.get("narrative_atoms") or []):
-                    if a.get("name") == "departure_reason" and a.get("proposition"):
-                        dep = a["proposition"]
-                        values["departure_reason"] = dep
-                        break
-            if dep:
-                purpose += (
-                    " Explain WHY the vehicle left and returned using the "
-                    f"departure_reason particular ({dep}); professionally rewrite, "
-                    "do not paste customer wording, do not identify the driver."
-                )
-                atoms_src = list(ctx.get("narrative_atoms") or [])
-                matched = [a for a in atoms_src
-                           if (a.get("name") == "departure_reason"
-                               or a.get("proposition") == dep)]
-                narrative_atoms = matched or [{
-                    "atom_id": "NA-departure_reason",
-                    "name": "departure_reason",
-                    "proposition": dep,
-                    "attribution": "CUSTOMER",
-                    "polarity": "AFFIRMED",
-                }]
-                if "departure_reason" not in kept:
-                    kept.append("departure_reason")
-            # Preserve passenger activity sequence when present (generic meaning).
-            drop = values.get("dropoff_activity") or facts.get("dropoff_activity")
-            pick = values.get("pickup_activity") or facts.get("pickup_activity")
-            if drop or pick:
-                purpose += (
-                    " Express the customer activity sequence using valued "
-                    "particulars (drop-off / leave / return / pick-up as present); "
-                    "professionally rewrite; do not collapse into generic ANPR "
-                    "timestamp wording alone; do not identify the driver."
-                )
-                for name, val in (("dropoff_activity", drop), ("pickup_activity", pick)):
-                    if val not in (None, "", False) and name not in kept:
-                        kept.append(name)
-                        values.setdefault(name, val)
-            # Attach material narrative atoms (including unmapped) for this ground.
-            ctx_atoms = list((getattr(pack, "case_context", None) or {})
-                             .get("narrative_atoms") or [])
-            material_atoms = [
-                a for a in ctx_atoms
-                if isinstance(a, dict)
-                and a.get("polarity") in (None, "AFFIRMED", "NEGATED", "UNCERTAIN")
-                and (
-                    a.get("mapped_to_ontology") is False
-                    or a.get("category") in (
-                        "departure_reason", "departure_event", "return_event",
-                        "visit_activity", "multiple_attendance", "unmapped_reason",
-                    )
-                    or a.get("name") in (
-                        "departure_reason", "unmapped_reason",
-                    )
-                )
-            ]
-            if material_atoms and not narrative_atoms:
-                narrative_atoms = material_atoms[:8]
-            elif material_atoms:
-                seen_ids = {a.get("atom_id") for a in narrative_atoms}
-                for a in material_atoms:
-                    if a.get("atom_id") not in seen_ids:
-                        narrative_atoms.append(a)
-                narrative_atoms = narrative_atoms[:12]
+        ctx = getattr(pack, "case_context", None) or {}
+        bundle_atoms = list(getattr(bundle, "material_narrative_atoms", None) or ())
+        if not bundle_atoms:
+            bundle_atoms = list((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
+                                .get("material_narrative_atoms") or [])
+        ctx_atoms = list(ctx.get("narrative_atoms") or []) + list(bundle_atoms)
+        dep = values.get("departure_reason")
+        if not dep:
+            for a in ctx_atoms:
+                if isinstance(a, dict) and (
+                        a.get("name") == "departure_reason"
+                        or a.get("category") == "departure_reason") and a.get("proposition"):
+                    dep = a["proposition"]
+                    values["departure_reason"] = dep
+                    break
+        if dep:
+            purpose += (
+                " Explain WHY the vehicle left and returned using the "
+                f"departure_reason particular ({dep}); professionally rewrite, "
+                "do not paste customer wording, do not identify the driver."
+            )
+            matched = [a for a in ctx_atoms if isinstance(a, dict) and (
+                a.get("name") == "departure_reason"
+                or a.get("category") == "departure_reason"
+                or a.get("proposition") == dep)]
+            narrative_atoms = matched or [{
+                "atom_id": "NA-departure_reason",
+                "name": "departure_reason",
+                "proposition": dep,
+                "attribution": "CUSTOMER",
+                "polarity": "AFFIRMED",
+            }]
+            if "departure_reason" not in kept:
+                kept.append("departure_reason")
+        drop = values.get("dropoff_activity") or facts.get("dropoff_activity")
+        pick = values.get("pickup_activity") or facts.get("pickup_activity")
+        if drop or pick:
+            purpose += (
+                " Express the customer activity sequence using valued "
+                "particulars (drop-off / leave / return / pick-up as present); "
+                "professionally rewrite; do not collapse into generic ANPR "
+                "timestamp wording alone; do not identify the driver."
+            )
+            for name, val in (("dropoff_activity", drop), ("pickup_activity", pick)):
+                if val not in (None, "", False) and name not in kept:
+                    kept.append(name)
+                    values.setdefault(name, val)
+        material_atoms = [
+            a for a in ctx_atoms
+            if isinstance(a, dict)
+            and a.get("polarity") in (None, "AFFIRMED", "NEGATED", "UNCERTAIN")
+            and (
+                a.get("mapped_to_ontology") is False
+                or a.get("category")
+                or a.get("proposition")
+            )
+        ]
+        if material_atoms and not narrative_atoms:
+            narrative_atoms = material_atoms[:8]
+        elif material_atoms:
+            seen_ids = {a.get("atom_id") for a in narrative_atoms}
+            for a in material_atoms:
+                if a.get("atom_id") not in seen_ids:
+                    narrative_atoms.append(a)
+            narrative_atoms = narrative_atoms[:12]
+        if narrative_atoms:
+            purpose += (
+                " Express material narrative particulars from material_atoms "
+                "(professional paraphrase; preserve negation/uncertainty; "
+                "do not paste customer wording; do not identify the driver)."
+            )
         # Meta / gating facts stay in the SupportBundle for audit but must not
         # be offered to the drafter as citable fact_refs (VAL-FACT).
         letter_names = [

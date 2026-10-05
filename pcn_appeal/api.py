@@ -736,8 +736,16 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
 def _held_questions(case: CaseFile, out) -> dict:
     """A NEEDS_FACTS hold carries the question that would unblock it, so the
     customer can answer it on this case (it was already shown once and skipped)."""
-    if out.outcome == "NEEDS_FACTS" and case.pending_questions:
-        return {"questions": customer_safe.customer_questions(case.pending_questions)}
+    if out.outcome not in ("NEEDS_FACTS", "NEEDS_DOCUMENTS"):
+        return {}
+    pending = list(case.pending_questions or [])
+    if not pending:
+        from .document_identity import identity_customer_questions
+        pending = identity_customer_questions(case)
+        if pending:
+            case.pending_questions = pending
+    if pending:
+        return {"questions": customer_safe.customer_questions(pending)}
     return {}
 
 

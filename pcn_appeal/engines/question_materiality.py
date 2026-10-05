@@ -107,9 +107,12 @@ def annotate(case: CaseFile, kg, question: dict, *,
         viable = [r for r in requesters if r["status"] in ("SUPPORTED", "UNRESOLVED")]
 
     ask = bool(fact) and can_change and (bool(viable) or bool(unlocks)) and not resolved
-    # P17.9: prefer questions that unlock KnowledgeModuleResolver UNRESOLVED candidates.
+    # P17.9: prefer questions that unlock UNRESOLVED candidates — but never
+    # suppress kb-gated / unlock questions (those exist specifically to open
+    # unresolved substantive grounds when PoFA alone is already supported).
     unres = unresolved_module_ids(case)
-    if ask and unres and not unlocks:
+    kb_gated = bool(question.get("kb_gated")) or bool(unlocks)
+    if ask and unres and not kb_gated:
         viable_ids = {r["module_id"] for r in viable}
         if viable_ids and not (viable_ids & unres):
             ask = False
@@ -124,7 +127,7 @@ def annotate(case: CaseFile, kg, question: dict, *,
         suppress = "no_viable_module_requires_fact"
     elif not can_change:
         suppress = "answer_cannot_change_outcome"
-    elif not ask and unres and viable and not unlocks:
+    elif not ask and unres and viable and not kb_gated:
         suppress = "not_required_by_unresolved_candidate"
 
     rev = case_revision or (case.raw_answers or {}).get("_semantic_revision") or str(

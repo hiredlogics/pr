@@ -438,13 +438,31 @@ class AnalysisEngine:
             for q in (case.pending_questions or [])
             if q.get("text")
         ]
+        # P17.9: reason from authoritative facts + normalized semantic state.
+        # Raw circumstances kept for provenance only — not a second truth source.
+        sem = {}
+        raw_sem = (case.raw_answers or {}).get("_semantic_case_state")
+        if raw_sem:
+            try:
+                sem = json.loads(raw_sem) if isinstance(raw_sem, str) else dict(raw_sem)
+            except Exception:
+                sem = {}
         return json.dumps({
-            "facts": facts,
+            "authoritative_facts": facts,
+            "facts": facts,  # alias for older prompt consumers
             "evidence": [{"evidence_id": e.evidence_id, "kind": e.kind, "filename": e.filename,
                           "has_text": bool((e.text or "").strip()),
                           "page_images": len(getattr(e, "images", []) or [])}
                          for e in case.evidence.values()],
             "circumstances": circumstances,
+            "circumstances_note": "provenance/reference only; do not treat as factual authority",
+            "semantic_concepts": list(sem.get("concepts") or [])[:24],
+            "material_events": list(
+                sem.get("events") or sem.get("customer_reported_events") or [])[:16],
+            "material_narrative_atoms": list(sem.get("narrative_atoms") or [])[:16],
+            "semantic_relationships": list(sem.get("relationships") or [])[:16],
+            "material_relevance": list(sem.get("material_relevance") or [])[:24],
+            "verified_legal_findings": list(getattr(case, "legal_findings", None) or [])[:12],
             "already_asked": list(case.asked_questions),
             "already_asked_texts": prior_texts,
             "unresolved_topics": self._unresolved_topics(case),
@@ -580,54 +598,123 @@ class AnalysisEngine:
 
     def _unlocking_questions(self, case: CaseFile, result: CaseAnalysis,
                              facts: dict[str, Any]) -> list[dict]:
-        """Ask for the facts that are stopping a ground the model chose for THIS case.
+        """Ask for facts that unlock substantive grounds still open for this case.
 
-        A ground suppressed at `use_when` is the one case where the three tests
-        for asking are met by construction, not by guesswork: the analysis engine
-        read this notice and this account and proposed the ground, so it is
-        material; the KB itself names the facts its gate needs, so the question
-        is answerable only by the customer; and supplying one flips the ground
-        from suppressed to arguable, so the answer changes the letter.
-
-        Not the V1 chain. Nothing here maps a circumstance to a ground or a
-        ground to a fixed question: the ground comes from the model, the facts
-        come from the KB's own gate, and the wording and answer shape come from
-        the fact vocabulary. Remove a module and its questions go with it.
-
-        Every safeguard still applies - these are handed to `_safe_questions`
-        exactly like the model's own, so already-asked, already-recovered,
-        operator-requestable, ANPR-shaped and Q-01 checks all run.
+        Sources (generic — no case/operator hardcoding):
+          1. Grounds analysis proposed but suppressed at use_when (UNLOCKABLE).
+          2. When the customer account is thin (no usable visit/payment facts),
+             ask only the primary gating fact of high-value UNRESOLVED
+             candidates (e.g. multiple_visits → KB-ANPR-01, payment_made →
+             KB-PAY-01) so we do not release a PoFA-only letter in silence.
+             Do not spray every required_fact from every unresolved module.
         """
+        from ..module_roles import can_be_claim_ground
+
+        # Primary customer-account gates worth asking when narrative is thin.
+        ACCOUNT_GATES = frozenset({
+            "multiple_visits", "payment_made", "anpr_duration_disputed",
+            "genuine_customer", "permit_held", "signage_issue_raised",
+            "vehicle_immobilised", "no_parking_took_place",
+        })
+        account_present = any(
+            facts.get(f) not in (None, "", [], False)
+            for f in (
+                "multiple_visits", "left_site", "returned_same_day",
+                "payment_made", "purpose_of_visit", "genuine_customer",
+                "dropoff_activity",
+            )
+        )
+        narrative = str(
+            (case.raw_answers or {}).get("narrative")
+            or facts.get("customer_narrative")
+            or ""
+        ).strip()
+        thin_account = (not account_present) and len(narrative) < 40
+
         blocked = [s.get("module_id") for s in result.suppressed
                    if s.get("why") == self.UNLOCKABLE]
+        unresolved: list[str] = []
+        raw = (case.raw_answers or {}).get("_module_resolve")
+        if raw:
+            try:
+                data = json.loads(raw) if isinstance(raw, str) else raw
+                unresolved = list(data.get("unresolved_ids") or [])
+            except Exception:
+                unresolved = []
+
         out: list[dict] = []
-        for mid in blocked:
+        seen_facts: set[str] = set()
+
+        def _add(mid: str, facts_to_ask: set[str], why: str) -> None:
             module = self.kg.modules.get(mid)
             if module is None:
-                continue
-            for fact in sorted(self.kg.gating_facts(mid) | set(module.required_facts or [])):
+                return
+            for fact in sorted(facts_to_ask):
+                if fact in seen_facts:
+                    continue
                 if facts.get(fact) not in (None, "", []):
                     continue
                 shape = self.kg.question_for(fact)
                 if not shape or not shape.get("text"):
-                    # No approved wording and no answer shape for this fact, so
-                    # there is no question to ask - the ground stays suppressed
-                    # rather than being unlocked by something invented here.
                     result.trace.append(f"no question shape for {fact} (gates {mid})")
                     continue
+                seen_facts.add(fact)
                 out.append({
                     "fact": fact,
                     "text": shape["text"],
                     "type": shape.get("type", "text"),
                     "options": shape.get("options") or [],
-                    "material_because": f"gates {mid}, which analysis proposed for this case",
+                    "material_because": why,
                     "related_module": mid,
-                    # Named by the KB's own gate, not invented by the model, so the
-                    # "one question per topic" cluster must not swallow it: a gate
-                    # like {signage_issue_raised AND signage_issue_type} needs both
-                    # halves, and both live in the same topic.
+                    "unlocks": [mid],
                     "kb_gated": True,
+                    "source": "kb_gate",
                 })
+
+        # 1) Original path: proposed-but-suppressed grounds.
+        for mid in blocked:
+            module = self.kg.modules.get(mid)
+            if module is None:
+                continue
+            need = self.kg.gating_facts(mid) | set(module.required_facts or [])
+            _add(mid, need, f"gates {mid}, which analysis proposed for this case")
+
+        # 2) Thin-account path: only primary ACCOUNT_GATES on unresolved /
+        #    candidate claim grounds. If the resolver window is empty, still
+        #    ask the core account gates that any active claim-ground module uses.
+        if thin_account:
+            pool = list(dict.fromkeys(list(unresolved) + list(result.candidate_ids or [])))
+            for mid in pool:
+                module = self.kg.modules.get(mid)
+                if module is None or not can_be_claim_ground(module):
+                    continue
+                if mid in (result.module_ids or []):
+                    continue
+                if self._is_always_on(module) or module.route == Route.LANDOWNER:
+                    continue
+                gates = set(self.kg.gating_facts(mid) or [])
+                primary = gates & ACCOUNT_GATES
+                if not primary:
+                    primary = set(module.required_facts or []) & ACCOUNT_GATES
+                if primary:
+                    _add(mid, primary, f"gates unresolved candidate {mid}")
+            if not any(q["fact"] in ACCOUNT_GATES for q in out):
+                for fact in ("multiple_visits", "payment_made"):
+                    if facts.get(fact) not in (None, "", []):
+                        continue
+                    mods = [
+                        m for m in self.kg.active_modules()
+                        if can_be_claim_ground(m)
+                        and fact in (self.kg.gating_facts(m.module_id) or set())
+                        and not self._is_always_on(m)
+                        and m.route != Route.LANDOWNER
+                    ]
+                    if not mods:
+                        continue
+                    best = max(mods, key=lambda m: int(getattr(m, "strength", 0) or 0))
+                    _add(best.module_id, {fact},
+                         f"thin account: {fact} gates {best.module_id}")
+
         return out
 
     def _has_leading_ground(self, module_ids: list[str]) -> bool:
@@ -761,6 +848,10 @@ class AnalysisEngine:
                 question["source"] = KB_GATE if kb_gated else MODEL
             if (entry or {}).get("related_module"):
                 question["related_module"] = entry["related_module"]
+            if (entry or {}).get("unlocks"):
+                question["unlocks"] = list(entry["unlocks"])
+            if kb_gated:
+                question["kb_gated"] = True
             if (entry or {}).get("material_because"):
                 question["material_reason"] = str(entry["material_because"])
             out.append(question)

@@ -351,11 +351,16 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
         case, texts, llm=llm,
         narrative_atoms=list(narr.get("narrative_atoms") or []),
     )
-    intended = dict(_intended_facts(texts))
-    # Keep ontology facts from being retracted by delta; do not re-write them here.
+    # P17.9: ontology-owned facts come only from semantic → FactManager.
+    # CircumstanceRule patterns must not invent parallel authoritative facts.
+    intended = {
+        k: v for k, v in _intended_facts(texts).items()
+        if k not in SEMANTIC_OWNED_FACTS
+    }
     intended.update({k: v for k, v in _intended_narrative(texts).items()
                      if k not in SEMANTIC_OWNED_FACTS})
-    intended.update(semantic.get("intended") or {})
+    # Semantic intended already applied inside extract_and_promote; do not
+    # re-merge ontology keys here (would re-open a bypass).
     apply_fact_delta(case, intended)
     record_material_conflicts(case)
     if not texts:

@@ -532,6 +532,44 @@ class DraftValidationEngine:
                         f"missing from letter meaning: {', '.join(missing_part)}; "
                         "BLOCK release — professional paraphrase required, not omission",
                         None)
+            # P17.9: material narrative atoms / events must be semantically
+            # represented (paraphrase OK; verbatim not required).
+            if role_of(mid) in (SUBSTANTIVE_GROUND,) and section is not None:
+                check_text = (section_text or letter or "").lower()
+                atoms = list(getattr(section, "narrative_atoms", None) or [])
+                if not atoms:
+                    atoms = list(getattr(section, "material_atoms", None) or [])
+                missing_atoms = []
+                for a in atoms[:6]:
+                    if not isinstance(a, dict):
+                        continue
+                    if a.get("polarity") in ("NEGATED", "UNCERTAIN"):
+                        # Negation/uncertainty must still leave a trace; skip
+                        # strict token match — covered by polarity rules elsewhere.
+                        continue
+                    prop = str(a.get("proposition") or "").strip()
+                    if len(prop) < 12:
+                        continue
+                    # Token overlap: at least 2 content words from the proposition.
+                    tokens = [
+                        t for t in re.findall(r"[a-z]{4,}", prop.lower())
+                        if t not in ("that", "this", "with", "from", "have",
+                                     "been", "were", "their", "there", "which")
+                    ]
+                    if len(tokens) < 2:
+                        continue
+                    hits = sum(1 for t in tokens[:8] if t in check_text)
+                    if hits < min(2, len(tokens)):
+                        missing_atoms.append(
+                            a.get("atom_id") or a.get("category") or a.get("name") or "atom")
+                if missing_atoms and check_text.strip():
+                    sid = section.section_id if section else "?"
+                    add("VAL-MATERIAL-FACT-COVERAGE",
+                        f"ground_id={mid}; section_id={sid}; material narrative "
+                        f"atom(s) not expressed in letter meaning: "
+                        f"{', '.join(missing_atoms)}; BLOCK release — "
+                        "professional paraphrase required, not omission",
+                        None)
         return result
 
     # --------------------------------------------------------------- internals

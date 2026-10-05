@@ -277,7 +277,138 @@ def _merge_concepts(*groups: list[SemanticConcept]) -> list[SemanticConcept]:
     return list(best.values())
 
 
-def _llm_extract(texts: list[str], llm, *, confirmed_facts: Optional[dict] = None) -> list[SemanticConcept]:
+_ALLOWED_RELS = frozenset({
+    "PRECEDES", "FOLLOWS", "CAUSES", "SUPPORTS", "CONTRADICTS",
+    "SEPARATE_FROM", "OCCURS_DURING",
+})
+_ALLOWED_RELEVANCE = frozenset({
+    "ALLEGATION", "TIMELINE", "GROUND_ELIGIBILITY", "SUBSTANTIVE_REBUTTAL",
+    "EVIDENCE", "CONTEXT",
+})
+
+
+def _sanitize_events(raw: list) -> list[dict]:
+    out = []
+    for i, row in enumerate(raw or []):
+        if not isinstance(row, dict):
+            continue
+        desc = str(row.get("description") or row.get("proposition") or "").strip()
+        src = str(row.get("source_text") or "")[:240]
+        if not desc and not src:
+            continue
+        pol = str(row.get("polarity") or "AFFIRMED").upper()
+        if pol not in ("AFFIRMED", "NEGATED", "UNCERTAIN"):
+            pol = "UNCERTAIN"
+        attr = str(row.get("attribution") or "CUSTOMER").upper()
+        if attr not in ("CUSTOMER", "DOCUMENT", "THIRD_PARTY", "DERIVED"):
+            attr = "CUSTOMER"
+        mid = str(row.get("event_id") or f"EV-LLM-{i+1}")
+        # Never accept legal/KB ids as event types.
+        etype = str(row.get("event_type") or row.get("kind") or "OTHER").upper()
+        if etype.startswith("KB-") or "POFA" in etype:
+            etype = "OTHER"
+        try:
+            conf = float(row.get("confidence") or 0.7)
+        except Exception:
+            conf = 0.7
+        out.append({
+            "event_id": mid,
+            "event_type": etype,
+            "kind": etype.lower(),
+            "description": desc[:400],
+            "proposition": desc[:400],
+            "polarity": pol,
+            "attribution": attr,
+            "source_text": src,
+            "confidence": conf,
+            "mapped_to_ontology": False,
+        })
+    return out
+
+
+def _sanitize_atoms(raw: list) -> list[dict]:
+    out = []
+    for i, row in enumerate(raw or []):
+        if not isinstance(row, dict):
+            continue
+        prop = str(row.get("proposition") or row.get("description") or "").strip()
+        src = str(row.get("source_text") or row.get("source_excerpt") or "")[:240]
+        if not prop and not src:
+            continue
+        # Reject atoms that smuggle module ids / legal conclusions.
+        blob = f"{prop} {src}".upper()
+        if "KB-" in blob or "CLAIM PLAN" in blob or "CANCEL THE" in blob:
+            continue
+        pol = str(row.get("polarity") or "AFFIRMED").upper()
+        if pol not in ("AFFIRMED", "NEGATED", "UNCERTAIN"):
+            pol = "UNCERTAIN"
+        attr = str(row.get("attribution") or "CUSTOMER").upper()
+        if attr not in ("CUSTOMER", "DOCUMENT", "THIRD_PARTY", "DERIVED"):
+            attr = "CUSTOMER"
+        cat = str(row.get("category") or row.get("name") or "unmapped_reason").lower()
+        if cat.startswith("kb-"):
+            cat = "unmapped_reason"
+        try:
+            conf = float(row.get("confidence") or 0.7)
+        except Exception:
+            conf = 0.7
+        out.append({
+            "atom_id": str(row.get("atom_id") or f"NA-LLM-{i+1}"),
+            "category": cat,
+            "name": cat,
+            "proposition": prop[:400] or src[:400],
+            "polarity": pol,
+            "attribution": attr,
+            "source_text": src,
+            "source_excerpt": src,
+            "confidence": conf,
+            "mapped_to_ontology": False,
+            "material_to": ["substantive_rebuttal", "timeline", "supporting_context"],
+        })
+    return out
+
+
+def _sanitize_relationships(raw: list) -> list[dict]:
+    out = []
+    for row in raw or []:
+        if not isinstance(row, dict):
+            continue
+        rel = str(row.get("relationship") or "").upper()
+        if rel not in _ALLOWED_RELS:
+            continue
+        src = str(row.get("source_id") or "").strip()
+        tgt = str(row.get("target_id") or "").strip()
+        if not src or not tgt or src.startswith("KB-") or tgt.startswith("KB-"):
+            continue
+        out.append({"source_id": src, "relationship": rel, "target_id": tgt})
+    return out
+
+
+def _sanitize_relevance(raw: list) -> list[dict]:
+    out = []
+    for row in raw or []:
+        if not isinstance(row, dict):
+            continue
+        sid = str(row.get("source_id") or "").strip()
+        if not sid or sid.startswith("KB-"):
+            continue
+        tags = [
+            str(t).upper() for t in (row.get("relevant_to") or [])
+            if str(t).upper() in _ALLOWED_RELEVANCE
+        ]
+        if not tags:
+            continue
+        try:
+            conf = float(row.get("confidence") or 0.7)
+        except Exception:
+            conf = 0.7
+        out.append({"source_id": sid, "relevant_to": tags, "confidence": conf})
+    return out
+
+
+def _llm_extract_product(texts: list[str], llm, *,
+                         confirmed_facts: Optional[dict] = None) -> dict:
+    """Full semantic_extraction product (concepts + unmapped meaning channels)."""
     from .. import prompts
     payload = {
         "ontology_version": ONTOLOGY_VERSION,
@@ -297,14 +428,37 @@ def _llm_extract(texts: list[str], llm, *, confirmed_facts: Optional[dict] = Non
                 "attribution": "CUSTOMER|DOCUMENT|DERIVED|THIRD_PARTY",
                 "source_text": "verbatim span",
                 "confidence": 0.0,
-            }]
+            }],
+            "events": [{
+                "event_id": "E1", "event_type": "GENERIC",
+                "description": "normalized meaning",
+                "polarity": "AFFIRMED|NEGATED|UNCERTAIN",
+                "attribution": "CUSTOMER|DOCUMENT|THIRD_PARTY",
+                "source_text": "verbatim span", "confidence": 0.0,
+            }],
+            "narrative_atoms": [{
+                "atom_id": "A1", "category": "GENERIC",
+                "proposition": "professional normalized proposition",
+                "polarity": "AFFIRMED|NEGATED|UNCERTAIN",
+                "attribution": "CUSTOMER|DOCUMENT|THIRD_PARTY",
+                "source_text": "verbatim span", "confidence": 0.0,
+            }],
+            "relationships": [{
+                "source_id": "E1", "relationship": "PRECEDES|FOLLOWS|CAUSES|SUPPORTS|CONTRADICTS|SEPARATE_FROM|OCCURS_DURING",
+                "target_id": "E2",
+            }],
+            "material_relevance": [{
+                "source_id": "A1",
+                "relevant_to": ["ALLEGATION", "TIMELINE", "GROUND_ELIGIBILITY",
+                                "SUBSTANTIVE_REBUTTAL", "EVIDENCE", "CONTEXT"],
+                "confidence": 0.0,
+            }],
         },
         "rules": [
             "Reason from concept_definitions (meaning), not keyword lists.",
-            "Use only allowed_concepts.",
-            "Emit every distinct concept supported by the texts (multi-concept OK).",
-            "NEGATED when the customer denies the meaning; UNCERTAIN when unsure.",
-            "THIRD_PARTY when the claim is attributed to someone else.",
+            "concepts[]: use only allowed_concepts.",
+            "Material meaning without an ontology id MUST be preserved as "
+            "events[] / narrative_atoms[] — never discard it.",
             "Never emit KB module ids, legal grounds, legal conclusions, or outcomes.",
         ],
     }
@@ -312,32 +466,62 @@ def _llm_extract(texts: list[str], llm, *, confirmed_facts: Optional[dict] = Non
         task="semantic_extraction",
         system=prompts.system("semantic_extraction"),
         user=json.dumps(payload),
-    )
-    return validate_concepts(out.get("concepts") or [])
+    ) or {}
+    return {
+        "concepts": validate_concepts(out.get("concepts") or []),
+        "events": _sanitize_events(out.get("events") or []),
+        "narrative_atoms": _sanitize_atoms(out.get("narrative_atoms") or []),
+        "relationships": _sanitize_relationships(out.get("relationships") or []),
+        "material_relevance": _sanitize_relevance(out.get("material_relevance") or []),
+    }
+
+
+def _llm_extract(texts: list[str], llm, *, confirmed_facts: Optional[dict] = None) -> list[SemanticConcept]:
+    """Backward-compatible concepts-only wrapper."""
+    return list(_llm_extract_product(texts, llm, confirmed_facts=confirmed_facts).get("concepts") or [])
 
 
 def extract_concepts(texts: list[str], llm=None,
                      confirmed_facts: Optional[dict] = None) -> list[SemanticConcept]:
     """LLM-primary meaning extraction; deterministic helpers merge in."""
+    product = extract_semantic_product(texts, llm=llm, confirmed_facts=confirmed_facts)
+    return list(product.get("concepts") or [])
+
+
+def extract_semantic_product(texts: list[str], llm=None,
+                             confirmed_facts: Optional[dict] = None) -> dict:
+    """Full semantic product: controlled concepts + unmapped meaning channels."""
     helpers = extract_concepts_deterministic(texts)
-    llm_concepts: list[SemanticConcept] = []
+    llm_product: dict = {
+        "concepts": [], "events": [], "narrative_atoms": [],
+        "relationships": [], "material_relevance": [],
+    }
     used_llm = False
     if llm is not None:
         try:
-            llm_concepts = _llm_extract(texts, llm, confirmed_facts=confirmed_facts)
+            llm_product = _llm_extract_product(
+                texts, llm, confirmed_facts=confirmed_facts)
             used_llm = True
         except Exception:
-            # Fall through to meaning-bridge / helpers when LLM path unavailable.
             used_llm = False
     if not used_llm:
         try:
             from .meaning_bridge import extract_concepts_meaning_bridge
-            llm_concepts = validate_concepts(extract_concepts_meaning_bridge(texts))
-            for c in llm_concepts:
+            bridge = validate_concepts(extract_concepts_meaning_bridge(texts))
+            for c in bridge:
                 c.provenance = c.provenance or "meaning_bridge_reference"
+            llm_product["concepts"] = bridge
         except Exception:
-            llm_concepts = []
-    return _merge_concepts(llm_concepts, helpers)
+            llm_product["concepts"] = []
+    concepts = _merge_concepts(list(llm_product.get("concepts") or []), helpers)
+    return {
+        "concepts": concepts,
+        "events": list(llm_product.get("events") or []),
+        "narrative_atoms": list(llm_product.get("narrative_atoms") or []),
+        "relationships": list(llm_product.get("relationships") or []),
+        "material_relevance": list(llm_product.get("material_relevance") or []),
+        "llm_passed": used_llm,
+    }
 
 
 def derive_multiple_visits_concept(concepts: list[SemanticConcept]) -> list[SemanticConcept]:
@@ -382,12 +566,18 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
             confirmed[name] = node.value
     from .state import SEMANTIC_OWNED_FACTS
 
-    concepts = extract_concepts(list(texts or []), llm=llm, confirmed_facts=confirmed)
-    concepts = derive_multiple_visits_concept(concepts)
+    product = extract_semantic_product(
+        list(texts or []), llm=llm, confirmed_facts=confirmed)
+    concepts = derive_multiple_visits_concept(list(product.get("concepts") or []))
     # Preserve unmapped / uncertain / frame-level meaning as narrative atoms.
-    from .atoms import collect_narrative_atoms
+    # LLM atoms (no ontology id) merge with heuristic atoms — never discarded.
+    from .atoms import collect_narrative_atoms, merge_atoms
     narrative_atoms = collect_narrative_atoms(
-        list(texts or []), concepts, existing=list(narrative_atoms or []))
+        list(texts or []), concepts,
+        existing=merge_atoms(
+            list(narrative_atoms or []),
+            list(product.get("narrative_atoms") or []),
+        ))
     intended = concepts_to_intended_facts(concepts)
     # Preserve non-ontology free-text facts (e.g. departure_reason) across delta.
     delta_intended = dict(intended)
@@ -420,6 +610,9 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
     state = build_semantic_case_state(
         case, concepts, texts=list(texts or []),
         narrative_atoms=list(narrative_atoms or []),
+        llm_events=list(product.get("events") or []),
+        llm_relationships=list(product.get("relationships") or []),
+        llm_material_relevance=list(product.get("material_relevance") or []),
         revision=revision, ontology_version=ONTOLOGY_VERSION,
     )
     # Refresh contradictions after conflict recording.

@@ -66,6 +66,10 @@ class SupportBundle:
     source_fact_names: tuple = ()
     derived_fact_names: tuple = ()
     values: dict = field(default_factory=dict)
+    # P17.9: material semantic particulars (observational — not fact authority).
+    material_narrative_atoms: tuple = ()
+    supporting_events: tuple = ()
+    required_particulars: tuple = ()
 
     def complete(self) -> bool:
         """Source facts (or a legal finding / evidence) must be present.
@@ -85,11 +89,19 @@ class SupportBundle:
             "source_fact_names": list(self.source_fact_names),
             "derived_fact_names": list(self.derived_fact_names),
             "values": {k: _plain_value(v) for k, v in self.values.items()},
+            "material_narrative_atoms": list(self.material_narrative_atoms),
+            "supporting_events": list(self.supporting_events),
+            "required_particulars": list(self.required_particulars),
+            # Aliases kept for claim-plan / resolver consumers.
+            "material_atoms": list(self.material_narrative_atoms),
         }
 
     @classmethod
     def from_dict(cls, d: Optional[dict]) -> "SupportBundle":
         d = d or {}
+        atoms = d.get("material_narrative_atoms") or d.get("material_atoms") or ()
+        events = d.get("supporting_events") or ()
+        parts = d.get("required_particulars") or ()
         return cls(
             tuple(d.get("source_fact_ids") or ()),
             tuple(d.get("derived_fact_ids") or ()),
@@ -99,6 +111,9 @@ class SupportBundle:
             tuple(d.get("source_fact_names") or ()),
             tuple(d.get("derived_fact_names") or ()),
             dict(d.get("values") or {}),
+            tuple(atoms if isinstance(atoms, (list, tuple)) else ()),
+            tuple(events if isinstance(events, (list, tuple)) else ()),
+            tuple(parts if isinstance(parts, (list, tuple)) else ()),
         )
 
 
@@ -211,9 +226,36 @@ def _source_row(case, name: str, facts: Optional[dict]) -> dict:
     return row
 
 
+def _semantic_material_from_case(case) -> tuple[list, list]:
+    """Material atoms/events from SemanticCaseState (observational)."""
+    if case is None:
+        return [], []
+    import json
+    atoms, events = [], []
+    raw = (getattr(case, "raw_answers", None) or {}).get("_semantic_case_state")
+    if raw:
+        try:
+            state = json.loads(raw) if isinstance(raw, str) else raw
+            atoms = list(state.get("narrative_atoms") or [])
+            events = list(state.get("events") or state.get("customer_reported_events") or [])
+        except Exception:
+            pass
+    if not atoms:
+        compact = (getattr(case, "raw_answers", None) or {}).get("_semantic_narrative_atoms")
+        if compact:
+            try:
+                atoms = json.loads(compact) if isinstance(compact, str) else list(compact)
+            except Exception:
+                atoms = []
+    return atoms[:12], events[:12]
+
+
 def build_bundle(support_rows: Iterable, evidence_refs: Iterable = (),
                  relationships: Iterable = (), finding_rows: Iterable = (),
-                 case=None) -> SupportBundle:
+                 case=None,
+                 material_narrative_atoms: Iterable = (),
+                 supporting_events: Iterable = (),
+                 required_particulars: Iterable = ()) -> SupportBundle:
     source_ids, source_names = [], []
     derived_ids, derived_names = [], []
     values: dict[str, Any] = {}
@@ -307,10 +349,18 @@ def build_bundle(support_rows: Iterable, evidence_refs: Iterable = (),
         if fid and str(fid) not in finding_ids:
             finding_ids.append(str(fid))
 
+    atoms = list(material_narrative_atoms or ())
+    events = list(supporting_events or ())
+    if case is not None and not atoms and not events:
+        atoms, events = _semantic_material_from_case(case)
+    parts = list(required_particulars or ())
+    if not parts:
+        parts = [n for n in source_names if n]
     return SupportBundle(
         tuple(source_ids), tuple(derived_ids), tuple(evidence_ids),
         tuple(finding_ids), tuple(rel_ids),
         tuple(source_names), tuple(derived_names), values,
+        tuple(atoms[:12]), tuple(events[:12]), tuple(parts),
     )
 
 

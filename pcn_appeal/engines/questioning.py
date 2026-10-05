@@ -159,6 +159,9 @@ class QuestionEngine:
                 f"F-{fact}", fact, value, FactStatus.ANSWERED,
                 FactSource(SourceKind.ANSWER, f"answer:{fact}"),
             ))
+            from ..document_identity import CRITICAL_FIELDS, confirm_identity_field
+            if fact in CRITICAL_FIELDS:
+                confirm_identity_field(case, fact, value)
             case.state = CaseState.QUESTIONING
             return
         case.put(Fact(f"F-{fact}", fact, value, FactStatus.ANSWERED,
@@ -169,6 +172,11 @@ class QuestionEngine:
         if fact == "pcn_number" and case.get("pcn_conflict"):
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
                           FactSource(SourceKind.ANSWER, "answer:pcn_number")))
+        # P17.8: critical identity answers must also clear DocumentIdentityState
+        # or Claim Plan stays blocked after the customer already answered.
+        from ..document_identity import CRITICAL_FIELDS, confirm_identity_field
+        if fact in CRITICAL_FIELDS:
+            confirm_identity_field(case, fact, value)
         case.state = CaseState.QUESTIONING
 
     @staticmethod

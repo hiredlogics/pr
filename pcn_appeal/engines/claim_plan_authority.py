@@ -1047,18 +1047,18 @@ class ClaimPlanBuilder:
                         used_facts.add(dname)
             from ..drafting.support_contract import build_bundle, build_requirement
             findings = [r for r in d["support"] if r.get("finding_id") or r.get("finding_type")]
-            bundle = build_bundle(d["support"], d["evidence"], rels,
-                                  finding_rows=findings, case=case)
-            # P17.9: attach material semantic events/atoms from module resolver.
+            # P17.9: attach material semantic events/atoms into SupportBundle.
             row = resolved.rows.get(mid)
-            bundle_dict = bundle.as_dict()
-            if row is not None and d["status"] == SUPPORTED:
-                if row.narrative_atoms:
-                    bundle_dict["material_atoms"] = list(row.narrative_atoms)[:8]
-                if row.supporting_events:
-                    bundle_dict["supporting_events"] = list(row.supporting_events)[:8]
-                if row.required_particulars:
-                    bundle_dict.setdefault("required_particulars", list(row.required_particulars))
+            atoms = list(row.narrative_atoms)[:8] if row is not None else ()
+            events = list(row.supporting_events)[:8] if row is not None else ()
+            parts = list(row.required_particulars) if row is not None else ()
+            bundle = build_bundle(
+                d["support"], d["evidence"], rels,
+                finding_rows=findings, case=case,
+                material_narrative_atoms=atoms,
+                supporting_events=events,
+                required_particulars=parts,
+            )
             req = build_requirement(
                 bundle,
                 prohibited=list(getattr(self.kg.modules.get(mid), "prohibited_claims", None) or []),

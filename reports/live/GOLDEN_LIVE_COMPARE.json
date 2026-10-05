@@ -1,0 +1,129 @@
+{
+  "meta": {
+    "base": "https://api-p7-production.up.railway.app",
+    "started": "2026-10-05T10:42:17Z",
+    "health": {
+      "build_id": "ae1bab9f-f2b9-4f2e-94fa-5edfc2baa55f",
+      "commit": "81a1397",
+      "models": {
+        "classification": "gpt-5.1",
+        "extraction": "gpt-5.1",
+        "identity_verification": "gpt-5.1",
+        "page_references": "gpt-5.1",
+        "semantic_extraction": "gpt-5.1",
+        "case_analysis": "gpt-5.1",
+        "drafting": "gpt-5.1",
+        "validation": "gpt-5-mini"
+      }
+    },
+    "finished": "2026-10-05T10:43:51Z"
+  },
+  "cases": [
+    {
+      "tag": "EMPTY_NARRATIVE_MUST_ASK",
+      "case_id": "0d3244f6-3f4e-40cf-8d0a-5267422e46df",
+      "ms": 32633,
+      "state": "CONFIRMED",
+      "outcome": null,
+      "n_questions": 1,
+      "questions": [
+        "payment_made"
+      ],
+      "grounds": [],
+      "letter_flags": {
+        "chars": 0,
+        "shopping": false,
+        "left": false,
+        "returned": false,
+        "multiple|anpr": false,
+        "payment": false,
+        "pofa|schedule 4": false,
+        "cancel": false,
+        "placeholder": false
+      },
+      "pass": true,
+      "expected": "questions about multiple_visits and/or payment_made",
+      "follow_up": {
+        "final_state": "RELEASED",
+        "final_grounds": [
+          "Keeper liability (PoFA Schedule 4)",
+          "Payment made / payment system failure"
+        ],
+        "letter_flags": {
+          "chars": 2002,
+          "shopping": false,
+          "left": false,
+          "returned": false,
+          "multiple|anpr": false,
+          "payment": true,
+          "pofa|schedule 4": true,
+          "cancel": true,
+          "placeholder": false
+        },
+        "rounds": [
+          {
+            "round": 0,
+            "state": "CONFIRMED",
+            "n_questions": 1,
+            "questions": [
+              "payment_made"
+            ],
+            "grounds": []
+          },
+          {
+            "round": 1,
+            "state": "RELEASED",
+            "n_questions": 0,
+            "questions": [],
+            "grounds": [
+              "Keeper liability (PoFA Schedule 4)",
+              "Payment made / payment system failure"
+            ],
+            "ms": 22241
+          }
+        ]
+      }
+    },
+    {
+      "tag": "NARRATIVE_GOLDEN_DRAFT",
+      "case_id": "57074332-bb92-4b33-9109-481fc31e1da4",
+      "ms": 36597,
+      "state": "RELEASED",
+      "outcome": null,
+      "n_questions": 0,
+      "questions": [],
+      "grounds": [
+        "Keeper liability (PoFA Schedule 4)",
+        "Payment made / payment system failure",
+        "Multiple visits / ANPR sequence"
+      ],
+      "letter_flags": {
+        "chars": 2740,
+        "shopping": true,
+        "left": true,
+        "returned": true,
+        "multiple|anpr": true,
+        "payment": true,
+        "pofa|schedule 4": true,
+        "cancel": true,
+        "placeholder": false
+      },
+      "letter_excerpt": "I am appealing this Parking Charge Notice as the registered keeper of the vehicle LT12EST.\n\nThe Parking Charge Notice issued by LIVE_TEST Parking Ltd for LIVE_TEST Retail Park relates to an event alleged to have occurred on 1 June 2026. The Notice to Keeper for this alleged event was issued on 20 June 2026 and sent by post. For a postal Notice to Keeper in England and Wales, delivered under the Schedule 4 postal route, the statutory deadline for delivery in this case was 15 June 2026. On the bas",
+      "expected": {
+        "state": "RELEASED",
+        "grounds_any": [
+          "PoFA/Schedule 4",
+          "ANPR/multiple visits"
+        ],
+        "letter": [
+          "left",
+          "returned",
+          "pofa",
+          "cancel"
+        ]
+      },
+      "pass": true
+    }
+  ],
+  "verdict": "PASS"
+}

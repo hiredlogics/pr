@@ -45,6 +45,105 @@ REJECTED, BLOCKED = "REJECTED", "BLOCKED"
 OFFERABLE = (SUPPORTED, RELEVANT, OPEN)
 _ORDER = {SUPPORTED: 0, RELEVANT: 1, OPEN: 2, REJECTED: 3, BLOCKED: 4}
 
+# Generic semantic category → fact-name hints for CANDIDATE discovery only.
+# Not phrase rules; not eligibility. Categories are meaning classes.
+_CATEGORY_FACT_HINTS: dict[str, frozenset[str]] = {
+    "departure_event": frozenset({"left_site", "multiple_visits"}),
+    "departure": frozenset({"left_site", "multiple_visits"}),
+    "return_event": frozenset({"returned_same_day", "multiple_visits"}),
+    "return": frozenset({"returned_same_day", "multiple_visits"}),
+    "multiple_attendance": frozenset({"multiple_visits"}),
+    "departure_reason": frozenset({"left_site", "multiple_visits"}),
+    "unmapped_reason": frozenset({"left_site", "multiple_visits"}),
+    "visit_activity": frozenset({"purpose_of_visit", "genuine_customer", "visited_premises"}),
+    "visit_purpose": frozenset({"purpose_of_visit", "genuine_customer"}),
+    "payment": frozenset({"payment_made"}),
+    "payment_attempt": frozenset({"payment_attempt_failed", "payment_made"}),
+    "mechanical": frozenset({"vehicle_immobilised"}),
+    "access": frozenset({"signage_issue_raised"}),
+    "access_issue": frozenset({"signage_issue_raised"}),
+    "authorisation": frozenset({"permit_held", "visitor_authorised"}),
+    "keying": frozenset({"keying_error_type", "vrm_entered"}),
+}
+
+
+def _semantic_candidate_signals(case: CaseFile) -> dict:
+    """Read SemanticCaseState channels for candidate discovery (observational)."""
+    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    state = {}
+    if raw:
+        try:
+            state = json.loads(raw) if isinstance(raw, str) else dict(raw)
+        except Exception:
+            state = {}
+    concepts = list(state.get("concepts") or [])
+    atoms = list(state.get("narrative_atoms") or [])
+    events = list(state.get("events") or state.get("customer_reported_events") or [])
+    rels = list(state.get("relationships") or [])
+    # Compact atom cache if full state truncated.
+    if not atoms:
+        compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+        if compact:
+            try:
+                atoms = json.loads(compact) if isinstance(compact, str) else list(compact)
+            except Exception:
+                atoms = []
+    return {
+        "concepts": concepts,
+        "atoms": atoms,
+        "events": events,
+        "relationships": rels,
+    }
+
+
+def _semantic_hints_for_module(module, semantic: dict) -> list[str]:
+    """Return short hint strings if semantic material connects to this module.
+
+    Connection = category/concept hints overlap module gating/required facts,
+    or topic token overlap with atom/event categories. Never asserts eligibility.
+    """
+    need = set(referenced_facts(module.use_when) | set(module.required_facts or []))
+    if not need:
+        return []
+    hints: list[str] = []
+    for c in semantic.get("concepts") or []:
+        cid = c.get("concept") if isinstance(c, dict) else getattr(c, "concept", None)
+        pol = c.get("polarity") if isinstance(c, dict) else getattr(c, "polarity", None)
+        if pol == "NEGATED":
+            continue
+        # Concept → fact mapping via ontology is owned by extract; here we only
+        # use concept id as a soft signal when it shares tokens with need.
+        token = str(cid or "").lower().replace("_", " ")
+        for fact in need:
+            if fact.replace("_", " ") in token or token in fact.replace("_", " "):
+                hints.append(f"concept:{cid}->{fact}")
+    for a in semantic.get("atoms") or []:
+        if not isinstance(a, dict) or a.get("polarity") == "NEGATED":
+            continue
+        cat = str(a.get("category") or a.get("name") or "").lower()
+        for key, facts in _CATEGORY_FACT_HINTS.items():
+            if key in cat or cat in key:
+                hit = sorted(facts & need)
+                if hit:
+                    hints.append(f"atom:{cat}->{','.join(hit)}")
+    for e in semantic.get("events") or []:
+        if not isinstance(e, dict) or e.get("polarity") == "NEGATED":
+            continue
+        et = str(e.get("event_type") or e.get("kind") or "").lower()
+        for key, facts in _CATEGORY_FACT_HINTS.items():
+            if key in et or et in key:
+                hit = sorted(facts & need)
+                if hit:
+                    hints.append(f"event:{et}->{','.join(hit)}")
+    # Deduplicate preserving order.
+    seen = set()
+    out = []
+    for h in hints:
+        if h not in seen:
+            seen.add(h)
+            out.append(h)
+    return out
+
 
 @dataclass
 class Candidate:
@@ -175,9 +274,25 @@ class KnowledgeMatcher:
         sig = signals(self.graph, facts)
         sig_ids = {f"{k}={v['value']}" for k, v in sig.items()}
         evidence_kinds = set(facts.get("evidence_kinds") or [])
+        semantic = _semantic_candidate_signals(case)
         out: dict[str, Candidate] = {}
         for module in sorted(self.kg.active_modules(), key=lambda m: m.module_id):
-            out[module.module_id] = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
+            c = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
+            # P17.9: semantic meaning may elevate OPEN → RELEVANT for discovery.
+            # Never creates SUPPORTED. Eligibility remains use_when on facts.
+            if c.status in (OPEN, RELEVANT):
+                hints = _semantic_hints_for_module(module, semantic)
+                if hints:
+                    if c.status == OPEN:
+                        c.status = RELEVANT
+                    c.relevant_because.append({
+                        "signal": "semantic_material",
+                        "reason": "material semantic events/atoms/concepts connect",
+                        "hints": hints[:6],
+                    })
+                    if "semantic candidate signal" not in (c.reason or ""):
+                        c.reason = (c.reason or "") + "; semantic candidate signal"
+            out[module.module_id] = c
         match = Match(sig, out, self.graph.version)
         # P8.1: the relationships are case state, not a value that lives only in
         # whichever engine happened to ask. Recorded through the master object so

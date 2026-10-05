@@ -825,6 +825,180 @@ def identity_blocks_claim_plan(case: CaseFile) -> Optional[str]:
     return None
 
 
+_IDENTITY_LABELS = {
+    "pcn_number": "PCN / charge number",
+    "vrm": "vehicle registration",
+    "operator_name": "operator name",
+    "parking_event_date": "parking event date",
+    "notice_issue_date": "notice issue date",
+    "parking_location": "parking location",
+}
+
+
+def identity_customer_questions(case: CaseFile) -> list[dict]:
+    """Customer questions that clear an identity hold before Claim Plan.
+
+    Pair conflicts need a matching reverse page (re-upload). Uncertain or
+    conflicted core IDs need an explicit confirm/correct from the notice.
+    """
+    state = load_identity_state(case)
+    if not state:
+        return []
+    out: list[dict] = []
+    asked = set(case.asked_questions or [])
+
+    if state.get("pair_conflict") or state.get("document_pair_conflict"):
+        if "notice_reverse_pages" not in asked:
+            out.append({
+                "fact": "notice_reverse_pages",
+                "type": "text",
+                "text": (
+                    "The reverse page does not appear to belong to the same notice "
+                    "as the front. Please upload the reverse (or a multipage PDF) "
+                    "of this same parking notice."
+                ),
+                "material_reason": "document pair identity conflict",
+            })
+        return out
+
+    values = state.get("values") or {}
+    field_status = state.get("field_status") or {}
+    # Core IDs first; then any conflicted critical field.
+    priority = ("pcn_number", "vrm") + tuple(
+        n for n in CRITICAL_FIELDS if n not in ("pcn_number", "vrm")
+    )
+    for name in priority:
+        st = field_status.get(name)
+        if st not in (STATUS_UNCERTAIN, STATUS_CONFLICT, STATUS_ABSENT):
+            continue
+        if name not in ("pcn_number", "vrm") and st != STATUS_CONFLICT:
+            continue
+        if name in asked:
+            continue
+        label = _IDENTITY_LABELS.get(name, name.replace("_", " "))
+        candidate = values.get(name)
+        node = case.facts.get(name) if getattr(case, "facts", None) else None
+        if candidate in (None, "") and node is not None:
+            candidate = canonicalize(name, node.value)
+        if candidate not in (None, ""):
+            shown = str(candidate)
+            out.append({
+                "fact": name,
+                "type": "choice",
+                "options": [shown, "Different / not readable"],
+                "text": (
+                    f"We could not verify the {label} on your notice. "
+                    f"Is it {shown} as printed?"
+                ),
+                "material_reason": f"document identity {st}:{name}",
+            })
+        else:
+            out.append({
+                "fact": name,
+                "type": "text",
+                "text": (
+                    f"Please type the {label} exactly as printed on the notice."
+                ),
+                "material_reason": f"document identity {st}:{name}",
+            })
+        # One identity question at a time.
+        break
+    return out
+
+
+def confirm_identity_field(case: CaseFile, fact: str, value: Any) -> bool:
+    """Apply a customer identity confirmation into DocumentIdentityState.
+
+    Returns True when the field was updated. Marks the field VERIFIED so
+    Claim Plan is no longer blocked on that uncertainty.
+    """
+    if fact not in CRITICAL_FIELDS:
+        return False
+    if value in (None, ""):
+        return False
+    text = str(value).strip()
+    if not text or text.lower() in ("different / not readable", "not readable", "unknown"):
+        case.audit.append({
+            "event": "identity_confirmation_rejected",
+            "field": fact,
+            "value": text[:80],
+        })
+        return False
+
+    state = load_identity_state(case)
+    if not state:
+        return False
+    canon = canonicalize(fact, text)
+    # Prefer compact+full sync via FieldRecord-shaped dict mutation.
+    field_blob = state.get(fact) if isinstance(state.get(fact), dict) else None
+    if field_blob is None:
+        field_blob = {
+            "name": fact,
+            "status": STATUS_VERIFIED,
+            "canonical_value": canon,
+            "raw_value": text,
+            "observations": [],
+            "confidence": 1.0,
+            "source_evidence_id": "customer_confirm",
+            "page": None,
+            "identity_revision": identity_revision(case),
+        }
+    else:
+        field_blob = dict(field_blob)
+        field_blob["status"] = STATUS_VERIFIED
+        field_blob["canonical_value"] = canon
+        field_blob["raw_value"] = text
+        field_blob["confidence"] = max(float(field_blob.get("confidence") or 0), 0.99)
+    state[fact] = field_blob
+    field_status = dict(state.get("field_status") or {})
+    field_status[fact] = STATUS_VERIFIED
+    state["field_status"] = field_status
+    values = dict(state.get("values") or {})
+    values[fact] = canon
+    state["values"] = values
+    # Drop field-level conflicts for this name.
+    state["conflicts"] = [
+        c for c in (state.get("conflicts") or [])
+        if c.get("field") != fact
+    ]
+    required = ("pcn_number", "vrm")
+    state["complete"] = (
+        not state.get("document_pair_conflict")
+        and not state.get("pair_conflict")
+        and all(field_status.get(n) == STATUS_VERIFIED for n in required)
+        and all(field_status.get(n) != STATUS_CONFLICT for n in CRITICAL_FIELDS)
+    )
+    # Persist compact + full.
+    case.raw_answers[_RAW_KEY] = json.dumps(state, default=str)[:24000]
+    case.raw_answers[_REV_KEY] = str(int(state.get("identity_revision") or identity_revision(case) or 1))
+    case.raw_answers[_COMPACT_KEY] = json.dumps({
+        "revision": state.get("identity_revision") or identity_revision(case),
+        "complete": state.get("complete"),
+        "pair_conflict": state.get("pair_conflict") or state.get("document_pair_conflict"),
+        "field_status": field_status,
+        "conflicts": list(state.get("conflicts") or []),
+        "values": values,
+    }, default=str)[:8000]
+
+    case.put(Fact(
+        f"F-{fact}", fact, text, FactStatus.CONFIRMED,
+        FactSource(SourceKind.ANSWER, f"identity_confirm:{fact}"),
+        confidence=0.99,
+    ))
+    case.put(Fact(
+        "F-document_identity_complete", "document_identity_complete",
+        bool(state.get("complete")), FactStatus.DERIVED,
+        FactSource(SourceKind.CALCULATION, "document_identity.confirm"),
+    ))
+    case.audit.append({
+        "event": "identity_field_confirmed",
+        "field": fact,
+        "canonical_value": canon,
+        "complete": state.get("complete"),
+    })
+    return True
+
+
 def critical_fields_auto_confirmable(case: CaseFile) -> set[str]:
     """Critical fields allowed into auto-confirm only when VERIFIED."""
     state = load_identity_state(case) or {}

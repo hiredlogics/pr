@@ -290,12 +290,38 @@ class DemoLLM:
         if task == "case_analysis":
             return self._reference_analysis(user)
         if task == "semantic_extraction":
-            # Demo stand-in: meaning-bridge only. Not a live model.
+            # Demo stand-in: meaning-bridge concepts + heuristic unmapped atoms.
             from .semantics.meaning_bridge import extract_concepts_meaning_bridge
+            from .semantics.atoms import collect_narrative_atoms
             data = json.loads(user) if isinstance(user, str) else (user or {})
             texts = list(data.get("customer_texts") or data.get("texts") or [])
+            concepts = extract_concepts_meaning_bridge(texts)
+            atoms = collect_narrative_atoms(texts, concepts)
+            events = []
+            for i, a in enumerate(atoms):
+                if a.get("category") in (
+                        "departure_event", "return_event", "departure_reason",
+                        "visit_activity", "multiple_attendance"):
+                    events.append({
+                        "event_id": f"EV-DEMO-{i+1}",
+                        "event_type": str(a.get("category") or "OTHER").upper(),
+                        "description": a.get("proposition") or "",
+                        "polarity": a.get("polarity") or "AFFIRMED",
+                        "attribution": a.get("attribution") or "CUSTOMER",
+                        "source_text": (a.get("source_text") or a.get("source_excerpt") or "")[:240],
+                        "confidence": float(a.get("confidence") or 0.7),
+                    })
             return {
-                "concepts": extract_concepts_meaning_bridge(texts),
+                "concepts": concepts,
+                "events": events,
+                "narrative_atoms": atoms,
+                "relationships": [],
+                "material_relevance": [
+                    {"source_id": a.get("atom_id") or a.get("category"),
+                     "relevant_to": ["TIMELINE", "SUBSTANTIVE_REBUTTAL"],
+                     "confidence": 0.7}
+                    for a in atoms if a.get("mapped_to_ontology") is False
+                ],
                 "model_kind": "DemoLLM_meaning_bridge",
             }
         if task == "identity_verification":

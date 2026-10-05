@@ -56,6 +56,7 @@ class SemanticCaseState:
     timeline: list[dict] = field(default_factory=list)
     relationships: list[dict] = field(default_factory=list)
     contradictions: list[dict] = field(default_factory=list)
+    uncertainties: list[dict] = field(default_factory=list)
     missing_information: list[dict] = field(default_factory=list)
     evidence_links: list[dict] = field(default_factory=list)
     provenance: list[dict] = field(default_factory=list)
@@ -292,6 +293,9 @@ def build_semantic_case_state(
     *,
     texts: Optional[list[str]] = None,
     narrative_atoms: Optional[list[dict]] = None,
+    llm_events: Optional[list[dict]] = None,
+    llm_relationships: Optional[list[dict]] = None,
+    llm_material_relevance: Optional[list[dict]] = None,
     revision: int = 0,
     ontology_version: str = "",
 ) -> SemanticCaseState:
@@ -299,6 +303,18 @@ def build_semantic_case_state(
     atoms = list(narrative_atoms or [])
     allegation = str(case.get("alleged_breach") or "")
     events = _concept_events(concepts, texts)
+    # Merge LLM events that have no ontology concept (material unmapped meaning).
+    seen_ev = {e.get("event_id") for e in events}
+    for e in llm_events or []:
+        if not isinstance(e, dict):
+            continue
+        eid = e.get("event_id") or f"EV-LLM-{len(events)+1}"
+        if eid in seen_ev:
+            continue
+        row = dict(e)
+        row["event_id"] = eid
+        events.append(row)
+        seen_ev.add(eid)
     timeline = _timeline_from_events(events, case)
 
     fact_rows = []
@@ -380,6 +396,46 @@ def build_semantic_case_state(
             "material_to": ["timeline", "allegation"],
             "polarity": e.get("polarity"),
         })
+    # LLM-declared relevance (already sanitized upstream).
+    for row in llm_material_relevance or []:
+        if isinstance(row, dict) and row.get("source_id"):
+            material_relevance.append({
+                "kind": "llm_relevance",
+                "name": row.get("source_id"),
+                "material_to": [t.lower() for t in (row.get("relevant_to") or [])],
+                "confidence": row.get("confidence"),
+            })
+
+    uncertainties = []
+    for c in concepts:
+        if getattr(c, "polarity", None) == "UNCERTAIN":
+            uncertainties.append({
+                "kind": "concept", "id": c.concept,
+                "source_text": (c.source_text or "")[:240],
+            })
+    for a in atoms:
+        if a.get("polarity") == "UNCERTAIN":
+            uncertainties.append({
+                "kind": "narrative_atom",
+                "id": a.get("atom_id") or a.get("category"),
+                "proposition": (a.get("proposition") or "")[:240],
+            })
+    for e in events:
+        if e.get("polarity") == "UNCERTAIN":
+            uncertainties.append({
+                "kind": "event",
+                "id": e.get("event_id") or e.get("kind"),
+                "description": (e.get("description") or e.get("proposition") or "")[:240],
+            })
+
+    rels = _relationships(concepts, atoms)
+    seen_rel = {(r.get("source_id"), r.get("relationship"), r.get("target_id")) for r in rels}
+    for r in llm_relationships or []:
+        key = (r.get("source_id"), r.get("relationship"), r.get("target_id"))
+        if key in seen_rel:
+            continue
+        rels.append(dict(r))
+        seen_rel.add(key)
 
     return SemanticCaseState(
         document_entities=_doc_entities(case),
@@ -388,8 +444,9 @@ def build_semantic_case_state(
         narrative_atoms=atoms,
         events=events,
         timeline=timeline,
-        relationships=_relationships(concepts, atoms),
+        relationships=rels,
         contradictions=contradictions,
+        uncertainties=uncertainties,
         missing_information=_missing(concepts, case),
         evidence_links=evidence_links,
         provenance=provenance,

@@ -324,20 +324,23 @@ class QuestionAuthority:
                 "impact_if_yes": "the case continues on the confirmed value",
                 "impact_if_no": "the case continues on the confirmed value",
                 "_rank": (0, 0, 0, EFFORT.get(cand.get("type"), 3))}
-        if source in UNLOCK_SOURCES:
+        if source in UNLOCK_SOURCES or (
+                cand.get("kb_gated") and cand.get("unlocks")):
             mods = [m for m in (cand.get("unlocks") or [])
                     if m in self.kg.modules and self.kg.modules[m].status == "ACTIVE"]
-            if not mods:
+            if not mods and source in UNLOCK_SOURCES:
                 return REJECTED, "R1: no in-force module would be unlocked", None
-            best = max(mods, key=lambda m: self.kg.modules[m].strength)
-            return APPROVED, f"R5: answering would unlock {', '.join(mods)}", {
-                "related_module": best, "issue": "MODULE",
-                "material_reason": cand.get("material_reason")
-                or f"needed to decide whether {best} applies",
-                "impact_if_yes": f"{best} can be considered",
-                "impact_if_no": f"{best} stays unavailable",
-                "_rank": (1, -1, -self.kg.modules[best].strength,
-                          EFFORT.get(cand.get("type"), 3))}
+            if mods:
+                best = max(mods, key=lambda m: self.kg.modules[m].strength)
+                return APPROVED, f"R5: answering would unlock {', '.join(mods)}", {
+                    "related_module": best, "issue": "MODULE",
+                    "material_reason": cand.get("material_reason")
+                    or f"needed to decide whether {best} applies",
+                    "impact_if_yes": f"{best} can be considered",
+                    "impact_if_no": f"{best} stays unavailable",
+                    "_rank": (1, -1, -self.kg.modules[best].strength,
+                              EFFORT.get(cand.get("type"), 3))}
+            # kb_gated without resolvable unlocks → fall through to module materiality.
 
         return self._module_materiality(case, cand, facts)
 
