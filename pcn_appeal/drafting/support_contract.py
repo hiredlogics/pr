@@ -255,7 +255,8 @@ def build_bundle(support_rows: Iterable, evidence_refs: Iterable = (),
                  case=None,
                  material_narrative_atoms: Iterable = (),
                  supporting_events: Iterable = (),
-                 required_particulars: Iterable = ()) -> SupportBundle:
+                 required_particulars: Iterable = (),
+                 semantic_from_case: bool = True) -> SupportBundle:
     source_ids, source_names = [], []
     derived_ids, derived_names = [], []
     values: dict[str, Any] = {}
@@ -351,7 +352,11 @@ def build_bundle(support_rows: Iterable, evidence_refs: Iterable = (),
 
     atoms = list(material_narrative_atoms or ())
     events = list(supporting_events or ())
-    if case is not None and not atoms and not events:
+    # Reading the case's semantic material is a stand-in for a caller that has
+    # no resolver row. A caller that has one has already decided which grounds
+    # the account particularises, and an empty list from it means "not this
+    # ground" — not "go and find some".
+    if semantic_from_case and case is not None and not atoms and not events:
         atoms, events = _semantic_material_from_case(case)
     parts = list(required_particulars or ())
     if not parts:

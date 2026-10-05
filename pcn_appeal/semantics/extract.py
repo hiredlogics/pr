@@ -301,6 +301,11 @@ ALLOWED_EVENT_TYPES: frozenset[str] = frozenset({
 })
 EVENT_TYPE_FALLBACK = "OTHER"
 
+# Which reading produced a semantic product: the live model, or the offline
+# deterministic bridge standing in for it.
+SEMANTIC_LIVE = "LIVE"
+SEMANTIC_FALLBACK = "FALLBACK"
+
 # Lowercase: the deterministic atom categories (semantics/atoms.py) and the
 # candidate-discovery hints (engines/knowledge_matcher.py) are both lowercase.
 ALLOWED_ATOM_CATEGORIES: frozenset[str] = frozenset({
@@ -619,6 +624,10 @@ def extract_semantic_product(texts: list[str], llm=None,
     }
     used_llm = False
     degraded = ""
+    exception_class = ""
+    fallback_reason = ""
+    if llm is None:
+        fallback_reason = "no_semantic_provider_configured"
     if llm is not None:
         try:
             llm_product = _llm_extract_product(
@@ -630,6 +639,8 @@ def extract_semantic_product(texts: list[str], llm=None,
             # fault here used to look identical to "the model found nothing".
             used_llm = False
             degraded = f"{type(exc).__name__}: {exc}"[:300]
+            exception_class = type(exc).__name__
+            fallback_reason = "semantic_provider_call_failed"
             from ..llm import redact
             print(f"[semantic] model extraction unavailable, using the "
                   f"reference bridge: {redact(degraded)}")
@@ -652,6 +663,12 @@ def extract_semantic_product(texts: list[str], llm=None,
         "llm_passed": used_llm,
         "degraded_reason": degraded,
         "schema_errors": list(llm_product.get("schema_errors") or []),
+        # P18.1: the reading that produced this product, named. A fallback run
+        # is not live-AI acceptance, and "the model found nothing" must never
+        # be indistinguishable from "the model was never reached".
+        "semantic_mode": SEMANTIC_LIVE if used_llm else SEMANTIC_FALLBACK,
+        "fallback_reason": "" if used_llm else (fallback_reason or "unknown"),
+        "exception_class": exception_class,
     }
 
 
@@ -770,6 +787,14 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         # client was supplied, which is what this used to report.
         "llm_passed": bool(product.get("llm_passed")),
         "llm_degraded_reason": product.get("degraded_reason") or "",
+        # P18.1: §11 admin visibility. LIVE means the semantic model actually
+        # read this account; FALLBACK names why it did not, so a silent
+        # degradation cannot be mistaken for a successful live run.
+        "semantic_mode": product.get("semantic_mode") or SEMANTIC_FALLBACK,
+        "fallback_reason": product.get("fallback_reason") or "",
+        "exception_class": product.get("exception_class") or "",
+        "run_id": getattr(case, "run_id", None),
+        "case_revision": len(getattr(case, "fact_history", None) or []),
         # A contract breach in the model's reply is recorded, not hidden: an
         # omitted channel or a malformed row is a different failure from "the
         # account contained nothing material".

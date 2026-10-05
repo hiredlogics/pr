@@ -7,6 +7,7 @@ grounds.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any, Optional
 
@@ -168,7 +169,31 @@ def _route_family(module_id: str) -> str:
     return "OTHER"
 
 
-def _merge_group(module_ids: list[str]) -> list[list[str]]:
+def _same_argument(bundles: dict, a: str, b: str) -> bool:
+    """Whether two grounds would restate the same argument in the letter.
+
+    True when they are in one route family and their sections would carry the
+    same particulars and the same material meaning - three breakdown grounds
+    on one flat battery, for instance. Then they belong in one paragraph: a
+    letter that argues the same conclusion three times is weaker than one that
+    argues it once, and the renderer can only avoid repeating itself if the
+    plan stops asking for it.
+    """
+    if _route_family(a) != _route_family(b) or _route_family(a) == "OTHER":
+        return False
+    one, two = SupportBundle.from_dict(bundles.get(a)), SupportBundle.from_dict(bundles.get(b))
+    if set(one.required_particulars) != set(two.required_particulars):
+        return False
+
+    def meaning(bundle) -> set[str]:
+        return {str(r.get("proposition") or r.get("description") or "")
+                for r in _rows(bundle.material_narrative_atoms)
+                + _rows(bundle.supporting_events)}
+    return meaning(one) == meaning(two)
+
+
+def _merge_group(module_ids: list[str],
+                 bundles: Optional[dict] = None) -> list[list[str]]:
     """Partition leading grounds into sections, applying permitted merges."""
     remaining = list(module_ids)
     groups: list[list[str]] = []
@@ -180,8 +205,44 @@ def _merge_group(module_ids: list[str]) -> list[list[str]]:
         groups.append(group)
         remaining = [m for m in remaining if m not in group]
     for mid in remaining:
+        prior = next((g for g in groups
+                      if _same_argument(bundles or {}, g[0], mid)), None)
+        if prior is not None:
+            prior.append(mid)
+            continue
         groups.append([mid])
     return groups
+
+
+def _rows(seq: Any) -> list[dict]:
+    """Semantic rows as plain dicts.
+
+    A locked claim plan is frozen, so its bundles arrive as read-only Mappings
+    rather than dicts. Every `isinstance(row, dict)` guard below then dropped
+    the ground's own atoms and events on the floor, which is how a bundle
+    carrying eight particulars produced a section carrying none.
+    """
+    out: list[dict] = []
+    for row in seq or ():
+        if isinstance(row, dict):
+            out.append(row)
+        elif isinstance(row, Mapping):
+            out.append(dict(row))
+    return out
+
+
+def _dedupe_rows(rows: Any, key: str) -> list[dict]:
+    """Semantic rows in order, one per id (falling back to the text itself)."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    for row in _rows(rows):
+        ident = str(row.get(key) or row.get("proposition")
+                    or row.get("description") or "")
+        if not ident or ident in seen:
+            continue
+        seen.add(ident)
+        out.append(row)
+    return out
 
 
 def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
@@ -212,7 +273,7 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
             leading.append(mid)
 
     # Attach support-only modules to the first leading section when present
-    groups = _merge_group(leading)
+    groups = _merge_group(leading, bundles)
     sections: list[DraftSection] = []
     chunks = list(getattr(pack, "context_chunks", None) or [])
     findings = list(getattr(pack, "legal_findings", None) or [])
@@ -240,6 +301,18 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
                 derived_fact_names=tuple(dict.fromkeys(
                     list(bundle.derived_fact_names) + list(other.derived_fact_names))),
                 values={**bundle.values, **other.values},
+                # Merged grounds share one paragraph, so they share its
+                # particulars: rebuilding the bundle without these dropped the
+                # material meaning of every ground after the first.
+                material_narrative_atoms=tuple(_dedupe_rows(
+                    list(bundle.material_narrative_atoms)
+                    + list(other.material_narrative_atoms), "atom_id")),
+                supporting_events=tuple(_dedupe_rows(
+                    list(bundle.supporting_events)
+                    + list(other.supporting_events), "event_id")),
+                required_particulars=tuple(dict.fromkeys(
+                    list(bundle.required_particulars)
+                    + list(other.required_particulars))),
             )
         particulars: list[str] = []
         values: dict = dict(bundle.values or {})
@@ -310,11 +383,18 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # (not ANPR-only). Drafter renders; does not rediscover meaning.
         narrative_atoms: list[dict] = []
         ctx = getattr(pack, "case_context", None) or {}
-        bundle_atoms = list(getattr(bundle, "material_narrative_atoms", None) or ())
+        bundle_atoms = _rows(getattr(bundle, "material_narrative_atoms", None))
         if not bundle_atoms:
-            bundle_atoms = list((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
-                                .get("material_narrative_atoms") or [])
-        ctx_atoms = list(ctx.get("narrative_atoms") or []) + list(bundle_atoms)
+            bundle_atoms = _rows((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
+                                 .get("material_narrative_atoms"))
+        # The bundle's atoms belong to THIS ground. Case-level atoms stand in
+        # only when the bundle carries none and there is a single substantive
+        # section, for the same reason as the events below: a section answers
+        # for the meaning of its own ground, and a statutory-timing paragraph
+        # is not where the keeper's errand belongs.
+        ctx_atoms = list(bundle_atoms) + (
+            _rows(ctx.get("narrative_atoms"))
+            if not bundle_atoms and len(groups) == 1 else [])
         dep = values.get("departure_reason")
         if not dep:
             for a in ctx_atoms:
@@ -383,10 +463,10 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # The event sequence travels with the ground. Generic: any material
         # event the bundle or the semantic state carries, in the order recorded,
         # for every substantive ground - not one route's special case.
-        bundle_events = list(getattr(bundle, "supporting_events", None) or ())
+        bundle_events = _rows(getattr(bundle, "supporting_events", None))
         if not bundle_events:
-            bundle_events = list((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
-                                 .get("supporting_events") or [])
+            bundle_events = _rows((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
+                                  .get("supporting_events"))
         # The bundle's own events belong to this ground. Case-level events are
         # attributed only when there is a single substantive section, because a
         # section is answerable for the meaning of ITS ground: making every
@@ -395,9 +475,9 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         ctx_events: list[dict] = []
         if not bundle_events and len(groups) == 1:
             ctx_events = (
-                list(ctx.get("supporting_events") or [])
-                or list(ctx.get("material_events") or [])
-                or list(ctx.get("customer_reported_events") or [])
+                _rows(ctx.get("supporting_events"))
+                or _rows(ctx.get("material_events"))
+                or _rows(ctx.get("customer_reported_events"))
             )
         supporting_events: list[dict] = []
         seen_events: set[str] = set()

@@ -37,7 +37,7 @@ from typing import Any, Optional
 from .narrative import NARRATIVE_FACTS
 from .. import prompts
 from ..kg.graph import KnowledgeGraph
-from ..models import CaseFile, KBModule
+from ..models import CaseFile, KBModule, SourceKind
 from ..rules.dsl import evaluate
 from ..routes import GENERAL_GROUND_ROUTES, Route
 from .claim_plan import build_claim_plan
@@ -835,6 +835,61 @@ class AnalysisEngine:
                     best = max(mods, key=lambda m: int(getattr(m, "strength", 0) or 0))
                     _add(best.module_id, {fact},
                          f"thin account: {fact} gates {best.module_id}")
+
+        # 3) The customer raised the topic themselves. A claim-ground candidate
+        #    whose gate is already PART-satisfied by a fact that came from the
+        #    customer's own account is one answerable fact short of being
+        #    usable, and that fact is material by definition: the answer
+        #    decides whether the ground they described can be argued at all.
+        #    Without this, an account that establishes one of a module's two
+        #    gating facts produced neither a ground nor a question - the
+        #    breakdown and broken-terminal accounts both died silently.
+        #    Generic: the trigger is the fact's SOURCE, never its name.
+        account_gates = {
+            name for name, f in (case.facts or {}).items()
+            if f.usable and f.value not in (None, "", [], False)
+            and f.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT)
+        }
+        if account_gates:
+            # A gate shared across KB routes does not tell us which topic the
+            # customer raised: "payment was made" gates both the payment and
+            # the keying route, and asking what kind of keying error occurred
+            # of someone who only said they paid is fishing. So the fact must
+            # belong to this module's route alone - the KB's own grouping.
+            routes_of_fact: dict[str, set[str]] = {}
+            for m in self.kg.active_modules():
+                route = str(getattr(m.route, "value", m.route) or "")
+                for f in (self.kg.gating_facts(m.module_id) or set()):
+                    routes_of_fact.setdefault(f, set()).add(route)
+            # A route already argued needs nothing more from the customer: a
+            # second breakdown module restates the first, so the answer cannot
+            # change the outcome and the question is not material.
+            argued_routes = {
+                str(getattr(m.route, "value", m.route) or "")
+                for mid_sel in (result.module_ids or [])
+                if (m := self.kg.modules.get(mid_sel)) is not None
+            }
+            pool = list(dict.fromkeys(list(unresolved) + list(result.candidate_ids or [])))
+            for mid in pool:
+                module = self.kg.modules.get(mid)
+                if module is None or not can_be_claim_ground(module):
+                    continue
+                if mid in (result.module_ids or []):
+                    continue
+                if self._is_always_on(module) or module.route == Route.LANDOWNER:
+                    continue
+                route = str(getattr(module.route, "value", module.route) or "")
+                if route in argued_routes:
+                    continue
+                gates = set(self.kg.gating_facts(mid) or [])
+                raised = {f for f in gates & account_gates
+                          if routes_of_fact.get(f) == {route}}
+                if not raised:
+                    continue
+                _add(mid, gates - account_gates,
+                     f"the account establishes {sorted(raised)[0]}, which gates "
+                     f"{mid} alone; the remaining gate decides whether it can "
+                     f"be argued")
 
         return out
 

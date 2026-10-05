@@ -15,6 +15,10 @@ from .knowledge_matcher import (
     BLOCKED, OFFERABLE, OPEN, REJECTED, RELEVANT, SUPPORTED, KnowledgeMatcher, Match,
 )
 
+# Fact sources that are the customer's own account rather than the documents.
+# A ground standing on one of these is the ground the account particularises.
+_ACCOUNT_SOURCES = frozenset({"ANSWER", "CUSTOMER_FREE_TEXT"})
+
 # Resolver-facing status vocabulary (maps matcher + eligibility).
 STATUS_SUPPORTED = "SUPPORTED"
 STATUS_UNRESOLVED = "UNRESOLVED"
@@ -204,19 +208,28 @@ class KnowledgeModuleResolver:
             eligible = mid in eligible_set
             status = _map_status(matcher_status, eligible, missing)
             support_facts = list(cand.selected_because) if cand else []
-            # Attach material semantic events/atoms generically (category tags only).
+            # Attach material semantic events/atoms generically (category tags
+            # only) — but only to a ground that actually rests on the
+            # customer's account. A statutory timing ground rests on notice
+            # dates, so the shopping trip is not its particular: attaching the
+            # account to every ground put the keeper's errand inside the PoFA
+            # paragraph and made the validator demand it there. The test is the
+            # SOURCE of the facts the ground stands on, never the module id.
+            rests_on_account = any(
+                str(r.get("source_kind") or "") in _ACCOUNT_SOURCES
+                for r in support_facts if isinstance(r, dict))
             tagged_events = [
                 e for e in events
                 if isinstance(e, dict) and (
                     e.get("material") or e.get("kind") or e.get("type")
                 )
-            ][:8]
+            ][:8] if rests_on_account else []
             tagged_atoms = [
                 a for a in atoms
                 if isinstance(a, dict) and (
                     a.get("material") is not False
                 )
-            ][:8]
+            ][:8] if rests_on_account else []
             row = ModuleResolveRow(
                 module_id=mid,
                 candidate_reason=(

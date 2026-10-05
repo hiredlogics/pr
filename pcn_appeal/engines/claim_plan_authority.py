@@ -1058,6 +1058,7 @@ class ClaimPlanBuilder:
                 material_narrative_atoms=atoms,
                 supporting_events=events,
                 required_particulars=parts,
+                semantic_from_case=row is None,
             )
             req = build_requirement(
                 bundle,
