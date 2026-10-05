@@ -410,16 +410,22 @@ def _llm_extract_product(texts: list[str], llm, *,
                          confirmed_facts: Optional[dict] = None) -> dict:
     """Full semantic_extraction product (concepts + unmapped meaning channels)."""
     from .. import prompts
+    from .state import _json_safe
+    # Fact values are not all JSON primitives: a notice date arrives here as a
+    # datetime.date once extraction has parsed it. Serializing the payload raw
+    # raised TypeError for every case holding one, and the caller's except
+    # branch then fell back to the offline reference bridge - so the model's
+    # semantic reading never ran in production. Normalize before serializing.
     payload = {
         "ontology_version": ONTOLOGY_VERSION,
         "allowed_concepts": sorted(CONCEPTS),
         "concept_definitions": {
             k: CONCEPT_DEFINITIONS[k] for k in sorted(CONCEPT_DEFINITIONS)
         },
-        "confirmed_facts": {
+        "confirmed_facts": _json_safe({
             k: v for k, v in (confirmed_facts or {}).items()
             if v is not None
-        },
+        }),
         "customer_texts": [str(t)[:800] for t in texts if str(t).strip()],
         "output_schema": {
             "concepts": [{
@@ -465,7 +471,7 @@ def _llm_extract_product(texts: list[str], llm, *,
     out = llm.complete_json(
         task="semantic_extraction",
         system=prompts.system("semantic_extraction"),
-        user=json.dumps(payload),
+        user=json.dumps(payload, default=str),
     ) or {}
     return {
         "concepts": validate_concepts(out.get("concepts") or []),
@@ -497,13 +503,21 @@ def extract_semantic_product(texts: list[str], llm=None,
         "relationships": [], "material_relevance": [],
     }
     used_llm = False
+    degraded = ""
     if llm is not None:
         try:
             llm_product = _llm_extract_product(
                 texts, llm, confirmed_facts=confirmed_facts)
             used_llm = True
-        except Exception:
+        except Exception as exc:
+            # Falling back to the offline bridge is a real loss of semantic
+            # quality, so it is never silent: a serialization or provider
+            # fault here used to look identical to "the model found nothing".
             used_llm = False
+            degraded = f"{type(exc).__name__}: {exc}"[:300]
+            from ..llm import redact
+            print(f"[semantic] model extraction unavailable, using the "
+                  f"reference bridge: {redact(degraded)}")
     if not used_llm:
         try:
             from .meaning_bridge import extract_concepts_meaning_bridge
@@ -521,6 +535,7 @@ def extract_semantic_product(texts: list[str], llm=None,
         "relationships": list(llm_product.get("relationships") or []),
         "material_relevance": list(llm_product.get("material_relevance") or []),
         "llm_passed": used_llm,
+        "degraded_reason": degraded,
     }
 
 
@@ -635,7 +650,10 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         "delta": delta,
         "material_conflicts": conflicts,
         "semantic_revision": revision,
-        "llm_passed": llm is not None,
+        # Whether the model's reading actually succeeded - not merely whether a
+        # client was supplied, which is what this used to report.
+        "llm_passed": bool(product.get("llm_passed")),
+        "llm_degraded_reason": product.get("degraded_reason") or "",
     })
     return {
         "concepts": concepts, "intended": intended, "delta": delta,

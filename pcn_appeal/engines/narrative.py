@@ -99,10 +99,12 @@ _PURPOSES = (
 # proposition with customer-source provenance.
 _DEPARTURE_REASON = re.compile(
     r"(?P<span>"
-    r"(?:forgot(?:ten)?|left behind)\s+(?:my |the |our |his |her |a |an )?\w[\w-]{1,24}"
+    r"(?:forgot(?:ten)?|left behind)\s+(?:my |the |our |his |her |a |an )?"
+    r"(?:\w[\w-]{1,24}['’]s\s+)*\w[\w-]{1,24}(?:\s+\w[\w-]{1,24})?"
     r"|"
-    r"(?:left|went|drove)\b[^.]{0,40}\b(?:to |in order to )?(?:collect|get|fetch|retrieve|pick up)\s+"
-    r"(?:my |the |our |a |an )?\w[\w-]{1,24}"
+    r"(?:left|went|drove|departed)\b[^.]{0,40}\b(?:to |in order to )?(?:collect|get|fetch|retrieve|pick up)\s+"
+    r"(?:my |the |our |a |an )?(?:\w[\w-]{1,24}['’]s\s+)*"
+    r"\w[\w-]{1,24}(?:\s+\w[\w-]{1,24})?"
     r"|"
     r"realis(?:e|ed|ing)\b[^.]{0,60}\b(?:forgot(?:ten)?|at home|left (?:behind|at home)|"
     r"necessary (?:item|thing)|had been forgotten)"
@@ -111,17 +113,67 @@ _DEPARTURE_REASON = re.compile(
 )
 
 
+# The thing the customer actually named, taken from their own span. Captured
+# as a word class, not a list of items, so any noun is preserved.
+_REASON_OBJECT = re.compile(
+    r"\b(?:forgot(?:ten)?|left behind|left|collect|get|fetch|retrieve|pick up)\s+"
+    r"(?P<poss>my |our |his |her |their )?(?:the |a |an )?"
+    # A possessive chain ("my daughter's inhaler") describes the owner, not the
+    # thing; skip past it so the object the customer named is the one kept.
+    r"(?:[a-z][\w-]{1,24}['’]s\s+)*"
+    r"(?P<obj>[a-z][\w-]{2,24}(?:\s+[a-z][\w-]{2,24})?)\b",
+    re.I,
+)
+# A compound object stops at the next clause: "my purse and drove home" names
+# the purse, not "purse and". Grammar words, never nouns being described.
+_OBJECT_STOP = frozenset({
+    "and", "but", "so", "then", "before", "after", "because", "which", "that",
+    "from", "with", "at", "in", "on", "to", "for", "was", "were", "had", "has",
+    "is", "it", "the", "a", "an", "back", "again", "home", "there", "later",
+    "while", "when", "as", "of", "out", "off", "up", "down", "over",
+})
+# Words that are grammar rather than the object being described.
+_NOT_AN_OBJECT = frozenset({
+    "home", "there", "back", "again", "it", "them", "him", "her", "us", "me",
+    "that", "this", "those", "these", "something", "anything", "one", "some",
+    "behind", "from", "with", "into", "onto", "about", "around", "the", "and",
+    "car", "vehicle", "park", "site", "to", "at", "in", "on", "later", "then",
+})
+
+
+def departure_reason_object(span: str) -> tuple[str, bool]:
+    """The specific thing the customer named, and whether they owned it.
+
+    Returns ("", False) when the span names nothing specific.
+    """
+    for m in _REASON_OBJECT.finditer(span or ""):
+        words = (m.group("obj") or "").strip().lower().split()
+        while len(words) > 1 and words[-1] in _OBJECT_STOP:
+            words.pop()
+        obj = " ".join(words)
+        if obj and words[0] not in _NOT_AN_OBJECT:
+            return obj, bool(m.group("poss"))
+    return "", False
+
+
 def departure_reason_proposition(span: str) -> str:
-    """Professional proposition for a generic departure-reason span."""
+    """Professional proposition for a departure-reason span.
+
+    The customer's own object is kept. Substituting "a necessary item" for
+    whatever they actually named discarded the particular that makes the
+    account specific, and no downstream layer could recover it. The generic
+    wording survives only as the fallback for a span naming nothing.
+    """
     low = (span or "").lower()
+    obj, owned = departure_reason_object(span)
+    named = f"their {obj}" if owned else (f"the {obj}" if obj
+                                          else "a necessary item")
     if re.search(r"\b(collect|fetch|retrieve|pick up)\b", low):
-        return "the departure was to collect a necessary item"
+        return f"the departure was to collect {named}"
     if re.search(r"\brealis", low):
-        return (
-            "a necessary item was realised to have been left elsewhere, "
-            "prompting the departure"
-        )
-    return "a necessary item had been forgotten, prompting the departure"
+        return (f"{named} was realised to have been left elsewhere, "
+                f"prompting the departure")
+    return f"{named} had been forgotten, prompting the departure"
 
 
 def extract_departure_reason(text: str) -> Optional[dict[str, Any]]:

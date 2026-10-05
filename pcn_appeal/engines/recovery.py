@@ -709,13 +709,32 @@ def postcode_unlocks(case: CaseFile, kg) -> list[str]:
     from .reasoning import SUPPORTING_THRESHOLD
     if case.has("site_postcode") or case.get("jurisdiction") not in (None, "", "UNKNOWN"):
         return []
+
+    def supported(facts: dict) -> set[str]:
+        out = set()
+        for m in kg.active_modules():
+            if m.route != Route.POFA or m.strength < SUPPORTING_THRESHOLD:
+                continue
+            if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
+                out.add(m.module_id)
+        return out
+
     res = pofa.assess(jurisdiction="ENGLAND_WALES", **pofa_inputs(case))
-    facts = dict(case.fact_view(), jurisdiction="ENGLAND_WALES", pofa_route=res.route,
-                 pofa_finding=res.findings[0] if res.findings else None)
-    out = []
-    for m in kg.active_modules():
-        if m.route != Route.POFA or m.strength < SUPPORTING_THRESHOLD:
-            continue
-        if evaluate(m.use_when, facts) and not evaluate(m.do_not_use_when, facts):
-            out.append(m.module_id)
-    return out
+    counterfactual = supported(dict(
+        case.fact_view(), jurisdiction="ENGLAND_WALES", pofa_route=res.route,
+        pofa_finding=res.findings[0] if res.findings else None))
+    # The delta is the whole point: a ground that already applies without the
+    # postcode is not unlocked by it, so asking cannot change the outcome.
+    # Only the counterfactual set was computed before, so the question was
+    # material by assumption rather than by calculation.
+    baseline_facts = dict(case.fact_view())
+    try:
+        base = pofa.assess(jurisdiction=(case.get("jurisdiction") or "UNKNOWN"),
+                           **pofa_inputs(case))
+        baseline_facts.update(
+            pofa_route=base.route,
+            pofa_finding=base.findings[0] if base.findings else None)
+    except Exception:
+        pass                      # no baseline assessment: treat as unsupported
+    already = supported(baseline_facts)
+    return [mid for mid in sorted(counterfactual) if mid not in already]

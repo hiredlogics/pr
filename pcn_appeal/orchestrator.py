@@ -250,6 +250,43 @@ class AppealPipeline:
         return any(fact in self.kg.gating_facts(m.module_id) or fact in (m.required_facts or [])
                    for m in self.kg.active_modules())
 
+    def _postcode_materiality(self, case: CaseFile) -> tuple[list[str], dict]:
+        """Is the site postcode material to THIS case? One predicate, two callers.
+
+        The ask path and the hold path each used to decide this for themselves
+        and had diverged: the hold path skipped the fact-specific-ground check
+        entirely, so a case the ask path had deliberately spared was asked the
+        postcode anyway at hold time. Returns ([], {}) when asking it cannot
+        change the outcome.
+        """
+        if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
+            case.audit.append({
+                "event": "site_postcode_skipped",
+                "reason": "jurisdiction_already_established",
+                "jurisdiction": case.get("jurisdiction"),
+            })
+            return [], {}
+        # Fact-specific ANPR/ACTIVITY/etc. already open — postcode is background.
+        try:
+            if self.recovery._fact_specific_ground_open(case):
+                case.audit.append({
+                    "event": "site_postcode_skipped",
+                    "reason": "fact_specific_ground_open_without_postcode",
+                })
+                return [], {}
+        except Exception as exc:
+            # Unknown either way. Keep the outcome-safe default (ask rather
+            # than lose a ground) but never let the failure go unrecorded.
+            case.audit.append({
+                "event": "site_postcode_predicate_error",
+                "error": str(exc)[:200],
+            })
+        unlocks = postcode_unlocks(case, self.kg)
+        q = self.kg.question_for("site_postcode")
+        if not unlocks or not q:
+            return [], {}
+        return list(unlocks), dict(q)
+
     def _site_postcode_question(self, case: CaseFile, module_ids, already: list[dict]) -> list[dict]:
         """The site postcode, asked only when nothing selected can lead the
         letter and knowing the site is in England & Wales would unlock a
@@ -266,25 +303,7 @@ class AppealPipeline:
             return []
         if self.reasoning.leading_grounds(module_ids):
             return []
-        if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
-            case.audit.append({
-                "event": "site_postcode_skipped",
-                "reason": "jurisdiction_already_established",
-                "jurisdiction": case.get("jurisdiction"),
-            })
-            return []
-        # Fact-specific ANPR/ACTIVITY/etc. already open — postcode is background.
-        try:
-            if self.recovery._fact_specific_ground_open(case):
-                case.audit.append({
-                    "event": "site_postcode_skipped",
-                    "reason": "fact_specific_ground_open_without_postcode",
-                })
-                return []
-        except Exception:
-            pass
-        unlocks = postcode_unlocks(case, self.kg)
-        q = self.kg.question_for("site_postcode")
+        unlocks, q = self._postcode_materiality(case)
         if not unlocks or not q:
             return []
         case.audit.append({
@@ -940,8 +959,8 @@ class AppealPipeline:
         """No ground that can lead the letter: a detail is missing that would
         unlock one (the site postcode, `postcode_unlocks`), or nothing we can
         stand behind was found. Neither drafts a letter."""
-        unlocks = postcode_unlocks(case, self.kg)
-        q = self.kg.question_for("site_postcode")
+        # Same predicate as the ask path, so the two cannot disagree.
+        unlocks, q = self._postcode_materiality(case)
         if unlocks and q:
             # Missing unlock fact — not a merits no-grounds finding.
             case.state = CaseState.MANUAL_REVIEW
