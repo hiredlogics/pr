@@ -310,7 +310,16 @@ class FactManager:
                 chosen = cls._candidate(pending, fact.value)
                 if chosen is not None:
                     return cls._resolve(case, pending, old, fact, chosen, changed_by, reason)
-            if same_value(old.value, fact.value):
+            # A reading nobody could rely on, which the customer has now put
+            # their name to, is settled by that - not a duplicate of itself.
+            # Treating it as one dropped the customer's confirmation (the held
+            # document source outranks it), so the fact stayed UNCERTAIN and the
+            # same question came back every round. The value does not change;
+            # the status and the authority behind it do.
+            settles_uncertain = (
+                old.status == FactStatus.UNCERTAIN and same_value(old.value, fact.value)
+                and from_customer(fact) and is_explicit_customer(fact))
+            if same_value(old.value, fact.value) and not settles_uncertain:
                 # P8.7: same value is never a rewrite. Record the incoming
                 # source as extra provenance and leave the held fact alone.
                 cls._source(case, fact, accepted=True)

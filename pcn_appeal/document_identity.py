@@ -209,6 +209,32 @@ def _observations_from_extraction(case: CaseFile) -> dict[str, list[FieldObserva
     return out
 
 
+def _observations_from_customer(case: CaseFile) -> dict[str, list[FieldObservation]]:
+    """What the customer has settled, as an observation like any other.
+
+    The identity state is rebuilt from observations on every pass. A value the
+    customer confirmed or corrected was stamped onto the stored state but was
+    not an observation, so the next rebuild computed the field from the
+    document readings alone and put it back to UNCERTAIN: the confirmation held
+    for exactly one round. Only a value the customer settled counts - an
+    answer, or a correction on the confirmation screen - never one inferred
+    from their free text.
+    """
+    out: dict[str, list[FieldObservation]] = {n: [] for n in CRITICAL_FIELDS}
+    for name in CRITICAL_FIELDS:
+        node = case.facts.get(name) if getattr(case, "facts", None) else None
+        if node is None or node.value in (None, "") or not node.usable:
+            continue
+        if node.source.kind != SourceKind.ANSWER or node.status not in (
+                FactStatus.CONFIRMED, FactStatus.CORRECTED, FactStatus.ANSWERED):
+            continue
+        out[name].append(_obs(
+            raw=node.value, name=name, method="customer_confirmation",
+            evidence_id="customer_confirm", confidence=1.0, read_status=READ_VERIFIED,
+        ))
+    return out
+
+
 def _observations_from_classifier(case: CaseFile) -> dict[str, list[FieldObservation]]:
     """Independent page-reference readings (not seeded with extractor values)."""
     out: dict[str, list[FieldObservation]] = {n: [] for n in CRITICAL_FIELDS}
@@ -251,10 +277,23 @@ def _observations_from_text_scan(case: CaseFile) -> dict[str, list[FieldObservat
             continue
         if "FRONTEND_LIVE_TEST" in text or "NOTICE TO KEEPER — REVERSE" in text:
             continue
+        seen: set[str] = set()
         for m in _PCN_TOKEN.finditer(text):
+            seen.add(m.group(1))
             out["pcn_number"].append(_obs(
                 raw=m.group(1), name="pcn_number", method="text_scan",
                 evidence_id=e.evidence_id, excerpt=m.group(0),
+                confidence=0.55, read_status=READ_UNCERTAIN,
+            ))
+        # A reference with a letter prefix has no \b before its digits, so the
+        # scan above can never see it and the notice's own text could not
+        # corroborate it. The extraction engine already reads labelled
+        # references of either shape; use the same reader.
+        from .engines.extraction import _pcn_candidates_from_text
+        for token in sorted(_pcn_candidates_from_text(text) - seen):
+            out["pcn_number"].append(_obs(
+                raw=token, name="pcn_number", method="text_scan",
+                evidence_id=e.evidence_id, excerpt=token,
                 confidence=0.55, read_status=READ_UNCERTAIN,
             ))
         for m in _VRM_TOKEN.finditer(text):
@@ -264,6 +303,44 @@ def _observations_from_text_scan(case: CaseFile) -> dict[str, list[FieldObservat
                 confidence=0.55, read_status=READ_UNCERTAIN,
             ))
     return out
+
+
+_VERIFY_CACHE_KEY = "_identity_verify_cache"
+
+
+def _verify_digest(user: str, images: list[bytes]) -> str:
+    """The pages and text the model would be shown, exactly. Anything that
+    changes what it would read - a new page, a different file - changes this."""
+    import hashlib
+    h = hashlib.sha256((user or "").encode())
+    for img in images or ():
+        h.update(hashlib.sha256(img).digest())
+    return h.hexdigest()
+
+
+def _verify_cache(case: CaseFile) -> dict:
+    try:
+        held = json.loads((case.raw_answers or {}).get(_VERIFY_CACHE_KEY) or "{}")
+    except Exception:
+        return {}
+    return held if isinstance(held, dict) else {}
+
+
+def _remember_verify(case: CaseFile, digest: str, entry: dict) -> None:
+    """Keep the outcome for the pages as they are now. Only the latest set of
+    pages is kept: once they change the old outcome describes nothing."""
+    try:
+        blob = json.dumps({digest: entry}, default=str)
+    except Exception:
+        return
+    if len(blob) <= 12000:
+        case.raw_answers[_VERIFY_CACHE_KEY] = blob
+
+
+def _identity_unsettled(case: CaseFile) -> bool:
+    """Whether some critical field is still waiting on a reading or the customer."""
+    state = load_identity_state(case) or {}
+    return any(v == STATUS_UNCERTAIN for v in (state.get("field_status") or {}).values())
 
 
 def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservation]]:
@@ -294,6 +371,7 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         "ORIGINAL uploaded pages. Do NOT use any previously extracted values. "
         "If uncertain, set read_status UNCERTAIN or NOT_VISIBLE.\n\n" + docs
     )
+    digest = _verify_digest(user, images)
     try:
         models = getattr(llm, "models", None) or {}
         task = "identity_verification" if "identity_verification" in models else "extraction"
@@ -303,13 +381,27 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         elif hasattr(llm, "responses") and task == "extraction":
             # Avoid consuming the primary extraction queue on a second pass.
             return out
-        raw = llm.complete_json(task=task, system=VERIFY_SYSTEM, user=user,
-                                images=images or None)
+        held = _verify_cache(case).get(digest)
+        if held is not None and held.get("raw") is not None:
+            # These exact pages were already read; reading them again cannot
+            # tell us anything new, it only costs a vision call every time the
+            # case is confirmed, continued or resumed.
+            raw = held["raw"]
+            case.audit.append({"event": "identity_verification_reused",
+                               "input_sha256": digest})
+        elif held is not None and not _identity_unsettled(case):
+            # The earlier attempt failed, and nothing is left for it to settle.
+            return out
+        else:
+            raw = llm.complete_json(task=task, system=VERIFY_SYSTEM, user=user,
+                                    images=images or None)
+            _remember_verify(case, digest, {"raw": raw})
     except Exception as exc:
         case.audit.append({
             "event": "identity_verification_skipped",
             "reason": f"{type(exc).__name__}: {exc}"[:200],
         })
+        _remember_verify(case, digest, {"failed": type(exc).__name__})
         return out
     fields = raw.get("fields") if isinstance(raw, dict) else None
     if not isinstance(fields, dict):
@@ -446,6 +538,20 @@ def reconcile_field(name: str, observations: list[FieldObservation],
             rec.status = STATUS_UNCERTAIN
         else:
             rec.status = STATUS_ABSENT
+        return rec
+
+    # The customer has the page in their hand. A value they settled is the
+    # field's value, whatever the readings of it were - including two strong
+    # readings that disagreed, which only they can resolve.
+    settled = [o for o in usable if o.extraction_method == "customer_confirmation"]
+    if settled:
+        best = settled[-1]
+        rec.status = STATUS_VERIFIED
+        rec.canonical_value = best.canonical_value
+        rec.raw_value = best.raw_value
+        rec.source_evidence_id = best.source_evidence_id
+        rec.confidence = best.confidence
+        rec.extraction_method = best.extraction_method
         return rec
 
     # Group by canonical value.
@@ -728,6 +834,7 @@ def establish_document_identity(case: CaseFile, llm=None) -> DocumentIdentitySta
         _observations_from_classifier(case),
         _observations_from_text_scan(case),
         _independent_llm_verify(case, llm),
+        _observations_from_customer(case),
     )
     pair = assess_document_pair(case)
     provisional = build_identity_state(case, obs, revision=max(prev_rev, 1), pair=pair)
@@ -835,6 +942,23 @@ _IDENTITY_LABELS = {
 }
 
 
+_DECLINED_KEY = "_identity_declined"
+
+
+def _declined(case: CaseFile) -> list[str]:
+    try:
+        held = json.loads((case.raw_answers or {}).get(_DECLINED_KEY) or "[]")
+    except Exception:
+        return []
+    return [str(n) for n in held] if isinstance(held, list) else []
+
+
+def _decline(case: CaseFile, name: str) -> None:
+    held = _declined(case)
+    if name not in held:
+        case.raw_answers[_DECLINED_KEY] = json.dumps(held + [name])
+
+
 def identity_customer_questions(case: CaseFile) -> list[dict]:
     """Customer questions that clear an identity hold before Claim Plan.
 
@@ -873,7 +997,12 @@ def identity_customer_questions(case: CaseFile) -> list[dict]:
             continue
         if name not in ("pcn_number", "vrm") and st != STATUS_CONFLICT:
             continue
-        if name in asked:
+        # An identity question stays pending until it is answered. Retiring it
+        # when it was merely shown meant a refresh or a second click left the
+        # field unresolved with nothing left to ask. Only an answer retires it:
+        # a confirmation settles the field (so it is no longer UNCERTAIN), and a
+        # decline is recorded here so a "not readable" is not asked again.
+        if name in _declined(case):
             continue
         label = _IDENTITY_LABELS.get(name, name.replace("_", " "))
         candidate = values.get(name)
@@ -923,6 +1052,7 @@ def confirm_identity_field(case: CaseFile, fact: str, value: Any) -> bool:
             "field": fact,
             "value": text[:80],
         })
+        _decline(case, fact)
         return False
 
     state = load_identity_state(case)

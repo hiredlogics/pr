@@ -157,7 +157,7 @@ INJECTION = re.compile(r"(ignore (all|previous|the above)|system prompt|you are 
 # digit-bearing token.
 PCN_LABELLED = re.compile(
     r"(?:"
-    r"(?:Parking\s+Charge\s+Notice|Charge\s+Notice)\s+"
+    r"(?:Parking\s+Charge(?:\s+Notice)?|Charge\s+Notice)\s+"
     r"(?:No\.?|Number|Ref(?:erence)?\.?|#)\s*[:.]?\s*"
     r"|"
     r"PCN\s*(?:No\.?|Number|Ref(?:erence)?\.?|#)?\s*[:.]?\s*"
