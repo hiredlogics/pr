@@ -106,6 +106,12 @@ _DEPARTURE_REASON = re.compile(
     r"(?:my |the |our |a |an )?(?:\w[\w-]{1,24}['’]s\s+)*"
     r"\w[\w-]{1,24}(?:\s+\w[\w-]{1,24})?"
     r"|"
+    # "left the keys at home" names a thing, not the place departed from. The
+    # locative cue is what distinguishes the two; see departure_reason_object.
+    r"left\s+(?:my |the |our |his |her |their )?(?:\w[\w-]{1,24}['’]s\s+)*"
+    r"\w[\w-]{1,24}(?:\s+\w[\w-]{1,24})?\s+"
+    r"(?:at home|behind|elsewhere|indoors|at the house|in the house)"
+    r"|"
     r"realis(?:e|ed|ing)\b[^.]{0,60}\b(?:forgot(?:ten)?|at home|left (?:behind|at home)|"
     r"necessary (?:item|thing)|had been forgotten)"
     r")",
@@ -116,7 +122,7 @@ _DEPARTURE_REASON = re.compile(
 # The thing the customer actually named, taken from their own span. Captured
 # as a word class, not a list of items, so any noun is preserved.
 _REASON_OBJECT = re.compile(
-    r"\b(?:forgot(?:ten)?|left behind|left|collect|get|fetch|retrieve|pick up)\s+"
+    r"\b(?P<verb>forgot(?:ten)?|left behind|left|collect|get|fetch|retrieve|pick up)\s+"
     r"(?P<poss>my |our |his |her |their )?(?:the |a |an )?"
     # A possessive chain ("my daughter's inhaler") describes the owner, not the
     # thing; skip past it so the object the customer named is the one kept.
@@ -141,19 +147,48 @@ _NOT_AN_OBJECT = frozenset({
 })
 
 
+# Which noun in the span the customer actually meant is decided by the verb
+# that introduces it, not by what the noun is. A retrieval verb introduces the
+# thing sought ("left the site to collect my spectacles" means the spectacles);
+# forgot / left behind introduces the thing forgotten; a bare movement verb
+# usually introduces the place departed FROM, so its noun counts only when the
+# sentence shows a thing rather than a place ("left my purse", "left the keys at
+# home"). Verb classes are grammar, so an unseen object works the same way.
+_RETRIEVAL_VERB = re.compile(r"^(?:collect|get|fetch|retrieve|pick up)$", re.I)
+_FORGOT_VERB = re.compile(r"^(?:forgot|forgotten|left behind)$", re.I)
+_LEFT_BEHIND_CUE = re.compile(
+    r"\b(at home|behind|elsewhere|indoors|at the house|in the house|"
+    r"on the (?:table|side|counter|worktop))\b", re.I)
+
+
 def departure_reason_object(span: str) -> tuple[str, bool]:
     """The specific thing the customer named, and whether they owned it.
 
     Returns ("", False) when the span names nothing specific.
     """
+    best: Optional[tuple[int, str, bool]] = None
     for m in _REASON_OBJECT.finditer(span or ""):
         words = (m.group("obj") or "").strip().lower().split()
         while len(words) > 1 and words[-1] in _OBJECT_STOP:
             words.pop()
         obj = " ".join(words)
-        if obj and words[0] not in _NOT_AN_OBJECT:
-            return obj, bool(m.group("poss"))
-    return "", False
+        if not obj or words[0] in _NOT_AN_OBJECT:
+            continue
+        verb = (m.group("verb") or "").strip().lower()
+        owned = bool(m.group("poss"))
+        if _RETRIEVAL_VERB.match(verb):
+            rank = 0
+        elif _FORGOT_VERB.match(verb):
+            rank = 1
+        elif owned or _LEFT_BEHIND_CUE.search(span[m.end():]):
+            rank = 2
+        else:
+            continue            # the place they left, not the thing they needed
+        if best is None or rank < best[0]:
+            best = (rank, obj, owned)
+        if rank == 0:
+            break
+    return (best[1], best[2]) if best else ("", False)
 
 
 def departure_reason_proposition(span: str) -> str:
@@ -168,7 +203,7 @@ def departure_reason_proposition(span: str) -> str:
     obj, owned = departure_reason_object(span)
     named = f"their {obj}" if owned else (f"the {obj}" if obj
                                           else "a necessary item")
-    if re.search(r"\b(collect|fetch|retrieve|pick up)\b", low):
+    if re.search(r"\b(collect|fetch|retrieve|pick up|to get)\b", low):
         return f"the departure was to collect {named}"
     if re.search(r"\brealis", low):
         return (f"{named} was realised to have been left elsewhere, "

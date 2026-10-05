@@ -172,7 +172,18 @@ class KnowledgeModuleResolver:
             if version is None:
                 version, _ = self.reasoning.applicability(case)
             eligible_mods, gate_why = self.reasoning.eligibility(facts, version, [])
-        eligible_ids = [m.module_id for m in eligible_mods]
+            eligible_ids = [m.module_id for m in eligible_mods]
+            trace.append("eligibility_source=reasoning_engine")
+        else:
+            # Without the reasoning engine this pass used to report NOTHING as
+            # eligible, so every row came back UNRESOLVED and `status` could not
+            # tell a ground whose conditions already hold from one still missing
+            # a fact. The matcher's SUPPORTED status is the same deterministic
+            # gate (use_when and not do_not_use_when, nothing blocking) read off
+            # the same fact view, so it stands in. Still deterministic, still
+            # facts-and-KB only: no model and no retrieval can reach it.
+            eligible_ids = [c.module_id for c in match.supported]
+            trace.append("eligibility_source=matcher_gate")
         eligible_set = set(eligible_ids)
 
         sem = semantic_state or _semantic_material(case)

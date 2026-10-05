@@ -20,9 +20,10 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # number the audit log has already attributed to the old ones. Updating this map
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
+    "semantic_extraction": 3,
     "extraction": 10,
-    "case_analysis": 8,
-    "drafting": 16,
+    "case_analysis": 9,
+    "drafting": 18,
     "validation": 3,
     "classification": 2,
     "page_references": 2,
@@ -38,10 +39,23 @@ DRAFTING_RULES = {
     "no PoFA defect without a finding": ["pofa_findings", r"\bnon-empty\b"],
     "no Code values without a resolved version": ["code_version", r"code values?"],
     "no case law": ["case law"],
+    # P17.10 renamed the input this rule guards: the drafter is never sent
+    # customer_source_texts (drafting/context.py FORBIDDEN_KEYS), so the prompt
+    # speaks of the provenance excerpts it can actually see. The rule - customer
+    # wording is evidence, never letter copy - is unchanged.
     "customer free text is input, not copy": [
-        "customer_source_texts", "untrusted", "INPUT", "not letter copy",
+        r"never paste,? quote or lightly edit customer wording",
+        "untrusted", "INPUT", "not letter copy",
     ],
     "no ground invented when none is supported": ["no_ground_reason"],
+    # P17.10: specific source-supported detail must reach the prose, and a
+    # critical identity conflict must never be silently omitted there.
+    "specific particulars survive into the prose": [
+        "required_particulars", r"professionally paraphrased", r"material_atoms",
+    ],
+    "critical identity conflict is not resolved by the drafter": [
+        r"release-critical document identity", r"blocked before drafting",
+    ],
 }
 
 CASE_ANALYSIS_RULES = {

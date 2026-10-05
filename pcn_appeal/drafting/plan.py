@@ -94,6 +94,13 @@ class DraftSection:
     support_module_ids: list[str] = field(default_factory=list)
     context_chunk_ids: list[str] = field(default_factory=list)
     narrative_atoms: list[dict] = field(default_factory=list)
+    # P17.10: the material meaning the section must express, under the names the
+    # contract uses. `material_atoms` is the canonical alias of narrative_atoms;
+    # `supporting_events` carries the event sequence, which the SupportBundle
+    # already held but which stopped at this boundary - so a letter could keep a
+    # ground's facts and lose the order they happened in.
+    material_atoms: list[dict] = field(default_factory=list)
+    supporting_events: list[dict] = field(default_factory=list)
     merged: bool = False
 
     def as_dict(self) -> dict:
@@ -373,6 +380,44 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
                 "(professional paraphrase; preserve negation/uncertainty; "
                 "do not paste customer wording; do not identify the driver)."
             )
+        # The event sequence travels with the ground. Generic: any material
+        # event the bundle or the semantic state carries, in the order recorded,
+        # for every substantive ground - not one route's special case.
+        bundle_events = list(getattr(bundle, "supporting_events", None) or ())
+        if not bundle_events:
+            bundle_events = list((bundle.as_dict() if hasattr(bundle, "as_dict") else {})
+                                 .get("supporting_events") or [])
+        # The bundle's own events belong to this ground. Case-level events are
+        # attributed only when there is a single substantive section, because a
+        # section is answerable for the meaning of ITS ground: making every
+        # section express every event would demand the account sequence inside a
+        # statutory-timing paragraph it has nothing to do with.
+        ctx_events: list[dict] = []
+        if not bundle_events and len(groups) == 1:
+            ctx_events = (
+                list(ctx.get("supporting_events") or [])
+                or list(ctx.get("material_events") or [])
+                or list(ctx.get("customer_reported_events") or [])
+            )
+        supporting_events: list[dict] = []
+        seen_events: set[str] = set()
+        for ev in list(bundle_events) + list(ctx_events):
+            if not isinstance(ev, dict):
+                continue
+            key = str(ev.get("event_id") or ev.get("description")
+                      or ev.get("proposition") or "")
+            if not key or key in seen_events:
+                continue
+            seen_events.add(key)
+            supporting_events.append(ev)
+        supporting_events = supporting_events[:12]
+        if supporting_events:
+            purpose += (
+                " Express the material event sequence from supporting_events as "
+                "keeper-attributed facts in the order recorded (professional "
+                "paraphrase; preserve purpose, reason and temporal order; do "
+                "not paste customer wording; do not identify the driver)."
+            )
         # Meta / gating facts stay in the SupportBundle for audit but must not
         # be offered to the drafter as citable fact_refs (VAL-FACT).
         letter_names = [
@@ -405,6 +450,8 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
             support_module_ids=list(support_only) if i == 1 else [],
             context_chunk_ids=chunk_ids,
             narrative_atoms=narrative_atoms,
+            material_atoms=list(narrative_atoms),
+            supporting_events=supporting_events,
             merged=len(group) > 1,
         ))
 
@@ -462,6 +509,34 @@ def section_expresses_ground(text: str, section) -> bool:
     return False
 
 
+_PARAPHRASE_STOPWORDS = frozenset({
+    "that", "this", "with", "from", "have", "been", "were", "their", "there",
+    "which", "them", "they", "then", "than", "when", "into", "onto", "upon",
+    "about", "would", "could", "should", "while", "where", "whose", "being",
+    "having", "because",
+})
+
+
+def _value_meaning_expressed(text: str, value: Any) -> bool:
+    """Whether a multi-word particular's MEANING survives a paraphrase.
+
+    A proposition-shaped particular ("their purse had been forgotten, prompting
+    the departure") is never reproduced verbatim in a professionally written
+    letter, so a substring test can only be passed by copying - exactly what
+    VAL-CUSTOMER-COPY forbids. Content-word overlap accepts the paraphrase and
+    still fails on abstraction, which is what the coverage rule is for. Generic:
+    it reads the value, so it needs no list of the things a customer might name.
+    """
+    token = str(value or "").strip()
+    words = [w for w in re.findall(r"[a-z][a-z'-]{2,}", token.lower())
+             if w not in _PARAPHRASE_STOPWORDS]
+    if len(words) < 2:
+        return False
+    low = (text or "").lower()
+    hits = sum(1 for w in dict.fromkeys(words) if w in low)
+    return hits >= 2
+
+
 def particular_expressed(text: str, name: str, value: Any = None) -> bool:
     """Whether a required particular appears in section text."""
     low = (text or "").lower()
@@ -470,6 +545,8 @@ def particular_expressed(text: str, name: str, value: Any = None) -> bool:
     if value not in (None, "", False):
         token = str(value).strip()
         if token and token.lower() in low:
+            return True
+        if _value_meaning_expressed(text, token):
             return True
         # date-ish loose match
         digits = re.sub(r"\D", "", token)
@@ -503,10 +580,14 @@ def particular_expressed(text: str, name: str, value: Any = None) -> bool:
         "pickup_activity": (
             r"\bpick.?up\b", r"\bcollect", r"\bpassenger\b",
         ),
+        # Category cues only. The thing the customer actually named is matched
+        # from the particular's own value (see _value_meaning_expressed), never
+        # from a list of objects - a list is a phrase rule and would silently
+        # fail for the next unseen item.
         "departure_reason": (
             r"\bforgot", r"\bforgotten\b", r"\bretriev", r"\bcollect",
-            r"\bwallet\b", r"\bpurse\b", r"\bnecessary item\b", r"\bat home\b",
             r"\bleft elsewhere\b", r"\bprompting the departure\b",
+            r"\breason for (?:the )?depart", r"\bwent back\b",
         ),
         "visited_premises": (r"\bpremis", r"\bnearby\b", r"\battended\b"),
     }

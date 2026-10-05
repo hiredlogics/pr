@@ -570,6 +570,39 @@ class DraftValidationEngine:
                         f"{', '.join(missing_atoms)}; BLOCK release — "
                         "professional paraphrase required, not omission",
                         None)
+                # P17.10: the same rule for the event sequence the DraftPlan
+                # carries. An event the plan marks material is part of the
+                # ground's meaning: paraphrase is expected, omission is not.
+                missing_events = []
+                for ev in list(getattr(section, "supporting_events", None) or [])[:6]:
+                    if not isinstance(ev, dict):
+                        continue
+                    if ev.get("material") is False:
+                        continue
+                    if ev.get("polarity") in ("NEGATED", "UNCERTAIN"):
+                        continue
+                    desc = str(ev.get("description") or ev.get("proposition") or "").strip()
+                    if len(desc) < 12:
+                        continue
+                    tokens = [
+                        t for t in re.findall(r"[a-z]{4,}", desc.lower())
+                        if t not in ("that", "this", "with", "from", "have",
+                                     "been", "were", "their", "there", "which")
+                    ]
+                    if len(tokens) < 2:
+                        continue
+                    hits = sum(1 for t in tokens[:8] if t in check_text)
+                    if hits < min(2, len(tokens)):
+                        missing_events.append(
+                            ev.get("event_id") or ev.get("event_type") or "event")
+                if missing_events and check_text.strip():
+                    sid = section.section_id if section else "?"
+                    add("VAL-MATERIAL-FACT-COVERAGE",
+                        f"ground_id={mid}; section_id={sid}; material "
+                        f"event(s) not expressed in letter meaning: "
+                        f"{', '.join(missing_events)}; BLOCK release — "
+                        "professional paraphrase required, not omission",
+                        None)
         return result
 
     # --------------------------------------------------------------- internals

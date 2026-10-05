@@ -286,15 +286,49 @@ _ALLOWED_RELEVANCE = frozenset({
     "EVIDENCE", "CONTEXT",
 })
 
+# P17.10 — a stable taxonomy for the unmapped-meaning channels.
+#
+# These labels CLASSIFY meaning; they never carry it. The meaning itself stays
+# in `description` / `proposition`, which is what lets an unseen situation
+# survive under a known label instead of growing the ontology (or drifting into
+# a new label per paraphrase). A label outside these sets is not rejected - the
+# row is kept and relabelled to the fallback, so material content is never
+# dropped for a taxonomy miss.
+ALLOWED_EVENT_TYPES: frozenset[str] = frozenset({
+    "ARRIVAL", "DEPARTURE", "RETURN", "PAYMENT", "DELAY", "ACCESS_ISSUE",
+    "AUTHORISATION", "EVIDENCE", "ACTIVITY", "MECHANICAL", "KEYING",
+    "COMMUNICATION", "OTHER",
+})
+EVENT_TYPE_FALLBACK = "OTHER"
 
-def _sanitize_events(raw: list) -> list[dict]:
+# Lowercase: the deterministic atom categories (semantics/atoms.py) and the
+# candidate-discovery hints (engines/knowledge_matcher.py) are both lowercase.
+ALLOWED_ATOM_CATEGORIES: frozenset[str] = frozenset({
+    "visit_activity", "visit_purpose", "departure_event", "departure_reason",
+    "return_event", "multiple_attendance", "payment", "payment_attempt",
+    "mechanical", "access", "access_issue", "authorisation", "keying",
+    "timing", "evidence", "person_present", "semantic_concept",
+    "unmapped_reason", "unmapped_material",
+})
+ATOM_CATEGORY_FALLBACK = "unmapped_material"
+
+
+def _note(errors: Optional[list], code: str, detail: Any) -> None:
+    """Record a contract violation explicitly instead of discarding in silence."""
+    if errors is not None:
+        errors.append({"code": code, "detail": str(detail)[:200]})
+
+
+def _sanitize_events(raw: list, errors: Optional[list] = None) -> list[dict]:
     out = []
     for i, row in enumerate(raw or []):
         if not isinstance(row, dict):
+            _note(errors, "event_not_an_object", type(row).__name__)
             continue
         desc = str(row.get("description") or row.get("proposition") or "").strip()
         src = str(row.get("source_text") or "")[:240]
         if not desc and not src:
+            _note(errors, "event_has_no_meaning", sorted(row))
             continue
         pol = str(row.get("polarity") or "AFFIRMED").upper()
         if pol not in ("AFFIRMED", "NEGATED", "UNCERTAIN"):
@@ -306,7 +340,12 @@ def _sanitize_events(raw: list) -> list[dict]:
         # Never accept legal/KB ids as event types.
         etype = str(row.get("event_type") or row.get("kind") or "OTHER").upper()
         if etype.startswith("KB-") or "POFA" in etype:
-            etype = "OTHER"
+            etype = EVENT_TYPE_FALLBACK
+        # Taxonomy, not meaning: an unknown label is relabelled, never dropped,
+        # because `description` still carries what the customer said.
+        if etype not in ALLOWED_EVENT_TYPES:
+            _note(errors, "event_type_outside_taxonomy", etype)
+            etype = EVENT_TYPE_FALLBACK
         try:
             conf = float(row.get("confidence") or 0.7)
         except Exception:
@@ -326,18 +365,21 @@ def _sanitize_events(raw: list) -> list[dict]:
     return out
 
 
-def _sanitize_atoms(raw: list) -> list[dict]:
+def _sanitize_atoms(raw: list, errors: Optional[list] = None) -> list[dict]:
     out = []
     for i, row in enumerate(raw or []):
         if not isinstance(row, dict):
+            _note(errors, "atom_not_an_object", type(row).__name__)
             continue
         prop = str(row.get("proposition") or row.get("description") or "").strip()
         src = str(row.get("source_text") or row.get("source_excerpt") or "")[:240]
         if not prop and not src:
+            _note(errors, "atom_has_no_meaning", sorted(row))
             continue
         # Reject atoms that smuggle module ids / legal conclusions.
         blob = f"{prop} {src}".upper()
         if "KB-" in blob or "CLAIM PLAN" in blob or "CANCEL THE" in blob:
+            _note(errors, "atom_carried_a_legal_conclusion", prop[:80])
             continue
         pol = str(row.get("polarity") or "AFFIRMED").upper()
         if pol not in ("AFFIRMED", "NEGATED", "UNCERTAIN"):
@@ -347,7 +389,12 @@ def _sanitize_atoms(raw: list) -> list[dict]:
             attr = "CUSTOMER"
         cat = str(row.get("category") or row.get("name") or "unmapped_reason").lower()
         if cat.startswith("kb-"):
-            cat = "unmapped_reason"
+            cat = ATOM_CATEGORY_FALLBACK
+        if cat not in ALLOWED_ATOM_CATEGORIES:
+            # The specific meaning is in `proposition` and survives untouched;
+            # only the classification falls back (P17.10 §2).
+            _note(errors, "atom_category_outside_taxonomy", cat)
+            cat = ATOM_CATEGORY_FALLBACK
         try:
             conf = float(row.get("confidence") or 0.7)
         except Exception:
@@ -368,29 +415,41 @@ def _sanitize_atoms(raw: list) -> list[dict]:
     return out
 
 
-def _sanitize_relationships(raw: list) -> list[dict]:
+def _sanitize_relationships(raw: list, errors: Optional[list] = None,
+                            known_ids: Optional[set[str]] = None) -> list[dict]:
+    """event_id / atom_id are local to one response, so a relationship may only
+    join two ids that response actually emitted (P17.10 §3). A dangling edge
+    would otherwise point at nothing once the application assigns real ids."""
     out = []
     for row in raw or []:
         if not isinstance(row, dict):
+            _note(errors, "relationship_not_an_object", type(row).__name__)
             continue
         rel = str(row.get("relationship") or "").upper()
         if rel not in _ALLOWED_RELS:
+            _note(errors, "relationship_outside_vocabulary", rel)
             continue
         src = str(row.get("source_id") or "").strip()
         tgt = str(row.get("target_id") or "").strip()
         if not src or not tgt or src.startswith("KB-") or tgt.startswith("KB-"):
+            _note(errors, "relationship_endpoint_invalid", f"{src}->{tgt}")
+            continue
+        if known_ids is not None and not ({src, tgt} <= known_ids):
+            _note(errors, "relationship_references_unemitted_id", f"{src}->{tgt}")
             continue
         out.append({"source_id": src, "relationship": rel, "target_id": tgt})
     return out
 
 
-def _sanitize_relevance(raw: list) -> list[dict]:
+def _sanitize_relevance(raw: list, errors: Optional[list] = None) -> list[dict]:
     out = []
     for row in raw or []:
         if not isinstance(row, dict):
+            _note(errors, "relevance_not_an_object", type(row).__name__)
             continue
         sid = str(row.get("source_id") or "").strip()
         if not sid or sid.startswith("KB-"):
+            _note(errors, "relevance_source_invalid", sid)
             continue
         tags = [
             str(t).upper() for t in (row.get("relevant_to") or [])
@@ -422,6 +481,13 @@ def _llm_extract_product(texts: list[str], llm, *,
         "concept_definitions": {
             k: CONCEPT_DEFINITIONS[k] for k in sorted(CONCEPT_DEFINITIONS)
         },
+        # P17.10 §2: a closed label set for the two unmapped-meaning channels,
+        # with an explicit home for meaning that fits none of them. Supplying
+        # them is what stops the taxonomy growing one label per paraphrase.
+        "allowed_event_types": sorted(ALLOWED_EVENT_TYPES),
+        "allowed_atom_categories": sorted(ALLOWED_ATOM_CATEGORIES),
+        "event_type_fallback": EVENT_TYPE_FALLBACK,
+        "atom_category_fallback": ATOM_CATEGORY_FALLBACK.upper(),
         "confirmed_facts": _json_safe({
             k: v for k, v in (confirmed_facts or {}).items()
             if v is not None
@@ -465,6 +531,15 @@ def _llm_extract_product(texts: list[str], llm, *,
             "concepts[]: use only allowed_concepts.",
             "Material meaning without an ontology id MUST be preserved as "
             "events[] / narrative_atoms[] — never discard it.",
+            "Preserve the most specific source-supported material detail: "
+            "normalization is professional wording, not abstraction. A broad "
+            "concept may coexist with a specific atom/event.",
+            "Use only allowed_event_types / allowed_atom_categories; fall back "
+            "to the stated fallback label and keep the meaning in "
+            "description / proposition.",
+            "Return all five arrays; use [] where nothing applies.",
+            "event_id / atom_id are local to this response; relationships may "
+            "reference only ids emitted here.",
             "Never emit KB module ids, legal grounds, legal conclusions, or outcomes.",
         ],
     }
@@ -473,12 +548,52 @@ def _llm_extract_product(texts: list[str], llm, *,
         system=prompts.system("semantic_extraction"),
         user=json.dumps(payload, default=str),
     ) or {}
+    return _normalize_product(out)
+
+
+# Every top-level channel the contract promises. A response that omits one (an
+# older persisted reply replayed, or a model that answered only with concepts)
+# must still produce a complete product: downstream reads these channels
+# positionally and a missing key used to surface as a KeyError / None iteration
+# far from the cause.
+PRODUCT_CHANNELS = (
+    "concepts", "events", "narrative_atoms", "relationships", "material_relevance",
+)
+
+
+def _normalize_product(out: Any) -> dict:
+    """Validate one semantic_extraction response into the full product shape.
+
+    Malformed rows are recorded in `schema_errors` rather than dropped in
+    silence, so a contract breach is visible in the audit trail instead of
+    looking like "the model found nothing" (P17.10 §3).
+    """
+    errors: list[dict] = []
+    if not isinstance(out, dict):
+        _note(errors, "response_not_an_object", type(out).__name__)
+        out = {}
+    for key in PRODUCT_CHANNELS:
+        value = out.get(key)
+        if value is None:
+            _note(errors, "channel_absent_normalized_to_empty", key)
+        elif not isinstance(value, list):
+            _note(errors, "channel_not_a_list", f"{key}={type(value).__name__}")
+    def _rows(key: str) -> list:
+        value = out.get(key)
+        return value if isinstance(value, list) else []
+
+    events = _sanitize_events(_rows("events"), errors)
+    atoms = _sanitize_atoms(_rows("narrative_atoms"), errors)
+    local_ids = {str(e.get("event_id")) for e in events}
+    local_ids |= {str(a.get("atom_id")) for a in atoms}
     return {
-        "concepts": validate_concepts(out.get("concepts") or []),
-        "events": _sanitize_events(out.get("events") or []),
-        "narrative_atoms": _sanitize_atoms(out.get("narrative_atoms") or []),
-        "relationships": _sanitize_relationships(out.get("relationships") or []),
-        "material_relevance": _sanitize_relevance(out.get("material_relevance") or []),
+        "concepts": validate_concepts(_rows("concepts")),
+        "events": events,
+        "narrative_atoms": atoms,
+        "relationships": _sanitize_relationships(
+            _rows("relationships"), errors, known_ids=local_ids),
+        "material_relevance": _sanitize_relevance(_rows("material_relevance"), errors),
+        "schema_errors": errors,
     }
 
 
@@ -500,7 +615,7 @@ def extract_semantic_product(texts: list[str], llm=None,
     helpers = extract_concepts_deterministic(texts)
     llm_product: dict = {
         "concepts": [], "events": [], "narrative_atoms": [],
-        "relationships": [], "material_relevance": [],
+        "relationships": [], "material_relevance": [], "schema_errors": [],
     }
     used_llm = False
     degraded = ""
@@ -536,6 +651,7 @@ def extract_semantic_product(texts: list[str], llm=None,
         "material_relevance": list(llm_product.get("material_relevance") or []),
         "llm_passed": used_llm,
         "degraded_reason": degraded,
+        "schema_errors": list(llm_product.get("schema_errors") or []),
     }
 
 
@@ -654,6 +770,10 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         # client was supplied, which is what this used to report.
         "llm_passed": bool(product.get("llm_passed")),
         "llm_degraded_reason": product.get("degraded_reason") or "",
+        # A contract breach in the model's reply is recorded, not hidden: an
+        # omitted channel or a malformed row is a different failure from "the
+        # account contained nothing material".
+        "semantic_schema_errors": list(product.get("schema_errors") or [])[:12],
     })
     return {
         "concepts": concepts, "intended": intended, "delta": delta,

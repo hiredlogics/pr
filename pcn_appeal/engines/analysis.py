@@ -98,7 +98,10 @@ TOPIC_CLUSTERS: dict[str, tuple[str, ...]] = {
         "store_confirmation", "shop_confirmation", "receipt_available",
         "other_evidence", "store_contact", "contact_store", "contacted_store",
         "speak_to_store", "spoke_to_manager", "ask_the_store", "store_manager",
-        "customer_service", "ask_sainsbury",
+        # Roles and places, never a named business: a retailer's name here was
+        # a rule that worked for one chain and silently failed for every other.
+        "customer_service", "ask_retailer", "contact_retailer", "ask_branch",
+        "ask_shop", "contact_shop", "ask_supermarket",
     ),
     "signage": ("signage", "sign_visible", "signs_"),
     "permit": ("permit_held", "permit_display", "visitor_authoris"),
@@ -121,6 +124,49 @@ ATA_TEXT_MARKERS = (
 POSTCODE_TEXT_MARKERS = (
     "postcode", "post code", "postal code",
 )
+
+# A question that sends the customer to a third party for a confirmation the
+# operator can be asked for in the letter. Generic: an act of chasing plus the
+# role being chased. No business name appears here, because a named retailer is
+# a rule that holds for one site and fails silently everywhere else.
+CHASE_ACT = re.compile(
+    r"\b(contact|ask|asking|speak to|call|phone|chase|approach|"
+    r"obtain .{0,20}from)\b", re.I)
+CHASE_ROLE = re.compile(
+    r"\b(store|shop|supermarket|retailer|branch|outlet|premises|"
+    r"manager|staff|customer services?|reception|landlord|landowner)\b", re.I)
+THIRD_PARTY_CHASE = re.compile(
+    CHASE_ACT.pattern + r"[^.?]{0,40}?" + CHASE_ROLE.pattern, re.I)
+
+# Place words that identify a car park rather than the business at it. A
+# question naming only these is about the location, not a third party to chase.
+_GENERIC_PLACE_WORDS = frozenset({
+    "retail", "park", "parking", "centre", "center", "shopping", "store",
+    "road", "street", "lane", "avenue", "square", "court", "estate", "north",
+    "south", "east", "west", "upper", "lower", "great", "little", "limited",
+    "ltd", "the", "and", "car", "site",
+})
+
+
+def names_the_site_business(case: CaseFile, text: str) -> bool:
+    """Whether a question asks the customer to chase the business at the site.
+
+    The business's name comes from the case's own `parking_location` /
+    `operator_name`, never from a list in this file: that is what makes the rule
+    hold for a site nobody has seen yet. A hardcoded retailer name used to do
+    this job for exactly one chain.
+    """
+    low = (text or "").lower()
+    if not CHASE_ACT.search(low):
+        return False
+    for source in ("parking_location", "operator_name"):
+        value = str(case.get(source) or "").lower()
+        for word in re.findall(r"[a-z][a-z'’-]{3,}", value):
+            if word.rstrip("'’s") in _GENERIC_PLACE_WORDS or word in _GENERIC_PLACE_WORDS:
+                continue
+            if word.rstrip("'’s") and word.rstrip("'’s") in low:
+                return True
+    return False
 
 # Customer answers that settle a topic as unresolved rather than inviting another
 # wording of the same question.
@@ -179,12 +225,12 @@ class AnalysisEngine:
         self.max_rounds = int(cfg.get("max_question_rounds", DEFAULT_MAX_ROUNDS))
 
     def _call(self, case, circumstances, facts, candidates, pofa, code_version,
-              result: CaseAnalysis) -> Optional[dict]:
+              result: CaseAnalysis, eligibility: Optional[dict] = None) -> Optional[dict]:
         """The case_analysis call, retried once. Records `case_analysis_completed`
         or `case_analysis_error` so the outcome can tell "analysis found nothing"
         from "analysis never ran"."""
         payload = self._payload(case, circumstances, facts, candidates, pofa, code_version,
-                                match=result.knowledge)
+                                match=result.knowledge, eligibility=eligibility)
         last: Optional[Exception] = None
         for attempt in (1, 2):
             try:
@@ -224,19 +270,30 @@ class AnalysisEngine:
         result.candidate_ids = [m.module_id for m in candidates]
         result.trace.append(
             f"candidates={len(candidates)} (module_resolver; candidate≠eligibility)")
+        # P17.10: each candidate carries its ALREADY-DECIDED eligibility, so the
+        # model organizes resolved grounds instead of re-deciding support from
+        # the raw account. Deterministic: fact view + KB conditions + verified
+        # findings only.
+        eligibility = self._eligibility(case, resolved, candidates, code_version)
+        result.trace.append(
+            "eligibility=" + ", ".join(
+                f"{mid}:{row['status']}" for mid, row in sorted(eligibility.items())
+            )[:400])
 
         rounds = sum(1 for a in case.audit if a.get("event") == "analysis_round")
         if rounds >= self.max_rounds:
             result.trace.append(
                 f"question round limit reached ({rounds}>={self.max_rounds}); asking nothing")
             # Still propose grounds so drafting can proceed with what is known.
-            raw = self._call(case, circumstances, facts, candidates, pofa, code_version, result)
+            raw = self._call(case, circumstances, facts, candidates, pofa, code_version,
+                             result, eligibility)
             if raw is not None:
                 result.module_ids = self._finalize_claims(
                     case, raw.get("grounds") or [], facts, pofa, code_version, result)
             return result
 
-        raw = self._call(case, circumstances, facts, candidates, pofa, code_version, result)
+        raw = self._call(case, circumstances, facts, candidates, pofa, code_version,
+                         result, eligibility)
         if raw is None:
             # Nothing is proposed, and the case records that analysis did not
             # run: an empty selection here is a processing failure, never a
@@ -253,7 +310,7 @@ class AnalysisEngine:
             try:
                 hint = json.loads(self._payload(
                     case, circumstances, facts, candidates, pofa, code_version,
-                    match=result.knowledge))
+                    match=result.knowledge, eligibility=eligibility))
                 hint["reassessment"] = {
                     "omitted_gate_satisfied": omitted,
                     "instruction": (
@@ -425,10 +482,60 @@ class AnalysisEngine:
             return (gated, -coverage, m.module_id)
         return sorted(modules, key=score)
 
+    # ----------------------------------------------------------- eligibility
+    def _eligibility(self, case: CaseFile, resolved, candidates: list[KBModule],
+                     code_version: Optional[str]) -> dict[str, dict]:
+        """Each candidate's deterministic eligibility, as the model will see it.
+
+        One authority, read twice: this is the same answer the Claim Plan will
+        give (KnowledgeModuleResolver's status, plus the Claim Plan's own
+        legal-finding and Code-version refusals). Nothing here consults a model,
+        a retriever or a similarity score - a candidate cannot become SUPPORTED
+        because something ranked it highly or read well.
+        """
+        from ..legal import findings as legal_findings
+        from .module_resolver import (
+            STATUS_BLOCKED, STATUS_REJECTED, STATUS_SUPPORTED, STATUS_UNRESOLVED,
+        )
+
+        verified = set(legal_findings.verified_types(
+            case.legal_findings, list(case.get("pofa_findings") or [])))
+        rows = dict(getattr(resolved, "rows", None) or {})
+        gate_facts = dict(getattr(resolved, "fact_view", None) or case.fact_view())
+        out: dict[str, dict] = {}
+        for module in candidates:
+            mid = module.module_id
+            row = rows.get(mid)
+            status = getattr(row, "status", None) or STATUS_UNRESOLVED
+            missing = list(getattr(row, "missing_facts", None) or module.required_facts or [])
+            reason = str(getattr(row, "candidate_reason", "") or "")
+            if status == STATUS_SUPPORTED:
+                # A ground resting on a legal defect is not eligible until the
+                # calculation has VERIFIED that defect (P6.1), and a Code ground
+                # is not eligible without a resolved Code version. The Claim
+                # Plan refuses both; saying so here stops the model arguing a
+                # ground that would then be vetoed in silence.
+                refusal = legal_findings.rejection(module, gate_facts, verified)
+                if not refusal and self._needs_pofa_finding(module) and not verified:
+                    refusal = legal_findings.REJECTION_REASON
+                if not refusal and self._needs_code_version(module) and not code_version:
+                    refusal = "Code version unresolved"
+                if refusal:
+                    status, reason = STATUS_UNRESOLVED, str(refusal)
+            if status not in (STATUS_SUPPORTED, STATUS_UNRESOLVED,
+                              STATUS_REJECTED, STATUS_BLOCKED):
+                status = STATUS_UNRESOLVED
+            out[mid] = {
+                "status": status,
+                "missing": sorted({str(f) for f in missing if f})[:8],
+                "reason": reason[:160],
+            }
+        return out
+
     # --------------------------------------------------------------- payload
     def _payload(self, case: CaseFile, circumstances: str, facts: dict[str, Any],
                  candidates: list[KBModule], pofa: Any, code_version: Optional[str],
-                 match=None) -> str:
+                 match=None, eligibility: Optional[dict] = None) -> str:
         closed_facts = sorted({
             *(self.kg.questions or {}).keys(),
             *(f for m in candidates for f in (m.required_facts or [])),
@@ -473,12 +580,26 @@ class AnalysisEngine:
                 "proposition": m.core_proposition,
                 "depends_on": sorted(set(list(m.required_facts or []))),
                 "prohibited_claims": m.prohibited_claims or [],
+                # P17.10: decided before the model is asked; not open to it.
+                **({
+                    "eligibility": (eligibility.get(m.module_id) or {}).get("status"),
+                    "missing": (eligibility.get(m.module_id) or {}).get("missing") or [],
+                    "eligibility_reason": (
+                        eligibility.get(m.module_id) or {}).get("reason") or "",
+                } if eligibility else {}),
                 # P4: why the relation engine offered it (status, the conditions
                 # that hold, the facts still missing). Never the whole KB.
                 **({"relation": match.candidates[m.module_id].for_analysis()}
                    if match is not None and m.module_id in match.candidates else {}),
             } for m in candidates],
             "case_signals": {k: v["value"] for k, v in (match.signals if match else {}).items()},
+            "eligibility_authority": (
+                "Candidate eligibility is decided deterministically from the "
+                "authoritative fact view, the module's own KB conditions and "
+                "verified legal findings. case_analysis may rank, organize and "
+                "explain SUPPORTED candidates and may ask about an UNRESOLVED "
+                "candidate's missing fact; it cannot change any status."
+            ),
             "pofa": {"route": getattr(pofa, "route", None),
                      "findings": list(getattr(pofa, "findings", []) or [])},
             "code_version": code_version,
@@ -799,13 +920,14 @@ class AnalysisEngine:
             if topic and topic in covered_topics and not kb_gated:
                 self._drop(result, fact, text, f"topic {topic} already asked")
                 continue
-            # Don't ask the customer to contact the store when operator records
-            # can be requested in the draft instead.
+            # Don't send the customer to a third party for a confirmation the
+            # operator can be asked for in the draft. Matched by the ACT the
+            # question asks for plus either the ROLE it names or the business
+            # this case's own facts put at the site - a named retailer here
+            # only ever worked for that one retailer.
             low_text = text.lower()
-            if any(p in low_text for p in (
-                "contact the store", "ask the store", "speak to the store",
-                "ask sainsbury", "contact sainsbury", "ask the supermarket",
-            )):
+            if (THIRD_PARTY_CHASE.search(low_text)
+                    or names_the_site_business(case, low_text)):
                 self._drop(result, fact, text, "store-contact; use operator records request")
                 continue
             if fact in ANPR_SHAPED_FACTS and not (
