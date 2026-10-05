@@ -532,29 +532,90 @@ def _json_safe(obj: Any) -> Any:
     return obj
 
 
+STATE_BUDGET = 24000
+ATOMS_BUDGET = 8000
+ROW_CAP = 200                  # per channel, before the byte-budget shrink
+# Shed in this order when the payload does not fit: audit/context channels
+# first. The material meaning channels are never in this list - they are
+# trimmed round-robin afterwards so no single one is wiped out.
+_SHED_ORDER = (
+    "provenance", "confidence", "evidence_links", "document_entities",
+    "timeline", "missing_information", "uncertainties",
+    "operator_observed_events", "customer_reported_events",
+    "material_relevance", "relationships", "contradictions",
+)
+_MATERIAL = ("narrative_atoms", "events", "concepts", "facts")
+_EXCERPT_KEYS = ("source_text", "source_excerpt", "proposition", "description")
+
+
+def _fit_json(payload: dict, budget: int) -> tuple[str, list[dict]]:
+    """Serialize `payload` within `budget`, shrinking the STRUCTURE only.
+
+    Slicing a JSON string yields a blob every reader's json.loads rejects, so
+    the whole semantic state would be silently discarded (the material meaning
+    with it). Instead trim excerpts, then drop whole rows from the least
+    material channel first, and always return parseable JSON plus a record of
+    what was shed so the loss is auditable rather than silent.
+    """
+    shed: list[dict] = []
+    blob = json.dumps(payload, default=str)
+    if len(blob) <= budget:
+        return blob, shed
+    before = {k: len(v) for k, v in payload.items() if isinstance(v, list)}
+    # Bound the shrink loop: re-serializing per popped row is fine for tens of
+    # rows, not for thousands.
+    for key in _SHED_ORDER + _MATERIAL:
+        rows = payload.get(key)
+        if isinstance(rows, list) and len(rows) > ROW_CAP:
+            del rows[ROW_CAP:]
+
+    for row in (r for k in _SHED_ORDER + _MATERIAL
+                for r in (payload.get(k) or []) if isinstance(r, dict)):
+        for ek in _EXCERPT_KEYS:
+            if isinstance(row.get(ek), str) and len(row[ek]) > 180:
+                row[ek] = row[ek][:180]
+    blob = json.dumps(payload, default=str)
+
+    for key in _SHED_ORDER:
+        rows = payload.get(key)
+        if len(blob) <= budget:
+            break
+        if not isinstance(rows, list) or not rows:
+            continue
+        while rows and len(blob) > budget:
+            rows.pop()
+            blob = json.dumps(payload, default=str)
+        shed.append({"channel": key, "kept": len(rows)})
+
+    # Material meaning: trim the longest channel one row at a time so every
+    # channel keeps a share rather than the first one being emptied.
+    while len(blob) > budget:
+        live = [k for k in _MATERIAL if payload.get(k)]
+        if not live:
+            break
+        payload[max(live, key=lambda k: len(payload[k]))].pop()
+        blob = json.dumps(payload, default=str)
+    for key in _MATERIAL:
+        rows = payload.get(key)
+        if isinstance(rows, list) and len(rows) < before.get(key, len(rows)):
+            shed.append({"channel": key, "kept": len(rows)})
+    return blob, shed
+
+
 def attach_semantic_state(case, state: SemanticCaseState) -> None:
     """Persist SemanticCaseState for knowledge handoff + claim-plan gate."""
     payload = _json_safe(state.as_dict())
-    # Cap large excerpt fields so the full structure remains valid JSON.
-    for key in ("narrative_atoms", "provenance", "events", "timeline",
-                "concepts", "facts", "material_relevance"):
-        rows = payload.get(key)
-        if isinstance(rows, list) and len(rows) > 40:
-            payload[key] = rows[:40]
-    for row in payload.get("narrative_atoms") or []:
-        if isinstance(row, dict):
-            for ek in ("source_text", "source_excerpt", "proposition"):
-                if isinstance(row.get(ek), str) and len(row[ek]) > 180:
-                    row[ek] = row[ek][:180]
-    blob = json.dumps(payload, default=str)
-    case.raw_answers["_semantic_case_state"] = blob[:24000]
+    blob, shed = _fit_json(payload, STATE_BUDGET)
+    case.raw_answers["_semantic_case_state"] = blob
     case.raw_answers["_semantic_revision"] = str(state.revision)
-    # Compact atom list for pack/DraftPlan if the full blob is truncated.
+    # Compact atom list for pack/DraftPlan, fitted the same way.
+    atoms = list(payload.get("narrative_atoms") or [])
+    atoms_blob, atoms_shed = _fit_json({"narrative_atoms": atoms}, ATOMS_BUDGET)
     case.raw_answers["_semantic_narrative_atoms"] = json.dumps(
-        payload.get("narrative_atoms") or [])[:8000]
+        json.loads(atoms_blob).get("narrative_atoms") or [])
     # Lightweight attribute for in-process consumers (not a redesign of CaseFile).
     setattr(case, "semantic_case_state", payload)
-    case.audit.append({
+    entry = {
         "event": "semantic_case_state",
         "revision": state.revision,
         "concepts": len(state.concepts),
@@ -562,7 +623,10 @@ def attach_semantic_state(case, state: SemanticCaseState) -> None:
         "timeline": len(state.timeline),
         "relationships": len(state.relationships),
         "contradictions": len(state.contradictions),
-    })
+    }
+    if shed or atoms_shed:
+        entry["truncated"] = shed + atoms_shed
+    case.audit.append(entry)
 
 
 def open_material_fact_conflicts(case) -> list[dict]:

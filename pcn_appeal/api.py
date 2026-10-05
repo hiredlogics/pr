@@ -425,6 +425,52 @@ def _persist(case: CaseFile, out=None) -> None:
         case_store.save_execution_trace(case, out)
 
 
+def _generate(rec: dict[str, Any], case: CaseFile):
+    """Run drafting, recording the first real exception before it surfaces.
+
+    The customer-facing message stays generic, but a crash here used to leave
+    nothing behind to trace: the exception escaped as a 500 and the layer,
+    class and revision were lost. Record them on the case, then re-raise -
+    this never converts a failure into a merits outcome.
+    """
+    try:
+        return rec["pipe"].generate(case)
+    except Exception as exc:
+        import traceback
+        tb = traceback.extract_tb(exc.__traceback__)
+        ours = [f for f in tb if "pcn_appeal" in f.filename
+                and not (f.name == "_generate" and f.filename.endswith("api.py"))]
+        frame = (ours or tb)[-1] if (ours or tb) else None
+        plans = [p for p in (case.claim_plans or [])]
+        entry = {
+            "event": "pipeline_error",
+            "error_layer": (f"{Path(frame.filename).stem}.{frame.name}"
+                            if frame is not None else "unknown"),
+            "error_code": "PROCESSING_ERROR",
+            "exception_class": type(exc).__name__,
+            "message": str(exc)[:500],
+            "location": (f"{Path(frame.filename).name}:{frame.lineno}"
+                         if frame is not None else None),
+            "run_id": getattr(case, "current_run_id", None),
+            "case_revision": (case.raw_answers or {}).get("_semantic_revision"),
+            "semantic_version": getattr(case, "semantic_case_state", None) and
+            (case.semantic_case_state or {}).get("ontology_version"),
+            "claim_plan_id": (plans[-1].get("claim_plan_id")
+                              if plans and isinstance(plans[-1], dict) else None),
+            "draft_plan_id": next(
+                (a.get("draft_plan_id") for a in reversed(case.audit or [])
+                 if a.get("event") == "draft_plan" and a.get("draft_plan_id")), None),
+        }
+        case.audit.append(entry)
+        print(f"[pipeline] {entry['exception_class']} in {entry['error_layer']} "
+              f"at {entry['location']}: {entry['message']}")
+        try:
+            _persist(case)
+        except Exception:
+            pass                       # never mask the original failure
+        raise
+
+
 def _new_case() -> tuple[str, dict[str, Any]]:
     pipe = _pipeline()                   # before the case row: no orphan on a 503
     # P12: never create a production/pilot case without a pinned KB release.
@@ -1100,7 +1146,7 @@ def confirm(case_id: str, body: ConfirmIn):
                 "skipped_questions": []}
     # Nothing material left to ask — finish the letter now. Previously the step-by-step
     # UI called /confirm only and never /generate, so question-free cases never drafted.
-    out = rec["pipe"].generate(case)
+    out = _generate(rec, case)
     rec["output"] = out
     _persist(case, out)
     payload = {"case_id": case.case_id, "state": out.state.value,
@@ -1175,7 +1221,7 @@ def generate(case_id: str,
         raise HTTPException(409, "upload documents first")
     if _stopped_at_intake(case):
         return _stopped_payload(case)
-    out = rec["pipe"].generate(case)
+    out = _generate(rec, case)
     rec["output"] = out
     _persist(case, out)
     return {"state": out.state.value, "primary_route": out.pack.primary_route,

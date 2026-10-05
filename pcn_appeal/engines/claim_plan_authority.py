@@ -1073,7 +1073,7 @@ class ClaimPlanBuilder:
                 decision=d["decision"], reason=d["reason"],
                 supporting_facts=_freeze(d["support"]), evidence_refs=_freeze(d["evidence"]),
                 relationships=_freeze(rels), priority=rank.get(mid), topic=d["topic"],
-                support_bundle=_freeze(bundle_dict),
+                support_bundle=_freeze(bundle.as_dict()),
                 draft_requirement=_freeze(req.as_dict())))
         trust["facts_used"] = self._facts_used(case, used_facts)
         trust["relationships_used"] = relationships
