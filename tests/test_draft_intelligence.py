@@ -114,8 +114,11 @@ class DraftContextAllowsAndWithholds(unittest.TestCase):
     def test_it_does_not_carry_rejected_claims_or_their_wording(self):
         plan = latest_locked(self.case)
         rejected = [i.module_id for i in plan.items if i.status != "SUPPORTED"]
-        self.assertIn("KB-ANPR-01", rejected)
-        self.assertIn("KB-PAY-01", rejected)
+        # Rejected = retrieved for this case and not supported. Modules retrieval
+        # never reached (a payment ground on a restricted-bay notice) are not in
+        # the plan at all, so they are not part of this precondition.
+        self.assertIn("KB-BAY-01", rejected)
+        self.assertIn("KB-EVCH-01", rejected)
         text = json.dumps(self.payload, default=str)
         for module in rejected:
             self.assertNotIn(module, text, f"{module} reached the drafter")

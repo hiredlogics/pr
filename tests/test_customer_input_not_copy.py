@@ -295,6 +295,15 @@ class DriverIdentityNotIntroduced(unittest.TestCase):
         result = ValidationEngine().validate(draft, pack)
         self.assertTrue(any(i.rule == "VAL-DRIVER" for i in result.issues))
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -79,8 +79,12 @@ class OpenAIClient:
 
     def __init__(self, api_key: str | None = None, preferences: dict | None = None):
         from openai import OpenAI          # imported lazily so tests run without the SDK
-        self._c = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"),
-                         timeout=60.0, max_retries=1)
+        # Retries are made here, not inside the SDK, so each one is counted and
+        # the audit log can say which call was slow and why. The ceiling is the
+        # SDK's own default (2); it is not raised.
+        self._c = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"), timeout=60.0,
+                         max_retries=0)
+        self.last_call: dict = {}
         self._prefs = preferences or OPENAI_PREFERENCES
         self.models = self._resolve_models()
 
@@ -116,6 +120,42 @@ class OpenAIClient:
                     "to a different model.")
         return chosen
 
+    MAX_RETRIES = 2
+
+    @staticmethod
+    def _transient(exc: Exception) -> bool:
+        """Worth another attempt: the provider or the network, not the request.
+        Exhausted credit is a 429 too and will not clear in half a second."""
+        import openai
+        if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError,
+                            openai.InternalServerError)):
+            return True
+        if isinstance(exc, openai.RateLimitError):
+            return "insufficient_quota" not in str(exc) and "no credits" not in str(exc).lower()
+        return False
+
+    def _create_with_retries(self, **request):
+        """One provider call, retried on transient failure, with the attempts
+        and the time each took left on `last_call` for the audit log."""
+        import time
+        attempts: list[float] = []
+        for n in range(self.MAX_RETRIES + 1):
+            started = time.perf_counter()
+            try:
+                resp = self._c.chat.completions.create(**request)
+            except Exception as exc:
+                attempts.append(round(time.perf_counter() - started, 3))
+                self.last_call = {"attempts": len(attempts), "retries": len(attempts) - 1,
+                                  "attempt_seconds": attempts, "last_error": type(exc).__name__}
+                if n >= self.MAX_RETRIES or not self._transient(exc):
+                    raise
+                time.sleep(0.5 * (2 ** n))
+                continue
+            attempts.append(round(time.perf_counter() - started, 3))
+            self.last_call = {"attempts": len(attempts), "retries": len(attempts) - 1,
+                              "attempt_seconds": attempts}
+            return resp
+
     def complete_json(self, *, task, system, user, images=None):
         import base64
         content: list[dict] = [{"type": "text", "text": user}]
@@ -125,7 +165,7 @@ class OpenAIClient:
                             "image_url": {"url": f"data:image/jpeg;base64,{b64}",
                                           "detail": ("original" if self.models[task].startswith("gpt-5.4")
                                                      else "high")}})
-        resp = self._c.chat.completions.create(
+        resp = self._create_with_retries(
             model=self.models[task],
             response_format={"type": "json_object"},
             messages=[{"role": "system", "content": system + JSON_ONLY},
@@ -328,6 +368,12 @@ class DemoLLM:
                      "confidence": 0.7}
                     for a in atoms if a.get("mapped_to_ontology") is False
                 ],
+                # The stand-in plays a reader that finished and found nothing open.
+                # It cannot detect ambiguity, which is why production refuses it
+                # (default_client); the readiness gate is exercised by readers that
+                # do say otherwise.
+                "status": "UNDERSTOOD",
+                "uncertainties": [],
                 "model_kind": "DemoLLM_meaning_bridge",
             }
         if task == "identity_verification":

@@ -28,7 +28,7 @@ import json
 from typing import Optional
 
 from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
-from .. import case_state
+from .. import case_state, evidence_review
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
@@ -36,6 +36,7 @@ from ..legal import code_versions, findings as legal_findings, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
+from .module_eligibility import gate_holds
 from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
@@ -46,7 +47,8 @@ GLOBAL_PROHIBITED = [
 
 
 def _semantic_material_relevance(case: CaseFile) -> list:
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if not raw:
         return []
     try:
@@ -62,21 +64,22 @@ def _narrative_atoms_for_pack(case: CaseFile) -> list:
     is not dropped when it never became an ontology fact.
     """
     import json
+    from ..semantics.understanding import customer_semantic_raw, customer_stream_blocked
     atoms: list = []
-    compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+    compact = customer_semantic_raw(case, "_semantic_narrative_atoms")
     if compact:
         try:
             atoms.extend(list(json.loads(compact) or []))
         except (TypeError, ValueError):
             pass
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if raw and not atoms:
         try:
             state = json.loads(raw)
             atoms.extend(list(state.get("narrative_atoms") or []))
         except (TypeError, ValueError):
             pass
-    for ev in case.audit or []:
+    for ev in ([] if customer_stream_blocked(case) else (case.audit or [])):
         if ev.get("event") == "narrative_atom":
             atoms.extend(list(ev.get("atoms") or []))
     if atoms:
@@ -126,14 +129,34 @@ class ReasoningEngine:
 
     # ------------------------------------------------------------------ 1
     def enrich(self, case: CaseFile) -> None:
-        clauses = []
-        for ev in case.evidence.values():
-            if ev.kind in ("LEASE", "TENANCY") and ev.text:
-                clauses += find_parking_clauses(ev.evidence_id, ev.text)
+        """Lease facts, with three honest states (see evidence_review).
+
+        lease_evidence_provided   a lease/tenancy document is in the supplied set
+                                  (always written: a statement about the upload).
+        lease_clauses / lease_parking_clause_found / lease_has_regulations_clause
+                                  what the lease text SAYS. Written only once a lease
+                                  has actually been read; with none supplied, or none
+                                  readable, they are unknown - never False.
+        """
+        seen = evidence_review.review(case, ("LEASE", "TENANCY"))
         with case_state.derives(case, "lease_clauses", rule="lease_clause_finder"):
+            case.put(Fact("F-lease_evidence_provided", "lease_evidence_provided",
+                          bool(seen.provided), FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
+            if not seen.reviewed:
+                evidence_review.withdraw_derived(
+                    case, ("lease_clauses", "lease_parking_clause_found",
+                           "lease_has_regulations_clause"),
+                    f"lease evidence {seen.state.lower()}")
+                return
+            clauses = []
+            for ev in seen.readable:
+                clauses += find_parking_clauses(ev.evidence_id, ev.text)
             if clauses:
                 case.put(Fact("F-lease_clauses", "lease_clauses", clauses, FactStatus.DERIVED,
                               FactSource(SourceKind.DOCUMENT, clauses[0]["evidence_id"])))
+            else:
+                evidence_review.withdraw_derived(case, ("lease_clauses",), "lease read, no clause")
             case.put(Fact("F-lease_parking_clause_found", "lease_parking_clause_found",
                           bool(clauses), FactStatus.DERIVED,
                           FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
@@ -337,7 +360,9 @@ class ReasoningEngine:
         gate_facts = legal_findings.gate_facts(facts)
         eligible = []
         for m in self.kg.active_modules():
-            ok = evaluate(m.use_when, gate_facts) and not evaluate(m.do_not_use_when, gate_facts)
+            # R-03: use_when TRUE and every do_not_use_when FALSE. A blocker that is
+            # merely unknown is not a pass (module_eligibility.decide).
+            ok = gate_holds(m, gate_facts)
             if not ok:
                 why[m.module_id] = "gate does not hold (R-03)"
             if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \

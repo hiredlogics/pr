@@ -47,7 +47,10 @@ def _obs(name, raw, method="initial_extraction", conf=0.95, ev="E1",
     )
 
 
-def _case_with_identity(**fields) -> CaseFile:
+def _case_with_identity(unsure=(), **fields) -> CaseFile:
+    """`unsure` names fields the first read was not confident of. Only those are
+    read a second time (the independent read is targeted), so a test that needs
+    the second read to disagree has to leave its field in doubt."""
     case = CaseFile("C-ID")
     case.document_classes["E1"] = "PRIVATE_PARKING_NOTICE"
     case.evidence["E1"] = EvidenceItem(
@@ -60,7 +63,8 @@ def _case_with_identity(**fields) -> CaseFile:
     for name, value in fields.items():
         case.put(Fact(
             f"F-{name}", name, value, FactStatus.EXTRACTED,
-            FactSource(SourceKind.DOCUMENT, "E1#p1"), confidence=0.95,
+            FactSource(SourceKind.DOCUMENT, "E1#p1"),
+            confidence=0.6 if name in unsure else 0.95,
         ))
     return case
 
@@ -154,6 +158,7 @@ class IdentityPipelineTests(unittest.TestCase):
 
     def test_D_E_timing_blocked_on_date_conflict(self):
         case = _case_with_identity(
+            unsure=("parking_event_date",),
             vrm="AB12CDE", pcn_number="1234567890",
             parking_event_date=date(2026, 6, 1),
             notice_issue_date=date(2026, 6, 20),
@@ -185,6 +190,7 @@ class IdentityPipelineTests(unittest.TestCase):
 
     def test_F_location_conflict_dependency(self):
         case = _case_with_identity(
+            unsure=("parking_location",),
             vrm="AB12CDE", pcn_number="1234567890",
             parking_location="Retail Park North",
         )

@@ -602,21 +602,33 @@ def _fit_json(payload: dict, budget: int) -> tuple[str, list[dict]]:
     return blob, shed
 
 
-def attach_semantic_state(case, state: SemanticCaseState) -> None:
-    """Persist SemanticCaseState for knowledge handoff + claim-plan gate."""
+def attach_semantic_state(case, state: SemanticCaseState, held: bool = False) -> None:
+    """Persist SemanticCaseState for knowledge handoff + claim-plan gate.
+
+    `held`: the customer-account stream is not ready (understanding.is_ready), so
+    the state is kept for the record under `*_held` keys and nothing that reads
+    the live keys - knowledge retrieval, analysis, the pack, drafting context -
+    can see it. Nothing is deleted; it is simply not consumed.
+    """
     payload = _json_safe(state.as_dict())
     blob, shed = _fit_json(payload, STATE_BUDGET)
-    case.raw_answers["_semantic_case_state"] = blob
+    live, held_suffix = ("", "_held")
+    suffix = held_suffix if held else live
+    other = live if held else held_suffix
+    case.raw_answers["_semantic_case_state" + suffix] = blob
+    case.raw_answers.pop("_semantic_case_state" + other, None)
     case.raw_answers["_semantic_revision"] = str(state.revision)
     # Compact atom list for pack/DraftPlan, fitted the same way.
     atoms = list(payload.get("narrative_atoms") or [])
     atoms_blob, atoms_shed = _fit_json({"narrative_atoms": atoms}, ATOMS_BUDGET)
-    case.raw_answers["_semantic_narrative_atoms"] = json.dumps(
+    case.raw_answers["_semantic_narrative_atoms" + suffix] = json.dumps(
         json.loads(atoms_blob).get("narrative_atoms") or [])
+    case.raw_answers.pop("_semantic_narrative_atoms" + other, None)
     # Lightweight attribute for in-process consumers (not a redesign of CaseFile).
-    setattr(case, "semantic_case_state", payload)
+    setattr(case, "semantic_case_state", None if held else payload)
     entry = {
         "event": "semantic_case_state",
+        "held": held,
         "revision": state.revision,
         "concepts": len(state.concepts),
         "events": len(state.events),
@@ -646,7 +658,11 @@ def handoff_ready(case, *, texts: Optional[list[str]] = None) -> tuple[bool, lis
     if texts is None:
         from ..engines.account import _collect_customer_texts
         has_text = bool(_collect_customer_texts(case))
-    if has_text:
+    # A held customer stream is deliberately absent from the live keys; its
+    # absence is not a failed handoff, and it must not stop the independent
+    # document and legal analysis. The hold is recorded, and reported, elsewhere.
+    from . import understanding
+    if has_text and understanding.customer_stream_blocked(case) is None:
         if not (case.raw_answers or {}).get("_semantic_case_state"):
             reasons.append("semantic_state_missing")
         if not (case.raw_answers or {}).get("_semantic_concepts"):

@@ -1,0 +1,4937 @@
+{
+ "provider": "scripted",
+ "at": "2026-10-06T19:42:58+00:00",
+ "accuracy_and_latency_are_measured": false,
+ "runs": [
+  {
+   "notice": "REF_00347261100014",
+   "operator": "CP Plus",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.028,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e33e8c55e79a5a8a",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261100014",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "14:36:43",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "19:11:23",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_00347261100014",
+   "operator": "CP Plus",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e33e8c55e79a5a8a",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261100014",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "14:36:43",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "19:11:23",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_00347261100014",
+   "operator": "CP Plus",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e33e8c55e79a5a8a",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261100014",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "14:36:43",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "19:11:23",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_00347261120013",
+   "operator": "CP Plus",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261120013",
+     "got": "00347261120013",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/04/2026",
+     "got": "2026-04-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "11/05/2026",
+     "got": "2026-05-11",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "11:50:58",
+     "got": "11:50:58",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:15:21",
+     "got": "18:15:21",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "got": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "1b9e89d678449736",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261120013",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-11",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "11:50:58",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:15:21",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_00347261120013",
+   "operator": "CP Plus",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261120013",
+     "got": "00347261120013",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/04/2026",
+     "got": "2026-04-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "11/05/2026",
+     "got": "2026-05-11",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "11:50:58",
+     "got": "11:50:58",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:15:21",
+     "got": "18:15:21",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "got": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "1b9e89d678449736",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261120013",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-11",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "11:50:58",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:15:21",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_00347261120013",
+   "operator": "CP Plus",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261120013",
+     "got": "00347261120013",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/04/2026",
+     "got": "2026-04-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "11/05/2026",
+     "got": "2026-05-11",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "11:50:58",
+     "got": "11:50:58",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:15:21",
+     "got": "18:15:21",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "got": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "1b9e89d678449736",
+    "fields": {
+     "operator_name": {
+      "value": "CP Plus",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "00347261120013",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "EX15CZT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-04-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-11",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Canada Water Estate, SE16 7LL",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "11:50:58",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:15:21",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "The vehicle exceeded the maximum stay prominently displayed on the signage at the site.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_70377302",
+   "operator": "CPM (UK Car Park Management)",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CPM (UK Car Park Management)",
+     "got": "CPM (UK Car Park Management)",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "70377302",
+     "got": "70377302",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LX26ZSE",
+     "got": "LX26ZSE",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Weavers Quarter, Barking, IG11 7TS",
+     "got": "Weavers Quarter, Barking, IG11 7TS",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "17:42",
+     "got": "17:42",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:20",
+     "got": "18:20",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "got": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "99f873d5e24c448a",
+    "fields": {
+     "operator_name": {
+      "value": "CPM (UK Car Park Management)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "70377302",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LX26ZSE",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Weavers Quarter, Barking, IG11 7TS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "17:42",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_70377302",
+   "operator": "CPM (UK Car Park Management)",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CPM (UK Car Park Management)",
+     "got": "CPM (UK Car Park Management)",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "70377302",
+     "got": "70377302",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LX26ZSE",
+     "got": "LX26ZSE",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Weavers Quarter, Barking, IG11 7TS",
+     "got": "Weavers Quarter, Barking, IG11 7TS",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "17:42",
+     "got": "17:42",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:20",
+     "got": "18:20",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "got": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "99f873d5e24c448a",
+    "fields": {
+     "operator_name": {
+      "value": "CPM (UK Car Park Management)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "70377302",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LX26ZSE",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Weavers Quarter, Barking, IG11 7TS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "17:42",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_70377302",
+   "operator": "CPM (UK Car Park Management)",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CPM (UK Car Park Management)",
+     "got": "CPM (UK Car Park Management)",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "70377302",
+     "got": "70377302",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LX26ZSE",
+     "got": "LX26ZSE",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Weavers Quarter, Barking, IG11 7TS",
+     "got": "Weavers Quarter, Barking, IG11 7TS",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "17:42",
+     "got": "17:42",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "18:20",
+     "got": "18:20",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "got": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "99f873d5e24c448a",
+    "fields": {
+     "operator_name": {
+      "value": "CPM (UK Car Park Management)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "70377302",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LX26ZSE",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Weavers Quarter, Barking, IG11 7TS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "17:42",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "18:20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Vehicle Not Registered Or Exceeded Allowed Time (ANPR)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_88811908015",
+   "operator": "Euro Car Parks",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Euro Car Parks",
+     "got": "Euro Car Parks",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "88811908015",
+     "got": "88811908015",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "YG25JVV",
+     "got": "YG25JVV",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "28/05/2026",
+     "got": "2026-05-28",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "02/06/2026",
+     "got": "2026-06-02",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Morrisons - Keighley - Market Car Park",
+     "got": "Morrisons - Keighley - Market Car Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "08:31:38",
+     "got": "08:31:38",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "10:46:38",
+     "got": "10:46:38",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Your vehicle has overstayed the maximum time period allowed.",
+     "got": "Your vehicle has overstayed the maximum time period allowed.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2972b032c10bdd0c",
+    "fields": {
+     "operator_name": {
+      "value": "Euro Car Parks",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "88811908015",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "YG25JVV",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-28",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-02",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Morrisons - Keighley - Market Car Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "08:31:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "10:46:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Your vehicle has overstayed the maximum time period allowed.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_88811908015",
+   "operator": "Euro Car Parks",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.002,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Euro Car Parks",
+     "got": "Euro Car Parks",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "88811908015",
+     "got": "88811908015",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "YG25JVV",
+     "got": "YG25JVV",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "28/05/2026",
+     "got": "2026-05-28",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "02/06/2026",
+     "got": "2026-06-02",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Morrisons - Keighley - Market Car Park",
+     "got": "Morrisons - Keighley - Market Car Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "08:31:38",
+     "got": "08:31:38",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "10:46:38",
+     "got": "10:46:38",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Your vehicle has overstayed the maximum time period allowed.",
+     "got": "Your vehicle has overstayed the maximum time period allowed.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2972b032c10bdd0c",
+    "fields": {
+     "operator_name": {
+      "value": "Euro Car Parks",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "88811908015",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "YG25JVV",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-28",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-02",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Morrisons - Keighley - Market Car Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "08:31:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "10:46:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Your vehicle has overstayed the maximum time period allowed.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_88811908015",
+   "operator": "Euro Car Parks",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Euro Car Parks",
+     "got": "Euro Car Parks",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "88811908015",
+     "got": "88811908015",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "YG25JVV",
+     "got": "YG25JVV",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "28/05/2026",
+     "got": "2026-05-28",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "02/06/2026",
+     "got": "2026-06-02",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Morrisons - Keighley - Market Car Park",
+     "got": "Morrisons - Keighley - Market Car Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "08:31:38",
+     "got": "08:31:38",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "10:46:38",
+     "got": "10:46:38",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Your vehicle has overstayed the maximum time period allowed.",
+     "got": "Your vehicle has overstayed the maximum time period allowed.",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2972b032c10bdd0c",
+    "fields": {
+     "operator_name": {
+      "value": "Euro Car Parks",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "88811908015",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "YG25JVV",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-28",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-02",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Morrisons - Keighley - Market Car Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "08:31:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "10:46:38",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Your vehicle has overstayed the maximum time period allowed.",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3440789",
+   "operator": "APCOA Parking",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3440789",
+     "got": "LU3440789",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "SD58VOT",
+     "got": "SD58VOT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/06/2026",
+     "got": "2026-06-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "29/06/2026",
+     "got": "2026-06-29",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "02:38:06",
+     "got": "02:38:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "02:41:00",
+     "got": "02:41:00",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2643d1b830efd933",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3440789",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "SD58VOT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-29",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "02:38:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "02:41:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3440789",
+   "operator": "APCOA Parking",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.002,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3440789",
+     "got": "LU3440789",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "SD58VOT",
+     "got": "SD58VOT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/06/2026",
+     "got": "2026-06-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "29/06/2026",
+     "got": "2026-06-29",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "02:38:06",
+     "got": "02:38:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "02:41:00",
+     "got": "02:41:00",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2643d1b830efd933",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3440789",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "SD58VOT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-29",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "02:38:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "02:41:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3440789",
+   "operator": "APCOA Parking",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3440789",
+     "got": "LU3440789",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "SD58VOT",
+     "got": "SD58VOT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "22/06/2026",
+     "got": "2026-06-22",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "29/06/2026",
+     "got": "2026-06-29",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "02:38:06",
+     "got": "02:38:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "02:41:00",
+     "got": "02:41:00",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "2643d1b830efd933",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3440789",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "SD58VOT",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-29",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "02:38:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "02:41:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3489734",
+   "operator": "APCOA Parking",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3489734",
+     "got": "LU3489734",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT62PCO",
+     "got": "LT62PCO",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "09/07/2026",
+     "got": "2026-07-09",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/07/2026",
+     "got": "2026-07-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "03:54:00",
+     "got": "03:54:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "03:57:22",
+     "got": "03:57:22",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e2694efc4493baef",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3489734",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT62PCO",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-09",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "03:54:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "03:57:22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3489734",
+   "operator": "APCOA Parking",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3489734",
+     "got": "LU3489734",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT62PCO",
+     "got": "LT62PCO",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "09/07/2026",
+     "got": "2026-07-09",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/07/2026",
+     "got": "2026-07-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "03:54:00",
+     "got": "03:54:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "03:57:22",
+     "got": "03:57:22",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e2694efc4493baef",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3489734",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT62PCO",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-09",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "03:54:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "03:57:22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_lu3489734",
+   "operator": "APCOA Parking",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "LU3489734",
+     "got": "LU3489734",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT62PCO",
+     "got": "LT62PCO",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "09/07/2026",
+     "got": "2026-07-09",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/07/2026",
+     "got": "2026-07-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Luton Airport Pick Up / Drop Off Zone",
+     "got": "Luton Airport Pick Up / Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "03:54:00",
+     "got": "03:54:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "03:57:22",
+     "got": "03:57:22",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e2694efc4493baef",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "LU3489734",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT62PCO",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-09",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Luton Airport Pick Up / Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "03:54:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "03:57:22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_new1936102153896",
+   "operator": "ParkMaven",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "ParkMaven",
+     "got": "ParkMaven",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "NEW1936102153896",
+     "got": "NEW1936102153896",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "DL70HKN",
+     "got": "DL70HKN",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "08/07/2026",
+     "got": "2026-07-08",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/07/2026",
+     "got": "2026-07-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Quayside Shopping Centre (M50 3AH)",
+     "got": "Quayside Shopping Centre (M50 3AH)",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "22:23:31",
+     "got": "22:23:31",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "23:02:26",
+     "got": "23:02:26",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "No valid parking session",
+     "got": "No valid parking session",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "83eab6bf7cc6bca0",
+    "fields": {
+     "operator_name": {
+      "value": "ParkMaven",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "NEW1936102153896",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "DL70HKN",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-08",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Quayside Shopping Centre (M50 3AH)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "22:23:31",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "23:02:26",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "No valid parking session",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_new1936102153896",
+   "operator": "ParkMaven",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "ParkMaven",
+     "got": "ParkMaven",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "NEW1936102153896",
+     "got": "NEW1936102153896",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "DL70HKN",
+     "got": "DL70HKN",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "08/07/2026",
+     "got": "2026-07-08",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/07/2026",
+     "got": "2026-07-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Quayside Shopping Centre (M50 3AH)",
+     "got": "Quayside Shopping Centre (M50 3AH)",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "22:23:31",
+     "got": "22:23:31",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "23:02:26",
+     "got": "23:02:26",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "No valid parking session",
+     "got": "No valid parking session",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "83eab6bf7cc6bca0",
+    "fields": {
+     "operator_name": {
+      "value": "ParkMaven",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "NEW1936102153896",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "DL70HKN",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-08",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Quayside Shopping Centre (M50 3AH)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "22:23:31",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "23:02:26",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "No valid parking session",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_new1936102153896",
+   "operator": "ParkMaven",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "ParkMaven",
+     "got": "ParkMaven",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "NEW1936102153896",
+     "got": "NEW1936102153896",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "DL70HKN",
+     "got": "DL70HKN",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "08/07/2026",
+     "got": "2026-07-08",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/07/2026",
+     "got": "2026-07-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Quayside Shopping Centre (M50 3AH)",
+     "got": "Quayside Shopping Centre (M50 3AH)",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "22:23:31",
+     "got": "22:23:31",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "23:02:26",
+     "got": "23:02:26",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "No valid parking session",
+     "got": "No valid parking session",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "83eab6bf7cc6bca0",
+    "fields": {
+     "operator_name": {
+      "value": "ParkMaven",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "NEW1936102153896",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "DL70HKN",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-07-08",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-07-13",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "Quayside Shopping Centre (M50 3AH)",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "22:23:31",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "23:02:26",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "No valid parking session",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_sp62712518",
+   "operator": "Smart Parking Ltd",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Smart Parking Ltd",
+     "got": "Smart Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "SP62712518",
+     "got": "SP62712518",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "FD18BOF",
+     "got": "FD18BOF",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "10/08/2026",
+     "got": "2026-08-10",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "27/08/2026",
+     "got": "2026-08-27",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "B&M Chatham - ME4 4HA",
+     "got": "B&M Chatham - ME4 4HA",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "19:06",
+     "got": "19:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "20:41",
+     "got": "20:41",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "f50d28e0cedaafd9",
+    "fields": {
+     "operator_name": {
+      "value": "Smart Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "SP62712518",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "FD18BOF",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-08-10",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-08-27",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "B&M Chatham - ME4 4HA",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "19:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "20:41",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_sp62712518",
+   "operator": "Smart Parking Ltd",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Smart Parking Ltd",
+     "got": "Smart Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "SP62712518",
+     "got": "SP62712518",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "FD18BOF",
+     "got": "FD18BOF",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "10/08/2026",
+     "got": "2026-08-10",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "27/08/2026",
+     "got": "2026-08-27",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "B&M Chatham - ME4 4HA",
+     "got": "B&M Chatham - ME4 4HA",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "19:06",
+     "got": "19:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "20:41",
+     "got": "20:41",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "f50d28e0cedaafd9",
+    "fields": {
+     "operator_name": {
+      "value": "Smart Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "SP62712518",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "FD18BOF",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-08-10",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-08-27",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "B&M Chatham - ME4 4HA",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "19:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "20:41",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_sp62712518",
+   "operator": "Smart Parking Ltd",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "Smart Parking Ltd",
+     "got": "Smart Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "SP62712518",
+     "got": "SP62712518",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "FD18BOF",
+     "got": "FD18BOF",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "10/08/2026",
+     "got": "2026-08-10",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "27/08/2026",
+     "got": "2026-08-27",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "B&M Chatham - ME4 4HA",
+     "got": "B&M Chatham - ME4 4HA",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "19:06",
+     "got": "19:06",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "20:41",
+     "got": "20:41",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "f50d28e0cedaafd9",
+    "fields": {
+     "operator_name": {
+      "value": "Smart Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "SP62712518",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "FD18BOF",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-08-10",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-08-27",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "B&M Chatham - ME4 4HA",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "19:06",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "20:41",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": null,
+      "confidence": 0.0,
+      "source": null,
+      "page": null
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_stn1947529",
+   "operator": "APCOA Parking",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "STN1947529",
+     "got": "STN1947529",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "BK71EXX",
+     "got": "BK71EXX",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "22/05/2026",
+     "got": "2026-05-22",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "London Stansted Airport Drop Off Zone",
+     "got": "London Stansted Airport Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "12:59:17",
+     "got": "12:59:17",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "13:01:37",
+     "got": "13:01:37",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e0dc664a17330e49",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "STN1947529",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "BK71EXX",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "London Stansted Airport Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "12:59:17",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "13:01:37",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_stn1947529",
+   "operator": "APCOA Parking",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "STN1947529",
+     "got": "STN1947529",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "BK71EXX",
+     "got": "BK71EXX",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "22/05/2026",
+     "got": "2026-05-22",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "London Stansted Airport Drop Off Zone",
+     "got": "London Stansted Airport Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "12:59:17",
+     "got": "12:59:17",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "13:01:37",
+     "got": "13:01:37",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e0dc664a17330e49",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "STN1947529",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "BK71EXX",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "London Stansted Airport Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "12:59:17",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "13:01:37",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "REF_stn1947529",
+   "operator": "APCOA Parking",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "APCOA Parking",
+     "got": "APCOA Parking",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "STN1947529",
+     "got": "STN1947529",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "BK71EXX",
+     "got": "BK71EXX",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "15/05/2026",
+     "got": "2026-05-15",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "22/05/2026",
+     "got": "2026-05-22",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "London Stansted Airport Drop Off Zone",
+     "got": "London Stansted Airport Drop Off Zone",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "12:59:17",
+     "got": "12:59:17",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "13:01:37",
+     "got": "13:01:37",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "got": "Use of Pick Up / Drop Off Zone without making a valid payment",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "e0dc664a17330e49",
+    "fields": {
+     "operator_name": {
+      "value": "APCOA Parking",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "STN1947529",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "BK71EXX",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-05-15",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-05-22",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "London Stansted Airport Drop Off Zone",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "12:59:17",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "13:01:37",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Use of Pick Up / Drop Off Zone without making a valid payment",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "FIXTURE_CPPLUS",
+   "operator": "LIVE_TEST",
+   "run": 1,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "LIVE_TEST Parking Ltd",
+     "got": "LIVE_TEST Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "FRONTEND_LIVE_TEST_CPPLUS",
+     "got": "FRONTEND_LIVE_TEST_CPPLUS",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT12EST",
+     "got": "LT12EST",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "01/06/2026",
+     "got": "2026-06-01",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/06/2026",
+     "got": "2026-06-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "LIVE_TEST Retail Park",
+     "got": "LIVE_TEST Retail Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "10:00",
+     "got": "10:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "12:47",
+     "got": "12:47",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Overstayed paid time",
+     "got": "Overstayed paid time",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "7dee56d2d85b46f9",
+    "fields": {
+     "operator_name": {
+      "value": "LIVE_TEST Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "FRONTEND_LIVE_TEST_CPPLUS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT12EST",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-01",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "LIVE_TEST Retail Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "10:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "12:47",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Overstayed paid time",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "FIXTURE_CPPLUS",
+   "operator": "LIVE_TEST",
+   "run": 2,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.002,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "LIVE_TEST Parking Ltd",
+     "got": "LIVE_TEST Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "FRONTEND_LIVE_TEST_CPPLUS",
+     "got": "FRONTEND_LIVE_TEST_CPPLUS",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT12EST",
+     "got": "LT12EST",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "01/06/2026",
+     "got": "2026-06-01",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/06/2026",
+     "got": "2026-06-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "LIVE_TEST Retail Park",
+     "got": "LIVE_TEST Retail Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "10:00",
+     "got": "10:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "12:47",
+     "got": "12:47",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Overstayed paid time",
+     "got": "Overstayed paid time",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "7dee56d2d85b46f9",
+    "fields": {
+     "operator_name": {
+      "value": "LIVE_TEST Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "FRONTEND_LIVE_TEST_CPPLUS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT12EST",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-01",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "LIVE_TEST Retail Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "10:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "12:47",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Overstayed paid time",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  },
+  {
+   "notice": "FIXTURE_CPPLUS",
+   "operator": "LIVE_TEST",
+   "run": 3,
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "LIVE_TEST Parking Ltd",
+     "got": "LIVE_TEST Parking Ltd",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "FRONTEND_LIVE_TEST_CPPLUS",
+     "got": "FRONTEND_LIVE_TEST_CPPLUS",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "LT12EST",
+     "got": "LT12EST",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "01/06/2026",
+     "got": "2026-06-01",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "20/06/2026",
+     "got": "2026-06-20",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "LIVE_TEST Retail Park",
+     "got": "LIVE_TEST Retail Park",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "10:00",
+     "got": "10:00",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "12:47",
+     "got": "12:47",
+     "pass": true
+    },
+    "alleged_breach": {
+     "expected": "Overstayed paid time",
+     "got": "Overstayed paid time",
+     "pass": true
+    }
+   },
+   "uncertain": [],
+   "document_read_result": {
+    "document_revision": "7dee56d2d85b46f9",
+    "fields": {
+     "operator_name": {
+      "value": "LIVE_TEST Parking Ltd",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "pcn_number": {
+      "value": "FRONTEND_LIVE_TEST_CPPLUS",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "vrm": {
+      "value": "LT12EST",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_event_date": {
+      "value": "2026-06-01",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "notice_issue_date": {
+      "value": "2026-06-20",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "parking_location": {
+      "value": "LIVE_TEST Retail Park",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "entry_time": {
+      "value": "10:00",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "exit_time": {
+      "value": "12:47",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     },
+     "alleged_breach": {
+      "value": "Overstayed paid time",
+      "confidence": 0.97,
+      "source": "E1",
+      "page": 1
+     }
+    },
+    "uncertain": [],
+    "pages": {
+     "E1": {
+      "filename": "page1.jpg",
+      "images": 1,
+      "text_chars": 0
+     }
+    },
+    "notice_sides_complete": false
+   }
+  }
+ ],
+ "scenarios": {
+  "A_front_only": {
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 2,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": []
+  },
+  "B_front_plus_correct_back": {
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.002,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 2,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "page_references",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "page_references",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 2,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 4,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": []
+  },
+  "C_front_plus_wrong_back": {
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.002,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 2,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "page_references",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "page_references",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 4,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": []
+  },
+  "D_same_unchanged_image_again": {
+   "model_calls": 0,
+   "status": "OK",
+   "same_result": true
+  },
+  "E_refresh_resume_new_pipeline": {
+   "model_calls": 0,
+   "status": "OK",
+   "same_result": true
+  },
+  "F_low_confidence_critical_field": {
+   "status": "OK",
+   "detail": null,
+   "total_seconds": 0.001,
+   "stage_seconds": {
+    "classification": 0.0,
+    "extraction": 0.0,
+    "verification": 0.0
+   },
+   "calls": [
+    {
+     "task": "classification",
+     "model": "Scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "extraction",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    },
+    {
+     "task": "identity_verification",
+     "model": "scripted",
+     "seconds": 0.0,
+     "status": "SUCCESS",
+     "images": 1,
+     "retries": 0,
+     "attempt_seconds": null
+    }
+   ],
+   "model_calls": 3,
+   "retries": 0,
+   "fields": {
+    "operator_name": {
+     "expected": "CP Plus",
+     "got": "CP Plus",
+     "pass": true
+    },
+    "pcn_number": {
+     "expected": "00347261100014",
+     "got": "00347261100014",
+     "pass": true
+    },
+    "vrm": {
+     "expected": "EX15CZT",
+     "got": "EX15CZT",
+     "pass": true
+    },
+    "parking_event_date": {
+     "expected": "20/04/2026",
+     "got": "2026-04-20",
+     "pass": true
+    },
+    "notice_issue_date": {
+     "expected": "13/05/2026",
+     "got": "2026-05-13",
+     "pass": true
+    },
+    "parking_location": {
+     "expected": "Canada Water Estate, SE16 7LL",
+     "got": "Canada Water Estate, SE16 7LL",
+     "pass": true
+    },
+    "entry_time": {
+     "expected": "14:36:43",
+     "got": "14:36:43",
+     "pass": true
+    },
+    "exit_time": {
+     "expected": "19:11:23",
+     "got": "19:11:23",
+     "pass": true
+    }
+   },
+   "uncertain": []
+  }
+ },
+ "field_accuracy": {
+  "operator_name": [
+   30,
+   30
+  ],
+  "pcn_number": [
+   30,
+   30
+  ],
+  "vrm": [
+   30,
+   30
+  ],
+  "parking_event_date": [
+   30,
+   30
+  ],
+  "notice_issue_date": [
+   30,
+   30
+  ],
+  "parking_location": [
+   30,
+   30
+  ],
+  "entry_time": [
+   30,
+   30
+  ],
+  "exit_time": [
+   30,
+   30
+  ],
+  "alleged_breach": [
+   24,
+   24
+  ]
+ },
+ "random_change_between_runs": {
+  "REF_00347261100014": false,
+  "REF_00347261120013": false,
+  "REF_70377302": false,
+  "REF_88811908015": false,
+  "REF_lu3440789": false,
+  "REF_lu3489734": false,
+  "REF_new1936102153896": false,
+  "REF_sp62712518": false,
+  "REF_stn1947529": false,
+  "FIXTURE_CPPLUS": false
+ },
+ "latency_seconds": {
+  "classification": {
+   "p50": 0.0,
+   "p95": 0.0
+  },
+  "extraction": {
+   "p50": 0.0,
+   "p95": 0.0
+  },
+  "verification": {
+   "p50": 0.0,
+   "p95": 0.0
+  },
+  "total": {
+   "p50": 0.001,
+   "p95": 0.002
+  }
+ },
+ "model_calls_per_case": {
+  "min": 2,
+  "max": 2,
+  "mean": 2
+ }
+}

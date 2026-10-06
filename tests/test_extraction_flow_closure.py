@@ -222,7 +222,9 @@ class CConflictingReadsAreSettledByTheCustomerToo(_EachNotice, unittest.TestCase
     the person holding the notice, and their answer must outlive the rebuild."""
 
     def _conflicted(self, ref):
-        llm, case, pipe = _journey(ref, pcn_conf=0.97, verify="disagree")
+        # in doubt on the first read, so the targeted second read happens - and
+        # disagrees with it
+        llm, case, pipe = _journey(ref, pcn_conf=0.6, verify="disagree")
         return llm, case, pipe
 
     def test_the_disagreement_is_put_to_the_customer_once(self):
@@ -321,23 +323,38 @@ class HIJNothingIsRepeatedWithoutReason(_EachNotice, unittest.TestCase):
         self.each(run)
 
     def test_j_an_unchanged_page_is_read_once_in_a_whole_journey(self):
+        """A confident notice costs one classification and one extraction, and
+        no second read at all: nothing is in doubt."""
         def run(ref):
             llm, case, pipe = _journey(ref)
-            _confirm(pipe, case)
-            _confirm(pipe, case)
-            _confirm(pipe, case)
+            for _ in range(3):
+                _confirm(pipe, case)
+            self.assertEqual(llm.count("extraction"), 1)
+            self.assertEqual(llm.count("identity_verification"), 0)
+        self.each(run)
+
+    def test_j_a_doubtful_field_is_read_a_second_time_once(self):
+        def run(ref):
+            llm, case, pipe = _journey(ref, pcn_conf=0.6, verify="agree")
+            for _ in range(3):
+                _confirm(pipe, case)
             self.assertEqual(llm.count("identity_verification"), 1)
-            reused = [a for a in case.audit if a.get("event") == "identity_verification_reused"]
-            self.assertEqual(len(reused), 3)   # one per later confirm
+            self.assertEqual(_identity(case), DI.STATUS_VERIFIED)
+        self.each(run)
+
+    def test_j_running_extraction_again_on_unchanged_pages_replays_it(self):
+        def run(ref):
+            llm, case, pipe = _journey(ref)
+            pipe.extraction.run(case)
+            self.assertEqual(llm.count("extraction"), 1)
         self.each(run)
 
     def test_j_a_changed_page_is_read_again(self):
         def run(ref):
             llm, case, pipe = _journey(ref)
-            _confirm(pipe, case)
             case.evidence["E1"].images = [PAGE + b"-a-different-photo"]
-            DI.establish_document_identity(case, llm=llm)
-            self.assertEqual(llm.count("identity_verification"), 2)
+            pipe.extraction.run(case)
+            self.assertEqual(llm.count("extraction"), 2)
         self.each(run)
 
 

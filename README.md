@@ -203,10 +203,17 @@ environment is lost the moment it is rebuilt.
    needed, and since that asserts a statutory defect it belongs with the item-1 legal sign-off.
    Confirmed by test: with the facts forced, the case blocks on `VAL-POFA` and fails safe to
    `MANUAL_REVIEW` rather than releasing an unverified defect.
-8. Two pre-existing `do_not_use_when` gates reference facts nothing supplies
-   (`KB-PAY-01`/`terms_rejected_left`, `KB-BREAK-01`/`fault_pre_existing_not_preventing`), so those
-   suppressions never fire. `KB-PAY-01` is now covered by the `conflicts_with` edge to `KB-CON-02`
-   instead; `KB-BREAK-01`'s is largely redundant given its `use_when`. Wire or remove them.
+8. ~~Two pre-existing `do_not_use_when` gates reference facts nothing supplies~~ Resolved in Phase 3B.2.
+   Since 3B.1 an unknown hard blocker keeps a module out of SUPPORTED, so a blocker nothing can
+   settle would hold the module for ever. `KB-PAY-01` (`terms_rejected_left`) and `KB-BREAK-01`
+   (`fault_pre_existing_not_preventing`) lost their hard blocker; the cautions are recorded in the new
+   non-authoritative `advisory_when` field, which no status reads. `KB-POFA-01`/`KB-POFA-04` no longer
+   gate on `relevant_land` (no producer) but on the derived `pofa_route`, and `KB-EV-01` excludes only a
+   relied-on receipt (`shopping_purchase_confirmed`, derived from the uploaded evidence).
+   Open for Phase 4: no question exists for `terms_rejected_left` / `fault_pre_existing`, and
+   `relevant_land` and the validation outcome (`parking_validation_status` beyond the UNKNOWN sentinel)
+   still have no source. See `python -m pcn_appeal.eval.eligibility` and
+   `tests/test_hard_blocker_resolvability.py`.
 9. Three block wordings predate this work and diverge from the source document — `PP-ANPR-001` and
    `AI-BREAK-001` are truncated, `AI-RES-003` renames the source's `{{bay_reference}}` placeholder to
    `{{allocated_bay}}`. They are approved legal wordings, so reconcile them with the document.

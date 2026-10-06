@@ -80,7 +80,7 @@ def make_docx(path: Path, *, pay_core="Lead with payment and require reconciliat
         _module(d, "KB-ZZZ-01 - A module nobody coded for", [
             ("USE WHEN", "Something new applies."),
             ("CORE PROPOSITION", "A new proposition."),
-            ("AI MUST CHECK", "Event date; relevant land."),
+            ("AI MUST CHECK", "Event date; notice route."),
             ("REVIEW NOTE", "A field the parser has never seen."),
         ])
     d.add_heading("17. Mandatory Validator Rules", level=1)
@@ -131,11 +131,14 @@ class Parsing(_Tmp):
         self.assertEqual(len(doc.checklists["APPENDIX C - Release Checklist"]), 1)
 
     def test_a_module_the_code_has_never_seen_is_extracted_like_any_other(self):
+        # The vocabulary is the live KB's own fact names. relevant_land used to be
+        # one only because two gates named it; nothing produces it (Phase 3B.2), so
+        # it is not a system fact a module can require. notice_route is.
         recs = {r.module_id: r for r in extract(parse(make_docx(self.tmp / "kb.docx")), KG)}
         z = recs["KB-ZZZ-01"]
         self.assertEqual((z.category, z.version, z.status), ("ZZZ", "V1", "ACTIVE"))
         self.assertEqual({f["fact_name"] for f in z.required_facts},
-                         {"parking_event_date", "relevant_land"})
+                         {"parking_event_date", "notice_route"})
         self.assertIn("DOCUMENT_FIELD", {r["rule_type"] for r in z.rules})
         self.assertFalse(z.metadata["compiled"])
 

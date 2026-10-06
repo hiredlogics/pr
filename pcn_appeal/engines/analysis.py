@@ -395,41 +395,37 @@ class AnalysisEngine:
                         if match.candidates.get(m.module_id) is not None
                         and match.candidates[m.module_id].status in OFFERABLE]
 
-        if self.retriever is None:
-            return self._by_relation(filtered, match)[:CANDIDATE_LIMIT]
-
-        query = " ".join(str(x) for x in (
-            case.get("alleged_breach", ""), circumstances,
-            case.get("parking_location", ""),
-        ) if x)
-        allowed = {m.module_id for m in filtered}
-        hits = self.retriever.search(query or "parking charge", allowed_ids=allowed, k=CANDIDATE_LIMIT * 2)
-
-        order: list[str] = []
-        for d in hits:
-            mid = d.meta.get("module_id")
-            if mid and mid not in order and mid in allowed:
-                order.append(mid)
+        # Discovery is KnowledgeRetrieval's: authoritative facts, the notice's own
+        # context, verified findings and - only while that stream is ready - the
+        # customer-account semantics. It reads no raw customer text, so the
+        # `circumstances` argument is deliberately not part of the query. Zero
+        # candidates is a valid answer; nothing is added to fill the window.
+        from .knowledge_retrieval import record_retrieval, retrieve_for_case
+        result = retrieve_for_case(self.kg, case, facts)
         by_id = {m.module_id: m for m in filtered}
-        ranked = [by_id[mid] for mid in order if mid in by_id]
-        ranked += [m for m in filtered if m.module_id not in order]
+        rank = {mid: i for i, mid in enumerate(result.module_ids)}
+        ranked = [by_id[mid] for mid in result.module_ids if mid in by_id]
         # Visibility only: gate-satisfied fact-specific modules must be offered
-        # to Case Intelligence even if semantic rank pushed them out of top-N.
-        # This does not finalize them as grounds.
+        # to Case Intelligence even if retrieval did not reach them (a gate made
+        # of presence checks has no topical leaf to retrieve by). This does not
+        # finalize them as grounds.
         ranked = self._ensure_gate_satisfied_visible(ranked, filtered, facts)
-        return self._by_relation(ranked, match)[:CANDIDATE_LIMIT]
+        window = self._by_relation(ranked, match, rank)[:CANDIDATE_LIMIT]
+        record_retrieval(case, result, [m.module_id for m in window])
+        return window
 
     @staticmethod
-    def _by_relation(ranked: list[KBModule], match) -> list[KBModule]:
-        """Relationship first, similarity second: SUPPORTED, then RELEVANT (the
-        case's facts, evidence or allegation point at it), then the existing
-        order for the rest - so the cap never cuts a supported module."""
-        if match is None:
-            return ranked
-        tier = {SUPPORTED: 0, RELEVANT: 1}
+    def _by_relation(ranked: list[KBModule], match, rank: Optional[dict] = None) -> list[KBModule]:
+        """Supported first (so the cap never cuts a supported module), then
+        retrieval's own order: structured evidence ahead of similarity."""
         pos = {m.module_id: i for i, m in enumerate(ranked)}
+        order = rank if rank is not None else pos
+        if match is None:
+            return sorted(ranked, key=lambda m: order.get(m.module_id, len(order) + pos[m.module_id]))
+        tier = {SUPPORTED: 0}
         return sorted(ranked, key=lambda m: (
-            tier.get(match.candidates[m.module_id].status, 2), pos[m.module_id]))
+            tier.get(match.candidates[m.module_id].status, 1),
+            order.get(m.module_id, len(order) + pos[m.module_id])))
 
     @staticmethod
     def _jurisdiction_ok(module: KBModule, jurisdiction: Optional[str]) -> bool:
@@ -548,7 +544,8 @@ class AnalysisEngine:
         # P17.9: reason from authoritative facts + normalized semantic state.
         # Raw circumstances kept for provenance only — not a second truth source.
         sem = {}
-        raw_sem = (case.raw_answers or {}).get("_semantic_case_state")
+        from ..semantics.understanding import customer_semantic_raw
+        raw_sem = customer_semantic_raw(case, "_semantic_case_state")
         if raw_sem:
             try:
                 sem = json.loads(raw_sem) if isinstance(raw_sem, str) else dict(raw_sem)
@@ -684,6 +681,14 @@ class AnalysisEngine:
                 proposed_ids.remove(mid)
                 self._suppress(result, mid,
                                f"blocked by relation: {match.candidates[mid].reason}")
+        # A hard do_not_use_when condition that is still unknown is not a pass: the
+        # plan's own veto only fires on a TRUE blocker, so the proposal stops here.
+        if match is not None:
+            for mid in [m for m in proposed_ids if m and match.candidates.get(m) is not None
+                        and match.candidates[m].unverified_blockers]:
+                proposed_ids.remove(mid)
+                self._suppress(result, mid, "a do_not_use_when condition is not yet ruled out: "
+                               + "; ".join(match.candidates[mid].unverified_blockers[:3]))
         plan = build_claim_plan(
             case, self.kg, proposed_ids, list(result.candidate_ids or []), facts,
             findings=findings, code_version=code_version,

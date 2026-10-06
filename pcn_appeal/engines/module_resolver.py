@@ -84,7 +84,8 @@ class ModuleResolveResult:
 
 
 def _semantic_material(case) -> dict[str, list]:
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if not raw:
         return {"events": [], "atoms": [], "relationships": [], "concepts": []}
     try:
@@ -159,11 +160,14 @@ class KnowledgeModuleResolver:
             candidate_modules = analysis_engine._candidates(
                 case, circumstances, facts, match)
         else:
+            from .knowledge_retrieval import record_retrieval, retrieve_for_case
+            retrieved = retrieve_for_case(self.kg, case, facts)
+            offerable = {c.module_id for c in match.by_status(*OFFERABLE)}
             candidate_modules = [
-                self.kg.modules[c.module_id]
-                for c in match.by_status(*OFFERABLE)
-                if c.module_id in self.kg.modules
+                self.kg.modules[mid] for mid in retrieved.module_ids
+                if mid in offerable and mid in self.kg.modules
             ][:24]
+            record_retrieval(case, retrieved, [m.module_id for m in candidate_modules])
         candidate_ids = [m.module_id for m in candidate_modules]
         trace.append(f"candidates={len(candidate_ids)}")
         trace.append("MODULE_ELIGIBILITY")

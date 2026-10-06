@@ -84,14 +84,24 @@ class AuditedLLM:
             out = self.inner.complete_json(task=task, system=system, user=user, images=images)
         except Exception as exc:
             row.update(status="ERROR", error=f"{type(exc).__name__}: {exc}"[:200],
-                       duration_ms=int((time.perf_counter() - started) * 1000))
+                       duration_ms=int((time.perf_counter() - started) * 1000),
+                       **_attempts(self.inner))
             _record(case, row)
             raise
         text = json.dumps(out, sort_keys=True, default=str) if out is not None else ""
         row.update(status="SUCCESS", output_sha256=_sha(text), output_chars=len(text),
-                   output_keys=_keys(out), duration_ms=int((time.perf_counter() - started) * 1000))
+                   output_keys=_keys(out), duration_ms=int((time.perf_counter() - started) * 1000),
+                   **_attempts(self.inner))
         _record(case, row)
         return out
+
+
+def _attempts(inner) -> dict:
+    """Retries the client made for the call it just finished, when it counts them."""
+    meta = getattr(inner, "last_call", None)
+    if not isinstance(meta, dict) or "retries" not in meta:
+        return {}
+    return {"retries": meta["retries"], "attempt_seconds": meta.get("attempt_seconds")}
 
 
 def _prompt_version(prompts, task: str) -> Optional[int]:

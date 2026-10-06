@@ -152,7 +152,8 @@ class KnowledgeGraph:
                 last_legal_review=_as_date(m.get("last_legal_review")),
                 change_notes=m.get("change_notes", "") or "",
                 module_role=role,
-                can_lead_letter=lead_flag)
+                can_lead_letter=lead_flag,
+                advisory_when=m.get("advisory_when") or None)
             self.modules[mod.module_id] = mod
             n = ("Module", mod.module_id)
             self.g.add_node(n, topic=mod.topic, strength=mod.strength)

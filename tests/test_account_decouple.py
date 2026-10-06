@@ -331,6 +331,15 @@ class DebtRecoveryStop(unittest.TestCase):
         if case.scope_stop:
             self.assertNotEqual(case.state, CaseState.RELEASED)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

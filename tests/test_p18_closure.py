@@ -44,7 +44,10 @@ NOTICE = dict(
 
 
 def _semantic(concepts=(), events=(), atoms=(), relationships=(), relevance=()):
-    return {"concepts": list(concepts), "events": list(events),
+    # A reader that finished and found nothing open; without a status the
+    # reading is never certified (understanding.is_ready).
+    return {"status": "UNDERSTOOD", "uncertainties": [],
+            "concepts": list(concepts), "events": list(events),
             "narrative_atoms": list(atoms), "relationships": list(relationships),
             "material_relevance": list(relevance)}
 
@@ -350,6 +353,12 @@ class TheReadingThatProducedTheProductIsNamed(unittest.TestCase):
 
     TEXT = "I left the site and came back later that day."
 
+    def setUp(self):
+        # These tests are about the reading that was NOT made by a model.
+        from support import finished_reader
+        finished_reader.stop()
+        self.addCleanup(finished_reader.start)
+
     def test_a_model_that_answers_is_recorded_live(self):
         out = extract_semantic_product(
             [self.TEXT], llm=_Injected(_semantic(concepts=[_c("LEFT_SITE")])))
@@ -438,6 +447,15 @@ class TheLetterReachesItsConclusionOnce(unittest.TestCase):
                         for s in p)]
         self.assertTrue(where, "the Schedule 4 conclusion is missing")
         self.assertLess(where[-1], len(self.paras) - 1)
+
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
 
 
 if __name__ == "__main__":

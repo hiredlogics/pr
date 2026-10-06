@@ -87,7 +87,11 @@ class ReferenceAnalysisLLM:
         concepts = extract_concepts_meaning_bridge(texts)
         for c in concepts:
             c["provenance"] = "reference_analysis_llm_meaning_bridge"
-        return {"concepts": concepts, "model_kind": "ReferenceAnalysisLLM"}
+        # A reader that finished: it assessed the account and found nothing
+        # open. Scenarios about an ambiguous or unassessed account queue their
+        # own reply; the readiness gate then holds the customer stream.
+        return {"concepts": concepts, "status": "UNDERSTOOD",
+                "uncertainties": [], "model_kind": "ReferenceAnalysisLLM"}
 
     def _draft(self, payload: str) -> dict:
         """Deterministic letter from the pack the pipeline already finalized.
@@ -367,3 +371,38 @@ def patch_client(test, client) -> None:
     patcher = mock.patch("pcn_appeal.api.default_client", return_value=client)
     patcher.start()
     test.addCleanup(patcher.stop)
+
+
+class finished_reader:
+    """For tests of what the pipeline does with a customer's account once a
+    reader has read it and found nothing open.
+
+    A reading made without a model (none configured, or the call failed) is
+    never certified: ambiguity was not assessed, so the customer stream stays
+    closed (understanding.is_ready). Tests of the deterministic extraction and
+    handoff behaviour need the stream open, so for those modules this puts a
+    reader behind the same call that reports UNDERSTOOD. Tests of the gate
+    itself do not use it.
+    """
+    _patch = None
+
+    @classmethod
+    def start(cls):
+        from pcn_appeal.semantics import extract
+        original = extract.extract_semantic_product
+
+        def reading(texts, llm=None, *args, **kwargs):
+            product = original(texts, llm, *args, **kwargs)
+            if product.get("semantic_mode") == extract.SEMANTIC_LIVE:
+                return product
+            return original(texts, ReferenceAnalysisLLM(), *args, **kwargs)
+
+        from unittest import mock
+        cls._patch = mock.patch.object(extract, "extract_semantic_product", reading)
+        cls._patch.start()
+
+    @classmethod
+    def stop(cls):
+        if cls._patch is not None:
+            cls._patch.stop()
+            cls._patch = None

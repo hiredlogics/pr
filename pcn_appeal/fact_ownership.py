@@ -50,7 +50,8 @@ CUSTOMER_OWNED = frozenset({
 
 EVIDENCE_OWNED = frozenset({
     "payment_recorded_in_document", "receipt_supplied",
-    "lease_clauses", "lease_parking_clause_found", "lease_has_regulations_clause",
+    "lease_evidence_provided", "lease_clauses", "lease_parking_clause_found",
+    "lease_has_regulations_clause",
     "hire_docs_supplied", "photos_supplied",
 })
 

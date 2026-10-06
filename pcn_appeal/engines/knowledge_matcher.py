@@ -38,38 +38,20 @@ from typing import Any, Optional
 from ..kg.relations import (BLOCKS, CONFLICTS_WITH, EVIDENCE_SUPPORTS, SUPPORTS,
                             RelationGraph)
 from ..models import CaseFile
-from ..rules.dsl import PredicateError, evaluate, referenced_facts
+from ..rules.dsl import (PredicateError, describe_leaf, evaluate, evaluate3, leaf_report,
+                         referenced_facts)
+from .module_eligibility import REJECTED as ME_REJECTED, SUPPORTED as ME_SUPPORTED, decide
 
 SUPPORTED, RELEVANT, OPEN = "SUPPORTED", "RELEVANT", "OPEN"
 REJECTED, BLOCKED = "REJECTED", "BLOCKED"
 OFFERABLE = (SUPPORTED, RELEVANT, OPEN)
 _ORDER = {SUPPORTED: 0, RELEVANT: 1, OPEN: 2, REJECTED: 3, BLOCKED: 4}
 
-# Generic semantic category → fact-name hints for CANDIDATE discovery only.
-# Not phrase rules; not eligibility. Categories are meaning classes.
-_CATEGORY_FACT_HINTS: dict[str, frozenset[str]] = {
-    "departure_event": frozenset({"left_site", "multiple_visits"}),
-    "departure": frozenset({"left_site", "multiple_visits"}),
-    "return_event": frozenset({"returned_same_day", "multiple_visits"}),
-    "return": frozenset({"returned_same_day", "multiple_visits"}),
-    "multiple_attendance": frozenset({"multiple_visits"}),
-    "departure_reason": frozenset({"left_site", "multiple_visits"}),
-    "unmapped_reason": frozenset({"left_site", "multiple_visits"}),
-    "visit_activity": frozenset({"purpose_of_visit", "genuine_customer", "visited_premises"}),
-    "visit_purpose": frozenset({"purpose_of_visit", "genuine_customer"}),
-    "payment": frozenset({"payment_made"}),
-    "payment_attempt": frozenset({"payment_attempt_failed", "payment_made"}),
-    "mechanical": frozenset({"vehicle_immobilised"}),
-    "access": frozenset({"signage_issue_raised"}),
-    "access_issue": frozenset({"signage_issue_raised"}),
-    "authorisation": frozenset({"permit_held", "visitor_authorised"}),
-    "keying": frozenset({"keying_error_type", "vrm_entered"}),
-}
-
-
 def _semantic_candidate_signals(case: CaseFile) -> dict:
     """Read SemanticCaseState channels for candidate discovery (observational)."""
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    # Customer-account semantics are used only while that stream is ready.
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     state = {}
     if raw:
         try:
@@ -82,7 +64,7 @@ def _semantic_candidate_signals(case: CaseFile) -> dict:
     rels = list(state.get("relationships") or [])
     # Compact atom cache if full state truncated.
     if not atoms:
-        compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+        compact = customer_semantic_raw(case, "_semantic_narrative_atoms")
         if compact:
             try:
                 atoms = json.loads(compact) if isinstance(compact, str) else list(compact)
@@ -94,55 +76,6 @@ def _semantic_candidate_signals(case: CaseFile) -> dict:
         "events": events,
         "relationships": rels,
     }
-
-
-def _semantic_hints_for_module(module, semantic: dict) -> list[str]:
-    """Return short hint strings if semantic material connects to this module.
-
-    Connection = category/concept hints overlap module gating/required facts,
-    or topic token overlap with atom/event categories. Never asserts eligibility.
-    """
-    need = set(referenced_facts(module.use_when) | set(module.required_facts or []))
-    if not need:
-        return []
-    hints: list[str] = []
-    for c in semantic.get("concepts") or []:
-        cid = c.get("concept") if isinstance(c, dict) else getattr(c, "concept", None)
-        pol = c.get("polarity") if isinstance(c, dict) else getattr(c, "polarity", None)
-        if pol == "NEGATED":
-            continue
-        # Concept → fact mapping via ontology is owned by extract; here we only
-        # use concept id as a soft signal when it shares tokens with need.
-        token = str(cid or "").lower().replace("_", " ")
-        for fact in need:
-            if fact.replace("_", " ") in token or token in fact.replace("_", " "):
-                hints.append(f"concept:{cid}->{fact}")
-    for a in semantic.get("atoms") or []:
-        if not isinstance(a, dict) or a.get("polarity") == "NEGATED":
-            continue
-        cat = str(a.get("category") or a.get("name") or "").lower()
-        for key, facts in _CATEGORY_FACT_HINTS.items():
-            if key in cat or cat in key:
-                hit = sorted(facts & need)
-                if hit:
-                    hints.append(f"atom:{cat}->{','.join(hit)}")
-    for e in semantic.get("events") or []:
-        if not isinstance(e, dict) or e.get("polarity") == "NEGATED":
-            continue
-        et = str(e.get("event_type") or e.get("kind") or "").lower()
-        for key, facts in _CATEGORY_FACT_HINTS.items():
-            if key in et or et in key:
-                hit = sorted(facts & need)
-                if hit:
-                    hints.append(f"event:{et}->{','.join(hit)}")
-    # Deduplicate preserving order.
-    seen = set()
-    out = []
-    for h in hints:
-        if h not in seen:
-            seen.add(h)
-            out.append(h)
-    return out
 
 
 @dataclass
@@ -159,6 +92,9 @@ class Candidate:
     evidence: list[str] = field(default_factory=list)
     conflicts_with: list[str] = field(default_factory=list)
     reason: str = ""
+    # do_not_use_when conditions that are neither true nor false yet. A module with
+    # one of these is never SUPPORTED (a hard blocker must be settled first).
+    unverified_blockers: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -216,22 +152,7 @@ def _trace_row(c: Candidate) -> dict:
 
 
 # ------------------------------------------------------------- helpers
-def _show(leaf: dict) -> str:
-    op, arg = next(iter(leaf.items()))
-    if op == "is":
-        return f"{arg}=true"
-    if op == "exists":
-        return f"{arg} present"
-    if op == "missing":
-        return f"{arg} absent"
-    if op == "has_evidence":
-        return f"evidence {arg} uploaded"
-    if op == "contains":
-        return f"{arg[0]} mentions '{arg[1]}'"
-    name, ref = arg
-    sym = {"eq": "=", "ne": "!=", "in": " in ", "gt": ">", "gte": ">=", "lt": "<",
-           "lte": "<="}[op]
-    return f"{name}{sym}{json.dumps(ref) if not isinstance(ref, str) else ref}"
+_show = describe_leaf
 
 
 def _negate(text: str) -> str:
@@ -243,11 +164,6 @@ def _holds(leaf: dict, facts: dict) -> bool:
         return bool(evaluate(leaf, facts))
     except PredicateError:
         return False
-
-
-def _tri(pred: Any, facts: dict, unknown: set[str]) -> Optional[bool]:
-    from .question_authority import tri
-    return tri(pred, facts, unknown)
 
 
 def signals(graph: RelationGraph, facts: dict) -> dict[str, dict]:
@@ -271,17 +187,39 @@ class KnowledgeMatcher:
     # --------------------------------------------------------------- match
     def match(self, case: CaseFile, facts: Optional[dict] = None) -> Match:
         facts = dict(case.fact_view() if facts is None else facts)
+        # Facts the case holds but does not trust (UNCERTAIN / CONFLICTED) are not
+        # in the view; naming them keeps "held but not trusted" apart from "not
+        # known" without ever letting them satisfy or contradict a condition.
+        unreliable = frozenset(k for k, f in (getattr(case, "facts", None) or {}).items()
+                               if not f.usable)
+        # Legal findings the calculation engine recorded as not established.
+        states = dict(facts.get("pofa_finding_states") or {})
+        for r in getattr(case, "legal_findings", None) or []:
+            if r.get("finding_type") and r.get("status"):
+                states.setdefault(str(r["finding_type"]), str(r["status"]))
+        if states:
+            facts["pofa_finding_states"] = states
         sig = signals(self.graph, facts)
         sig_ids = {f"{k}={v['value']}" for k, v in sig.items()}
         evidence_kinds = set(facts.get("evidence_kinds") or [])
-        semantic = _semantic_candidate_signals(case)
+        # Semantic meaning may elevate a module to RELEVANT (never to SUPPORTED),
+        # through the retrieval layer's typed routes - not by comparing words.
+        # A vector hit alone is a suggestion, not a connection.
+        from .knowledge_retrieval import retrieve_for_case
+        retrieved = {c.module_id: c for c in
+                     retrieve_for_case(self.kg, case, facts).candidates}
+        semantic_routes = {"SEMANTIC_CONCEPT", "SEMANTIC_EVENT", "NARRATIVE_ATOM", "RELATIONSHIP"}
         out: dict[str, Candidate] = {}
         for module in sorted(self.kg.active_modules(), key=lambda m: m.module_id):
-            c = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
+            c = self._one(case, module, facts, sig, sig_ids, evidence_kinds, unreliable)
             # P17.9: semantic meaning may elevate OPEN → RELEVANT for discovery.
             # Never creates SUPPORTED. Eligibility remains use_when on facts.
             if c.status in (OPEN, RELEVANT):
-                hints = _semantic_hints_for_module(module, semantic)
+                got = retrieved.get(module.module_id)
+                hints = [f"{r.lower()}:{i}" for r in (got.retrieval_sources if got else [])
+                         if r in semantic_routes
+                         for i in (got.matched_concept_ids + got.matched_event_ids
+                                   + got.matched_atom_ids + got.matched_relationship_ids)]
                 if hints:
                     if c.status == OPEN:
                         c.status = RELEVANT
@@ -300,7 +238,8 @@ class KnowledgeMatcher:
         case.master.record_knowledge_matches(match)
         return match
 
-    def _one(self, case, module, facts, sig, sig_ids, evidence_kinds) -> Candidate:
+    def _one(self, case, module, facts, sig, sig_ids, evidence_kinds,
+             unreliable=frozenset()) -> Candidate:
         mid = module.module_id
         c = Candidate(mid, OPEN, module.topic, str(getattr(module.route, "value", module.route)),
                       module.strength)
@@ -318,12 +257,14 @@ class KnowledgeMatcher:
                                      "reason": e.metadata.get("reason", ""),
                                      "basis": sig[name]["basis"], "edge_id": e.edge_id})
         try:
-            dnuw = evaluate(module.do_not_use_when, facts)
-            gate = evaluate(module.use_when, facts)
+            dnuw = evaluate3(module.do_not_use_when, facts, unreliable=unreliable)
+            gate = evaluate3(module.use_when, facts, unreliable=unreliable)
         except PredicateError as exc:
             c.status, c.reason = REJECTED, f"predicate error: {exc}"
             return c
-        if dnuw:
+        # Only a deterministically TRUE blocker blocks. An UNKNOWN one (a fact
+        # missing, uncertain or conflicted) is not a contradiction.
+        if dnuw is True:
             held = [_show(e.metadata["condition"]) for e in edges
                     if e.relationship_type == BLOCKS and e.metadata.get("from_field") == "do_not_use_when"
                     and _holds(e.metadata["condition"], facts)]
@@ -357,24 +298,35 @@ class KnowledgeMatcher:
 
         unknown = {f for f in referenced_facts(module.use_when) | set(module.required_facts or [])
                    if f not in facts}
-        if gate:
+        # A do_not_use_when condition that is neither true nor false is a hard blocker
+        # still open: the module cannot be SUPPORTED until it is settled. The facts it
+        # waits on are what the case still needs to know.
+        open_blockers = ([r for r in leaf_report(module.do_not_use_when, facts, unreliable=unreliable)
+                          if r["truth"] is None] if dnuw is None else [])
+        c.unverified_blockers = [f"{r['condition']} ({r['why']})" for r in open_blockers]
+        blocker_facts = {r["fact"] for r in open_blockers if r["fact"]}
+        verdict = decide(gate, dnuw)
+        if verdict == ME_SUPPORTED:
             c.status = SUPPORTED
             c.missing = sorted(f for f in (module.required_facts or []) if f not in facts)
             c.reason = "use_when holds on verified facts and nothing blocks it"
             return c
-        c.missing = sorted(f for f in unknown)
-        possible = _tri(module.use_when, facts, unknown)
+        c.missing = sorted(unknown | blocker_facts)
         unmet = [_show(leaf) for positive, leaf in _leaf_pairs(module.use_when)
                  if positive and not _holds(leaf, facts)]
         unmet += [_negate(_show(leaf)) for positive, leaf in _leaf_pairs(module.use_when)
                   if not positive and _holds(leaf, facts)]
-        if possible is False:
+        if verdict == ME_REJECTED:
             c.status = REJECTED
             c.reason = "use_when cannot hold on what is known: " + "; ".join(
                 f"not established: {u}" for u in unmet[:4])
             return c
-        c.reason = "use_when not yet met: " + "; ".join(
-            f"no confirmed {u}" for u in unmet[:4]) + self._hypothesis_note(case, unmet)
+        if gate is True:
+            c.reason = "use_when holds but a do_not_use_when condition is not yet ruled out: " + \
+                "; ".join(c.unverified_blockers[:4])
+        else:
+            c.reason = "use_when not yet met: " + "; ".join(
+                f"no confirmed {u}" for u in unmet[:4]) + self._hypothesis_note(case, unmet)
         connected = bool(c.selected_because or c.relevant_because)
         c.status = RELEVANT if connected else OPEN
         return c

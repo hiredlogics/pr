@@ -346,10 +346,30 @@ def _identity_unsettled(case: CaseFile) -> bool:
     return any(v == STATUS_UNCERTAIN for v in (state.get("field_status") or {}).values())
 
 
-def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservation]]:
-    """Second pass: critical fields only; never seeded with prior extraction."""
+def _fields_in_doubt(case: CaseFile, observations: dict[str, list[FieldObservation]],
+                     revision: int) -> list[str]:
+    """The critical fields the sources already in hand could not settle.
+
+    Reconciled without the second read: a field every source agrees on, or one
+    read confidently with nothing against it, is not in doubt and is not read
+    again. A CONFLICT is not in doubt either - two confident readings already
+    disagree, a third cannot resolve that, only the customer can. What is left
+    is a field read once, weakly, with nothing to corroborate it.
+    """
+    return [n for n in CRITICAL_FIELDS
+            if reconcile_field(n, observations.get(n) or [],
+                               revision=revision).status == STATUS_UNCERTAIN]
+
+
+def _independent_llm_verify(case: CaseFile, llm,
+                            fields: Optional[list[str]] = None,
+                            ) -> dict[str, list[FieldObservation]]:
+    """A targeted second read of the named critical fields; never seeded with
+    the prior extraction. With no fields named there is nothing to read."""
     out: dict[str, list[FieldObservation]] = {n: [] for n in CRITICAL_FIELDS}
-    if llm is None:
+    wanted = [n for n in (fields if fields is not None else CRITICAL_FIELDS)
+              if n in CRITICAL_FIELDS]
+    if llm is None or not wanted:
         return out
     images: list[bytes] = []
     manifest: list[str] = []
@@ -371,8 +391,9 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         )
     user = (
         "Independently read ONLY these critical identity fields from the "
-        "ORIGINAL uploaded pages. Do NOT use any previously extracted values. "
-        "If uncertain, set read_status UNCERTAIN or NOT_VISIBLE.\n\n" + docs
+        f"ORIGINAL uploaded pages: {', '.join(wanted)}. Do NOT use any previously "
+        "extracted values. If uncertain, set read_status UNCERTAIN or NOT_VISIBLE."
+        "\n\n" + docs
     )
     digest = _verify_digest(VERIFY_SYSTEM + user, images)
     try:
@@ -410,14 +431,14 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
     if not isinstance(raw, dict):
         case.audit.append({"event": "identity_verification_skipped", "reason": "invalid_response_shape"})
         return out
-    fields = raw.get("fields")
-    if not isinstance(fields, dict):
-        fields = {
+    answered = raw.get("fields")
+    if not isinstance(answered, dict):
+        answered = {
             k: v for k, v in (raw or {}).items()
             if isinstance(v, dict) and ("candidate_value" in v or "value" in v)
         }
-    for name in CRITICAL_FIELDS:
-        entry = fields.get(name) if isinstance(fields, dict) else None
+    for name in wanted:
+        entry = answered.get(name)
         if not isinstance(entry, dict):
             continue
         cand = entry.get("candidate_value", entry.get("value"))
@@ -839,13 +860,17 @@ def establish_document_identity(case: CaseFile, llm=None) -> DocumentIdentitySta
     prev_values = (prev.get("values") if isinstance(prev, dict) else None) or {}
     prev_rev = identity_revision(case)
 
-    obs = _merge_obs(
+    in_hand = _merge_obs(
         _observations_from_extraction(case),
         _observations_from_classifier(case),
         _observations_from_text_scan(case),
-        _independent_llm_verify(case, llm),
         _observations_from_customer(case),
     )
+    # The second read is targeted: only fields those sources left in doubt.
+    # Reading every field of every page again on every case cost a full extra
+    # vision call whether or not anything was uncertain.
+    in_doubt = _fields_in_doubt(case, in_hand, max(prev_rev, 1))
+    obs = _merge_obs(in_hand, _independent_llm_verify(case, llm, in_doubt))
     pair = assess_document_pair(case)
     provisional = build_identity_state(case, obs, revision=max(prev_rev, 1), pair=pair)
     changed = False

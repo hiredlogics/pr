@@ -317,6 +317,15 @@ class TwoFrontsAreNotBothSides(unittest.TestCase):
                                   {"page": 9, "side": "REVERSE"}, {"page": "x"}]}, case)
         self.assertEqual(c.pages, [{"page": 1, "side": "FRONT"}, {"page": 2, "side": "UNKNOWN"}])
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

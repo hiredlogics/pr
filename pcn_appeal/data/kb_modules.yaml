@@ -51,7 +51,11 @@ modules:
     route: POFA
     topic: "Keeper liability threshold"
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {eq: [jurisdiction, ENGLAND_WALES]}]}
-    do_not_use_when: {eq: [relevant_land, false]}
+    # relevant_land has no producer: nothing extracts, derives or asks it, so a
+    # blocker on it can never become known. Schedule 4 not applying is already
+    # derived by pofa.assess (relevant land false, driver identified, or outside
+    # England and Wales) and recorded as pofa_route NOT_APPLICABLE.
+    do_not_use_when: {eq: [pofa_route, NOT_APPLICABLE]}
     core_proposition: "Keeper liability is not automatic. If the operator seeks recovery from the keeper under Schedule 4, the applicable statutory conditions must be satisfied."
     required_facts: [notice_route, parking_event_date, notice_issue_date]
     evidence_helpful: [PCN, NTK]
@@ -122,8 +126,9 @@ modules:
     use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
     do_not_use_when:
       any:
+        # relevant_land false is part of pofa_route NOT_APPLICABLE (pofa.assess);
+        # relevant_land itself has no producer, so it is not a gate of its own.
         - {eq: [pofa_route, NOT_APPLICABLE]}
-        - {eq: [relevant_land, false]}
         # Single-face upload may still plead invitation wording that is clearly
         # readable on that face (pass-to-driver explicitly false).
         - {all: [{eq: [notice_sides_complete, false]}, {ne: [ntk_invites_pass_to_driver, false]}]}
@@ -209,7 +214,12 @@ modules:
     route: PAYMENT
     topic: "Payment made"
     use_when: {is: payment_made}
-    do_not_use_when: {is: terms_rejected_left}
+    # No hard exclusion. "The customer rejected the terms and left" cannot be
+    # known: nothing extracts it, derives it or asks it (it is not a question in
+    # questions.yaml), and a customer who paid has accepted the terms - the
+    # statement contradicts use_when itself. Kept as a caution, never a gate.
+    do_not_use_when: {always: false}
+    advisory_when: {is: terms_rejected_left}
     core_proposition: "Lead with payment and require the operator to reconcile its transaction records with the parking event."
     required_facts: [payment_made, payment_method]
     evidence_helpful: [RECEIPT, APP_SCREENSHOT, BANK_STATEMENT]
@@ -322,7 +332,14 @@ modules:
     route: BREAKDOWN
     topic: "Mechanical breakdown"
     use_when: {all: [{is: vehicle_immobilised}, {is: immobilisation_prevented_departure}]}
-    do_not_use_when: {is: fault_pre_existing_not_preventing}
+    # No hard exclusion. The old opaque flag fault_pre_existing_not_preventing
+    # was never produced by anything. It meant "the fault pre-dated the visit AND
+    # did not prevent departure"; the second half is the negation of use_when's
+    # immobilisation_prevented_departure, so the blocker could never be true while
+    # the module applies. What is left is the contextual caution that the fault
+    # pre-dated the visit - one atomic fact (fault_pre_existing), not yet asked.
+    do_not_use_when: {always: false}
+    advisory_when: {is: fault_pre_existing}
     core_proposition: "Consider whether an unforeseen supervening event outside the relevant party's control made contractual performance/departure impossible or materially prevented it. Frame as a substantive contractual issue where facts support it, not merely a plea for discretion."
     required_facts: [vehicle_immobilised, immobilisation_cause, immobilisation_prevented_departure]
     evidence_helpful: [RECOVERY_REPORT, GARAGE_INVOICE, CALL_LOG, PHOTO]
@@ -712,8 +729,13 @@ modules:
     use_when: {all: [{is: independent_evidence_contradicts}, {any: [{has_evidence: DASHCAM}, {has_evidence: PHOTO}, {has_evidence: RECEIPT}, {has_evidence: LOCATION_RECORD}, {has_evidence: BANK_STATEMENT}]}]}
     # A shopping receipt that leaves parking validation UNKNOWN is inconclusive,
     # not contradictory. Never promote inconclusive evidence into this ground.
+    # Excluded only when a receipt is what is being relied on and it leaves
+    # validation UNKNOWN. shopping_purchase_confirmed is derived from the uploaded
+    # evidence (True with a receipt, False without one), so the exclusion is
+    # settled either way; the validation outcome itself has no source yet.
     do_not_use_when:
-      any:
+      all:
+        - {is: shopping_purchase_confirmed}
         - {eq: [parking_validation_status, "UNKNOWN"]}
     core_proposition: "Give the independent evidence appropriate weight and require the operator to reconcile the contradiction."
     required_facts: [independent_evidence_contradicts]
@@ -819,7 +841,10 @@ modules:
     route: AUTHORISATION
     topic: "Underlying authorisation"
     use_when: {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}
-    do_not_use_when: {is: lease_parking_clause_found}
+    # Excluded when the supplied lease was read and holds a parking clause. With no
+    # lease supplied there is nothing to be excluded by (and nothing is claimed about
+    # what a lease says); a lease supplied but unreadable leaves it open.
+    do_not_use_when: {all: [{is: lease_evidence_provided}, {is: lease_parking_clause_found}]}
     core_proposition: "Analyse the underlying permission before treating an admin/display mismatch as absence of authority."
     required_facts: [authorisation_source, parking_event_date, vrm]
     evidence_helpful: [PERMIT, CORRESPONDENCE, BOOKING, RECEIPT]
@@ -841,7 +866,10 @@ modules:
     route: AUTHORISATION
     topic: "Permit held / digital permit"
     use_when: {is: permit_held}
-    do_not_use_when: {is: lease_parking_clause_found}
+    # Excluded when the supplied lease was read and holds a parking clause. With no
+    # lease supplied there is nothing to be excluded by (and nothing is claimed about
+    # what a lease says); a lease supplied but unreadable leaves it open.
+    do_not_use_when: {all: [{is: lease_evidence_provided}, {is: lease_parking_clause_found}]}
     core_proposition: "Require operator to check physical/digital permit and whitelist records; distinguish entitlement from display/registration administration."
     required_facts: [permit_held]
     evidence_helpful: [PERMIT]

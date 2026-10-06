@@ -64,7 +64,11 @@ POSTCODE, TRADE_BODY = "site_postcode", "operator_ata"
 
 # Case-integrity issues: the case cannot be decided until the customer resolves
 # them, so they outrank every ground and need no KB module.
-INTEGRITY_SOURCES = frozenset({CONFLICT, CONFIRMATION})
+# An account the customer wrote that cannot yet be represented without guessing
+# (semantics/understanding.py). It stands on no knowledge-base module: it is
+# asked because the case cannot be understood until it is answered.
+UNDERSTANDING = "customer_understanding"
+INTEGRITY_SOURCES = frozenset({CONFLICT, CONFIRMATION, UNDERSTANDING})
 # Administrative unlocks: the source has already computed, deterministically,
 # which in-force modules the answer would open (recovery.postcode_unlocks,
 # AnalysisEngine._ata_would_unlock). The authority checks those modules exist
@@ -117,7 +121,7 @@ OPERATOR_HELD = re.compile(
     r"(?:validation_log|landowner|signage_plan|anpr_raw|authority_|camera_|operator_records|"
     r"contract_with)", re.I)
 DRIVER_IDENTITY = re.compile(
-    r"\b(?:who was (?:driving|the driver)|name of the driver|were you (?:the )?driv|"
+    r"\b(?:who was (?:driving|the driver)|name of the driver|were you (?:the )?driv\w*|"
     r"driver'?s (?:name|identity|address)|identify the driver)\b", re.I)
 
 EFFORT = {"bool": 0, "choice": 1, "int": 2, "date": 2, "text": 3}

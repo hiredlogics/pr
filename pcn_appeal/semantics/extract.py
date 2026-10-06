@@ -471,10 +471,19 @@ def _sanitize_relevance(raw: list, errors: Optional[list] = None) -> list[dict]:
 
 
 def _llm_extract_product(texts: list[str], llm, *,
-                         confirmed_facts: Optional[dict] = None) -> dict:
-    """Full semantic_extraction product (concepts + unmapped meaning channels)."""
+                         confirmed_facts: Optional[dict] = None,
+                         history: Optional[list[dict]] = None, case=None) -> dict:
+    """Full semantic_extraction product (concepts + unmapped meaning channels,
+    plus the understanding verdict: status, summary, uncertainties and at most
+    one clarification).
+
+    `history` is the clarifications already answered. The account and every
+    answer are read together; an answer is never read alone.
+    """
     from .. import prompts
     from .state import _json_safe
+    history = list(history or [])
+    answer_texts = {str(h.get("answer") or "").strip() for h in history}
     # Fact values are not all JSON primitives: a notice date arrives here as a
     # datetime.date once extraction has parsed it. Serializing the payload raw
     # raised TypeError for every case holding one, and the caller's except
@@ -497,8 +506,23 @@ def _llm_extract_product(texts: list[str], llm, *,
             k: v for k, v in (confirmed_facts or {}).items()
             if v is not None
         }),
-        "customer_texts": [str(t)[:800] for t in texts if str(t).strip()],
+        # The notice the account is about. The allegation is what the customer's
+        # account is read against; the model is never shown knowledge-base ids.
+        "notice_allegation": (confirmed_facts or {}).get("alleged_breach"),
+        "customer_texts": [str(t)[:800] for t in texts
+                           if str(t).strip() and str(t).strip() not in answer_texts],
+        "clarification_history": [
+            {"question": h.get("question"), "ambiguity": h.get("ambiguity"),
+             "answer": str(h.get("answer") or "")[:800]} for h in history],
         "output_schema": {
+            "status": "UNDERSTOOD|NEEDS_CLARIFICATION",
+            "summary": "short normalized factual meaning of the whole account",
+            "uncertainties": [{"about": "what the customer is unsure of or left open",
+                               "source_text": "verbatim span"}],
+            "clarification": None,
+            "clarification_when_needed": {
+                "question": "one plain contextual question",
+                "ambiguity": "the exact meaning that cannot safely be determined"},
             "concepts": [{
                 "concept": "ONTOLOGY_ID",
                 "polarity": "AFFIRMED|NEGATED|UNCERTAIN",
@@ -548,12 +572,22 @@ def _llm_extract_product(texts: list[str], llm, *,
             "Never emit KB module ids, legal grounds, legal conclusions, or outcomes.",
         ],
     }
-    out = llm.complete_json(
-        task="semantic_extraction",
-        system=prompts.system("semantic_extraction"),
-        user=json.dumps(payload, default=str),
-    ) or {}
-    return _normalize_product(out)
+    user = json.dumps(payload, default=str)
+
+    def call():
+        return llm.complete_json(
+            task="semantic_extraction",
+            system=prompts.system("semantic_extraction"),
+            user=user)
+    if case is not None:
+        # The same account read against the same context is the same reading:
+        # a refresh or a second pass replays it instead of asking again, which
+        # is also what stops one input from receiving two different verdicts.
+        from ..document_read import input_digest, memo_call
+        out = memo_call(case, "semantic_extraction", input_digest(user, None), call)
+    else:
+        out = call()
+    return _normalize_product(out or {})
 
 
 # Every top-level channel the contract promises. A response that omits one (an
@@ -599,6 +633,12 @@ def _normalize_product(out: Any) -> dict:
             _rows("relationships"), errors, known_ids=local_ids),
         "material_relevance": _sanitize_relevance(_rows("material_relevance"), errors),
         "schema_errors": errors,
+        # The understanding verdict is carried through unjudged; the packet
+        # builder (understanding.build_packet) applies the contract to it.
+        "status": out.get("status"),
+        "summary": out.get("summary"),
+        "uncertainties": out.get("uncertainties"),
+        "clarification": out.get("clarification"),
     }
 
 
@@ -615,7 +655,8 @@ def extract_concepts(texts: list[str], llm=None,
 
 
 def extract_semantic_product(texts: list[str], llm=None,
-                             confirmed_facts: Optional[dict] = None) -> dict:
+                             confirmed_facts: Optional[dict] = None,
+                             history: Optional[list[dict]] = None, case=None) -> dict:
     """Full semantic product: controlled concepts + unmapped meaning channels."""
     helpers = extract_concepts_deterministic(texts)
     llm_product: dict = {
@@ -631,7 +672,8 @@ def extract_semantic_product(texts: list[str], llm=None,
     if llm is not None:
         try:
             llm_product = _llm_extract_product(
-                texts, llm, confirmed_facts=confirmed_facts)
+                texts, llm, confirmed_facts=confirmed_facts,
+                history=history, case=case)
             used_llm = True
         except Exception as exc:
             # Falling back to the offline bridge is a real loss of semantic
@@ -653,8 +695,22 @@ def extract_semantic_product(texts: list[str], llm=None,
             llm_product["concepts"] = bridge
         except Exception:
             llm_product["concepts"] = []
-    concepts = _merge_concepts(list(llm_product.get("concepts") or []), helpers)
+    model_concepts = list(llm_product.get("concepts") or [])
+    if used_llm and (model_concepts or llm_product.get("events")
+                     or llm_product.get("narrative_atoms")):
+        # The model read the account, so its reading stands. The phrase helpers
+        # are a floor for a read that did not happen (or came back empty); run
+        # beside a successful read they could turn the model's NEGATED or
+        # UNCERTAIN into AFFIRMED on a matching word, which is keyword
+        # matching overruling meaning.
+        concepts = model_concepts
+    else:
+        concepts = _merge_concepts(model_concepts, helpers)
     return {
+        "status": llm_product.get("status"),
+        "summary": llm_product.get("summary"),
+        "uncertainties": llm_product.get("uncertainties"),
+        "clarification": llm_product.get("clarification"),
         "concepts": concepts,
         "events": list(llm_product.get("events") or []),
         "narrative_atoms": list(llm_product.get("narrative_atoms") or []),
@@ -691,13 +747,52 @@ def derive_multiple_visits_concept(concepts: list[SemanticConcept]) -> list[Sema
     )]
 
 
+def read_account(case, texts: list[str], llm=None) -> tuple[dict, list[dict]]:
+    """The one model reading of the customer's account (replayed if unchanged),
+    with the clarifications already answered. Writes nothing to the case: it is
+    what the readiness of the customer stream is decided from."""
+    from . import understanding
+    if not any(str(t).strip() for t in texts or ()):
+        # No account was written: nothing to read, no model call, and no
+        # reading to gate. The customer stream is simply empty.
+        return {"no_account": True, "concepts": [], "events": [], "narrative_atoms": [],
+                "relationships": [], "material_relevance": [], "schema_errors": [],
+                "semantic_mode": SEMANTIC_FALLBACK}, []
+    confirmed = {}
+    for name, node in (getattr(case, "facts", None) or {}).items():
+        if getattr(node, "usable", False):
+            confirmed[name] = node.value
+    history = understanding.answered(understanding.clarification_history(case))
+    product = extract_semantic_product(
+        list(texts or []), llm=llm, confirmed_facts=confirmed,
+        history=history, case=case)
+    return product, history
+
+
+def customer_stream_ready(product: dict, history: list[dict]) -> bool:
+    """Whether this reading lets the customer's account be used."""
+    from . import understanding
+    if product.get("no_account"):
+        return True
+    return understanding.is_ready(understanding.build_packet(product, history))
+
+
 def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
-                        narrative_atoms: Optional[list[dict]] = None) -> dict:
+                        narrative_atoms: Optional[list[dict]] = None,
+                        product: Optional[dict] = None,
+                        history: Optional[list[dict]] = None) -> dict:
     """Run extraction and write affirmed concepts into FactManager before questions.
 
     Sole free-text → fact promotion path for ontology-owned facts. Builds
     SemanticCaseState, runs material consistency, stamps the fact revision for
     knowledge / Claim Plan handoff.
+
+    The customer-account stream is used only when the reading is ready
+    (understanding.is_ready). When it is not, nothing the account says is
+    promoted to a fact or stored where knowledge retrieval reads it: the
+    account, its concepts, events, atoms and the packet are kept - held, not
+    consumed - and a facts promoted by an earlier, ready reading are withdrawn.
+    The notice's own facts and every independent finding are unaffected.
     """
     from ..engines.account import apply_fact_delta
     from ..models import Fact, FactSource, FactStatus, SourceKind
@@ -708,26 +803,37 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
     if texts is None:
         from ..engines.account import _collect_customer_texts
         texts = _collect_customer_texts(case)
-    confirmed = {}
-    for name, node in (getattr(case, "facts", None) or {}).items():
-        if getattr(node, "usable", False):
-            confirmed[name] = node.value
     from .state import SEMANTIC_OWNED_FACTS
 
-    product = extract_semantic_product(
-        list(texts or []), llm=llm, confirmed_facts=confirmed)
+    from . import understanding
+    if product is None:
+        product, history = read_account(case, list(texts or []), llm)
+    history = list(history or [])
+    ready = customer_stream_ready(product, history)
     concepts = derive_multiple_visits_concept(list(product.get("concepts") or []))
     # Preserve unmapped / uncertain / frame-level meaning as narrative atoms.
     # LLM atoms (no ontology id) merge with heuristic atoms — never discarded.
-    from .atoms import collect_narrative_atoms, merge_atoms
-    narrative_atoms = collect_narrative_atoms(
-        list(texts or []), concepts,
-        existing=merge_atoms(
-            list(narrative_atoms or []),
-            list(product.get("narrative_atoms") or []),
-        ))
-    intended = concepts_to_intended_facts(concepts)
+    from .atoms import (
+        atoms_from_unpromoted_concepts, collect_narrative_atoms, merge_atoms,
+    )
+    model_atoms = merge_atoms(
+        list(narrative_atoms or []),
+        list(product.get("narrative_atoms") or []),
+    )
+    if product.get("semantic_mode") == SEMANTIC_LIVE and (model_atoms or product.get("events")):
+        # The model read the account; the clause-frame reader (hand-written
+        # phrase patterns) is the fallback for when it did not, and does not
+        # run beside a successful read as a second, competing understanding.
+        narrative_atoms = merge_atoms(
+            model_atoms, atoms_from_unpromoted_concepts(concepts))
+    else:
+        narrative_atoms = collect_narrative_atoms(
+            list(texts or []), concepts, existing=model_atoms)
+    # Only a ready reading promotes what the customer said into facts.
+    intended = concepts_to_intended_facts(concepts) if ready else {}
     # Preserve non-ontology free-text facts (e.g. departure_reason) across delta.
+    # A customer's own answer to a question is kept either way; what was only
+    # read out of their free text is kept only while the reading is ready.
     delta_intended = dict(intended)
     for name, node in list((getattr(case, "facts", None) or {}).items()):
         if name in SEMANTIC_OWNED_FACTS:
@@ -735,9 +841,11 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         if getattr(node, "value", None) in (None, "", []):
             continue
         src = getattr(getattr(node, "source", None), "kind", None)
-        if src in (SourceKind.CUSTOMER_FREE_TEXT, SourceKind.ANSWER):
+        keep = (SourceKind.CUSTOMER_FREE_TEXT, SourceKind.ANSWER) if ready \
+            else (SourceKind.ANSWER,)
+        if src in keep:
             delta_intended.setdefault(name, node.value)
-    delta = apply_fact_delta(case, delta_intended) if delta_intended else {}
+    delta = apply_fact_delta(case, delta_intended) if (delta_intended or not ready) else {}
     for name, value in intended.items():
         existing = case.facts.get(name)
         if existing and existing.usable and existing.source.kind in (
@@ -770,9 +878,33 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         for c in (case.fact_conflicts or [])
         if c.get("rule") == "material_consistency" and c.get("status") != "RESOLVED"
     ] or state.contradictions
-    attach_semantic_state(case, state)
-    case.raw_answers["_semantic_concepts"] = json.dumps(
+    attach_semantic_state(case, state, held=not ready)
+    # The packet the knowledge phase consumes: what happened, why, in what
+    # order, what relates to what, what is uncertain or negated - or the one
+    # question that must be answered first.
+    product = {**product, "concepts": concepts,
+               "narrative_atoms": list(narrative_atoms or [])}
+    if product.get("no_account"):
+        packet = {"not_ready_reason": None}
+    else:
+        packet = understanding.remember(
+            case, understanding.build_packet(product, history, revision))
+    # The concept list handoff reads is the customer stream's; held when not ready.
+    concept_key = "_semantic_concepts" if ready else "_semantic_concepts_held"
+    case.raw_answers.pop("_semantic_concepts" if not ready else "_semantic_concepts_held", None)
+    case.raw_answers[concept_key] = json.dumps(
         [c.as_dict() for c in concepts])[:8000]
+    if not ready:
+        case.audit.append({
+            "event": "CUSTOMER_SEMANTICS_NOT_READY",
+            "reason": packet.get("not_ready_reason"),
+            "status": packet.get("status"),
+            "ambiguity_assessed": packet.get("ambiguity_assessed"),
+            "open_material_ambiguities": len(packet.get("open_material_ambiguities") or []),
+            "held": ["customer facts promoted from the account", "semantic state",
+                     "narrative atoms"],
+            "kept": ["customer text", "clarification history", "packet", "uncertainties"],
+        })
     case.raw_answers["_semantic_fact_revision"] = str(
         len(getattr(case, "fact_history", None) or []))
     case.audit.append({

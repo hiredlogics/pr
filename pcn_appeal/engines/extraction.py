@@ -21,6 +21,7 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 from .. import prompts
+from ..document_read import input_digest, memo_call, store_document_read_result
 from ..llm import LLMClient
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, SourceKind
 from ..rules import scope
@@ -355,8 +356,12 @@ class ExtractionEngine:
         if manifest:
             docs += ("\n\n<attached_images>\nThese images are pages of the documents above, in order.\n"
                      + "\n".join(manifest) + "\n</attached_images>")
-        out = self.llm.complete_json(task="extraction", system=prompts.system("extraction"),
-                                     user=docs, images=images or None)
+        # One primary read per revision of the pages. A pass over pages that have
+        # not changed replays the stored answer instead of reading them again.
+        out = memo_call(case, "extraction", input_digest(docs, images),
+                        lambda: self.llm.complete_json(
+                            task="extraction", system=prompts.system("extraction"),
+                            user=docs, images=images or None))
 
         # Engine 0: the classification the routing gate decides on. Kept on the
         # case as well as on the evidence because downstream code reassigns
@@ -581,6 +586,7 @@ class ExtractionEngine:
             f"identity:{k}={v}" for k, v in sorted((id_state.field_status or {}).items())
         )
 
+        store_document_read_result(case)
         case.state = CaseState.EXTRACTED
         return flags
 

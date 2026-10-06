@@ -42,7 +42,8 @@ class EligibilityResult:
 
 def _concepts_present(case) -> set[str]:
     import json
-    raw = (case.raw_answers or {}).get("_semantic_concepts")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_concepts")
     if not raw:
         return set()
     try:

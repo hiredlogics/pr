@@ -204,6 +204,15 @@ class NoBypassOrPhraseRulesTests(unittest.TestCase):
         src = pathlib.Path("pcn_appeal/orchestrator.py").read_text(encoding="utf-8")
         self.assertIn("SemanticCaseResolver", src)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

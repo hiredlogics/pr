@@ -48,7 +48,8 @@ def kb_digest(kg) -> str:
         return cached
     modules = sorted((m.module_id, m.version, m.status, m.strength, m.route,
                       json.dumps(m.use_when, sort_keys=True, default=str),
-                      json.dumps(m.do_not_use_when, sort_keys=True, default=str))
+                      json.dumps(m.do_not_use_when, sort_keys=True, default=str),
+                      json.dumps(getattr(m, "advisory_when", None), sort_keys=True, default=str))
                      for m in kg.modules.values())
     blocks = sorted((b.block_id, b.status, _sha(b.text)) for b in kg.blocks.values())
     digest = _sha({"modules": modules, "blocks": blocks})

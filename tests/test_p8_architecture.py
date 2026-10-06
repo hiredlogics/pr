@@ -1031,6 +1031,15 @@ class P86JoinedIntegrity(unittest.TestCase):
         )
         self.assertGreaterEqual(sqlite_store.count(db, "audit_log"), 1)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

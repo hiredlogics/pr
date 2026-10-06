@@ -200,12 +200,18 @@ class AppealPipeline:
         ]
         hypothesis = [dict(q, source=HYPOTHESIS)
                       for q in Hypotheses.questions(case, self._could_change_a_ground)]
-        candidates = conflict + confirm + identity_qs + hypothesis + list(analysis.questions)
+        # Phase 2: an account that cannot be understood without guessing is
+        # clarified first, because everything after it reads what it means.
+        from .semantics import understanding
+        clarify = [dict(q, source=understanding.SOURCE)
+                   for q in understanding.pending_question(case)]
+        candidates = (clarify + conflict + confirm + identity_qs + hypothesis
+                      + list(analysis.questions))
         candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
         # Materiality gate: suppress background / already-resolved questions.
         # Integrity conflicts and FactManager confirmations always remain.
         from .engines.question_materiality import filter_material
-        integrity = {CONFLICT, CONFIRMATION}
+        integrity = {CONFLICT, CONFIRMATION, understanding.SOURCE}
         must = [q for q in candidates if q.get("source") in integrity]
         rest = [q for q in candidates if q.get("source") not in integrity]
         keep, suppressed = filter_material(case, self.kg, rest)
@@ -937,10 +943,44 @@ class AppealPipeline:
             case.audit.append({"event": "held_needs_site_postcode", "unlocks": unlocks,
                                "module_ids": list(pack.module_ids or [])})
         else:
-            # Authoritative no-grounds terminal: state + outcome agree.
-            case.state = CaseState.NO_SUPPORTED_GROUNDS
-            case.audit.append({"event": "analysis_complete_no_supported_grounds",
-                               "module_ids": list(pack.module_ids or []), "reason": reason})
+            from .semantics import understanding
+            blocked = understanding.customer_stream_blocked(case)
+            pending = understanding.pending_question(case)
+            if blocked == "CLARIFICATION_REQUIRED" and pending:
+                # The account is not usable yet and the customer can still be
+                # asked: nothing has been judged, so this is a request for detail.
+                case.state = CaseState.MANUAL_REVIEW
+                case.pending_questions = customer_safe.customer_questions(pending)
+                case.audit.append({"event": "held_customer_clarification",
+                                   "customer_semantics_not_ready": blocked,
+                                   "module_ids": list(pack.module_ids or []),
+                                   "questions": [q["fact"] for q in pending]})
+            elif blocked and understanding.customer_stream_failure(case) == understanding.TECHNICAL:
+                # No model reading of the account was made. We know nothing about
+                # it - not that it is ambiguous, not that it fails to support a
+                # ground - so this is a retryable processing hold. The account is
+                # kept; continuing the case reads it again.
+                case.state = CaseState.MANUAL_REVIEW
+                case.audit.append({
+                    "event": "held_semantic_processing",
+                    "customer_semantics_not_ready": blocked,
+                    "cause": understanding.technical_cause(understanding.load_packet(case)),
+                    "module_ids": list(pack.module_ids or []), "reason": reason})
+            elif blocked:
+                # Nothing independent of the account supported a ground, and the
+                # account could not be understood well enough to weigh. That is
+                # not "no supported grounds": the account is kept, unjudged.
+                case.state = CaseState.MANUAL_REVIEW
+                case.audit.append({"event": "held_account_unresolved",
+                                   "customer_semantics_not_ready": blocked,
+                                   "module_ids": list(pack.module_ids or []),
+                                   "reason": reason})
+            else:
+                # Authoritative no-grounds terminal: state + outcome agree. The
+                # account (if any) was understood, and everything was weighed.
+                case.state = CaseState.NO_SUPPORTED_GROUNDS
+                case.audit.append({"event": "analysis_complete_no_supported_grounds",
+                                   "module_ids": list(pack.module_ids or []), "reason": reason})
         return _with_outcome(
             AppealOutput(case.state, None, pack, Draft(case.case_id, []),
                          ValidationResult(False, []), self._evidence_list(case)),
