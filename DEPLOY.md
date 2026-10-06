@@ -1,6 +1,19 @@
 # Deploying
 
-## Quick path: both halves on Vercel (testing)
+## Current deployment: Railway backend and Vercel frontend
+
+The current deployment uses Railway service `api-p7` for the backend and Vercel
+project `pcn-appeal-p75` for the frontend. Set the frontend's production
+`PCN_API_URL=https://api-p7-production.up.railway.app` and
+`NEXT_PUBLIC_UPLOAD_MODE=blob`, then redeploy it. Blank values do not work.
+
+The root `vercel.json` preserves the old `pcn-appeal-p75-api.vercel.app` address
+as an external rewrite to Railway; it does not build a Python function. Its root
+path serves backend health. The Python Dockerfile and `railway.json` deploy the
+backend with `/health` as Railway's readiness check. The instructions below for
+a separate Python function are historical and require their own configuration.
+
+## Historical setup: both halves on Vercel (testing)
 
 Two Vercel projects from one repository, because the Next app and the Python
 function want different root directories.

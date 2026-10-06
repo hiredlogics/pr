@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { backendUrl } from "@/lib/backend";
 
 /**
  * Admin-only proxy. Injects ADMIN_TRACE_TOKEN server-side. Never reachable
@@ -9,7 +10,7 @@ import { cookies } from "next/headers";
  *   cases/{id}/console|compare|report|audit|execution-trace|claim-plans|trace
  *   api/db/*  (PostgreSQL + pgvector live explorer — read-only)
  */
-const BACKEND = process.env.PCN_API_URL ?? "http://127.0.0.1:8077";
+const BACKEND = backendUrl();
 export const dynamic = "force-dynamic";
 
 const COOKIE = "pcn_admin_trace";
@@ -79,6 +80,13 @@ async function forward(req: NextRequest, path: string[]): Promise<Response> {
   }
   if (!allowed(path)) {
     return Response.json({ detail: { message: "Not found." } }, { status: 404 });
+  }
+  if (!BACKEND) {
+    console.error("[admin proxy] PCN_API_URL is missing or empty in production");
+    return Response.json(
+      { detail: { message: "The appeal service is temporarily unavailable." } },
+      { status: 503 },
+    );
   }
 
   const target = `${BACKEND}/${upstreamPath(path).split("/").map(encodeURIComponent).join("/")}${req.nextUrl.search}`;

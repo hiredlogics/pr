@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { backendUrl } from "@/lib/backend";
 
 /**
  * Catch-all proxy to the FastAPI app. The browser only ever talks to Next:
@@ -7,7 +8,7 @@ import { NextRequest } from "next/server";
  * The raw body is forwarded byte-for-byte so multipart boundaries survive
  * untouched - re-encoding a FormData here would risk mangling uploads.
  */
-const BACKEND = process.env.PCN_API_URL ?? "http://127.0.0.1:8077";
+const BACKEND = backendUrl();
 
 // Uploads are user photos; don't let Next cache any of this.
 export const dynamic = "force-dynamic";
@@ -64,6 +65,13 @@ function allowed(method: string, path: string[]): boolean {
 async function forward(req: NextRequest, path: string[]): Promise<Response> {
   if (!allowed(req.method, path)) {
     return Response.json({ detail: { message: "Not found." } }, { status: 404 });
+  }
+  if (!BACKEND) {
+    console.error("[proxy] PCN_API_URL is missing or empty in production");
+    return Response.json(
+      { detail: { message: "The appeal service is temporarily unavailable." } },
+      { status: 503 },
+    );
   }
   const target = `${BACKEND}/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
 
