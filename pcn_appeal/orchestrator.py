@@ -200,12 +200,18 @@ class AppealPipeline:
         ]
         hypothesis = [dict(q, source=HYPOTHESIS)
                       for q in Hypotheses.questions(case, self._could_change_a_ground)]
-        candidates = conflict + confirm + identity_qs + hypothesis + list(analysis.questions)
+        # Phase 2: an account that cannot be understood without guessing is
+        # clarified first, because everything after it reads what it means.
+        from .semantics import understanding
+        clarify = [dict(q, source=understanding.SOURCE)
+                   for q in understanding.pending_question(case)]
+        candidates = (clarify + conflict + confirm + identity_qs + hypothesis
+                      + list(analysis.questions))
         candidates += self._site_postcode_question(case, analysis.module_ids, candidates)
         # Materiality gate: suppress background / already-resolved questions.
         # Integrity conflicts and FactManager confirmations always remain.
         from .engines.question_materiality import filter_material
-        integrity = {CONFLICT, CONFIRMATION}
+        integrity = {CONFLICT, CONFIRMATION, understanding.SOURCE}
         must = [q for q in candidates if q.get("source") in integrity]
         rest = [q for q in candidates if q.get("source") not in integrity]
         keep, suppressed = filter_material(case, self.kg, rest)

@@ -33,14 +33,34 @@ prompts:
   #     one and the omission read downstream as "nothing material was found".
   #     All five are now mandatory, [] when empty, and ids are declared local to
   #     one response so a relationship cannot point at an id never emitted.
+  # v3 -> v4 (Phase 2, customer understanding): the reading now also states
+  #   whether the account is understood. It adds status / summary /
+  #   uncertainties / clarification to the existing five arrays, sees the
+  #   notice's allegation and any earlier clarification answers, and may ask
+  #   ONE plain question only for a genuine ambiguity. The arrays and their
+  #   rules are unchanged.
   semantic_extraction:
-    version: 3
+    version: 4
     body: |-
       You extract factual meaning from a UK private-parking customer's free-text
       account. Reason from MEANING, not keywords or phrase lists.
 
+      You are given the notice the account answers (notice_allegation and
+      confirmed_facts), the customer's own words (customer_texts), and any
+      clarification already put to the customer (clarification_history: the
+      question, the ambiguity it resolved, and the customer's answer). Read the
+      account and every answer TOGETHER, in the context of the notice. An
+      answer is part of the account; it never replaces it.
+
       Return EXACTLY this JSON shape:
       {
+        "status": "UNDERSTOOD|NEEDS_CLARIFICATION",
+        "summary": "<short normalized factual meaning of the whole account>",
+        "uncertainties": [
+          {"about": "<what the customer is unsure of or left open>",
+           "source_text": "<short verbatim span>"}
+        ],
+        "clarification": null,
         "concepts": [
           {
             "concept": "<one allowed ontology id>",
@@ -89,6 +109,38 @@ prompts:
       }
 
       Rules:
+        - STATUS. Return UNDERSTOOD whenever enough meaning exists to represent
+          the account, and then "clarification" MUST be null. Short text can
+          have clear meaning. Spelling mistakes, poor grammar and incomplete
+          sentences are not ambiguity: read the intended meaning. Do not ask
+          for legal terminology, for background that only makes the story
+          longer, or for anything the notice already shows.
+        - Return NEEDS_CLARIFICATION only when the customer's words support two
+          or more MATERIALLY DIFFERENT readings of what happened - for example
+          an unresolved pronoun or cause that changes who did what or why, or
+          two statements that cannot both be true - and choosing one would be
+          guessing. Then "clarification" is exactly
+          {"question": "<one plain, contextual question the customer can
+          answer in their own words>", "ambiguity": "<the exact meaning that
+          cannot safely be determined>"}. Ask ONE question, never several. The
+          question must not ask who was driving, must not use legal terms, and
+          must not mention knowledge-base or ground identifiers.
+        - Never repeat a question that clarification_history already holds. If
+          the answer settles the ambiguity, return UNDERSTOOD. If the customer
+          answered "not sure" or the answer does not settle it, return
+          UNDERSTOOD and record what is still open in uncertainties.
+        - summary is factual meaning only: what happened, why, in what order. No
+          legal conclusion, no ground, no advice.
+        - uncertainties[]: everything the customer says they are unsure of,
+          cannot remember, or states only as a possibility. Never turn it into a
+          confirmed event.
+        - NEGATION AND UNCERTAINTY SURVIVE: "did not", "never", "wasn't sure"
+          set polarity NEGATED or UNCERTAIN on the event / atom / concept they
+          apply to. Conflicting statements are both recorded and joined with a
+          CONTRADICTS relationship; if the conflict cannot be reconciled and
+          matters to what happened, that is an ambiguity to clarify.
+        - Record TEMPORAL ORDER and CAUSE with PRECEDES / FOLLOWS / CAUSES, and
+          keep each event's specific activity, reason and object.
         - ALWAYS return all five arrays: concepts, events, narrative_atoms,
           relationships, material_relevance. Use [] where nothing applies.
           Never omit one of these keys.

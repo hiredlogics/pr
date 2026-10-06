@@ -106,6 +106,14 @@ class QuestionEngine:
         case.raw_answers[fact] = str(raw)                       # audit only (Q-06)
         if fact not in case.asked_questions:
             case.asked_questions.append(fact)
+        from ..semantics.understanding import is_clarification_fact
+        if is_clarification_fact(fact):
+            # A clarification answer is read with the account it clarifies by
+            # the semantic reading; it is not itself a fact.
+            case.audit.append({"event": "clarification_answered", "fact": fact,
+                               "chars": len(str(raw))})
+            case.state = CaseState.QUESTIONING
+            return
         t = q.get("type")
         if t == "bool":
             if isinstance(raw, bool):
