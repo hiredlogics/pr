@@ -376,14 +376,14 @@ class AnUnresolvedAccountWithNothingElseInventsNoAppeal(unittest.TestCase):
     def test_no_ground_and_no_letter(self):
         self.assertEqual(_ids(self.out), [])
         self.assertEqual(len(self.out.draft.paragraphs), 0)
-        self.assertEqual(self.out.state, CaseState.NO_SUPPORTED_GROUNDS)
+        self.assertNotEqual(self.out.state, CaseState.NO_SUPPORTED_GROUNDS)
 
     def test_it_is_held_as_unusable_account_not_as_a_weighed_and_rejected_one(self):
-        rows = [a for a in self.case.audit
-                if a.get("event") == "analysis_complete_no_supported_grounds"]
+        rows = _events(self.case, "held_account_unresolved")
         self.assertTrue(rows)
         self.assertIn(rows[-1].get("customer_semantics_not_ready"),
                       {"MATERIAL_AMBIGUITY", "CLARIFICATION_EXHAUSTED"})
+        self.assertEqual(_events(self.case, "analysis_complete_no_supported_grounds"), [])
 
     def test_the_customers_account_is_kept_for_the_next_round(self):
         self.assertEqual(self.case.raw_answers.get("narrative"), ACCOUNT_TEXT)

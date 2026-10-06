@@ -913,7 +913,8 @@ def _why_stopped(case, out, grounds, plan, pipeline, validation) -> Optional[dic
     if not reasons and state in ("RELEASED",):
         return None
     if not reasons and not blocking and outcome not in (
-            "NO_SUPPORTED_GROUNDS", "PROCESSING_ERROR", "NEEDS_DOCUMENTS", "NEEDS_FACTS"):
+            "NO_SUPPORTED_GROUNDS", "ACCOUNT_UNRESOLVED", "PROCESSING_ERROR", "NEEDS_DOCUMENTS",
+            "NEEDS_FACTS"):
         if state == "RELEASED":
             return None
     return {

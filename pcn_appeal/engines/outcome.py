@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 # Stable codes the API/UI map. Do not reuse as legal grounds.
 OUTCOME_NO_SUPPORTED_GROUNDS = "NO_SUPPORTED_GROUNDS"
+OUTCOME_ACCOUNT_UNRESOLVED = "ACCOUNT_UNRESOLVED"
 OUTCOME_PROCESSING_ERROR = "PROCESSING_ERROR"
 OUTCOME_NEEDS_DOCUMENTS = "NEEDS_DOCUMENTS"
 OUTCOME_NEEDS_FACTS = "NEEDS_FACTS"
@@ -30,6 +31,23 @@ CUSTOMER_COPY = {
         "next": (
             "You can still appeal to the operator using the method on your "
             "notice. If they reject it, you can take it to their appeals service."
+        ),
+        "cta": "Add more detail to this case",
+        "can_continue": True,
+    },
+    # NO_SUPPORTED_GROUNDS says the information we have was understood and weighed.
+    # This says it was not: the account is kept, nothing was judged either way.
+    OUTCOME_ACCOUNT_UNRESOLVED: {
+        "title": "We could not settle what your account means for the appeal",
+        "lede": (
+            "We have not been able to work out, with enough confidence, what "
+            "happened from the account we have, so we have not judged it either "
+            "way. That is not a finding that you have no case. Your account is "
+            "saved on this case."
+        ),
+        "next": (
+            "Add or clarify what happened on this same case, or appeal to the "
+            "operator in your own words using the method on your notice."
         ),
         "cta": "Add more detail to this case",
         "can_continue": True,
@@ -87,6 +105,28 @@ CUSTOMER_COPY = {
         "can_continue": True,
     },
 }
+
+
+def no_ground_outcome(case, detail: Any = None) -> dict[str, Any]:
+    """The outcome for a case with nothing to argue.
+
+    NO_SUPPORTED_GROUNDS means the available information was understood and
+    weighed and nothing could be argued. It is never the outcome of an account
+    that could not be understood: while the customer's account is not usable
+    (understanding.customer_stream_blocked) the case is either waiting on a
+    clarification that can still be asked, or ACCOUNT_UNRESOLVED. The internal
+    reason stays in `detail`; the customer copy never carries it.
+    """
+    from ..semantics import understanding
+    reason = understanding.customer_stream_blocked(case)
+    if not reason:
+        return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case, detail=detail)
+    info = {"customer_semantics_not_ready": reason}
+    pending = understanding.pending_question(case)
+    if reason == "CLARIFICATION_REQUIRED" and pending:
+        return _pack(OUTCOME_NEEDS_FACTS, case,
+                     detail=dict(info, missing=[q["fact"] for q in pending]))
+    return _pack(OUTCOME_ACCOUNT_UNRESOLVED, case, detail=info)
 
 
 def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
@@ -167,9 +207,14 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
     if "held_needs_site_postcode" in events and not case.has("site_postcode"):
         return _pack(OUTCOME_NEEDS_FACTS, case, detail={"missing": ["site_postcode"]})
 
+    # The customer's account could not be used and nothing independent of it
+    # supported a ground: not a finding about the case.
+    if "held_account_unresolved" in events or "held_customer_clarification" in events:
+        return no_ground_outcome(case)
+
     # Truthful completed analysis with nothing to argue — set before drafting.
     if "analysis_complete_no_supported_grounds" in events:
-        return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case)
+        return no_ground_outcome(case)
 
     module_ids = list((pack.module_ids if pack else None) or case.analysis_module_ids or [])
     leading = _leading(case, module_ids)
@@ -184,16 +229,14 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
             return _pack(OUTCOME_PROCESSING_ERROR, case,
                          detail="val_substance_empty_pack")
         # Analysis finished with an empty selection and we never drafted.
-        return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case,
-                     detail={"module_ids": module_ids, "issues": issues})
+        return no_ground_outcome(case, detail={"module_ids": module_ids, "issues": issues})
 
     if not leading:
         # Support-only pack held after drafting/validation failure.
         if issues or events & {"no_ground", "no_ground_after_widen", "draft_error"}:
             return _pack(OUTCOME_PROCESSING_ERROR, case,
                          detail={"issues": issues, "module_ids": module_ids})
-        return _pack(OUTCOME_NO_SUPPORTED_GROUNDS, case,
-                     detail={"module_ids": module_ids, "issues": issues})
+        return no_ground_outcome(case, detail={"module_ids": module_ids, "issues": issues})
 
     # Had leading grounds but still held (validation etc.) → processing/validation.
     if issues:

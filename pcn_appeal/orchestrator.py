@@ -943,19 +943,33 @@ class AppealPipeline:
             case.audit.append({"event": "held_needs_site_postcode", "unlocks": unlocks,
                                "module_ids": list(pack.module_ids or [])})
         else:
-            # Authoritative no-grounds terminal: state + outcome agree.
-            case.state = CaseState.NO_SUPPORTED_GROUNDS
-            event = {"event": "analysis_complete_no_supported_grounds",
-                     "module_ids": list(pack.module_ids or []), "reason": reason}
-            # Nothing independent of the customer's account supported a ground, and
-            # the account itself was not usable: say so in the trace, so this is
-            # not read as the account having been weighed and found wanting. The
-            # account is kept; adding detail to this case reads it again.
             from .semantics import understanding
             blocked = understanding.customer_stream_blocked(case)
-            if blocked:
-                event["customer_semantics_not_ready"] = blocked
-            case.audit.append(event)
+            pending = understanding.pending_question(case)
+            if blocked == "CLARIFICATION_REQUIRED" and pending:
+                # The account is not usable yet and the customer can still be
+                # asked: nothing has been judged, so this is a request for detail.
+                case.state = CaseState.MANUAL_REVIEW
+                case.pending_questions = customer_safe.customer_questions(pending)
+                case.audit.append({"event": "held_customer_clarification",
+                                   "customer_semantics_not_ready": blocked,
+                                   "module_ids": list(pack.module_ids or []),
+                                   "questions": [q["fact"] for q in pending]})
+            elif blocked:
+                # Nothing independent of the account supported a ground, and the
+                # account could not be understood well enough to weigh. That is
+                # not "no supported grounds": the account is kept, unjudged.
+                case.state = CaseState.MANUAL_REVIEW
+                case.audit.append({"event": "held_account_unresolved",
+                                   "customer_semantics_not_ready": blocked,
+                                   "module_ids": list(pack.module_ids or []),
+                                   "reason": reason})
+            else:
+                # Authoritative no-grounds terminal: state + outcome agree. The
+                # account (if any) was understood, and everything was weighed.
+                case.state = CaseState.NO_SUPPORTED_GROUNDS
+                case.audit.append({"event": "analysis_complete_no_supported_grounds",
+                                   "module_ids": list(pack.module_ids or []), "reason": reason})
         return _with_outcome(
             AppealOutput(case.state, None, pack, Draft(case.case_id, []),
                          ValidationResult(False, []), self._evidence_list(case)),
