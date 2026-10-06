@@ -177,7 +177,7 @@ def run_case(spec: dict, make_llm, provider: str = "demo") -> dict:
     exp = spec["expect"]
     row["status_ok"] = exp == "EITHER" and got in ("UNDERSTOOD", "NEEDS_CLARIFICATION") or got == exp
     row["unnecessary_clarification"] = exp == "UNDERSTOOD" and got == "NEEDS_CLARIFICATION"
-    row["missed_ambiguity"] = exp == "NEEDS_CLARIFICATION" and got == "UNDERSTOOD"
+    row["missed_ambiguity"] = exp == "NEEDS_CLARIFICATION" and bool(p1.get("ready_for_knowledge"))
     row["one_clarification"] = (len(U.pending_question(case)) == 1) if got == "NEEDS_CLARIFICATION" else None
 
     row["resolved"] = row["repeat_attempted"] = row["repeat_shown"] = None
@@ -226,6 +226,8 @@ def _reasons(spec: dict, row: dict, p1: dict, score2) -> list[str]:
         out.append("unnecessary clarification: asked about an account that was already clear")
     if row["missed_ambiguity"]:
         out.append("missed material ambiguity: certified an account it could not safely read")
+    if exp == "NEEDS_CLARIFICATION" and got == "UNRESOLVED":
+        out.append("material ambiguity could not be asked about (UNRESOLVED, not ready)")
     if spec.get("ambiguity") == "MATERIAL" and p1.get("ready_for_knowledge"):
         out.append("READY_FOR_KNOWLEDGE with a material ambiguity unresolved")
     m = {k: v for k, v in row.items() if k.startswith("meaning_")}

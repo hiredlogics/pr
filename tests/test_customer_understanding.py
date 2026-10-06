@@ -125,19 +125,12 @@ class OneClarificationOnlyWhenGenuinelyAmbiguous(unittest.TestCase):
         self.assertEqual(U.pending_question(case), [])
         self.assertTrue(any("dropped" in n for n in p["notes"]))
 
-    def test_needs_clarification_without_a_question_is_read_as_understood(self):
+    def test_a_material_ambiguity_with_no_question_is_unresolved_not_understood(self):
         case = _case()
         _resolve(case, _reply("NEEDS_CLARIFICATION", None))
         p = U.load_packet(case)
-        self.assertEqual((p["status"], p["ready_for_knowledge"]), ("UNDERSTOOD", True))
+        self.assertEqual((p["status"], p["ready_for_knowledge"]), ("UNRESOLVED", False))
         self.assertTrue(any("not asked" in n for n in p["notes"]))
-
-    def test_an_unaskable_ambiguity_is_kept_as_an_uncertainty(self):
-        case = _case()
-        _resolve(case, _ask("Who was driving the car?", "it is unclear who drove"))
-        p = U.load_packet(case)
-        self.assertEqual(p["status"], "UNDERSTOOD")
-        self.assertIn("it is unclear who drove", [u["about"] for u in p["uncertainties"]])
 
     def test_a_question_about_the_driver_is_never_asked(self):
         for q in ("Who was driving?", "Were you driving at the time?",
@@ -191,7 +184,8 @@ class AnswerIsReadWithTheAccount(unittest.TestCase):
         pipe.questions.record_answer(case, "account_clarification_1", "not sure")
         SemanticCaseResolver.resolve(case, llm=pipe.llm, narrative=case.raw_answers["narrative"])
         self.assertEqual(_sent(llm)["clarification_history"][0]["answer"], "not sure")
-        self.assertEqual(U.load_packet(case)["status"], "UNDERSTOOD")
+        p = U.load_packet(case)
+        self.assertEqual((p["status"], p["ready_for_knowledge"]), ("UNRESOLVED", False))
 
 
 class NothingIsAskedTwice(unittest.TestCase):
@@ -209,13 +203,15 @@ class NothingIsAskedTwice(unittest.TestCase):
     def test_the_same_question_again_is_refused(self):
         case = self._answered(_ask())
         p = U.load_packet(case)
-        self.assertEqual((p["status"], p["clarification"]), ("UNDERSTOOD", None))
+        self.assertEqual((p["status"], p["clarification"]), ("UNRESOLVED", None))
+        self.assertFalse(p["ready_for_knowledge"])
         self.assertTrue(any("already asked" in n for n in p["notes"]))
 
     def test_a_reworded_question_is_the_same_question(self):
         case = self._answered(_ask("Was it the ticket or the card payment you meant?",
                                    "which thing 'it' refers to"))
-        self.assertEqual(U.load_packet(case)["status"], "UNDERSTOOD")
+        p = U.load_packet(case)
+        self.assertEqual((p["status"], p["ready_for_knowledge"]), ("UNRESOLVED", False))
 
     def test_a_new_ambiguity_may_be_asked_once_more(self):
         case = self._answered(_ask("What time did the doctor's appointment finish?",
@@ -224,11 +220,6 @@ class NothingIsAskedTwice(unittest.TestCase):
         self.assertEqual(p["status"], "NEEDS_CLARIFICATION")
         self.assertEqual(p["clarification"]["fact"], "account_clarification_2")
 
-    def test_a_third_question_is_never_asked(self):
-        case = self._answered(_ask("What time did the doctor's appointment finish?",
-                                   "the end time is not stated"), _reply(), _ask(
-            "Where did the appointment take place exactly?", "the place is not stated"))
-        self.assertEqual(U.load_packet(case)["status"], "NEEDS_CLARIFICATION")
 
     def test_the_cap_ends_clarification(self):
         case = _case("My mum said she would sort it.")
@@ -244,7 +235,8 @@ class NothingIsAskedTwice(unittest.TestCase):
         pipe.questions.record_answer(case, "account_clarification_2", "About noon.")
         run()
         p = U.load_packet(case)
-        self.assertEqual((p["status"], p["clarification"]), ("UNDERSTOOD", None))
+        self.assertEqual((p["status"], p["clarification"]), ("UNRESOLVED", None))
+        self.assertFalse(p["ready_for_knowledge"])
         self.assertTrue(any("cap" in n for n in p["notes"]))
 
     def test_the_same_input_is_read_once_and_asks_the_same_question(self):
@@ -258,6 +250,156 @@ class NothingIsAskedTwice(unittest.TestCase):
         self.assertEqual(sum(c["task"] == "semantic_extraction" for c in llm.calls), 1)
         q = U.pending_question(case)
         self.assertEqual([x["fact"] for x in q], ["account_clarification_1"])
+
+
+def _journey(*replies, answers=()):
+    """Resolve once, then answer and resolve again for each answer given."""
+    case = _case("My mum said she would sort it.")
+    llm = ReferenceAnalysisLLM({"semantic_extraction": list(replies)})
+    pipe = AppealPipeline(llm)
+    case.ensure_run("test")
+    run = lambda: SemanticCaseResolver.resolve(
+        case, llm=pipe.llm, narrative=case.raw_answers["narrative"])
+    run()
+    packets = [dict(U.load_packet(case))]
+    for n, answer in enumerate(answers, 1):
+        pipe.questions.record_answer(case, f"account_clarification_{n}", answer)
+        run()
+        packets.append(dict(U.load_packet(case)))
+    return case, llm, pipe, packets
+
+
+class ReadinessContract(unittest.TestCase):
+    """A question limit stops a loop. It never certifies an account."""
+
+    def test_A_material_ambiguity_with_a_valid_question_needs_clarification(self):
+        case, *_ , packets = _journey(_ask())
+        p = packets[0]
+        self.assertEqual((p["status"], p["ambiguity"], p["ready_for_knowledge"]),
+                         ("NEEDS_CLARIFICATION", "MATERIAL", False))
+        self.assertEqual(len(p["open_material_ambiguities"]), 1)
+        self.assertFalse(U.ready_for_knowledge(case))
+
+    def test_B_material_ambiguity_with_a_vetoed_question_is_unresolved(self):
+        for q in ("Who was driving the car?", "Was the notice compliant with PoFA?",
+                  "Does KB-POFA-02 apply here?"):
+            case, *_ , packets = _journey(_ask(q, "what 'it' refers to is not stated"))
+            p = packets[0]
+            self.assertEqual((p["status"], p["ambiguity"], p["ready_for_knowledge"]),
+                             ("UNRESOLVED", "MATERIAL", False), q)
+            self.assertIsNone(p["clarification"])
+            self.assertEqual(U.pending_question(case), [])
+            self.assertFalse(U.ready_for_knowledge(case))
+            self.assertIn("what 'it' refers to is not stated",
+                          [u["about"] for u in p["uncertainties"]])
+
+    def test_C_material_ambiguity_at_the_question_limit_is_unresolved(self):
+        case, *_ , packets = _journey(
+            _ask(),
+            _ask("What time did the doctor's appointment finish?", "the end time is not stated"),
+            _ask("Where did the appointment take place exactly?", "the place is not stated"),
+            answers=("The phone payment.", "About noon."))
+        self.assertEqual([p["status"] for p in packets],
+                         ["NEEDS_CLARIFICATION", "NEEDS_CLARIFICATION", "UNRESOLVED"])
+        self.assertEqual([p["ready_for_knowledge"] for p in packets], [False, False, False])
+        self.assertTrue(any("cap" in n for n in packets[-1]["notes"]))
+        self.assertTrue(packets[-1]["open_material_ambiguities"])
+
+    def test_D_a_non_material_ambiguity_may_be_understood_and_is_preserved(self):
+        case, *_ , packets = _journey(_reply(uncertainties=[
+            {"about": "the exact minute the customer returned", "source_text": "around then"}]))
+        p = packets[0]
+        self.assertEqual((p["status"], p["ambiguity"], p["ready_for_knowledge"]),
+                         ("UNDERSTOOD", "NON_MATERIAL", True))
+        self.assertEqual(p["open_material_ambiguities"], [])
+        self.assertEqual(p["uncertainties"][0]["about"], "the exact minute the customer returned")
+        self.assertTrue(U.ready_for_knowledge(case))
+
+    def test_E_an_answered_clarification_that_settles_it_is_understood(self):
+        case, *_ , packets = _journey(_ask(), _reply(), answers=("The phone payment.",))
+        self.assertEqual([p["status"] for p in packets], ["NEEDS_CLARIFICATION", "UNDERSTOOD"])
+        self.assertEqual([p["ready_for_knowledge"] for p in packets], [False, True])
+        self.assertEqual(packets[1]["open_material_ambiguities"], [])
+        self.assertTrue(U.ready_for_knowledge(case))
+
+    def test_F_an_answer_that_does_not_settle_it_is_never_ready(self):
+        # The customer could not say, and the model reads the account as understood.
+        for answer in ("not sure", "I don't know", "no idea", "can't remember"):
+            case, *_ , packets = _journey(_ask(), _reply(), answers=(answer,))
+            p = packets[1]
+            self.assertEqual((p["status"], p["ready_for_knowledge"]), ("UNRESOLVED", False), answer)
+            self.assertTrue(p["open_material_ambiguities"], answer)
+            self.assertFalse(U.ready_for_knowledge(case))
+
+    def test_F_an_answer_that_opens_a_new_ambiguity_asks_once_more_but_is_not_ready(self):
+        case, *_ , packets = _journey(
+            _ask(), _ask("What time did the doctor's appointment finish?", "end time not stated"),
+            answers=("not sure",))
+        p = packets[1]
+        self.assertEqual((p["status"], p["ready_for_knowledge"]), ("NEEDS_CLARIFICATION", False))
+        self.assertEqual(len(p["open_material_ambiguities"]), 2)
+
+    def test_F_a_model_that_repeats_itself_after_an_answer_leaves_it_unresolved(self):
+        case, *_ , packets = _journey(_ask(), _ask(), answers=("The phone payment.",))
+        self.assertEqual((packets[1]["status"], packets[1]["ready_for_knowledge"]),
+                         ("UNRESOLVED", False))
+
+    def test_G_replay_gives_the_same_status_and_one_question(self):
+        for first, expect in ((_ask(), "NEEDS_CLARIFICATION"),
+                              (_ask("Who was driving the car?", "unclear"), "UNRESOLVED")):
+            case = _case("My mum said she would sort it.")
+            llm = ReferenceAnalysisLLM({"semantic_extraction": [first, _reply()]})
+            pipe = AppealPipeline(llm)
+            case.ensure_run("test")
+            seen = []
+            for _ in range(3):
+                SemanticCaseResolver.resolve(case, llm=pipe.llm,
+                                             narrative=case.raw_answers["narrative"])
+                p = U.load_packet(case)
+                seen.append((p["status"], p["ready_for_knowledge"],
+                             [q["fact"] for q in U.pending_question(case)]))
+            self.assertEqual(len(set(map(repr, seen))), 1, seen)
+            self.assertEqual(seen[0][0], expect)
+            self.assertFalse(seen[0][1])
+            self.assertEqual(sum(c["task"] == "semantic_extraction" for c in llm.calls), 1)
+            self.assertEqual(len(seen[0][2]), 1 if expect == "NEEDS_CLARIFICATION" else 0)
+
+    def test_a_model_that_reports_unresolved_is_not_ready(self):
+        case, *_ , packets = _journey(_reply("UNRESOLVED", None))
+        self.assertEqual((packets[0]["status"], packets[0]["ready_for_knowledge"]),
+                         ("UNRESOLVED", False))
+
+    def test_a_stored_ready_flag_is_never_trusted(self):
+        case, *_ , packets = _journey(_ask("Who was driving?", "unclear"))
+        state = json.loads(case.raw_answers[U.STATE_KEY])
+        state["packet"]["ready_for_knowledge"] = True       # a corrupted or hand-edited record
+        case.raw_answers[U.STATE_KEY] = json.dumps(state)
+        self.assertFalse(U.ready_for_knowledge(case))
+
+    def test_no_input_whatever_makes_an_open_material_ambiguity_ready(self):
+        """Exhaustive over the product the model can hand back: every status, with
+        and without a question, a repeat, after the cap, after a non-answer."""
+        questions = (None, {"question": "Which payment did you mean?", "ambiguity": "which payment"},
+                     {"question": "Who was driving?", "ambiguity": "driver"},
+                     {"question": "", "ambiguity": ""})
+        histories = ([], [{"fact": "a", "question": "Which payment did you mean?",
+                           "ambiguity": "which payment", "answer": "The phone one."}],
+                     [{"fact": "a", "question": "x one", "ambiguity": "x", "answer": "not sure"}],
+                     [{"fact": "a", "question": "q one", "ambiguity": "q", "answer": "yes"},
+                      {"fact": "b", "question": "r two", "ambiguity": "r", "answer": "ok"}])
+        for status in ("UNDERSTOOD", "NEEDS_CLARIFICATION", "UNRESOLVED", "", "nonsense", None):
+            for clar in questions:
+                for hist in histories:
+                    for mode in ("LIVE", "FALLBACK"):
+                        p = U.build_packet({"status": status, "clarification": clar,
+                                            "semantic_mode": mode}, hist)
+                        if p["open_material_ambiguities"] or p["status"] != "UNDERSTOOD":
+                            self.assertFalse(p["ready_for_knowledge"], (status, clar, hist, mode, p))
+                        if p["ready_for_knowledge"]:
+                            self.assertEqual(p["status"], "UNDERSTOOD")
+                            self.assertEqual(p["open_material_ambiguities"], [])
+                        if status in ("NEEDS_CLARIFICATION", "UNRESOLVED"):
+                            self.assertFalse(p["ready_for_knowledge"], (status, clar, hist, mode))
 
 
 class SpecificMeaningSurvives(unittest.TestCase):
