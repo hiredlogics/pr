@@ -45,28 +45,6 @@ REJECTED, BLOCKED = "REJECTED", "BLOCKED"
 OFFERABLE = (SUPPORTED, RELEVANT, OPEN)
 _ORDER = {SUPPORTED: 0, RELEVANT: 1, OPEN: 2, REJECTED: 3, BLOCKED: 4}
 
-# Generic semantic category → fact-name hints for CANDIDATE discovery only.
-# Not phrase rules; not eligibility. Categories are meaning classes.
-_CATEGORY_FACT_HINTS: dict[str, frozenset[str]] = {
-    "departure_event": frozenset({"left_site", "multiple_visits"}),
-    "departure": frozenset({"left_site", "multiple_visits"}),
-    "return_event": frozenset({"returned_same_day", "multiple_visits"}),
-    "return": frozenset({"returned_same_day", "multiple_visits"}),
-    "multiple_attendance": frozenset({"multiple_visits"}),
-    "departure_reason": frozenset({"left_site", "multiple_visits"}),
-    "unmapped_reason": frozenset({"left_site", "multiple_visits"}),
-    "visit_activity": frozenset({"purpose_of_visit", "genuine_customer", "visited_premises"}),
-    "visit_purpose": frozenset({"purpose_of_visit", "genuine_customer"}),
-    "payment": frozenset({"payment_made"}),
-    "payment_attempt": frozenset({"payment_attempt_failed", "payment_made"}),
-    "mechanical": frozenset({"vehicle_immobilised"}),
-    "access": frozenset({"signage_issue_raised"}),
-    "access_issue": frozenset({"signage_issue_raised"}),
-    "authorisation": frozenset({"permit_held", "visitor_authorised"}),
-    "keying": frozenset({"keying_error_type", "vrm_entered"}),
-}
-
-
 def _semantic_candidate_signals(case: CaseFile) -> dict:
     """Read SemanticCaseState channels for candidate discovery (observational)."""
     # Customer-account semantics are used only while that stream is ready.
@@ -96,55 +74,6 @@ def _semantic_candidate_signals(case: CaseFile) -> dict:
         "events": events,
         "relationships": rels,
     }
-
-
-def _semantic_hints_for_module(module, semantic: dict) -> list[str]:
-    """Return short hint strings if semantic material connects to this module.
-
-    Connection = category/concept hints overlap module gating/required facts,
-    or topic token overlap with atom/event categories. Never asserts eligibility.
-    """
-    need = set(referenced_facts(module.use_when) | set(module.required_facts or []))
-    if not need:
-        return []
-    hints: list[str] = []
-    for c in semantic.get("concepts") or []:
-        cid = c.get("concept") if isinstance(c, dict) else getattr(c, "concept", None)
-        pol = c.get("polarity") if isinstance(c, dict) else getattr(c, "polarity", None)
-        if pol == "NEGATED":
-            continue
-        # Concept → fact mapping via ontology is owned by extract; here we only
-        # use concept id as a soft signal when it shares tokens with need.
-        token = str(cid or "").lower().replace("_", " ")
-        for fact in need:
-            if fact.replace("_", " ") in token or token in fact.replace("_", " "):
-                hints.append(f"concept:{cid}->{fact}")
-    for a in semantic.get("atoms") or []:
-        if not isinstance(a, dict) or a.get("polarity") == "NEGATED":
-            continue
-        cat = str(a.get("category") or a.get("name") or "").lower()
-        for key, facts in _CATEGORY_FACT_HINTS.items():
-            if key in cat or cat in key:
-                hit = sorted(facts & need)
-                if hit:
-                    hints.append(f"atom:{cat}->{','.join(hit)}")
-    for e in semantic.get("events") or []:
-        if not isinstance(e, dict) or e.get("polarity") == "NEGATED":
-            continue
-        et = str(e.get("event_type") or e.get("kind") or "").lower()
-        for key, facts in _CATEGORY_FACT_HINTS.items():
-            if key in et or et in key:
-                hit = sorted(facts & need)
-                if hit:
-                    hints.append(f"event:{et}->{','.join(hit)}")
-    # Deduplicate preserving order.
-    seen = set()
-    out = []
-    for h in hints:
-        if h not in seen:
-            seen.add(h)
-            out.append(h)
-    return out
 
 
 @dataclass
@@ -276,14 +205,24 @@ class KnowledgeMatcher:
         sig = signals(self.graph, facts)
         sig_ids = {f"{k}={v['value']}" for k, v in sig.items()}
         evidence_kinds = set(facts.get("evidence_kinds") or [])
-        semantic = _semantic_candidate_signals(case)
+        # Semantic meaning may elevate a module to RELEVANT (never to SUPPORTED),
+        # through the retrieval layer's typed routes - not by comparing words.
+        # A vector hit alone is a suggestion, not a connection.
+        from .knowledge_retrieval import retrieve_for_case
+        retrieved = {c.module_id: c for c in
+                     retrieve_for_case(self.kg, case, facts).candidates}
+        semantic_routes = {"SEMANTIC_CONCEPT", "SEMANTIC_EVENT", "NARRATIVE_ATOM", "RELATIONSHIP"}
         out: dict[str, Candidate] = {}
         for module in sorted(self.kg.active_modules(), key=lambda m: m.module_id):
             c = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
             # P17.9: semantic meaning may elevate OPEN → RELEVANT for discovery.
             # Never creates SUPPORTED. Eligibility remains use_when on facts.
             if c.status in (OPEN, RELEVANT):
-                hints = _semantic_hints_for_module(module, semantic)
+                got = retrieved.get(module.module_id)
+                hints = [f"{r.lower()}:{i}" for r in (got.retrieval_sources if got else [])
+                         if r in semantic_routes
+                         for i in (got.matched_concept_ids + got.matched_event_ids
+                                   + got.matched_atom_ids + got.matched_relationship_ids)]
                 if hints:
                     if c.status == OPEN:
                         c.status = RELEVANT
