@@ -280,7 +280,10 @@ class S05_AnprAndVisits(unittest.TestCase):
         case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
                                 "alleged_breach": "No ticket displayed"})
         r = run_pipeline(case, pipe, "drove through looking for a space then left",
+                         # P3B: "no payment" has to be stated; an unanswered payment
+                         # question no longer counts as "not paid".
                          answers={"no_parking_took_place": True,
+                                  "payment_made": False,
                                   "short_presence_before_acceptance": True},
                          scenario="7-short-stay")
         self.assertEqual(int(case.get("total_recorded_duration_min")), 3, r.dump())

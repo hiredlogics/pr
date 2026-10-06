@@ -38,7 +38,7 @@ from typing import Any, Optional
 from ..kg.relations import (BLOCKS, CONFLICTS_WITH, EVIDENCE_SUPPORTS, SUPPORTS,
                             RelationGraph)
 from ..models import CaseFile
-from ..rules.dsl import PredicateError, evaluate, referenced_facts
+from ..rules.dsl import PredicateError, describe_leaf, evaluate, evaluate3, referenced_facts
 
 SUPPORTED, RELEVANT, OPEN = "SUPPORTED", "RELEVANT", "OPEN"
 REJECTED, BLOCKED = "REJECTED", "BLOCKED"
@@ -147,22 +147,7 @@ def _trace_row(c: Candidate) -> dict:
 
 
 # ------------------------------------------------------------- helpers
-def _show(leaf: dict) -> str:
-    op, arg = next(iter(leaf.items()))
-    if op == "is":
-        return f"{arg}=true"
-    if op == "exists":
-        return f"{arg} present"
-    if op == "missing":
-        return f"{arg} absent"
-    if op == "has_evidence":
-        return f"evidence {arg} uploaded"
-    if op == "contains":
-        return f"{arg[0]} mentions '{arg[1]}'"
-    name, ref = arg
-    sym = {"eq": "=", "ne": "!=", "in": " in ", "gt": ">", "gte": ">=", "lt": "<",
-           "lte": "<="}[op]
-    return f"{name}{sym}{json.dumps(ref) if not isinstance(ref, str) else ref}"
+_show = describe_leaf
 
 
 def _negate(text: str) -> str:
@@ -174,11 +159,6 @@ def _holds(leaf: dict, facts: dict) -> bool:
         return bool(evaluate(leaf, facts))
     except PredicateError:
         return False
-
-
-def _tri(pred: Any, facts: dict, unknown: set[str]) -> Optional[bool]:
-    from .question_authority import tri
-    return tri(pred, facts, unknown)
 
 
 def signals(graph: RelationGraph, facts: dict) -> dict[str, dict]:
@@ -202,6 +182,18 @@ class KnowledgeMatcher:
     # --------------------------------------------------------------- match
     def match(self, case: CaseFile, facts: Optional[dict] = None) -> Match:
         facts = dict(case.fact_view() if facts is None else facts)
+        # Facts the case holds but does not trust (UNCERTAIN / CONFLICTED) are not
+        # in the view; naming them keeps "held but not trusted" apart from "not
+        # known" without ever letting them satisfy or contradict a condition.
+        unreliable = frozenset(k for k, f in (getattr(case, "facts", None) or {}).items()
+                               if not f.usable)
+        # Legal findings the calculation engine recorded as not established.
+        states = dict(facts.get("pofa_finding_states") or {})
+        for r in getattr(case, "legal_findings", None) or []:
+            if r.get("finding_type") and r.get("status"):
+                states.setdefault(str(r["finding_type"]), str(r["status"]))
+        if states:
+            facts["pofa_finding_states"] = states
         sig = signals(self.graph, facts)
         sig_ids = {f"{k}={v['value']}" for k, v in sig.items()}
         evidence_kinds = set(facts.get("evidence_kinds") or [])
@@ -214,7 +206,7 @@ class KnowledgeMatcher:
         semantic_routes = {"SEMANTIC_CONCEPT", "SEMANTIC_EVENT", "NARRATIVE_ATOM", "RELATIONSHIP"}
         out: dict[str, Candidate] = {}
         for module in sorted(self.kg.active_modules(), key=lambda m: m.module_id):
-            c = self._one(case, module, facts, sig, sig_ids, evidence_kinds)
+            c = self._one(case, module, facts, sig, sig_ids, evidence_kinds, unreliable)
             # P17.9: semantic meaning may elevate OPEN → RELEVANT for discovery.
             # Never creates SUPPORTED. Eligibility remains use_when on facts.
             if c.status in (OPEN, RELEVANT):
@@ -241,7 +233,8 @@ class KnowledgeMatcher:
         case.master.record_knowledge_matches(match)
         return match
 
-    def _one(self, case, module, facts, sig, sig_ids, evidence_kinds) -> Candidate:
+    def _one(self, case, module, facts, sig, sig_ids, evidence_kinds,
+             unreliable=frozenset()) -> Candidate:
         mid = module.module_id
         c = Candidate(mid, OPEN, module.topic, str(getattr(module.route, "value", module.route)),
                       module.strength)
@@ -259,12 +252,14 @@ class KnowledgeMatcher:
                                      "reason": e.metadata.get("reason", ""),
                                      "basis": sig[name]["basis"], "edge_id": e.edge_id})
         try:
-            dnuw = evaluate(module.do_not_use_when, facts)
-            gate = evaluate(module.use_when, facts)
+            dnuw = evaluate3(module.do_not_use_when, facts, unreliable=unreliable)
+            gate = evaluate3(module.use_when, facts, unreliable=unreliable)
         except PredicateError as exc:
             c.status, c.reason = REJECTED, f"predicate error: {exc}"
             return c
-        if dnuw:
+        # Only a deterministically TRUE blocker blocks. An UNKNOWN one (a fact
+        # missing, uncertain or conflicted) is not a contradiction.
+        if dnuw is True:
             held = [_show(e.metadata["condition"]) for e in edges
                     if e.relationship_type == BLOCKS and e.metadata.get("from_field") == "do_not_use_when"
                     and _holds(e.metadata["condition"], facts)]
@@ -298,13 +293,13 @@ class KnowledgeMatcher:
 
         unknown = {f for f in referenced_facts(module.use_when) | set(module.required_facts or [])
                    if f not in facts}
-        if gate:
+        if gate is True:
             c.status = SUPPORTED
             c.missing = sorted(f for f in (module.required_facts or []) if f not in facts)
             c.reason = "use_when holds on verified facts and nothing blocks it"
             return c
         c.missing = sorted(f for f in unknown)
-        possible = _tri(module.use_when, facts, unknown)
+        possible = gate
         unmet = [_show(leaf) for positive, leaf in _leaf_pairs(module.use_when)
                  if positive and not _holds(leaf, facts)]
         unmet += [_negate(_show(leaf)) for positive, leaf in _leaf_pairs(module.use_when)
