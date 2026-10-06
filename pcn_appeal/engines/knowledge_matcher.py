@@ -38,7 +38,9 @@ from typing import Any, Optional
 from ..kg.relations import (BLOCKS, CONFLICTS_WITH, EVIDENCE_SUPPORTS, SUPPORTS,
                             RelationGraph)
 from ..models import CaseFile
-from ..rules.dsl import PredicateError, describe_leaf, evaluate, evaluate3, referenced_facts
+from ..rules.dsl import (PredicateError, describe_leaf, evaluate, evaluate3, leaf_report,
+                         referenced_facts)
+from .module_eligibility import REJECTED as ME_REJECTED, SUPPORTED as ME_SUPPORTED, decide
 
 SUPPORTED, RELEVANT, OPEN = "SUPPORTED", "RELEVANT", "OPEN"
 REJECTED, BLOCKED = "REJECTED", "BLOCKED"
@@ -90,6 +92,9 @@ class Candidate:
     evidence: list[str] = field(default_factory=list)
     conflicts_with: list[str] = field(default_factory=list)
     reason: str = ""
+    # do_not_use_when conditions that are neither true nor false yet. A module with
+    # one of these is never SUPPORTED (a hard blocker must be settled first).
+    unverified_blockers: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {k: v for k, v in self.__dict__.items()}
@@ -293,24 +298,35 @@ class KnowledgeMatcher:
 
         unknown = {f for f in referenced_facts(module.use_when) | set(module.required_facts or [])
                    if f not in facts}
-        if gate is True:
+        # A do_not_use_when condition that is neither true nor false is a hard blocker
+        # still open: the module cannot be SUPPORTED until it is settled. The facts it
+        # waits on are what the case still needs to know.
+        open_blockers = ([r for r in leaf_report(module.do_not_use_when, facts, unreliable=unreliable)
+                          if r["truth"] is None] if dnuw is None else [])
+        c.unverified_blockers = [f"{r['condition']} ({r['why']})" for r in open_blockers]
+        blocker_facts = {r["fact"] for r in open_blockers if r["fact"]}
+        verdict = decide(gate, dnuw)
+        if verdict == ME_SUPPORTED:
             c.status = SUPPORTED
             c.missing = sorted(f for f in (module.required_facts or []) if f not in facts)
             c.reason = "use_when holds on verified facts and nothing blocks it"
             return c
-        c.missing = sorted(f for f in unknown)
-        possible = gate
+        c.missing = sorted(unknown | blocker_facts)
         unmet = [_show(leaf) for positive, leaf in _leaf_pairs(module.use_when)
                  if positive and not _holds(leaf, facts)]
         unmet += [_negate(_show(leaf)) for positive, leaf in _leaf_pairs(module.use_when)
                   if not positive and _holds(leaf, facts)]
-        if possible is False:
+        if verdict == ME_REJECTED:
             c.status = REJECTED
             c.reason = "use_when cannot hold on what is known: " + "; ".join(
                 f"not established: {u}" for u in unmet[:4])
             return c
-        c.reason = "use_when not yet met: " + "; ".join(
-            f"no confirmed {u}" for u in unmet[:4]) + self._hypothesis_note(case, unmet)
+        if gate is True:
+            c.reason = "use_when holds but a do_not_use_when condition is not yet ruled out: " + \
+                "; ".join(c.unverified_blockers[:4])
+        else:
+            c.reason = "use_when not yet met: " + "; ".join(
+                f"no confirmed {u}" for u in unmet[:4]) + self._hypothesis_note(case, unmet)
         connected = bool(c.selected_because or c.relevant_because)
         c.status = RELEVANT if connected else OPEN
         return c

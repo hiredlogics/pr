@@ -10,16 +10,19 @@ FactManager's usable facts - never the customer's words, never a semantic atom,
 never a UI answer. A finding is consumed only as a code the legal calculation
 engine verified (or recorded as not supported / unresolved).
 
-Status contract
-  SUPPORTED   use_when is TRUE and no blocker is TRUE. A blocker that is UNKNOWN
-              does not prevent support and does not cause a block; it is listed
-              in `unverified_blockers` so nothing is hidden.
-  UNRESOLVED  the module may apply: a required condition is UNKNOWN (a fact is
-              missing, unanswered, uncertain, conflicted, or evidence/finding not
-              yet in) and nothing known contradicts it.
-  REJECTED    known authoritative facts make use_when FALSE.
-  BLOCKED     a do_not_use_when condition (or a curated blocking signal) is
-              deterministically TRUE. Absence is never a contradiction.
+Status contract and precedence (one table, applied by `decide`; first row that holds)
+  1. a do_not_use_when condition (or curated blocking signal) is TRUE  -> BLOCKED
+  2. use_when is FALSE (known not to apply, whatever the blockers)     -> REJECTED
+  3. a hard do_not_use_when condition is UNKNOWN                       -> UNRESOLVED
+  4. use_when is UNKNOWN                                               -> UNRESOLVED
+  5. use_when TRUE and every blocker FALSE                             -> SUPPORTED
+
+  Every do_not_use_when condition is a HARD blocker (the schema has no advisory
+  kind). An UNKNOWN blocker is neither BLOCKED (absence is not a contradiction)
+  nor FALSE (absence is not exclusion): the module cannot be SUPPORTED until the
+  blocker is settled, and it is listed in `unverified_blockers`. Row 2 precedes
+  row 3 only because a module the positive requirements already rule out has no
+  open question left to ask; the result is never SUPPORTED either way.
 
 The status never changes the module's role: a SUPPORTED SUPPORTING_PROPOSITION is
 not a SUPPORTED SUBSTANTIVE_GROUND.
@@ -79,14 +82,23 @@ def _name(t: Optional[bool]) -> str:
 
 def decide(use_when: Optional[bool], do_not_use_when: Optional[bool],
            signal_block: bool = False) -> str:
-    """The one place a status is decided from the two truth values."""
+    """The one place a status is decided from the two truth values (see the
+    precedence table in the module docstring)."""
     if do_not_use_when is True or signal_block:
         return BLOCKED
-    if use_when is True:
-        return SUPPORTED
     if use_when is False:
         return REJECTED
-    return UNRESOLVED
+    if do_not_use_when is None or use_when is None:
+        return UNRESOLVED
+    return SUPPORTED
+
+
+def gate_holds(module, facts: Mapping[str, Any], *,
+               unreliable: Iterable[str] = frozenset()) -> bool:
+    """R-03 as a yes/no: use_when TRUE and every do_not_use_when FALSE. UNKNOWN on
+    either side is not a pass."""
+    return decide(evaluate3(module.use_when, facts, unreliable=unreliable),
+                  evaluate3(module.do_not_use_when, facts, unreliable=unreliable)) == SUPPORTED
 
 
 def effective_view(fact_view: Mapping[str, Any], *, verified_findings: Iterable[str] = (),
@@ -157,13 +169,19 @@ def evaluate_module(module, fact_view: Mapping[str, Any], *,
         if row["truth"] is not None and row["fact"]:
             used.add(row["fact"])
     for row in leaf_report(module.do_not_use_when, view, unreliable=unreliable):
-        if row["truth"] is True:
+        if row["truth"] is not None and row["fact"]:
+            used.add(row["fact"])
+        if row["truth"] is True and dnuw is True:
+            # A leaf that holds blocks only when the blocker as a whole holds (an
+            # `all` with a FALSE arm is not a blocker).
             out.blocking_conditions.append(row["condition"])
-            if row["fact"]:
-                used.add(row["fact"])
-        elif row["truth"] is None:
+        elif row["truth"] is None and dnuw is None:
+            # Only a blocker that is still open matters; an unknown arm of a
+            # blocker already FALSE (all[...] with a FALSE member) settles nothing.
             out.unverified_blockers.append(f"{row['condition']} ({row['why']})")
     out.blocking_conditions += [f"signal {b}" for b in blocks]
+    if out.status == UNRESOLVED:
+        out.missing_conditions += [f"cannot rule out: {b}" for b in out.unverified_blockers]
     # Only a verified code counts as a fact the gate stood on.
     if "pofa_finding" in used:
         used.discard("pofa_finding")
@@ -192,5 +210,5 @@ def evaluate_module_id(kg, module_id: str, fact_view: Mapping[str, Any], **kwarg
     return evaluate_module(module, fact_view, **kwargs)
 
 
-__all__ = ["EligibilityOutcome", "evaluate_module", "evaluate_module_id", "decide",
+__all__ = ["EligibilityOutcome", "evaluate_module", "evaluate_module_id", "decide", "gate_holds",
            "effective_view", "SUPPORTED", "UNRESOLVED", "REJECTED", "BLOCKED", "STATUSES"]

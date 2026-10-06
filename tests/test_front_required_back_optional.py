@@ -250,8 +250,12 @@ class EAFindingNeedingReverseWordingStaysUnresolved(unittest.TestCase):
         case.evidence["E1"] = EvidenceItem("E1", "NTK", "front.jpg",
                                            images=[b"FRONT"])
         case.document_classes["E1"] = "NTK"
+        # pofa_route is the derived form of notice_route (recovery calculates it);
+        # POFA-04 lists it among its hard blockers, so it has to be known here for
+        # these tests to be about the reverse page and not about an unknown blocker.
         for name, value in (("driver_status", "UNIDENTIFIED"),
                             ("notice_route", "POSTAL"),
+                            ("pofa_route", "POSTAL"),
                             ("relevant_land", True),
                             ("ntk_defect_document_confirmed", True),
                             ("ntk_defect_keeper_warning", True)):

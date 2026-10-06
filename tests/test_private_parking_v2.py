@@ -280,15 +280,32 @@ class S05_AnprAndVisits(unittest.TestCase):
         case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
                                 "alleged_breach": "No ticket displayed"})
         r = run_pipeline(case, pipe, "drove through looking for a space then left",
-                         # P3B: "no payment" has to be stated; an unanswered payment
-                         # question no longer counts as "not paid".
                          answers={"no_parking_took_place": True,
-                                  "payment_made": False,
                                   "short_presence_before_acceptance": True},
                          scenario="7-short-stay")
         self.assertEqual(int(case.get("total_recorded_duration_min")), 3, r.dump())
-        self.assertEqual(r.primary_route, "CONSIDERATION", r.dump())
+        # The account says the vehicle drove through and left; it does not say whether
+        # anything was paid or whether the permitted period had ended. Those stay
+        # unknown, so the consideration ground is open - neither rejected nor claimed.
+        from pcn_appeal.engines.knowledge_matcher import KnowledgeMatcher
+        match = KnowledgeMatcher(pipe.kg).match(case)
+        for mid in ("KB-CON-01", "KB-CON-02"):
+            self.assertEqual(match.candidates[mid].status, "RELEVANT", mid)
+            self.assertIn("payment_made", match.candidates[mid].missing, mid)
+        self.assertIsNone(r.primary_route, r.dump())
         # Must not invent a POFA timing defect from a short stay
+        self.assertEqual(r.pofa_findings, [], r.dump())
+
+    def test_short_stay_is_consideration_when_the_account_establishes_it(self):
+        """Scenario 7, with the facts the consideration ground needs actually stated."""
+        case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
+                                "alleged_breach": "No ticket displayed"})
+        r = run_pipeline(case, pipe, "drove through looking for a space then left",
+                         answers={"no_parking_took_place": True,
+                                  "short_presence_before_acceptance": True,
+                                  "payment_made": False, "permitted_period_ended": False},
+                         scenario="7-short-stay-established")
+        self.assertEqual(r.primary_route, "CONSIDERATION", r.dump())
         self.assertEqual(r.pofa_findings, [], r.dump())
 
     def test_double_visit_when_fact_established(self):

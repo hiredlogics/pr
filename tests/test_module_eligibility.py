@@ -175,17 +175,20 @@ class DoNotUseWhen(unittest.TestCase):
         m = mod(self.GATE, eq("m", "X"))
         self.assertEqual(status(m, {"g": True, "m": "Y"}), SUPPORTED)
 
-    def test_an_unknown_blocker_does_not_block(self):
+    def test_an_unknown_blocker_does_not_block_and_does_not_pass(self):
+        """UNKNOWN is neither BLOCKED (absence is no contradiction) nor FALSE (absence
+        is no exclusion): the module is UNRESOLVED and says what is still open."""
         m = mod(self.GATE, eq("m", "X"))
         out = evaluate_module(m, {"g": True})
-        self.assertEqual(out.status, SUPPORTED)
+        self.assertEqual(out.status, UNRESOLVED)
         self.assertEqual(out.blocking_conditions, [])
-        self.assertEqual(len(out.unverified_blockers), 1, "the unverified blocker is disclosed")
+        self.assertEqual(len(out.unverified_blockers), 1, "the open blocker is disclosed")
+        self.assertTrue(any("cannot rule out" in c for c in out.missing_conditions))
 
-    def test_an_unknown_negative_blocker_does_not_block(self):
+    def test_an_unknown_negative_blocker_does_not_block_and_does_not_pass(self):
         """The reported defect, generically: `ne` over a missing fact."""
         m = mod(self.GATE, ne("method", "MACHINE"))
-        self.assertEqual(status(m, {"g": True}), SUPPORTED)
+        self.assertEqual(status(m, {"g": True}), UNRESOLVED)
         self.assertEqual(status(m, {"g": True, "method": "MACHINE"}), SUPPORTED)
         self.assertEqual(status(m, {"g": True, "method": "APP"}), BLOCKED)
 
@@ -194,24 +197,27 @@ class DoNotUseWhen(unittest.TestCase):
         self.assertEqual(status(m, {"g": False, "m": "X"}), BLOCKED)
         self.assertEqual(status(m, {"m": "X"}), BLOCKED)
 
-    def test_a_blocker_that_is_not_blocking_leaves_use_when_in_charge(self):
+    def test_a_known_false_use_when_is_rejected_whatever_the_blocker_says(self):
         m = mod(self.GATE, eq("m", "X"))
-        self.assertEqual(status(m, {"g": False}), REJECTED)
+        self.assertEqual(status(m, {"g": False}), REJECTED)          # blocker unknown
+        self.assertEqual(status(m, {"g": False, "m": "Y"}), REJECTED)  # blocker false
         self.assertEqual(status(m, {}), UNRESOLVED)
 
     def test_blocker_connectives(self):
         m = mod(self.GATE, {"all": [eq("a", 1), eq("b", 2)]})
         self.assertEqual(status(m, {"g": True, "a": 1, "b": 2}), BLOCKED)
-        self.assertEqual(status(m, {"g": True, "a": 1}), SUPPORTED)           # unknown
-        self.assertEqual(status(m, {"g": True, "a": 9}), SUPPORTED)           # known false
+        self.assertEqual(status(m, {"g": True, "a": 1}), UNRESOLVED)          # TRUE + UNKNOWN
+        self.assertEqual(status(m, {"g": True, "a": 9}), SUPPORTED)           # a known FALSE decides
         any_m = mod(self.GATE, {"any": [eq("a", 1), eq("b", 2)]})
         self.assertEqual(status(any_m, {"g": True, "a": 1}), BLOCKED)         # a known TRUE decides
-        self.assertEqual(status(any_m, {"g": True, "a": 9}), SUPPORTED)       # unknown, not blocked
+        self.assertEqual(status(any_m, {"g": True, "a": 9}), UNRESOLVED)      # FALSE + UNKNOWN
+        self.assertEqual(status(any_m, {"g": True, "a": 9, "b": 9}), SUPPORTED)
 
-    def test_uncertain_or_conflicted_blocker_fact_does_not_block(self):
+    def test_uncertain_or_conflicted_blocker_fact_does_not_block_and_does_not_pass(self):
         m = mod(self.GATE, eq("m", "X"))
         out = evaluate_module(m, {"g": True}, unreliable={"m"})
-        self.assertEqual(out.status, SUPPORTED)
+        self.assertEqual(out.status, UNRESOLVED)
+        self.assertEqual(out.blocking_conditions, [])
         self.assertIn("held but not trusted", out.unverified_blockers[0])
 
     def test_uncertain_or_conflicted_use_when_fact_is_unresolved_not_rejected(self):
@@ -422,7 +428,8 @@ class Authority(unittest.TestCase):
         case = CaseFile("u")
         case.put(Fact("f1", "payment_made", True, FactStatus.UNCERTAIN,
                       FactSource(next(iter(SourceKind)), "t")))
-        view = {"driver_status": "UNIDENTIFIED", "payment_made": True}
+        view = {"driver_status": "UNIDENTIFIED", "payment_made": True,
+                "terms_rejected_left": False}
         got = KM.KnowledgeMatcher(KG).match(case, view).candidates["KB-PAY-01"].status
         self.assertNotEqual(got, KM.SUPPORTED)
         trusted = CaseFile("t")
@@ -595,7 +602,8 @@ class Invariants(unittest.TestCase):
                 out = evaluate_module(m, view)
                 if out.status == SUPPORTED:
                     self.assertIs(out.use_when, True)
-                    self.assertIsNot(out.do_not_use_when, True)
+                    self.assertIs(out.do_not_use_when, False,
+                                  "SUPPORTED needs every hard blocker FALSE, not merely not-TRUE")
 
     def test_status_is_a_pure_function_of_the_inputs(self):
         m = KG.modules["KB-PAY-02"]
@@ -604,6 +612,411 @@ class Invariants(unittest.TestCase):
         self.assertEqual(len(runs), 1)
         self.assertEqual(view, {"driver_status": "UNIDENTIFIED", "payment_attempt_failed": True},
                          "the input view is not mutated")
+
+
+# ======================================================================== Phase 3B.1
+# A module is never SUPPORTED while one of its hard do_not_use_when conditions is UNKNOWN.
+
+def _supported_views(m, limit=3):
+    out = []
+    for view, _ in matrix.cases_for(m, 400):
+        if evaluate_module(m, view).status == SUPPORTED:
+            out.append(view)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _blocker_leaves(m):
+    from pcn_appeal.kg.relations import _leaves
+    seen, out = set(), []
+    for _, leaf in _leaves(m.do_not_use_when):
+        key = repr(sorted(leaf.items(), key=repr))
+        if key not in seen:
+            seen.add(key)
+            out.append(leaf)
+    return out
+
+
+def _leaf_fact(leaf):
+    op, arg = next(iter(leaf.items()))
+    return arg if isinstance(arg, str) else arg[0]
+
+
+def _with_blocker_in(m, base, leaf, state):
+    """(view, unreliable, stale) putting one blocker leaf in `state`, or None when the
+    rest of the view does not allow it. `stale` is the value an untrusted fact still
+    carries in a view handed in from outside."""
+    from pcn_appeal.eval.eligibility import reference as R
+    name = _leaf_fact(leaf)
+    view = {k: v for k, v in base.items() if k != name}
+    if state in ("true", "false"):
+        return (view, frozenset(), None) if matrix.realise(leaf, state == "true", view) else None
+    if state == "missing":
+        return view, frozenset(), None
+    return view, frozenset({name}), base.get(name, "x")
+
+
+class UnknownBlockerMatrix(unittest.TestCase):
+    """Every active module with a hard blocker x (TRUE, FALSE, MISSING, UNCERTAIN, CONFLICTED)."""
+
+    STATES = ("true", "false", "missing", "uncertain", "conflicted")
+
+    def _modules(self):
+        return [m for m in sorted(KG.active_modules(), key=lambda m: m.module_id)
+                if m.do_not_use_when and m.do_not_use_when != {"always": False}]
+
+    def test_there_are_modules_with_blockers(self):
+        self.assertGreaterEqual(len(self._modules()), 16)
+
+    def test_every_blocker_state_against_the_reference(self):
+        from pcn_appeal.eval.eligibility import reference as R
+        ran = 0
+        for m in self._modules():
+            bases = _supported_views(m)
+            self.assertTrue(bases, f"{m.module_id}: no SUPPORTED view to vary")
+            for base in bases:
+                for leaf in _blocker_leaves(m):
+                    for state in self.STATES:
+                        got = _with_blocker_in(m, base, leaf, state)
+                        if got is None:
+                            continue
+                        view, unreliable, _ = got
+                        want = R.status(m.use_when, m.do_not_use_when, view, unreliable)
+                        out = evaluate_module(m, view, unreliable=unreliable)
+                        ran += 1
+                        with self.subTest(module=m.module_id, leaf=leaf, state=state):
+                            self.assertEqual(out.status, want)
+        self.assertGreater(ran, 150)
+
+    def test_blocker_missing_uncertain_conflicted_is_never_supported(self):
+        from pcn_appeal.eval.eligibility import reference as R
+        for m in self._modules():
+            for base in _supported_views(m):
+                for leaf in _blocker_leaves(m):
+                    for state in ("missing", "uncertain", "conflicted"):
+                        view, unreliable, _ = _with_blocker_in(m, base, leaf, state)
+                        out = evaluate_module(m, view, unreliable=unreliable)
+                        open_ = R.tree(m.do_not_use_when, view, unreliable) is None
+                        with self.subTest(module=m.module_id, leaf=leaf, state=state):
+                            if open_:
+                                # the blocker is genuinely unsettled
+                                self.assertNotEqual(out.status, SUPPORTED)
+                                self.assertNotEqual(out.status, BLOCKED,
+                                                    "absence is not a contradiction")
+                            else:
+                                # a compound blocker another arm already makes FALSE
+                                # (all[a, b] with b known FALSE) is settled, not open
+                                self.assertIs(R.tree(m.do_not_use_when, view, unreliable), False)
+
+    def test_the_case_path_agrees_for_uncertain_and_conflicted_facts(self):
+        """A fact the case holds as UNCERTAIN, or as disputed (CONFLICTED), is not
+        evidence either way even when the value is still present in the view."""
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+        src = FactSource(next(iter(SourceKind)), "t")
+        for m in self._modules():
+            base = _supported_views(m, 1)[0]
+            for leaf in _blocker_leaves(m):
+                name = _leaf_fact(leaf)
+                if name == "driver_status":
+                    continue          # the case always carries a driver status
+                from pcn_appeal.eval.eligibility import reference as R
+                if R.tree(m.do_not_use_when, {k: v for k, v in base.items() if k != name},
+                          frozenset({name})) is not None:
+                    continue          # another arm of a compound blocker already settles it
+                for state, kw in (("uncertain", dict(status=FactStatus.UNCERTAIN)),
+                                  ("conflicted", dict(status=FactStatus.CONFIRMED, disputed=True))):
+                    case = CaseFile("bm")
+                    case.put(Fact("f-x", name, "stale", source=src, **kw))
+                    view = dict(base)
+                    view.setdefault(name, "stale")
+                    got = KM.KnowledgeMatcher(KG).match(case, view).candidates[m.module_id].status
+                    with self.subTest(module=m.module_id, fact=name, state=state):
+                        self.assertNotEqual(got, KM.SUPPORTED)
+                        self.assertNotEqual(got, KM.BLOCKED)
+
+    def test_single_blocker_modules_literal_table(self):
+        """Written out, not computed: TRUE -> BLOCKED, FALSE -> SUPPORTED, else UNRESOLVED."""
+        table = {  # module: (fact, base view that otherwise supports it)
+            "KB-PAY-01": ("terms_rejected_left", {"payment_made": True}),
+            "KB-BREAK-01": ("fault_pre_existing_not_preventing",
+                            {"vehicle_immobilised": True, "immobilisation_prevented_departure": True}),
+            "KB-ACT-02": ("payment_made", {"dropoff_activity": True, "permitted_period_ended": False}),
+            "KB-CON-01": ("permitted_period_ended",
+                          {"short_presence_before_acceptance": True, "payment_made": False}),
+            "KB-CON-02": ("permitted_period_ended",
+                          {"no_parking_took_place": True, "payment_made": False}),
+            "KB-AUTH-02": ("lease_parking_clause_found", {"permit_held": True}),
+            "KB-POFA-01": ("relevant_land", {"driver_status": "UNIDENTIFIED",
+                                            "jurisdiction": "ENGLAND_WALES"}),
+        }
+        for mid, (fact, base) in table.items():
+            base = dict(base, driver_status=base.get("driver_status", "UNIDENTIFIED"))
+            m = KG.modules[mid]
+            blocker_true = {"relevant_land": False}.get(fact, True)
+            blocker_false = {"relevant_land": True}.get(fact, False)
+            with self.subTest(module=mid):
+                self.assertEqual(status(m, {**base, fact: blocker_true}), BLOCKED)
+                self.assertEqual(status(m, {**base, fact: blocker_false}), SUPPORTED)
+                self.assertEqual(status(m, dict(base)), UNRESOLVED)
+                self.assertEqual(status(m, dict(base), unreliable={fact}), UNRESOLVED)
+
+
+class BlockerPrecedence(unittest.TestCase):
+    """The precedence table, every use_when x do_not_use_when combination."""
+
+    GATE = {"is": "g"}
+
+    def _m(self):
+        return mod(self.GATE, {"is": "b"})
+
+    def test_all_nine_combinations(self):
+        T_, F_, U_ = True, False, None
+        view = lambda g, b: {k: v for k, v in (("g", g), ("b", b)) if v is not None}
+        table = {
+            (T_, T_): BLOCKED, (F_, T_): BLOCKED, (U_, T_): BLOCKED,       # 1: a TRUE blocker
+            (F_, F_): REJECTED, (F_, U_): REJECTED,                        # 2: known not to apply
+            (T_, U_): UNRESOLVED, (U_, F_): UNRESOLVED, (U_, U_): UNRESOLVED,   # 3, 4: open
+            (T_, F_): SUPPORTED,                                           # 5
+        }
+        self.assertEqual(len(table), 9)
+        for (g, b), want in table.items():
+            with self.subTest(use_when=g, blocker=b):
+                self.assertEqual(status(self._m(), view(g, b)), want)
+
+    def test_decide_is_the_same_table(self):
+        for g in (True, False, None):
+            for b in (True, False, None):
+                got = ME.decide(g, b)
+                if b is True:
+                    self.assertEqual(got, BLOCKED)
+                elif g is False:
+                    self.assertEqual(got, REJECTED)
+                elif g is True and b is False:
+                    self.assertEqual(got, SUPPORTED)
+                else:
+                    self.assertEqual(got, UNRESOLVED)
+
+    def test_a_declared_signal_blocks_before_anything(self):
+        for g in (True, False, None):
+            for b in (False, None):
+                self.assertEqual(ME.decide(g, b, True), BLOCKED)
+
+    def test_use_when_false_and_blocker_unknown_is_never_supported(self):
+        m = mod(self.GATE, {"is": "b"})
+        out = evaluate_module(m, {"g": False})
+        self.assertEqual(out.status, REJECTED)
+        self.assertFalse(ME.gate_holds(m, {"g": False}))
+
+    def test_multiple_blockers(self):
+        m = mod(self.GATE, {"any": [{"is": "b1"}, {"is": "b2"}]})
+        cases = [
+            ({"g": True, "b1": False, "b2": False}, SUPPORTED),    # FALSE + FALSE
+            ({"g": True, "b1": False}, UNRESOLVED),                # FALSE + UNKNOWN
+            ({"g": True}, UNRESOLVED),                             # UNKNOWN + UNKNOWN
+            ({"g": True, "b1": True}, BLOCKED),                    # TRUE + UNKNOWN
+            ({"g": True, "b1": True, "b2": False}, BLOCKED),       # TRUE + FALSE
+            ({"g": True, "b1": True, "b2": True}, BLOCKED),
+        ]
+        for view, want in cases:
+            with self.subTest(view=view):
+                self.assertEqual(status(m, view), want)
+
+    def test_multiple_blockers_with_an_uncertain_one(self):
+        m = mod(self.GATE, {"any": [{"is": "b1"}, {"is": "b2"}]})
+        self.assertEqual(status(m, {"g": True, "b1": False}, unreliable={"b2"}), UNRESOLVED)
+        self.assertEqual(status(m, {"g": True, "b1": True}, unreliable={"b2"}), BLOCKED)
+
+    def test_required_false_with_unknown_blocker(self):
+        m = mod({"all": [{"is": "a"}, {"is": "b"}]}, {"is": "x"})
+        self.assertEqual(status(m, {"a": False}), REJECTED)                 # a known FALSE
+        self.assertEqual(status(m, {"a": True}), UNRESOLVED)                # open, never SUPPORTED
+        self.assertEqual(status(m, {"a": True, "b": True}), UNRESOLVED)
+        self.assertEqual(status(m, {"a": True, "b": True, "x": False}), SUPPORTED)
+
+    def test_unknown_blocker_never_hidden_by_a_known_use_when(self):
+        for m in KG.active_modules():
+            for view, _ in matrix.cases_for(m, 120):
+                out = evaluate_module(m, view)
+                if out.status == SUPPORTED:
+                    with self.subTest(module=m.module_id):
+                        self.assertEqual(out.unverified_blockers, [])
+
+
+class TwelveModuleAudit(unittest.TestCase):
+    """A fact used only by do_not_use_when cannot be missing while the module is SUPPORTED,
+    and nothing was added to required_facts to make that so."""
+
+    TWELVE = ["KB-POFA-01", "KB-POFA-02", "KB-POFA-03", "KB-POFA-04", "KB-PAY-01",
+              "KB-BREAK-01", "KB-CON-01", "KB-CON-02", "KB-EV-01", "KB-AUTH-01",
+              "KB-AUTH-02", "KB-ACT-02"]
+
+    def test_each_blocker_only_fact_when_missing_prevents_support(self):
+        from pcn_appeal.eval.eligibility import reference as R
+        unsettled = 0
+        for mid in self.TWELVE:
+            m = KG.modules[mid]
+            only = dsl.referenced_facts(m.do_not_use_when) - dsl.referenced_facts(m.use_when)
+            self.assertTrue(only, f"{mid} has no blocker-only fact")
+            bases = _supported_views(m, 5)
+            self.assertTrue(bases, mid)
+            for base in bases:
+                for fact in sorted(only):
+                    if fact not in base:
+                        continue
+                    view = {k: v for k, v in base.items() if k != fact}
+                    for how, unreliable in (("missing", set()), ("uncertain", {fact}),
+                                            ("conflicted", {fact})):
+                        unsettled += R.tree(m.do_not_use_when, view, unreliable) is None
+                        out = evaluate_module(m, view, unreliable=unreliable)
+                        settled = R.tree(m.do_not_use_when, view, unreliable) is not None
+                        with self.subTest(module=mid, fact=fact, state=how):
+                            self.assertEqual(evaluate_module(m, base).status, SUPPORTED)
+                            if settled:
+                                # compound blocker (POFA-04): another arm is known FALSE,
+                                # so the missing fact cannot make it hold
+                                self.assertEqual(out.status, SUPPORTED)
+                                self.assertEqual(out.unverified_blockers, [])
+                            else:
+                                self.assertEqual(out.status, UNRESOLVED)
+                                self.assertTrue(out.unverified_blockers)
+        self.assertGreater(unsettled, 20)
+
+    def test_every_active_module_not_only_the_twelve(self):
+        from pcn_appeal.eval.eligibility import reference as R
+        for m in KG.active_modules():
+            only = dsl.referenced_facts(m.do_not_use_when) - dsl.referenced_facts(m.use_when)
+            for base in _supported_views(m, 3):
+                for fact in sorted(only & set(base)):
+                    view = {k: v for k, v in base.items() if k != fact}
+                    if R.tree(m.do_not_use_when, view) is not None:
+                        continue          # settled by another arm of a compound blocker
+                    with self.subTest(module=m.module_id, fact=fact):
+                        self.assertNotEqual(evaluate_module(m, view).status, SUPPORTED)
+
+    def test_no_required_facts_were_added_to_cover_blockers(self):
+        """required_facts of the twelve is what the KB shipped (git HEAD~ of this phase)."""
+        import subprocess
+        shipped = subprocess.run(["git", "show", "0168cac:pcn_appeal/data/kb_modules.yaml"],
+                                 capture_output=True, text=True)
+        if shipped.returncode:
+            self.skipTest("git history not available")
+        import yaml
+        raw = yaml.safe_load(shipped.stdout)
+        mods = raw.get("modules") if isinstance(raw, dict) else raw
+        before = {m["module_id"]: list(m.get("required_facts") or []) for m in mods}
+        for mid in self.TWELVE:
+            self.assertEqual(KG.modules[mid].required_facts, before[mid], mid)
+
+    def test_the_audit_set_is_the_modules_with_blocker_only_facts(self):
+        have = {m.module_id for m in KG.active_modules()
+                if dsl.referenced_facts(m.do_not_use_when) - dsl.referenced_facts(m.use_when)}
+        self.assertTrue(set(self.TWELVE) <= have)
+
+
+class Pofa04(unittest.TestCase):
+    """The reverse-dependent proposition stays open; the rest of the appeal is not held up."""
+
+    BASE = {"driver_status": "UNIDENTIFIED", "notice_route": "POSTAL", "pofa_route": "POSTAL",
+            "relevant_land": True, "ntk_defect_document_confirmed": True,
+            "ntk_defect_keeper_warning": True}
+
+    def _s(self, **extra):
+        return evaluate_module_id(KG, "KB-POFA-04", {**self.BASE, **extra})
+
+    def test_a_reverse_complete_notice_is_evaluated_normally(self):
+        self.assertEqual(self._s(notice_sides_complete=True).status, SUPPORTED)
+
+    def test_front_only_with_the_wording_explicitly_safe_is_pleadable(self):
+        out = self._s(notice_sides_complete=False, ntk_invites_pass_to_driver=False)
+        self.assertEqual(out.status, SUPPORTED)
+
+    def test_front_only_with_the_wording_explicitly_a_blocker_is_blocked(self):
+        out = self._s(notice_sides_complete=False, ntk_invites_pass_to_driver=True)
+        self.assertEqual(out.status, BLOCKED)
+        self.assertTrue(out.blocking_conditions)
+
+    def test_front_only_with_the_wording_unknown_is_unresolved_not_blocked(self):
+        out = self._s(notice_sides_complete=False)
+        self.assertEqual(out.status, UNRESOLVED)
+        self.assertEqual(out.blocking_conditions, [])
+        self.assertTrue(any("ntk_invites_pass_to_driver" in b for b in out.unverified_blockers))
+
+    def test_sides_unknown_is_unresolved(self):
+        self.assertEqual(self._s().status, UNRESOLVED)
+
+    def test_an_unrelated_verified_timing_defect_stays_usable(self):
+        """Front-only upload: POFA-04 stays open, the verified postal-timing ground does not."""
+        view = {**self.BASE, "notice_sides_complete": False}
+        timing = evaluate_module_id(KG, "KB-POFA-02", view, verified_findings=["POFA_POSTAL_LATE"])
+        content = evaluate_module_id(KG, "KB-POFA-04", view, verified_findings=["POFA_POSTAL_LATE"])
+        self.assertEqual(timing.status, SUPPORTED)
+        self.assertEqual(content.status, UNRESOLVED)
+
+    def test_the_timing_ground_survives_the_reasoning_gate_beside_an_open_content_ground(self):
+        view = {**self.BASE, "notice_sides_complete": False, "pofa_findings": ["POFA_POSTAL_LATE"],
+                "pofa_finding": "POFA_POSTAL_LATE"}
+        kept, why = ReasoningEngine(KG).eligibility(view, object(), [])
+        ids = {m.module_id for m in kept}
+        self.assertIn("KB-POFA-02", ids)
+        self.assertNotIn("KB-POFA-04", ids)
+        self.assertIn("R-03", why["KB-POFA-04"])
+
+    def test_front_only_is_a_valid_case_for_the_matcher(self):
+        view = {**self.BASE, "notice_sides_complete": False, "pofa_findings": ["POFA_POSTAL_LATE"],
+                "pofa_finding": "POFA_POSTAL_LATE"}
+        case = CaseFile("fo")
+        case.legal_findings.append({"finding_type": "POFA_POSTAL_LATE", "status": "VERIFIED"})
+        match = KM.KnowledgeMatcher(KG).match(case, view)
+        self.assertEqual(match.candidates["KB-POFA-02"].status, KM.SUPPORTED)
+        self.assertIn(match.candidates["KB-POFA-04"].status, (KM.RELEVANT, KM.OPEN))
+        self.assertIn("ntk_invites_pass_to_driver", match.candidates["KB-POFA-04"].missing)
+
+    def test_the_yaml_carries_no_extra_clause_for_it(self):
+        """The generic rule is enough: the module is the one the KB shipped."""
+        m = KG.modules["KB-POFA-04"]
+        self.assertNotIn("ntk_invites_pass_to_driver", dsl.referenced_facts(m.use_when))
+
+
+class DownstreamGates(unittest.TestCase):
+    """The places that turn eligibility into a ground read the same rule."""
+
+    def test_reasoning_gate_requires_every_blocker_false(self):
+        base = {"driver_status": "UNIDENTIFIED", "vehicle_immobilised": True,
+                "immobilisation_prevented_departure": True}
+        eng = ReasoningEngine(KG)
+        kept, why = eng.eligibility(dict(base), object(), [])
+        self.assertNotIn("KB-BREAK-01", {m.module_id for m in kept})
+        self.assertIn("R-03", why["KB-BREAK-01"])
+        kept, _ = eng.eligibility({**base, "fault_pre_existing_not_preventing": False}, object(), [])
+        self.assertIn("KB-BREAK-01", {m.module_id for m in kept})
+        kept, why = eng.eligibility({**base, "fault_pre_existing_not_preventing": True}, object(), [])
+        self.assertNotIn("KB-BREAK-01", {m.module_id for m in kept})
+
+    def test_gate_holds_equals_supported_for_every_module(self):
+        for m in KG.active_modules():
+            for view, _ in matrix.cases_for(m, 80):
+                self.assertEqual(ME.gate_holds(m, view), evaluate_module(m, view).status == SUPPORTED,
+                                 m.module_id)
+
+    def test_the_matcher_reports_the_open_blocker_and_what_it_waits_on(self):
+        view = {"driver_status": "UNIDENTIFIED", "payment_made": True}
+        c = KM.KnowledgeMatcher(KG).match(CaseFile("m"), view).candidates["KB-PAY-01"]
+        self.assertIn(c.status, (KM.RELEVANT, KM.OPEN))
+        self.assertIn("terms_rejected_left", c.missing)
+        self.assertTrue(c.unverified_blockers)
+        self.assertIn("not yet ruled out", c.reason)
+
+    def test_a_proposed_module_with_an_open_blocker_never_reaches_the_claim_plan(self):
+        import sys
+        sys.path.insert(0, "tests")
+        from test_private_parking_v2 import make_case, run_pipeline
+        case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
+                                "alleged_breach": "No ticket displayed"})
+        r = run_pipeline(case, pipe, "drove through then left", scenario="3b1-open-blocker")
+        suppressed = {row["module_id"]: row["why"] for row in r.suppressed}
+        self.assertIn("KB-POFA-01", suppressed, "relevant_land is unknown here")
+        self.assertIn("not yet ruled out", suppressed["KB-POFA-01"])
 
 
 if __name__ == "__main__":

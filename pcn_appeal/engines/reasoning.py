@@ -36,6 +36,7 @@ from ..legal import code_versions, findings as legal_findings, pofa
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
+from .module_eligibility import gate_holds
 from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
@@ -339,7 +340,9 @@ class ReasoningEngine:
         gate_facts = legal_findings.gate_facts(facts)
         eligible = []
         for m in self.kg.active_modules():
-            ok = evaluate(m.use_when, gate_facts) and not evaluate(m.do_not_use_when, gate_facts)
+            # R-03: use_when TRUE and every do_not_use_when FALSE. A blocker that is
+            # merely unknown is not a pass (module_eligibility.decide).
+            ok = gate_holds(m, gate_facts)
             if not ok:
                 why[m.module_id] = "gate does not hold (R-03)"
             if ok and any(s.startswith("SCOP-") for s in m.legal_basis) and version is None \

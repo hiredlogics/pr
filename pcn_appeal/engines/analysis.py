@@ -681,6 +681,14 @@ class AnalysisEngine:
                 proposed_ids.remove(mid)
                 self._suppress(result, mid,
                                f"blocked by relation: {match.candidates[mid].reason}")
+        # A hard do_not_use_when condition that is still unknown is not a pass: the
+        # plan's own veto only fires on a TRUE blocker, so the proposal stops here.
+        if match is not None:
+            for mid in [m for m in proposed_ids if m and match.candidates.get(m) is not None
+                        and match.candidates[m].unverified_blockers]:
+                proposed_ids.remove(mid)
+                self._suppress(result, mid, "a do_not_use_when condition is not yet ruled out: "
+                               + "; ".join(match.candidates[mid].unverified_blockers[:3]))
         plan = build_claim_plan(
             case, self.kg, proposed_ids, list(result.candidate_ids or []), facts,
             findings=findings, code_version=code_version,

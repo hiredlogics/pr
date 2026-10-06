@@ -105,10 +105,19 @@ def tree(pred: Any, facts: Mapping[str, Any], unreliable=frozenset()) -> Optiona
 
 def status(use_when: Any, do_not_use_when: Any, facts: Mapping[str, Any],
            unreliable=frozenset()) -> str:
-    """BLOCKED only when a blocker is deterministically TRUE; otherwise SUPPORTED
-    when use_when is TRUE, REJECTED when it is FALSE, UNRESOLVED when it is UNKNOWN.
-    An UNKNOWN blocker blocks nothing."""
-    if tree(do_not_use_when, facts, unreliable) is T:
-        return "BLOCKED"
+    """Precedence, first row that holds:
+        a blocker TRUE                       -> BLOCKED
+        use_when FALSE                       -> REJECTED   (known not to apply)
+        a blocker UNKNOWN, or use_when UNKNOWN -> UNRESOLVED
+        use_when TRUE and every blocker FALSE  -> SUPPORTED
+    Every do_not_use_when condition is a hard blocker: unknown is neither a block
+    (absence is not a contradiction) nor a pass (absence is not exclusion)."""
+    blockers = tree(do_not_use_when, facts, unreliable)
     gate = tree(use_when, facts, unreliable)
-    return "SUPPORTED" if gate is T else ("REJECTED" if gate is F else "UNRESOLVED")
+    if blockers is T:
+        return "BLOCKED"
+    if gate is F:
+        return "REJECTED"
+    if blockers is U or gate is U:
+        return "UNRESOLVED"
+    return "SUPPORTED"

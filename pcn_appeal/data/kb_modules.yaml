@@ -119,11 +119,7 @@ modules:
     # One boolean per statutory element so that exactly the confirmed defect is
     # pleaded (source: "do not generate a generic checklist challenge"), plus a
     # document-confirmation flag for the DO NOT on OCR uncertainty.
-    # P3B: a front-only notice is pleadable only when the pass-to-driver wording is
-    # EXPLICITLY false. That is a condition that must be established, so it is stated
-    # here: a blocker over an unknown value can no longer stand in for it (an unknown
-    # `ne` does not block).
-    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}, {any: [{ne: [notice_sides_complete, false]}, {eq: [ntk_invites_pass_to_driver, false]}]}]}
+    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: ntk_defect_document_confirmed}, {any: [{is: ntk_defect_parking_details}, {is: ntk_defect_keeper_warning}, {is: ntk_defect_creditor}, {is: ntk_defect_charge_amount}, {is: ntk_defect_statutory_invitation}]}]}
     do_not_use_when:
       any:
         - {eq: [pofa_route, NOT_APPLICABLE]}
