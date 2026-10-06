@@ -955,6 +955,17 @@ class AppealPipeline:
                                    "customer_semantics_not_ready": blocked,
                                    "module_ids": list(pack.module_ids or []),
                                    "questions": [q["fact"] for q in pending]})
+            elif blocked and understanding.customer_stream_failure(case) == understanding.TECHNICAL:
+                # No model reading of the account was made. We know nothing about
+                # it - not that it is ambiguous, not that it fails to support a
+                # ground - so this is a retryable processing hold. The account is
+                # kept; continuing the case reads it again.
+                case.state = CaseState.MANUAL_REVIEW
+                case.audit.append({
+                    "event": "held_semantic_processing",
+                    "customer_semantics_not_ready": blocked,
+                    "cause": understanding.technical_cause(understanding.load_packet(case)),
+                    "module_ids": list(pack.module_ids or []), "reason": reason})
             elif blocked:
                 # Nothing independent of the account supported a ground, and the
                 # account could not be understood well enough to weigh. That is

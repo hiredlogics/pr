@@ -231,6 +231,39 @@ def not_ready_reason(packet: dict) -> Optional[str]:
         else "AMBIGUITY_NOT_ASSESSED"
 
 
+# Why a reading is not ready is two different things. SEMANTIC: a model read the
+# account and a material ambiguity is still open - the customer's meaning is
+# unresolved. TECHNICAL: no model reading was made (no provider, the call failed
+# or timed out, the reply broke the contract), so nothing is known about the
+# account at all and it must not be described as ambiguous.
+SEMANTIC = "SEMANTIC"
+TECHNICAL = "TECHNICAL"
+
+
+def not_ready_kind(packet: dict) -> Optional[str]:
+    """SEMANTIC, TECHNICAL, or None when ready. Decided from whether a model
+    actually assessed the account, not from the wording of the reason label."""
+    if is_ready(packet):
+        return None
+    if not packet or packet.get("ambiguity_assessed") is not True:
+        return TECHNICAL
+    return SEMANTIC
+
+
+def technical_cause(packet: dict) -> Optional[str]:
+    """What stopped the reading, for the trace. None unless the failure is technical."""
+    if not_ready_kind(packet) != TECHNICAL:
+        return None
+    proc = (packet or {}).get("processing") or {}
+    if proc.get("fallback_reason") == "semantic_provider_call_failed":
+        return "SEMANTIC_PROVIDER_FAILED"
+    if proc.get("fallback_reason") == "no_semantic_provider_configured":
+        return "NO_SEMANTIC_PROVIDER"
+    if (packet or {}).get("semantic_mode") == "LIVE":
+        return "INVALID_MODEL_RESPONSE"
+    return "SEMANTIC_RESULT_NOT_PRODUCED"
+
+
 def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
     """The semantic packet for this reading. `product` is the normalised model
     product (extract._normalize_product plus the helpers' merge); `history` is
@@ -322,6 +355,8 @@ def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
                       else NON_MATERIAL if uncertainties else NO_AMBIGUITY),
         "ambiguity_assessed": assessed,
         "semantic_mode": product.get("semantic_mode"),
+        "processing": {"fallback_reason": product.get("fallback_reason") or "",
+                       "exception_class": product.get("exception_class") or ""},
         "clarification_rounds": len(done),
         "revision": revision,
         "notes": notes,
@@ -397,6 +432,12 @@ def customer_stream_blocked(case) -> Optional[str]:
     if packet is None:
         return None
     return not_ready_reason(packet)
+
+
+def customer_stream_failure(case) -> Optional[str]:
+    """SEMANTIC or TECHNICAL when the customer stream is blocked, else None."""
+    packet = load_packet(case)
+    return None if packet is None else not_ready_kind(packet)
 
 
 def customer_semantic_raw(case, key: str):

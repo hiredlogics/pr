@@ -149,14 +149,15 @@ class AnUnresolvedAccountAfterTheClarificationCap(unittest.TestCase):
 
 
 class AnUnassessedAccountWithNoIndependentGround(unittest.TestCase):
-    """D. Rule 3: a technical understanding state, not a verdict."""
+    """D. Never a verdict. (Phase 2F: it is a retryable processing hold, because
+    nothing read the account; ACCOUNT_UNRESOLVED is for a reading that did.)"""
 
-    def test_unassessed_is_account_unresolved(self):
+    def test_unassessed_is_not_a_verdict_about_the_case(self):
         for name, reading in (("no status", _reading(None)),
                               ("provider down", RuntimeError("provider down"))):
             with self.subTest(name):
                 case, out, _q = _run(reading)
-                self.assertEqual(out.outcome, "ACCOUNT_UNRESOLVED")
+                self.assertEqual(out.outcome, "PROCESSING_ERROR")
                 self.assertNotEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
                 self.assertEqual(_ids(out), [])
                 self.assertIn(U.customer_stream_blocked(case),
@@ -225,7 +226,8 @@ class NoSupportedGroundsCannotComeFromABlockedAccount(unittest.TestCase):
             for road, info in self._paths(case):
                 with self.subTest(packet=name, road=road):
                     self.assertNotEqual(info["outcome"], "NO_SUPPORTED_GROUNDS")
-                    self.assertIn(info["outcome"], ("ACCOUNT_UNRESOLVED", "NEEDS_FACTS"))
+                    self.assertIn(info["outcome"],
+                                  ("ACCOUNT_UNRESOLVED", "NEEDS_FACTS", "PROCESSING_ERROR"))
 
     def test_a_usable_account_still_yields_it_by_each_road(self):
         for case in (_seed(CaseFile("c"), _packet()), CaseFile("c")):
@@ -239,7 +241,7 @@ class NoSupportedGroundsCannotComeFromABlockedAccount(unittest.TestCase):
         case = _seed(CaseFile("c"), forged)
         for road, info in self._paths(case):
             with self.subTest(road=road):
-                self.assertEqual(info["outcome"], "ACCOUNT_UNRESOLVED")
+                self.assertEqual(info["outcome"], "PROCESSING_ERROR")
 
     def test_the_detail_carries_the_internal_reason_and_the_copy_does_not(self):
         info = O.no_ground_outcome(_seed(CaseFile("c"), NOT_READY_PACKETS["exhausted"]))
