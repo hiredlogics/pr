@@ -1,0 +1,3732 @@
+{
+ "provider": "demo",
+ "at": "2026-10-06T20:04:38+00:00",
+ "understanding_is_measured": false,
+ "note": "offline reference reader; it has no model and cannot judge ambiguity",
+ "cases": [
+  {
+   "id": 1,
+   "form": "clear complete account",
+   "input": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics order",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "DEPARTURE_REASON",
+       "description": "the departure was to collect their medicine",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "went to the pharmacy next door to get her medicine",
+       "confidence": 0.85
+      },
+      {
+       "event_id": "EV-DEMO-3",
+       "event_type": "VISIT_ACTIVITY",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_reason",
+       "name": "departure_reason",
+       "proposition": "the departure was to collect their medicine",
+       "source_text": "went to the pharmacy next door to get her medicine",
+       "source_excerpt": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue.",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.85,
+       "category": "departure_reason",
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "substantive_rebuttal"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I paid for two hours at the machine when I arrived",
+       "source_excerpt": "I paid for two hours at the machine when I arrived",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-visit_activity-1",
+       "name": "visit_activity",
+       "category": "visit_activity",
+       "proposition": null,
+       "source_text": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "source_excerpt": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue",
+       "source_excerpt": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-departure_reason",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-visit_activity-1",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.028,
+    "model_calls": 1,
+    "model_seconds": 0.005,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "the departure was to collect their medicine",
+       "proposition": "the departure was to collect their medicine",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "went to the pharmacy next door to get her medicine",
+       "confidence": 0.85,
+       "mapped_to_ontology": false
+      },
+      {
+       "event_id": "EV-DEMO-3",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_reason",
+       "category": "departure_reason",
+       "name": "departure_reason",
+       "proposition": "the departure was to collect their medicine",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "went to the pharmacy next door to get her medicine",
+       "source_excerpt": "went to the pharmacy next door to get her medicine",
+       "confidence": 0.85,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I paid for two hours at the machine when I arrived",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid for two hours at the machine when I arrived",
+       "source_excerpt": "I paid for two hours at the machine when I arrived",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-visit_activity-1",
+       "category": "visit_activity",
+       "name": "visit_activity",
+       "proposition": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "source_excerpt": "but my daughter felt unwell and we went to the pharmacy next door to get her medicine",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue",
+       "source_excerpt": "I paid for two hours at the machine when I arrived, but my daughter felt unwell and we went to the pharmacy next door to get her medicine, which took longer than expected because of the queue",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 2,
+   "form": "one short sentence",
+   "input": "The ticket machine was broken.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics short",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 3,
+   "form": "two-word answer",
+   "input": "Machine broken",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics short grammar",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 4,
+   "form": "two-word answer",
+   "input": "Paid online",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "short",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "Paid online",
+       "confidence": 0.9,
+       "provenance": "deterministic_helper"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 5,
+   "form": "spelling mistakes",
+   "input": "i parkd ther for the docters appointmnt and it ran over becuase the doc was runing late",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "grammar specifics cause_effect",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 6,
+   "form": "poor grammar",
+   "input": "me and kids go shop, car park machine take my money no ticket come out",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "grammar specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 7,
+   "form": "incomplete sentence",
+   "input": "I went to the machine and then when I",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "incomplete ambiguous_short",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "VISIT_ACTIVITY",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I went to the machine and",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "name": "visit_activity",
+       "category": "visit_activity",
+       "proposition": null,
+       "source_text": "I went to the machine and",
+       "source_excerpt": "I went to the machine and",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "when I",
+       "source_excerpt": "when I",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I went to the machine and then when I",
+       "source_excerpt": "I went to the machine and then when I",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-visit_activity-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-1",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I went to the machine and",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "category": "visit_activity",
+       "name": "visit_activity",
+       "proposition": "I went to the machine and",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I went to the machine and",
+       "source_excerpt": "I went to the machine and",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "when I",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "when I",
+       "source_excerpt": "when I",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I went to the machine and then when I",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I went to the machine and then when I",
+       "source_excerpt": "I went to the machine and then when I",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": 8,
+   "form": "ambiguous pronoun",
+   "input": "I left my mum at the surgery and she said she would sort it. It wasn't sorted.",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "ambiguous_pronoun",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "DEPARTURE_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I left my mum at the surgery and she said she would sort it",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "name": "departure_event",
+       "category": "departure_event",
+       "proposition": null,
+       "source_text": "I left my mum at the surgery and she said she would sort it",
+       "source_excerpt": "I left my mum at the surgery and she said she would sort it",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-departure_event-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I left my mum at the surgery and she said she would sort it",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "category": "departure_event",
+       "name": "departure_event",
+       "proposition": "I left my mum at the surgery and she said she would sort it",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I left my mum at the surgery and she said she would sort it",
+       "source_excerpt": "I left my mum at the surgery and she said she would sort it",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": 9,
+   "form": "unclear cause and effect",
+   "input": "I got the ticket because I had paid.",
+   "provider": "demo",
+   "ambiguity": "EITHER",
+   "tags": "cause_effect",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "EITHER",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I got the ticket because I had paid",
+       "source_excerpt": "I got the ticket because I had paid",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I got the ticket because I had paid",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I got the ticket because I had paid",
+       "source_excerpt": "I got the ticket because I had paid",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 10,
+   "form": "clear negation",
+   "input": "I did not leave the car park at any point and I never received the reminder text.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "negation specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "LEFT_SITE",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I did not leave the car park at any point and I never received the reminder text.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "DEPARTURE_EVENT",
+       "description": "",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I did not leave the car park at any point and I never received the reminder text",
+       "confidence": 0.55
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "name": "departure_event",
+       "category": "departure_event",
+       "proposition": null,
+       "source_text": "I did not leave the car park at any point and I never received the reminder text",
+       "source_excerpt": "I did not leave the car park at any point and I never received the reminder text",
+       "attribution": "CUSTOMER",
+       "polarity": "NEGATED",
+       "confidence": 0.55,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-departure_event-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "LEFT_SITE",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I did not leave the car park at any point and I never received the reminder text.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I did not leave the car park at any point and I never received the reminder text",
+       "confidence": 0.55,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "category": "departure_event",
+       "name": "departure_event",
+       "proposition": "I did not leave the car park at any point and I never received the reminder text",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I did not leave the car park at any point and I never received the reminder text",
+       "source_excerpt": "I did not leave the car park at any point and I never received the reminder text",
+       "confidence": 0.55,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-concept-LEFT_SITE-NEGATED",
+       "name": "concept_left_site",
+       "category": "semantic_concept",
+       "concept": "LEFT_SITE",
+       "proposition": null,
+       "source_text": "I did not leave the car park at any point and I never received the reminder text.",
+       "source_excerpt": "I did not leave the car park at any point and I never received the reminder text.",
+       "attribution": "CUSTOMER",
+       "polarity": "NEGATED",
+       "confidence": 0.6,
+       "mapped_to_ontology": true,
+       "material_to": [
+        "allegation",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 11,
+   "form": "uncertainty",
+   "input": "I think I paid but I'm not sure whether the payment went through, it might have been declined.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "uncertainty",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "UNCERTAIN",
+       "attribution": "CUSTOMER",
+       "source_text": "I think I paid but I'm not sure whether the payment went through, it might have been declined.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "UNCERTAIN",
+       "attribution": "CUSTOMER",
+       "source_text": "I think I paid but I'm not sure whether the payment went through, it might have been declined.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-concept-PAYMENT_MADE-UNCERTAIN",
+       "name": "concept_payment_made",
+       "category": "semantic_concept",
+       "concept": "PAYMENT_MADE",
+       "proposition": null,
+       "source_text": "I think I paid but I'm not sure whether the payment went through, it might have been declined.",
+       "source_excerpt": "I think I paid but I'm not sure whether the payment went through, it might have been declined.",
+       "attribution": "CUSTOMER",
+       "polarity": "UNCERTAIN",
+       "confidence": 0.6,
+       "mapped_to_ontology": true,
+       "material_to": [
+        "allegation",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 12,
+   "form": "conflicting statements",
+   "input": "I paid at the machine. I didn't pay because the machine was out of order.",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "conflict",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid at the machine. I didn't pay because the machine was out of order.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I didn't pay because the machine was out of order",
+       "source_excerpt": "I didn't pay because the machine was out of order",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I paid at the machine. I didn't pay because the machine was out of order.",
+       "confidence": 0.6,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I didn't pay because the machine was out of order",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I didn't pay because the machine was out of order",
+       "source_excerpt": "I didn't pay because the machine was out of order",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-concept-PAYMENT_MADE-NEGATED",
+       "name": "concept_payment_made",
+       "category": "semantic_concept",
+       "concept": "PAYMENT_MADE",
+       "proposition": null,
+       "source_text": "I paid at the machine. I didn't pay because the machine was out of order.",
+       "source_excerpt": "I paid at the machine. I didn't pay because the machine was out of order.",
+       "attribution": "CUSTOMER",
+       "polarity": "NEGATED",
+       "confidence": 0.6,
+       "mapped_to_ontology": true,
+       "material_to": [
+        "allegation",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": 13,
+   "form": "unusual circumstance",
+   "input": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics order",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along",
+       "source_excerpt": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along",
+       "source_excerpt": "A swan was blocking the exit lane so I waited with the engine off until the warden moved it along",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 14,
+   "form": "unseen wording",
+   "input": "The bay lines were repainted that morning and the sign was wrapped up in a bin bag.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 15,
+   "form": "long narrative",
+   "input": "We arrived about ten and I bought a two hour ticket at the machine by the entrance. My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was. The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one. She is fine now, thank you for asking. When we came back there was already a ticket on the windscreen. I took a photo of the clinic waiting room sign saying the wait was ninety minutes. The weather was awful too and my phone had died.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics order cause_effect",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We arrived about ten and I bought a two hour ticket at the machine by the entrance. My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      },
+      {
+       "concept": "SHOPPING",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We arrived about ten and I bought a two hour ticket at the machine by the entrance. My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "VISIT_ACTIVITY",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "we went to the walk-in clinic next to the car park",
+       "confidence": 0.75
+      },
+      {
+       "event_id": "EV-DEMO-2",
+       "event_type": "DEPARTURE_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "and I left the car where it was",
+       "confidence": 0.75
+      },
+      {
+       "event_id": "EV-DEMO-5",
+       "event_type": "RETURN_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "name": "visit_activity",
+       "category": "visit_activity",
+       "proposition": null,
+       "source_text": "we went to the walk-in clinic next to the car park",
+       "source_excerpt": "we went to the walk-in clinic next to the car park",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-departure_event-1",
+       "name": "departure_event",
+       "category": "departure_event",
+       "proposition": null,
+       "source_text": "and I left the car where it was",
+       "source_excerpt": "and I left the car where it was",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-2",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "The clinic was very busy and the nurse wanted her observed for a while",
+       "source_excerpt": "The clinic was very busy and the nurse wanted her observed for a while",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-3",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "so we were not back until nearly one",
+       "source_excerpt": "so we were not back until nearly one",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-return_event-4",
+       "name": "return_event",
+       "category": "return_event",
+       "proposition": null,
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "source_excerpt": "When we came back there was already a ticket on the windscreen",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-5",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "source_excerpt": "When we came back there was already a ticket on the windscreen",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "source_excerpt": "My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one",
+       "source_excerpt": "The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-visit_activity-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-departure_event-1",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-2",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-3",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-return_event-4",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-5",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-1",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.005,
+    "model_calls": 1,
+    "model_seconds": 0.001,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We arrived about ten and I bought a two hour ticket at the machine by the entrance. My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      },
+      {
+       "concept": "SHOPPING",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We arrived about ten and I bought a two hour ticket at the machine by the entrance. My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "we went to the walk-in clinic next to the car park",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      },
+      {
+       "event_id": "EV-DEMO-2",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "and I left the car where it was",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      },
+      {
+       "event_id": "EV-DEMO-5",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "category": "visit_activity",
+       "name": "visit_activity",
+       "proposition": "we went to the walk-in clinic next to the car park",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "we went to the walk-in clinic next to the car park",
+       "source_excerpt": "we went to the walk-in clinic next to the car park",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-departure_event-1",
+       "category": "departure_event",
+       "name": "departure_event",
+       "proposition": "and I left the car where it was",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "and I left the car where it was",
+       "source_excerpt": "and I left the car where it was",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-2",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "The clinic was very busy and the nurse wanted her observed for a while",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The clinic was very busy and the nurse wanted her observed for a while",
+       "source_excerpt": "The clinic was very busy and the nurse wanted her observed for a while",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-3",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "so we were not back until nearly one",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "so we were not back until nearly one",
+       "source_excerpt": "so we were not back until nearly one",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-return_event-4",
+       "category": "return_event",
+       "name": "return_event",
+       "proposition": "When we came back there was already a ticket on the windscreen",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "source_excerpt": "When we came back there was already a ticket on the windscreen",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-5",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "When we came back there was already a ticket on the windscreen",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "When we came back there was already a ticket on the windscreen",
+       "source_excerpt": "When we came back there was already a ticket on the windscreen",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "source_excerpt": "My daughter then complained of chest pain so we went to the walk-in clinic next to the car park, which has its own entrance, and I left the car where it was",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one",
+       "source_excerpt": "The clinic was very busy and the nurse wanted her observed for a while, so we were not back until nearly one",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 16,
+   "form": "irrelevant detail",
+   "input": "It was sunny and I had a lovely sandwich and my cat is called Biscuit. The pay machine took my card but gave me an error and no receipt.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics irrelevant",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": 17,
+   "form": "facts already on the notice",
+   "input": "The notice says I stayed two hours forty seven but I paid for three hours.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The notice says I stayed two hours forty seven but I paid for three hours.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "PAYMENT_MADE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The notice says I stayed two hours forty seven but I paid for three hours.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 18,
+   "form": "left and came back",
+   "input": "I popped out to the bank and then came back and parked again.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "order specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I popped out to the bank and then came back and parked again.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "RETURN_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "came back and parked again",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-return_event-0",
+       "name": "return_event",
+       "category": "return_event",
+       "proposition": null,
+       "source_text": "came back and parked again",
+       "source_excerpt": "came back and parked again",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-return_event-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.002,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I popped out to the bank and then came back and parked again.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "came back and parked again",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-return_event-0",
+       "category": "return_event",
+       "name": "return_event",
+       "proposition": "came back and parked again",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "came back and parked again",
+       "source_excerpt": "came back and parked again",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": 19,
+   "form": "short and ambiguous",
+   "input": "He said it was fine.",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "ambiguous_short ambiguous_pronoun",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": 20,
+   "form": "spelling + negation + uncertainty",
+   "input": "i dident leav the carpark, not shure if the machin took my card tho",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "grammar negation uncertainty",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": false,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet",
+    "lost negation or uncertainty"
+   ]
+  },
+  {
+   "id": "H1",
+   "form": "short but clear",
+   "input": "Paid by phone, signal dropped before it confirmed.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "short specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "signal dropped before it confirmed",
+       "source_excerpt": "signal dropped before it confirmed",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "Paid by phone, signal dropped before it confirmed",
+       "source_excerpt": "Paid by phone, signal dropped before it confirmed",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "signal dropped before it confirmed",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "signal dropped before it confirmed",
+       "source_excerpt": "signal dropped before it confirmed",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "Paid by phone, signal dropped before it confirmed",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "Paid by phone, signal dropped before it confirmed",
+       "source_excerpt": "Paid by phone, signal dropped before it confirmed",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": "H2",
+   "form": "malformed English",
+   "input": "car stay long becuz hospital visit fathr, ticket was for 1 hour onli",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "grammar specifics cause_effect",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": false,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet",
+    "lost cause and effect"
+   ]
+  },
+  {
+   "id": "H3",
+   "form": "ambiguous language",
+   "input": "My friend said it was covered so I did not bother with the machine.",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "ambiguous_pronoun",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "My friend said it was covered so I did not bother with the machine",
+       "source_excerpt": "My friend said it was covered so I did not bother with the machine",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "My friend said it was covered so I did not bother with the machine",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "My friend said it was covered so I did not bother with the machine",
+       "source_excerpt": "My friend said it was covered so I did not bother with the machine",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": "H4",
+   "form": "clear leave and return",
+   "input": "We parked at ten, drove to the station to drop my husband at twenty past, then came back and parked in the same bay around ten forty.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "order specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We parked at ten, drove to the station to drop my husband at twenty past, then came back and parked in the same bay around ten forty.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "RETURN_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "then came back and parked in the same bay around ten forty",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-return_event-0",
+       "name": "return_event",
+       "category": "return_event",
+       "proposition": null,
+       "source_text": "then came back and parked in the same bay around ten forty",
+       "source_excerpt": "then came back and parked in the same bay around ten forty",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-return_event-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.002,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "RETURNED",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "We parked at ten, drove to the station to drop my husband at twenty past, then came back and parked in the same bay around ten forty.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "then came back and parked in the same bay around ten forty",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-return_event-0",
+       "category": "return_event",
+       "name": "return_event",
+       "proposition": "then came back and parked in the same bay around ten forty",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "then came back and parked in the same bay around ten forty",
+       "source_excerpt": "then came back and parked in the same bay around ten forty",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": false,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost temporal order"
+   ]
+  },
+  {
+   "id": "H5",
+   "form": "reason irrelevant to the allegation",
+   "input": "I was late because my sister's wedding dress fitting overran. The pay machine accepted my card and gave me a ticket valid until twelve.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics irrelevant",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I was late because my sister's wedding dress fitting overran",
+       "source_excerpt": "I was late because my sister's wedding dress fitting overran",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I was late because my sister's wedding dress fitting overran",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I was late because my sister's wedding dress fitting overran",
+       "source_excerpt": "I was late because my sister's wedding dress fitting overran",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": "H6",
+   "form": "negated activity",
+   "input": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "negation specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "VISIT_ACTIVITY",
+       "description": "",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I never went into the shop and I didn't use the machine",
+       "confidence": 0.55
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "name": "visit_activity",
+       "category": "visit_activity",
+       "proposition": null,
+       "source_text": "I never went into the shop and I didn't use the machine",
+       "source_excerpt": "I never went into the shop and I didn't use the machine",
+       "attribution": "CUSTOMER",
+       "polarity": "NEGATED",
+       "confidence": 0.55,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard",
+       "source_excerpt": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-visit_activity-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I never went into the shop and I didn't use the machine",
+       "confidence": 0.55,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-visit_activity-0",
+       "category": "visit_activity",
+       "name": "visit_activity",
+       "proposition": "I never went into the shop and I didn't use the machine",
+       "polarity": "NEGATED",
+       "attribution": "CUSTOMER",
+       "source_text": "I never went into the shop and I didn't use the machine",
+       "source_excerpt": "I never went into the shop and I didn't use the machine",
+       "confidence": 0.55,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard",
+       "source_excerpt": "I never went into the shop and I didn't use the machine because I had a permit on the dashboard",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  },
+  {
+   "id": "H7",
+   "form": "uncertain activity",
+   "input": "I might have gone back to the car around eleven to feed the meter, I can't swear to it.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "uncertainty",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": false,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet",
+    "lost negation or uncertainty"
+   ]
+  },
+  {
+   "id": "H8",
+   "form": "unusual customer circumstance",
+   "input": "A film crew had cordoned off the entrance and a marshal waved me into a bay and told me to ignore the signs.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "specifics",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "material_relevance": [],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": false,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "lost specificity: a stated detail is missing from the packet"
+   ]
+  },
+  {
+   "id": "H9",
+   "form": "conflicting statements",
+   "input": "I was there for twenty minutes only. The receipt shows I arrived at ten and left after one.",
+   "provider": "demo",
+   "ambiguity": "MATERIAL",
+   "tags": "conflict",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "NEEDS_CLARIFICATION",
+   "turn1": {
+    "model_response": {
+     "concepts": [
+      {
+       "concept": "LEFT_SITE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I was there for twenty minutes only. The receipt shows I arrived at ten and left after one.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "DEPARTURE_EVENT",
+       "description": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "confidence": 0.75
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "name": "departure_event",
+       "category": "departure_event",
+       "proposition": null,
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "source_excerpt": "The receipt shows I arrived at ten and left after one",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "allegation",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "source_excerpt": "The receipt shows I arrived at ten and left after one",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-departure_event-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-1",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.002,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [
+      {
+       "concept": "LEFT_SITE",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "I was there for twenty minutes only. The receipt shows I arrived at ten and left after one.",
+       "confidence": 0.8,
+       "provenance": "meaning_bridge_reference"
+      }
+     ],
+     "events": [
+      {
+       "event_id": "EV-DEMO-1",
+       "event_type": "OTHER",
+       "kind": "other",
+       "description": "",
+       "proposition": "",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "confidence": 0.75,
+       "mapped_to_ontology": false
+      }
+     ],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-departure_event-0",
+       "category": "departure_event",
+       "name": "departure_event",
+       "proposition": "The receipt shows I arrived at ten and left after one",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "source_excerpt": "The receipt shows I arrived at ten and left after one",
+       "confidence": 0.75,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-1",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "The receipt shows I arrived at ten and left after one",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "The receipt shows I arrived at ten and left after one",
+       "source_excerpt": "The receipt shows I arrived at ten and left after one",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": false,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": true,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": false,
+   "failure_reasons": [
+    "missed material ambiguity: certified an account it could not safely read",
+    "READY_FOR_KNOWLEDGE with a material ambiguity unresolved"
+   ]
+  },
+  {
+   "id": "H10",
+   "form": "unseen narrative structure",
+   "input": "Why was I charged? Because the app crashed, that's why there was no payment. Before that I'd been queuing for the exit.",
+   "provider": "demo",
+   "ambiguity": "NONE",
+   "tags": "order cause_effect",
+   "context": {
+    "alleged_breach": "Overstayed the paid time",
+    "parking_location": "Retail Park, Leeds"
+   },
+   "expected": "UNDERSTOOD",
+   "turn1": {
+    "model_response": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "Before that I'd been queuing for the exit",
+       "source_excerpt": "Before that I'd been queuing for the exit",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "name": "unmapped_reason",
+       "category": "unmapped_reason",
+       "proposition": null,
+       "source_text": "Why was I charged? Because the app crashed, that's why there was no payment",
+       "source_excerpt": "Why was I charged? Because the app crashed, that's why there was no payment",
+       "attribution": "CUSTOMER",
+       "polarity": "AFFIRMED",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "timeline",
+        "substantive_rebuttal",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "material_relevance": [
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      },
+      {
+       "source_id": "NA-unmapped-reason-0",
+       "relevant_to": [
+        "TIMELINE",
+        "SUBSTANTIVE_REBUTTAL"
+       ],
+       "confidence": 0.7
+      }
+     ],
+     "model_kind": "DemoLLM_meaning_bridge"
+    },
+    "seconds": 0.001,
+    "model_calls": 1,
+    "model_seconds": 0.0,
+    "retries": 0,
+    "error": null,
+    "degraded_reason": "",
+    "status": "UNDERSTOOD",
+    "summary": "",
+    "clarification": null,
+    "notes": [
+     "model gave status 'none', outside the contract; read as UNDERSTOOD"
+    ],
+    "semantic_mode": "LIVE",
+    "packet": {
+     "concepts": [],
+     "events": [],
+     "narrative_atoms": [
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "Before that I'd been queuing for the exit",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "Before that I'd been queuing for the exit",
+       "source_excerpt": "Before that I'd been queuing for the exit",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      },
+      {
+       "atom_id": "NA-unmapped-reason-0",
+       "category": "unmapped_reason",
+       "name": "unmapped_reason",
+       "proposition": "Why was I charged? Because the app crashed, that's why there was no payment",
+       "polarity": "AFFIRMED",
+       "attribution": "CUSTOMER",
+       "source_text": "Why was I charged? Because the app crashed, that's why there was no payment",
+       "source_excerpt": "Why was I charged? Because the app crashed, that's why there was no payment",
+       "confidence": 0.6,
+       "mapped_to_ontology": false,
+       "material_to": [
+        "substantive_rebuttal",
+        "timeline",
+        "supporting_context"
+       ]
+      }
+     ],
+     "relationships": [],
+     "uncertainties": []
+    }
+   },
+   "meaning_specifics_kept": true,
+   "meaning_polarity_kept": true,
+   "meaning_order_kept": true,
+   "meaning_cause_kept": true,
+   "meaning_leaked": [],
+   "status_ok": true,
+   "unnecessary_clarification": false,
+   "missed_ambiguity": false,
+   "one_clarification": null,
+   "resolved": null,
+   "repeat_attempted": null,
+   "repeat_shown": null,
+   "meaning_after_answer": null,
+   "pass": true,
+   "failure_reasons": []
+  }
+ ],
+ "summary": {
+  "passed": 11,
+  "of": 30,
+  "unnecessary_clarifications": 0,
+  "over": 23,
+  "missed_ambiguities": 6,
+  "missed_of": 6,
+  "repeated_questions_shown": 0,
+  "repeats_attempted_by_model": 0,
+  "model_calls_per_input": [
+   1
+  ],
+  "turn1_seconds": {
+   "p50": 0.001,
+   "p95": 0.005
+  },
+  "retries": 0,
+  "by_ability": {
+   "ambiguous_pronoun": "0/3",
+   "ambiguous_short": "0/2",
+   "cause_effect": "2/5",
+   "conflict": "0/2",
+   "grammar": "0/5",
+   "incomplete": "0/1",
+   "irrelevant": "0/2",
+   "negation": "2/3",
+   "order": "4/6",
+   "short": "2/4",
+   "specifics": "7/18",
+   "uncertainty": "1/3"
+  }
+ },
+ "set": "both"
+}

@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .cases import CASES, NOTICE
+from .cases import CASES, HOLDOUTS, NOTICE
 
 OUT = Path(__file__).resolve().parents[3] / "reports" / "understanding"
 LEAK = ("KB-", "PoFA", "Schedule 4", "claim plan", "appeal ground")
@@ -70,14 +70,66 @@ def score_meaning(case: dict, packet: dict) -> dict:
         held.append(ok)
     leaked = [w for w in LEAK if w.lower() in json.dumps(packet).lower()]
     return {"specifics_kept": all(keep) if keep else True,
-            "polarity_kept": all(held) if held else True, "leaked": leaked}
+            "polarity_kept": all(held) if held else True,
+            "order_kept": _order_kept(case.get("order"), packet),
+            "cause_kept": _cause_kept(case.get("cause"), packet),
+            "leaked": leaked}
+
+
+def _rows(packet: dict) -> list[tuple[str, dict]]:
+    """Every event and atom with its searchable text, in the packet's own order."""
+    out = []
+    for key in ("events", "narrative_atoms"):
+        for row in packet.get(key) or []:
+            text = " ".join(str(row.get(k) or "") for k in
+                            ("description", "proposition", "source_text")).lower()
+            out.append((text, row))
+    return out
+
+
+def _order_kept(order, packet: dict) -> bool:
+    """The stated order survives as event order or as a PRECEDES/FOLLOWS edge."""
+    if not order:
+        return True
+    rows = _rows(packet)
+
+    def find(group):
+        return [i for i, (text, _r) in enumerate(rows) if any(a in text for a in group)]
+    spots = [find(g) for g in order]
+    if any(not x for x in spots):
+        return False
+    ids = lambda group: {str(r.get("event_id") or r.get("atom_id")) for text, r in rows
+                         if any(a in text for a in group)}
+    for a, b in zip(order, order[1:]):
+        edge = any((rel.get("relationship") == "PRECEDES" and rel.get("source_id") in ids(a)
+                    and rel.get("target_id") in ids(b))
+                   or (rel.get("relationship") == "FOLLOWS" and rel.get("source_id") in ids(b)
+                       and rel.get("target_id") in ids(a))
+                   for rel in packet.get("relationships") or [])
+        if not (edge or min(find(a)) < max(find(b))):
+            return False
+    return True
+
+
+def _cause_kept(cause, packet: dict) -> bool:
+    if not cause:
+        return True
+    causes, effects = cause
+    rows = _rows(packet)
+    ids = lambda group: {str(r.get("event_id") or r.get("atom_id")) for text, r in rows
+                         if any(a in text for a in group)}
+    if any(rel.get("relationship") == "CAUSES" and rel.get("source_id") in ids(causes)
+           and rel.get("target_id") in ids(effects) for rel in packet.get("relationships") or []):
+        return True
+    return any(any(a in text for a in causes) and any(b in text for b in effects)
+               for text, _r in rows)
 
 
 def _ai_rows(case, start: int) -> list[dict]:
     return [r for r in case.ai_calls[start:] if r.get("task") == "semantic_extraction"]
 
 
-def run_case(spec: dict, make_llm) -> dict:
+def run_case(spec: dict, make_llm, provider: str = "demo") -> dict:
     from pcn_appeal.orchestrator import AppealPipeline
     from pcn_appeal.semantics import understanding as U
     from pcn_appeal.semantics.resolver import SemanticCaseResolver
@@ -86,6 +138,7 @@ def run_case(spec: dict, make_llm) -> dict:
     pipe = AppealPipeline(make_llm())
     case.ensure_run("understanding")
     row = {"id": spec["id"], "form": spec["form"], "input": spec["text"],
+           "provider": provider, "ambiguity": spec.get("ambiguity"), "tags": spec.get("tags", ""),
            "context": {k: NOTICE[k] for k in ("alleged_breach", "parking_location")},
            "expected": spec["expect"]}
 
@@ -98,12 +151,20 @@ def run_case(spec: dict, make_llm) -> dict:
         except Exception as exc:
             err = f"{type(exc).__name__}: {str(exc)[:120]}"
         rows = _ai_rows(case, n0)
-        return {"seconds": round(time.perf_counter() - t0, 3), "model_calls": len(rows),
+        try:
+            raw = json.loads(case.raw_answers.get("_doc_read_memo") or "{}").get(
+                "semantic_extraction", {}).get("output")
+        except Exception:
+            raw = None
+        return {"model_response": raw, "seconds": round(time.perf_counter() - t0, 3), "model_calls": len(rows),
                 "model_seconds": round(sum((r.get("duration_ms") or 0) for r in rows) / 1000, 3),
                 "retries": sum(r.get("retries") or 0 for r in rows), "error": err}
 
     t1 = read()
     p1 = U.load_packet(case) or {}
+    degraded = next((a.get("llm_degraded_reason") for a in reversed(case.audit)
+                     if a.get("event") == "semantic_concepts"), "")
+    t1["degraded_reason"] = degraded
     row.update(turn1={**t1, "status": p1.get("status"), "summary": p1.get("summary"),
                       "clarification": p1.get("clarification"), "notes": p1.get("notes"),
                       "semantic_mode": p1.get("semantic_mode"),
@@ -149,7 +210,60 @@ def run_case(spec: dict, make_llm) -> dict:
         if score2:
             ok = ok and score2["specifics_kept"] and score2["polarity_kept"]
     row["pass"] = ok
+    row["failure_reasons"] = _reasons(spec, row, p1, score2)
+    row["pass"] = ok and not row["failure_reasons"]
     return row
+
+
+def _reasons(spec: dict, row: dict, p1: dict, score2) -> list[str]:
+    out = []
+    exp, got = spec["expect"], p1.get("status")
+    if row["turn1"].get("error"):
+        out.append(f"error: {row['turn1']['error']}")
+    if row["turn1"].get("semantic_mode") != "LIVE" and row.get("provider") == "live":
+        out.append("the model did not read this input")
+    if row["unnecessary_clarification"]:
+        out.append("unnecessary clarification: asked about an account that was already clear")
+    if row["missed_ambiguity"]:
+        out.append("missed material ambiguity: certified an account it could not safely read")
+    if spec.get("ambiguity") == "MATERIAL" and p1.get("ready_for_knowledge"):
+        out.append("READY_FOR_KNOWLEDGE with a material ambiguity unresolved")
+    m = {k: v for k, v in row.items() if k.startswith("meaning_")}
+    final = score2 if score2 else None
+    shown = final or {"specifics_kept": row["meaning_specifics_kept"],
+                      "polarity_kept": row["meaning_polarity_kept"],
+                      "order_kept": row["meaning_order_kept"],
+                      "cause_kept": row["meaning_cause_kept"],
+                      "leaked": row["meaning_leaked"]}
+    if got == "UNDERSTOOD" or final:
+        if not shown["specifics_kept"]:
+            out.append("lost specificity: a stated detail is missing from the packet")
+        if not shown["polarity_kept"]:
+            out.append("lost negation or uncertainty")
+        if not shown["order_kept"]:
+            out.append("lost temporal order")
+        if not shown["cause_kept"]:
+            out.append("lost cause and effect")
+    if shown["leaked"]:
+        out.append(f"legal or KB content in the packet: {shown['leaked']}")
+    if got == "NEEDS_CLARIFICATION":
+        if not row["one_clarification"]:
+            out.append("more or fewer than one pending clarification")
+        if spec.get("answer") and not row["resolved"]:
+            out.append("the answer did not resolve the clarification")
+        if row["repeat_shown"]:
+            out.append("repeated clarification shown to the customer")
+    return out
+
+
+def _by_tag(rows):
+    out: dict[str, list[int]] = {}
+    for r in rows:
+        for tag in str(r.get("tags") or "").split():
+            out.setdefault(tag, [0, 0])
+            out[tag][1] += 1
+            out[tag][0] += bool(r["pass"])
+    return {k: f"{a}/{b}" for k, (a, b) in sorted(out.items())}
 
 
 def _pct(xs, q):
@@ -160,6 +274,8 @@ def _pct(xs, q):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--provider", choices=("live", "demo"), default="demo")
+    ap.add_argument("--set", choices=("fixtures", "holdout", "both"), default="fixtures",
+                    dest="which")
     args = ap.parse_args()
     from pcn_appeal.llm import default_client
     if args.provider == "live":
@@ -168,7 +284,17 @@ def main() -> int:
             print(f"live mode needs a working OpenAI client; got {type(probe).__name__} "
                   "(the key is missing, rejected or out of credit). Nothing was measured.")
             return 2
-    rows = [run_case(c, default_client) for c in CASES]
+    specs = {"fixtures": CASES, "holdout": HOLDOUTS, "both": CASES + HOLDOUTS}[args.which]
+    rows = [run_case(c, default_client, args.provider) for c in specs]
+    if args.provider == "live":
+        unread = [r for r in rows if r["turn1"].get("semantic_mode") != "LIVE"]
+        if unread:
+            reason = next((r["turn1"].get("degraded_reason") for r in unread
+                           if r["turn1"].get("degraded_reason")), "unknown")
+            print(f"INVALID RUN: the model did not read {len(unread)} of {len(rows)} inputs; "
+                  f"the offline reader answered instead. First cause: {reason[:240]}\n"
+                  "Nothing was measured and no report was written.")
+            return 2
 
     exp_u = [r for r in rows if r["expected"] == "UNDERSTOOD"]
     exp_n = [r for r in rows if r["expected"] == "NEEDS_CLARIFICATION"]
@@ -190,10 +316,12 @@ def main() -> int:
             "model_calls_per_input": sorted({r["turn1"]["model_calls"] for r in rows}),
             "turn1_seconds": {"p50": _pct(secs, .5), "p95": _pct(secs, .95)},
             "retries": sum(r["turn1"]["retries"] for r in rows),
+            "by_ability": _by_tag(rows),
         },
+        "set": args.which,
     }
     OUT.mkdir(parents=True, exist_ok=True)
-    path = OUT / f"{args.provider}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    path = OUT / f"{args.provider}_{args.which}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     path.write_text(json.dumps(report, indent=1, default=str))
     print(json.dumps(report["summary"], indent=1))
     for r in rows:
