@@ -841,7 +841,10 @@ modules:
     route: AUTHORISATION
     topic: "Underlying authorisation"
     use_when: {all: [{exists: authorisation_source}, {ne: [authorisation_source, NONE]}]}
-    do_not_use_when: {is: lease_parking_clause_found}
+    # Excluded when the supplied lease was read and holds a parking clause. With no
+    # lease supplied there is nothing to be excluded by (and nothing is claimed about
+    # what a lease says); a lease supplied but unreadable leaves it open.
+    do_not_use_when: {all: [{is: lease_evidence_provided}, {is: lease_parking_clause_found}]}
     core_proposition: "Analyse the underlying permission before treating an admin/display mismatch as absence of authority."
     required_facts: [authorisation_source, parking_event_date, vrm]
     evidence_helpful: [PERMIT, CORRESPONDENCE, BOOKING, RECEIPT]
@@ -863,7 +866,10 @@ modules:
     route: AUTHORISATION
     topic: "Permit held / digital permit"
     use_when: {is: permit_held}
-    do_not_use_when: {is: lease_parking_clause_found}
+    # Excluded when the supplied lease was read and holds a parking clause. With no
+    # lease supplied there is nothing to be excluded by (and nothing is claimed about
+    # what a lease says); a lease supplied but unreadable leaves it open.
+    do_not_use_when: {all: [{is: lease_evidence_provided}, {is: lease_parking_clause_found}]}
     core_proposition: "Require operator to check physical/digital permit and whitelist records; distinguish entitlement from display/registration administration."
     required_facts: [permit_held]
     evidence_helpful: [PERMIT]

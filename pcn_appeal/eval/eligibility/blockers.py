@@ -40,9 +40,12 @@ SOURCES: dict[str, dict[str, Any]] = {
     "permitted_period_ended": dict(
         classes=("CUSTOMER_QUESTION",), settles=("TRUE", "FALSE"),
         paths=[("data/questions.yaml", "permitted_period_ended:")]),
+    "lease_evidence_provided": dict(
+        classes=("DETERMINISTIC_DERIVATION", "EVIDENCE"), settles=("TRUE", "FALSE"),
+        paths=[("engines/reasoning.py", "F-lease_evidence_provided")]),
     "lease_parking_clause_found": dict(
         classes=("DETERMINISTIC_DERIVATION", "EVIDENCE"), settles=("TRUE", "FALSE"),
-        paths=[("engines/reasoning.py", "F-lease_parking_clause_found")]),
+        paths=[("engines/reasoning.py", "F-lease_parking_clause_found")]),  # only once read
     "lease_has_regulations_clause": dict(
         classes=("DETERMINISTIC_DERIVATION", "EVIDENCE"), settles=("TRUE", "FALSE"),
         paths=[("engines/reasoning.py", "F-lease_has_regulations_clause")]),

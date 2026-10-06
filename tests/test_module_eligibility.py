@@ -745,7 +745,8 @@ class UnknownBlockerMatrix(unittest.TestCase):
                           {"short_presence_before_acceptance": True, "payment_made": False}),
             "KB-CON-02": ("permitted_period_ended",
                           {"no_parking_took_place": True, "payment_made": False}),
-            "KB-AUTH-02": ("lease_parking_clause_found", {"permit_held": True}),
+            "KB-AUTH-02": ("lease_parking_clause_found",
+                           {"permit_held": True, "lease_evidence_provided": True}),
             "KB-POFA-01": ("pofa_route", {"driver_status": "UNIDENTIFIED",
                                          "jurisdiction": "ENGLAND_WALES"}),
         }

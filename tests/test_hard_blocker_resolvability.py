@@ -363,10 +363,12 @@ class LeaseBlockers(unittest.TestCase):
         self.assertIs(case.get("lease_parking_clause_found"), True)
         self.assertIs(case.get("lease_has_regulations_clause"), False)
 
-    def test_with_no_lease_the_flags_are_derived_false_not_left_open(self):
+    def test_with_no_lease_the_exclusion_is_settled_without_claiming_anything_about_a_lease(self):
+        """Phase 3C: lease_evidence_provided is False; the clause facts are unknown, not False."""
         case = self._facts({})
-        self.assertIs(case.get("lease_parking_clause_found"), False)
-        self.assertIs(case.get("lease_has_regulations_clause"), False)
+        self.assertIs(case.get("lease_evidence_provided"), False)
+        self.assertNotIn("lease_parking_clause_found", case.facts)
+        self.assertNotIn("lease_has_regulations_clause", case.facts)
 
 
 # ------------------------------------------------------------------ customer-question facts

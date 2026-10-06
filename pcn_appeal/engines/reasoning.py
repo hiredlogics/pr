@@ -28,7 +28,7 @@ import json
 from typing import Optional
 
 from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
-from .. import case_state
+from .. import case_state, evidence_review
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .extraction import derive_jurisdiction
@@ -129,14 +129,34 @@ class ReasoningEngine:
 
     # ------------------------------------------------------------------ 1
     def enrich(self, case: CaseFile) -> None:
-        clauses = []
-        for ev in case.evidence.values():
-            if ev.kind in ("LEASE", "TENANCY") and ev.text:
-                clauses += find_parking_clauses(ev.evidence_id, ev.text)
+        """Lease facts, with three honest states (see evidence_review).
+
+        lease_evidence_provided   a lease/tenancy document is in the supplied set
+                                  (always written: a statement about the upload).
+        lease_clauses / lease_parking_clause_found / lease_has_regulations_clause
+                                  what the lease text SAYS. Written only once a lease
+                                  has actually been read; with none supplied, or none
+                                  readable, they are unknown - never False.
+        """
+        seen = evidence_review.review(case, ("LEASE", "TENANCY"))
         with case_state.derives(case, "lease_clauses", rule="lease_clause_finder"):
+            case.put(Fact("F-lease_evidence_provided", "lease_evidence_provided",
+                          bool(seen.provided), FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
+            if not seen.reviewed:
+                evidence_review.withdraw_derived(
+                    case, ("lease_clauses", "lease_parking_clause_found",
+                           "lease_has_regulations_clause"),
+                    f"lease evidence {seen.state.lower()}")
+                return
+            clauses = []
+            for ev in seen.readable:
+                clauses += find_parking_clauses(ev.evidence_id, ev.text)
             if clauses:
                 case.put(Fact("F-lease_clauses", "lease_clauses", clauses, FactStatus.DERIVED,
                               FactSource(SourceKind.DOCUMENT, clauses[0]["evidence_id"])))
+            else:
+                evidence_review.withdraw_derived(case, ("lease_clauses",), "lease read, no clause")
             case.put(Fact("F-lease_parking_clause_found", "lease_parking_clause_found",
                           bool(clauses), FactStatus.DERIVED,
                           FactSource(SourceKind.CALCULATION, "lease_clause_finder")))
