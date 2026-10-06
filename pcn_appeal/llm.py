@@ -362,6 +362,12 @@ class DemoLLM:
                      "confidence": 0.7}
                     for a in atoms if a.get("mapped_to_ontology") is False
                 ],
+                # The stand-in plays a reader that finished and found nothing open.
+                # It cannot detect ambiguity, which is why production refuses it
+                # (default_client); the readiness gate is exercised by readers that
+                # do say otherwise.
+                "status": "UNDERSTOOD",
+                "uncertainties": [],
                 "model_kind": "DemoLLM_meaning_bridge",
             }
         if task == "identity_verification":

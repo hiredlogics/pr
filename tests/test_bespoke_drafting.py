@@ -276,6 +276,15 @@ class LandOnlyBlockedWhenFactSpecific(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn("VAL-SUBSTANCE", {i.rule for i in result.issues})
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

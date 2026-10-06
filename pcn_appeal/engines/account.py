@@ -343,25 +343,41 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     """
     texts = _collect_customer_texts(case)
     from ..semantics import extract_and_promote
+    from ..semantics.extract import customer_stream_ready, read_account
     from ..semantics.state import SEMANTIC_OWNED_FACTS, record_material_conflicts
 
+    # The model reads the account first, once, and that reading decides whether
+    # the customer-account stream may be used at all. A reading that is not ready
+    # (a material ambiguity open, or ambiguity never assessed) writes no fact from
+    # the customer's free text and proposes no hypothesis from it; their words,
+    # the clarification history and the semantic attempt are kept, not deleted.
+    # The notice's own facts and every independent finding are not touched here.
+    product, history = read_account(case, texts, llm)
+    ready = customer_stream_ready(product, history)
+
     # Narrative atoms first (departure_reason); ontology facts deferred to semantic.
-    narr = narrative.understand(case, texts, write_ontology_facts=False)
+    if ready:
+        narr = narrative.understand(case, texts, write_ontology_facts=False)
+    else:
+        narr = {"facts": {}, "skipped_ontology_facts": {}, "hypotheses": [],
+                "narrative_atoms": []}
     semantic = extract_and_promote(
         case, texts, llm=llm,
         narrative_atoms=list(narr.get("narrative_atoms") or []),
+        product=product, history=history,
     )
     # P17.9: ontology-owned facts come only from semantic → FactManager.
     # CircumstanceRule patterns must not invent parallel authoritative facts.
     intended = {
         k: v for k, v in _intended_facts(texts).items()
         if k not in SEMANTIC_OWNED_FACTS
-    }
-    intended.update({k: v for k, v in _intended_narrative(texts).items()
-                     if k not in SEMANTIC_OWNED_FACTS})
-    # Semantic intended already applied inside extract_and_promote; do not
-    # re-merge ontology keys here (would re-open a bypass).
-    apply_fact_delta(case, intended)
+    } if ready else {}
+    if ready:
+        intended.update({k: v for k, v in _intended_narrative(texts).items()
+                         if k not in SEMANTIC_OWNED_FACTS})
+        # Semantic intended already applied inside extract_and_promote; do not
+        # re-merge ontology keys here (would re-open a bypass).
+        apply_fact_delta(case, intended)
     record_material_conflicts(case)
     if not texts:
         return {"extractions": [], "propositions": [], "contradicts": False,
@@ -371,7 +387,7 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
     extractions: list[FreeTextExtraction] = []
     seen_facts: set[str] = set()
 
-    for raw in texts:
+    for raw in (texts if ready else ()):
         text = str(raw).strip()
         if len(text) < 4:
             continue
@@ -429,7 +445,8 @@ def assess_material_account(case: CaseFile, llm=None) -> dict[str, Any]:
             ))
             seen_facts.add(rule.fact_name)
 
-    _record_described_event(case, texts)
+    if ready:
+        _record_described_event(case, texts)
     extractions += _confirmed_hypotheses(case, breach)
     extractions += _answered_circumstances(case, {e.fact_name for e in extractions})
 

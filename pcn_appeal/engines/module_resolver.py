@@ -84,7 +84,8 @@ class ModuleResolveResult:
 
 
 def _semantic_material(case) -> dict[str, list]:
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if not raw:
         return {"events": [], "atoms": [], "relationships": [], "concepts": []}
     try:

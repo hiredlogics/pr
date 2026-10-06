@@ -195,6 +195,15 @@ class MixedPofaNarrative(unittest.TestCase):
         self.assertTrue(case.get("multiple_visits"))
         self.assertTrue(case.get("dropoff_activity"))
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

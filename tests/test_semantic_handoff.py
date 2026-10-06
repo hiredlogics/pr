@@ -185,6 +185,15 @@ class SemanticHandoffNarratives(unittest.TestCase):
         self.assertIn("multiple_visits", SEMANTIC_OWNED_FACTS)
         self.assertIn("payment_made", SEMANTIC_OWNED_FACTS)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

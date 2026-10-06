@@ -747,13 +747,52 @@ def derive_multiple_visits_concept(concepts: list[SemanticConcept]) -> list[Sema
     )]
 
 
+def read_account(case, texts: list[str], llm=None) -> tuple[dict, list[dict]]:
+    """The one model reading of the customer's account (replayed if unchanged),
+    with the clarifications already answered. Writes nothing to the case: it is
+    what the readiness of the customer stream is decided from."""
+    from . import understanding
+    if not any(str(t).strip() for t in texts or ()):
+        # No account was written: nothing to read, no model call, and no
+        # reading to gate. The customer stream is simply empty.
+        return {"no_account": True, "concepts": [], "events": [], "narrative_atoms": [],
+                "relationships": [], "material_relevance": [], "schema_errors": [],
+                "semantic_mode": SEMANTIC_FALLBACK}, []
+    confirmed = {}
+    for name, node in (getattr(case, "facts", None) or {}).items():
+        if getattr(node, "usable", False):
+            confirmed[name] = node.value
+    history = understanding.answered(understanding.clarification_history(case))
+    product = extract_semantic_product(
+        list(texts or []), llm=llm, confirmed_facts=confirmed,
+        history=history, case=case)
+    return product, history
+
+
+def customer_stream_ready(product: dict, history: list[dict]) -> bool:
+    """Whether this reading lets the customer's account be used."""
+    from . import understanding
+    if product.get("no_account"):
+        return True
+    return understanding.is_ready(understanding.build_packet(product, history))
+
+
 def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
-                        narrative_atoms: Optional[list[dict]] = None) -> dict:
+                        narrative_atoms: Optional[list[dict]] = None,
+                        product: Optional[dict] = None,
+                        history: Optional[list[dict]] = None) -> dict:
     """Run extraction and write affirmed concepts into FactManager before questions.
 
     Sole free-text → fact promotion path for ontology-owned facts. Builds
     SemanticCaseState, runs material consistency, stamps the fact revision for
     knowledge / Claim Plan handoff.
+
+    The customer-account stream is used only when the reading is ready
+    (understanding.is_ready). When it is not, nothing the account says is
+    promoted to a fact or stored where knowledge retrieval reads it: the
+    account, its concepts, events, atoms and the packet are kept - held, not
+    consumed - and a facts promoted by an earlier, ready reading are withdrawn.
+    The notice's own facts and every independent finding are unaffected.
     """
     from ..engines.account import apply_fact_delta
     from ..models import Fact, FactSource, FactStatus, SourceKind
@@ -764,17 +803,13 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
     if texts is None:
         from ..engines.account import _collect_customer_texts
         texts = _collect_customer_texts(case)
-    confirmed = {}
-    for name, node in (getattr(case, "facts", None) or {}).items():
-        if getattr(node, "usable", False):
-            confirmed[name] = node.value
     from .state import SEMANTIC_OWNED_FACTS
 
     from . import understanding
-    history = understanding.answered(understanding.clarification_history(case))
-    product = extract_semantic_product(
-        list(texts or []), llm=llm, confirmed_facts=confirmed,
-        history=history, case=case)
+    if product is None:
+        product, history = read_account(case, list(texts or []), llm)
+    history = list(history or [])
+    ready = customer_stream_ready(product, history)
     concepts = derive_multiple_visits_concept(list(product.get("concepts") or []))
     # Preserve unmapped / uncertain / frame-level meaning as narrative atoms.
     # LLM atoms (no ontology id) merge with heuristic atoms — never discarded.
@@ -794,8 +829,11 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
     else:
         narrative_atoms = collect_narrative_atoms(
             list(texts or []), concepts, existing=model_atoms)
-    intended = concepts_to_intended_facts(concepts)
+    # Only a ready reading promotes what the customer said into facts.
+    intended = concepts_to_intended_facts(concepts) if ready else {}
     # Preserve non-ontology free-text facts (e.g. departure_reason) across delta.
+    # A customer's own answer to a question is kept either way; what was only
+    # read out of their free text is kept only while the reading is ready.
     delta_intended = dict(intended)
     for name, node in list((getattr(case, "facts", None) or {}).items()):
         if name in SEMANTIC_OWNED_FACTS:
@@ -803,9 +841,11 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         if getattr(node, "value", None) in (None, "", []):
             continue
         src = getattr(getattr(node, "source", None), "kind", None)
-        if src in (SourceKind.CUSTOMER_FREE_TEXT, SourceKind.ANSWER):
+        keep = (SourceKind.CUSTOMER_FREE_TEXT, SourceKind.ANSWER) if ready \
+            else (SourceKind.ANSWER,)
+        if src in keep:
             delta_intended.setdefault(name, node.value)
-    delta = apply_fact_delta(case, delta_intended) if delta_intended else {}
+    delta = apply_fact_delta(case, delta_intended) if (delta_intended or not ready) else {}
     for name, value in intended.items():
         existing = case.facts.get(name)
         if existing and existing.usable and existing.source.kind in (
@@ -838,15 +878,33 @@ def extract_and_promote(case, texts: Optional[list[str]] = None, llm=None,
         for c in (case.fact_conflicts or [])
         if c.get("rule") == "material_consistency" and c.get("status") != "RESOLVED"
     ] or state.contradictions
-    attach_semantic_state(case, state)
+    attach_semantic_state(case, state, held=not ready)
     # The packet the knowledge phase consumes: what happened, why, in what
     # order, what relates to what, what is uncertain or negated - or the one
     # question that must be answered first.
     product = {**product, "concepts": concepts,
                "narrative_atoms": list(narrative_atoms or [])}
-    understanding.remember(case, understanding.build_packet(product, history, revision))
-    case.raw_answers["_semantic_concepts"] = json.dumps(
+    if product.get("no_account"):
+        packet = {"not_ready_reason": None}
+    else:
+        packet = understanding.remember(
+            case, understanding.build_packet(product, history, revision))
+    # The concept list handoff reads is the customer stream's; held when not ready.
+    concept_key = "_semantic_concepts" if ready else "_semantic_concepts_held"
+    case.raw_answers.pop("_semantic_concepts" if not ready else "_semantic_concepts_held", None)
+    case.raw_answers[concept_key] = json.dumps(
         [c.as_dict() for c in concepts])[:8000]
+    if not ready:
+        case.audit.append({
+            "event": "CUSTOMER_SEMANTICS_NOT_READY",
+            "reason": packet.get("not_ready_reason"),
+            "status": packet.get("status"),
+            "ambiguity_assessed": packet.get("ambiguity_assessed"),
+            "open_material_ambiguities": len(packet.get("open_material_ambiguities") or []),
+            "held": ["customer facts promoted from the account", "semantic state",
+                     "narrative atoms"],
+            "kept": ["customer text", "clarification history", "packet", "uncertainties"],
+        })
     case.raw_answers["_semantic_fact_revision"] = str(
         len(getattr(case, "fact_history", None) or []))
     case.audit.append({

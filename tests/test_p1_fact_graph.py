@@ -368,6 +368,15 @@ class FactApi(unittest.TestCase):
         self.assertFalse(self.api.is_customer_route("GET", f"/cases/{self.case.case_id}/facts"))
         self.assertFalse(self.api.is_customer_route("POST", f"/cases/{self.case.case_id}/facts"))
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

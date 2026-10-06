@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from .input_contract import CaseUnderstandingInput, from_case
 from .state import handoff_ready, open_material_fact_conflicts
+from .understanding import stream_status
 
 
 def _load_semantic_state(case) -> Optional[dict]:
@@ -114,6 +115,7 @@ class SemanticCaseResolver:
             "revision": revision,
             "handoff_ready": ready,
             "handoff_reasons": list(reasons or []),
+            "customer_stream": stream_status(case),
             "concepts_n": len((state_dict or {}).get("concepts") or []),
             "events_n": len((state_dict or {}).get("events") or []),
             "atoms_n": len((state_dict or {}).get("narrative_atoms") or []),

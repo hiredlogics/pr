@@ -548,7 +548,8 @@ class AnalysisEngine:
         # P17.9: reason from authoritative facts + normalized semantic state.
         # Raw circumstances kept for provenance only — not a second truth source.
         sem = {}
-        raw_sem = (case.raw_answers or {}).get("_semantic_case_state")
+        from ..semantics.understanding import customer_semantic_raw
+        raw_sem = customer_semantic_raw(case, "_semantic_case_state")
         if raw_sem:
             try:
                 sem = json.loads(raw_sem) if isinstance(raw_sem, str) else dict(raw_sem)

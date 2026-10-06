@@ -945,8 +945,17 @@ class AppealPipeline:
         else:
             # Authoritative no-grounds terminal: state + outcome agree.
             case.state = CaseState.NO_SUPPORTED_GROUNDS
-            case.audit.append({"event": "analysis_complete_no_supported_grounds",
-                               "module_ids": list(pack.module_ids or []), "reason": reason})
+            event = {"event": "analysis_complete_no_supported_grounds",
+                     "module_ids": list(pack.module_ids or []), "reason": reason}
+            # Nothing independent of the customer's account supported a ground, and
+            # the account itself was not usable: say so in the trace, so this is
+            # not read as the account having been weighed and found wanting. The
+            # account is kept; adding detail to this case reads it again.
+            from .semantics import understanding
+            blocked = understanding.customer_stream_blocked(case)
+            if blocked:
+                event["customer_semantics_not_ready"] = blocked
+            case.audit.append(event)
         return _with_outcome(
             AppealOutput(case.state, None, pack, Draft(case.case_id, []),
                          ValidationResult(False, []), self._evidence_list(case)),

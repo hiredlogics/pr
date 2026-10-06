@@ -46,7 +46,8 @@ GLOBAL_PROHIBITED = [
 
 
 def _semantic_material_relevance(case: CaseFile) -> list:
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if not raw:
         return []
     try:
@@ -62,21 +63,22 @@ def _narrative_atoms_for_pack(case: CaseFile) -> list:
     is not dropped when it never became an ontology fact.
     """
     import json
+    from ..semantics.understanding import customer_semantic_raw, customer_stream_blocked
     atoms: list = []
-    compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+    compact = customer_semantic_raw(case, "_semantic_narrative_atoms")
     if compact:
         try:
             atoms.extend(list(json.loads(compact) or []))
         except (TypeError, ValueError):
             pass
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if raw and not atoms:
         try:
             state = json.loads(raw)
             atoms.extend(list(state.get("narrative_atoms") or []))
         except (TypeError, ValueError):
             pass
-    for ev in case.audit or []:
+    for ev in ([] if customer_stream_blocked(case) else (case.audit or [])):
         if ev.get("event") == "narrative_atom":
             atoms.extend(list(ev.get("atoms") or []))
     if atoms:

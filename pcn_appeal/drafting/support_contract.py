@@ -232,7 +232,8 @@ def _semantic_material_from_case(case) -> tuple[list, list]:
         return [], []
     import json
     atoms, events = [], []
-    raw = (getattr(case, "raw_answers", None) or {}).get("_semantic_case_state")
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     if raw:
         try:
             state = json.loads(raw) if isinstance(raw, str) else raw
@@ -241,7 +242,7 @@ def _semantic_material_from_case(case) -> tuple[list, list]:
         except Exception:
             pass
     if not atoms:
-        compact = (getattr(case, "raw_answers", None) or {}).get("_semantic_narrative_atoms")
+        compact = customer_semantic_raw(case, "_semantic_narrative_atoms")
         if compact:
             try:
                 atoms = json.loads(compact) if isinstance(compact, str) else list(compact)

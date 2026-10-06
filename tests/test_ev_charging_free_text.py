@@ -127,6 +127,15 @@ class NoEvGroundFromTheWordCharge(unittest.TestCase):
         self.assertNotIn("ev_charging_session", case.facts)
         self.assertNotIn("charging session", (out.letter or "").lower())
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

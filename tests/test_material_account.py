@@ -200,6 +200,15 @@ class KnownOperatorAta(unittest.TestCase):
         self.assertEqual(case.get("operator_ata"), "BPA")
         self.assertIn("operator_ata", report.do_not_ask)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

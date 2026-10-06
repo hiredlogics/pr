@@ -190,12 +190,45 @@ def _non_answer(text: str) -> bool:
     return not t or bool(_UNCERTAIN.search(t))
 
 
+# Why a reading is not ready. Internal codes: never shown to a customer.
+NOT_READY_REASONS = (
+    "CLARIFICATION_REQUIRED", "CLARIFICATION_EXHAUSTED", "MATERIAL_AMBIGUITY",
+    "AMBIGUITY_NOT_ASSESSED", "INVALID_MODEL_RESPONSE",
+)
+
+
 def is_ready(packet: dict) -> bool:
-    """The one definition of ready for knowledge. A packet that is not
-    UNDERSTOOD, or that still holds an open material ambiguity, is never ready,
-    whatever else it says."""
+    """The one definition of customer_semantics_ready.
+
+    All three must hold: the account is UNDERSTOOD, a semantic model actually
+    assessed it for ambiguity, and no material ambiguity is open. Anything else
+    is not ready - including an UNDERSTOOD packet nobody assessed, which says
+    only that no question was raised, not that none was needed.
+
+    It governs the customer-account stream alone (see customer_stream_blocked).
+    """
     return bool(packet) and packet.get("status") == UNDERSTOOD \
+        and packet.get("ambiguity_assessed") is True \
         and not packet.get("open_material_ambiguities")
+
+
+def not_ready_reason(packet: dict) -> Optional[str]:
+    """The diagnostic reason, recomputed from the packet. None when ready."""
+    if is_ready(packet):
+        return None
+    if not packet:
+        return "AMBIGUITY_NOT_ASSESSED"
+    status = packet.get("status")
+    if status == NEEDS_CLARIFICATION:
+        return "CLARIFICATION_REQUIRED"
+    open_ = packet.get("open_material_ambiguities") or []
+    if open_ or status == UNRESOLVED:
+        if any(o.get("code") == "CLARIFICATION_EXHAUSTED" for o in open_):
+            return "CLARIFICATION_EXHAUSTED"
+        return "MATERIAL_AMBIGUITY"
+    # UNDERSTOOD, nothing open, but never assessed.
+    return "INVALID_MODEL_RESPONSE" if packet.get("semantic_mode") == "LIVE" \
+        else "AMBIGUITY_NOT_ASSESSED"
 
 
 def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
@@ -235,14 +268,17 @@ def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
             why = "the model reported the ambiguity as unresolved"
         if clarification is not None:
             open_material.append({"ambiguity": clarification["ambiguity"],
-                                  "reason": "awaiting the customer's answer"})
+                                  "reason": "awaiting the customer's answer",
+                                  "code": "CLARIFICATION_REQUIRED"})
         else:
             notes.append(f"clarification not asked: {why}")
             status = UNRESOLVED
             open_material.append({
                 "ambiguity": raw_ambiguity or str(product.get("summary") or "").strip()[:300]
                 or "the model reported a material ambiguity it did not describe",
-                "reason": why})
+                "reason": why,
+                "code": "CLARIFICATION_EXHAUSTED"
+                if why in ("clarification cap reached", "already asked") else "MATERIAL_AMBIGUITY"})
     elif raw not in (None, "", {}, []):
         # The model called the account understood; its own doubt is kept.
         notes.append("a clarification came with status UNDERSTOOD and was dropped")
@@ -256,7 +292,8 @@ def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
         carried = str(done[-1].get("ambiguity") or "").strip() or "an earlier ambiguity"
         if not any(same_enquiry(carried, o["ambiguity"]) for o in open_material):
             open_material.append({"ambiguity": carried[:300],
-                                  "reason": "the customer could not answer"})
+                                  "reason": "the customer could not answer",
+                                  "code": "MATERIAL_AMBIGUITY"})
         if status == UNDERSTOOD:
             status = UNRESOLVED
             notes.append("the last clarification was not answered, so its ambiguity is still open")
@@ -289,7 +326,9 @@ def build_packet(product: dict, history: list[dict], revision: int = 0) -> dict:
         "revision": revision,
         "notes": notes,
     }
-    packet["ready_for_knowledge"] = is_ready(packet)
+    packet["customer_semantics_ready"] = is_ready(packet)
+    packet["ready_for_knowledge"] = packet["customer_semantics_ready"]    # earlier name
+    packet["not_ready_reason"] = not_ready_reason(packet)
     return packet
 
 
@@ -307,7 +346,7 @@ def remember(case, packet: dict) -> dict:
                       "ambiguity": clar["ambiguity"]})
         clar["fact"] = fact
     state["asked"] = asked
-    packet["ready_for_knowledge"] = is_ready(packet)   # never trust a stored flag
+    _stamp(packet)   # never trust a stored flag
     state["packet"] = packet
     _save(case, state)
     case.audit.append({
@@ -324,6 +363,13 @@ def remember(case, packet: dict) -> dict:
     return packet
 
 
+def _stamp(packet: dict) -> dict:
+    packet["customer_semantics_ready"] = is_ready(packet)
+    packet["ready_for_knowledge"] = packet["customer_semantics_ready"]
+    packet["not_ready_reason"] = not_ready_reason(packet)
+    return packet
+
+
 def load_packet(case) -> Optional[dict]:
     return _state(case).get("packet")
 
@@ -332,6 +378,44 @@ def ready_for_knowledge(case) -> bool:
     """Whether the knowledge phase may read this case's account. Recomputed from
     the stored packet, never read from its flag."""
     return is_ready(load_packet(case) or {})
+
+
+# ------------------------------------------------- the customer-stream gate
+def customer_stream_blocked(case) -> Optional[str]:
+    """Why the CUSTOMER-ACCOUNT semantic stream may not be used, or None.
+
+    This gate governs one stream only: the concepts, events, atoms and
+    relationships read from what the customer wrote, and the facts promoted
+    from them. It does not touch the notice's own facts, document analysis,
+    verified PoFA findings, timing calculations or any other independently
+    verified finding. Those are a second stream, additive and independent.
+
+    Recomputed from the stored packet on every call. A case with no semantic
+    reading has nothing to gate.
+    """
+    packet = load_packet(case)
+    if packet is None:
+        return None
+    return not_ready_reason(packet)
+
+
+def customer_semantic_raw(case, key: str):
+    """`case.raw_answers[key]` for a customer-semantic channel, or None when the
+    customer-account stream is blocked. The one read the knowledge, analysis and
+    drafting-context consumers use for those channels."""
+    if customer_stream_blocked(case):
+        return None
+    return (getattr(case, "raw_answers", None) or {}).get(key)
+
+
+def stream_status(case) -> dict:
+    """What a trace or an outcome may say about the customer stream."""
+    packet = load_packet(case)
+    reason = customer_stream_blocked(case)
+    return {"applicable": packet is not None,
+            "customer_semantics_ready": packet is not None and reason is None,
+            "reason": reason,
+            "status": (packet or {}).get("status")}
 
 
 def pending_question(case) -> list[dict]:

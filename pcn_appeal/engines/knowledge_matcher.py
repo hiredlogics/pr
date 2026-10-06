@@ -69,7 +69,9 @@ _CATEGORY_FACT_HINTS: dict[str, frozenset[str]] = {
 
 def _semantic_candidate_signals(case: CaseFile) -> dict:
     """Read SemanticCaseState channels for candidate discovery (observational)."""
-    raw = (case.raw_answers or {}).get("_semantic_case_state")
+    # Customer-account semantics are used only while that stream is ready.
+    from ..semantics.understanding import customer_semantic_raw
+    raw = customer_semantic_raw(case, "_semantic_case_state")
     state = {}
     if raw:
         try:
@@ -82,7 +84,7 @@ def _semantic_candidate_signals(case: CaseFile) -> dict:
     rels = list(state.get("relationships") or [])
     # Compact atom cache if full state truncated.
     if not atoms:
-        compact = (case.raw_answers or {}).get("_semantic_narrative_atoms")
+        compact = customer_semantic_raw(case, "_semantic_narrative_atoms")
         if compact:
             try:
                 atoms = json.loads(compact) if isinstance(compact, str) else list(compact)

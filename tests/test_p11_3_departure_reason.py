@@ -176,6 +176,15 @@ class Propagation(unittest.TestCase):
         self.assertTrue(particular_expressed(text, "left_site", True))
         self.assertTrue(particular_expressed(text, "returned_same_day", True))
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

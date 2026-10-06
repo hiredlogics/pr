@@ -295,6 +295,15 @@ class TraceAndReload(unittest.TestCase):
         self.assertEqual(third.fact_hypotheses[0]["status"], CONFIRMED)
         self.assertEqual(sqlite_store.count(db, "fact_hypotheses"), 1)
 
+def setUpModule():
+    from support import finished_reader
+    finished_reader.start()
+
+
+def tearDownModule():
+    from support import finished_reader
+    finished_reader.stop()
+
 
 if __name__ == "__main__":
     unittest.main()
