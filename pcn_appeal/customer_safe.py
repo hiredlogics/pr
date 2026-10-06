@@ -40,6 +40,8 @@ INTERNAL_KEYS = frozenset({
     "possible_impact", "hypothesis_id", "hypotheses", "fact_hypotheses", "hypothesis_trace",
     # P3 Question Authority: the question object beyond what is answered.
     "question_id", "related_module", "impact_if_yes", "impact_if_no", "question_trace",
+    # Phase 4: the question contract beyond what is answered.
+    "fact_key", "source_module_ids", "materiality_reason", "possible_effect",
     "priority", "kb_gated",
 })
 

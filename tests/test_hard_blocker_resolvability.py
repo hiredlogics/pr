@@ -381,9 +381,13 @@ class AskedBlockers(unittest.TestCase):
         run_pipeline(case, pipe, narrative, scenario="3b2-asked")
         return case, pipe
 
-    def _approved(self, case, pipe, fact):
+    def _approved(self, case, pipe, fact, qtype="bool"):
+        # Materiality, not history: whether this fact was already put to the
+        # customer earlier in the run is a different rule (dedupe).
+        if fact in case.asked_questions:
+            case.asked_questions.remove(fact)
         rv = QuestionAuthority(pipe.kg).review(case, [{
-            "fact": fact, "target_fact": fact, "text": fact, "type": "bool",
+            "fact": fact, "target_fact": fact, "text": fact, "type": qtype,
             "options": ["APP", "MACHINE", "PHONE", "WEBSITE", "OTHER"]}])
         return [row.get("decision") for row in rv.rows]
 
@@ -393,7 +397,7 @@ class AskedBlockers(unittest.TestCase):
             with self.subTest(fact=fact):
                 self.assertEqual(self._approved(case, pipe, fact), ["APPROVED"])
         _answer(case, "payment_attempt_failed", True)
-        self.assertEqual(self._approved(case, pipe, "payment_method"), ["APPROVED"])
+        self.assertEqual(self._approved(case, pipe, "payment_method", "choice"), ["APPROVED"])
 
     def test_each_has_a_question_definition(self):
         questions = (ROOT / "data" / "questions.yaml").read_text(encoding="utf-8")

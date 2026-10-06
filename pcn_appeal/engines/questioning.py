@@ -107,6 +107,13 @@ class QuestionEngine:
         if fact not in case.asked_questions:
             case.asked_questions.append(fact)
         from ..semantics.understanding import is_clarification_fact
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            # Nothing was answered. The question is settled (it was asked and is
+            # recorded as asked) and the fact stays unknown: an empty answer is
+            # not a "no", and it must not fail the request either.
+            case.audit.append({"event": "answer_unknown", "fact": fact, "reason": "empty"})
+            case.state = CaseState.QUESTIONING
+            return
         if is_clarification_fact(fact):
             # A clarification answer is read with the account it clarifies by
             # the semantic reading; it is not itself a fact.
@@ -132,6 +139,13 @@ class QuestionEngine:
                     case.state = CaseState.QUESTIONING
                     return
                 value = pol is True
+        elif t in ("int", "choice") and not isinstance(raw, (bool, int, float)) \
+                and _UNCERTAIN.search(str(raw)):
+            # "Not sure" to a number or a choice is not a value and not an error:
+            # the fact stays unknown and the question is settled.
+            case.audit.append({"event": "answer_unknown", "fact": fact, "reason": "uncertain"})
+            case.state = CaseState.QUESTIONING
+            return
         elif t == "int":
             value = int(raw)
         elif t == "choice":

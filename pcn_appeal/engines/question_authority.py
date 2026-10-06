@@ -27,19 +27,42 @@ A candidate is APPROVED only if every rule holds:
           already recovered automatically
   R4      the customer can reasonably answer it: no legal interpretation,
           nothing only the operator holds, nothing about driver identity
-  R5      the answer could change the outcome: with YES and with NO (or each
-          option) the related module's gate must not come out the same
+  R5      the answer could change a module's eligibility. Eligibility is read
+          from Phase 3 (`module_eligibility`) on the authoritative fact view,
+          never re-derived here, and only a module that is UNRESOLVED can be
+          asked about:
+            SUPPORTED   nothing left to ask
+            REJECTED    no answer can bring it back
+            BLOCKED     no answer removes a blocker that holds
+            UNRESOLVED  the missing fact is named (a use_when condition that is
+                        unknown, or a hard do_not_use_when condition that is
+                        unknown) and the question is material only if an answer
+                        could move the module to SUPPORTED, REJECTED or BLOCKED
+          A supporting or evidence-only module is asked about only while a
+          substantive ground it shares a fact with already stands; otherwise
+          the answer cannot change the appeal.
 
-Approved questions are ranked - highest impact on the outcome, then the
-strongest supported module, then least customer effort - and ONE is shown.
-The rest wait for the next round, when the answer just given may have made
-them pointless.
+Unknown is not false. A question that was asked and not answered (skipped, "not
+sure", left empty) leaves its fact unknown; the question is settled, is not
+asked again, and no module is rejected for it.
+
+Approved questions are ranked - integrity first, then a fact that can unlock a
+substantive ground, then one that can settle a hard blocker, then a supporting
+question - and, within a tier, by outcome impact, the strongest module and least
+customer effort. ONE is shown. The rest wait for the next round, when the answer
+just given may have made them pointless.
 
 The full question object (question_id, target_fact, related_module,
-material_reason, impact_if_yes, impact_if_no) stays internal. The customer
-sees the text and how to answer (customer_safe.customer_question). Every
-decision, approved or rejected, is an admin-only trace row (audit event
-`question_review`, `/trace`, `/cases/{id}/facts`).
+material_reason, impact_if_yes, impact_if_no and the contract below) stays
+internal. The customer sees the text and how to answer
+(customer_safe.customer_question). Every decision, approved or rejected, is an
+admin-only trace row (audit event `question_review`, `/trace`,
+`/cases/{id}/facts`).
+
+Internal contract of an approved question:
+  question_id, fact_key, question, source_module_ids, current_status
+  ("UNRESOLVED"), materiality_reason, possible_effect (the statuses an answer
+  could produce), and the priority tier.
 """
 from __future__ import annotations
 
@@ -52,7 +75,11 @@ from ..fact_graph import canonical
 from ..fact_ownership import DOCUMENT_OWNED, EVIDENCE_OWNED
 from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile
-from ..rules.dsl import PredicateError, evaluate
+from ..module_roles import SUBSTANTIVE_GROUND, role_of
+from ..rules.dsl import PredicateError, evaluate3
+from .module_eligibility import (BLOCKED as ME_BLOCKED, REJECTED as ME_REJECTED,
+                                 SUPPORTED as ME_SUPPORTED, UNRESOLVED as ME_UNRESOLVED,
+                                 decide, evaluate_module_id)
 
 APPROVED, REJECTED = "APPROVED", "REJECTED"
 
@@ -125,8 +152,14 @@ DRIVER_IDENTITY = re.compile(
     r"driver'?s (?:name|identity|address)|identify the driver)\b", re.I)
 
 EFFORT = {"bool": 0, "choice": 1, "int": 2, "date": 2, "text": 3}
-UNKNOWN = None          # three-valued gate result: could go either way
-_ORDER = {False: 0, None: 1, True: 2}
+
+# Priority tiers (lowest asked first). One question is shown at a time.
+TIER_INTEGRITY, TIER_UNLOCK, TIER_BLOCKER, TIER_SUPPORT = 1, 2, 3, 4
+TIER_NAMES = {TIER_INTEGRITY: "CASE_INTEGRITY", TIER_UNLOCK: "UNLOCKS_GROUND",
+              TIER_BLOCKER: "SETTLES_BLOCKER", TIER_SUPPORT: "SUPPORTS_GROUND"}
+
+# Question lifecycle (derived from the case, never stored separately).
+PENDING, ANSWERED, UNRESOLVED_STATE, SUPERSEDED = "PENDING", "ANSWERED", "UNRESOLVED", "SUPERSEDED"
 
 
 @dataclass
@@ -156,47 +189,86 @@ def allegation_class(breach: Any) -> Optional[str]:
     return None
 
 
-# ----------------------------------------------------------- three-valued gate
-def tri(pred: Any, facts: dict[str, Any], unknown: set[str]) -> Optional[bool]:
-    """Evaluate a KB predicate where the facts in `unknown` are not yet known.
+# --------------------------------------------------- eligibility, read not re-derived
+# The statuses come from module_eligibility (Phase 3). What this module adds is
+# a question about them: which unknown condition is the one an answer would
+# settle, and could the answer move the module anywhere.
+_LEAF_FREE = ("all", "any", "not", "always")
+MAX_OPEN = 10           # open conditions enumerated exhaustively; beyond, answered as-is
 
-    True/False when the answer is already determined whatever the unknown facts
-    turn out to be, None when it still depends on them. Same operators as
-    rules.dsl.evaluate, which this mirrors for the known facts.
-    """
-    if pred in (None, {}):
-        return False
-    if not isinstance(pred, dict) or len(pred) != 1:
-        raise PredicateError(f"Predicate must be a single-key dict: {pred!r}")
-    op, arg = next(iter(pred.items()))
-    if op == "always":
-        return bool(arg)
-    if op == "all":
-        vals = [tri(p, facts, unknown) for p in arg]
-        if any(v is False for v in vals):
-            return False
-        return True if all(v is True for v in vals) else UNKNOWN
-    if op == "any":
-        vals = [tri(p, facts, unknown) for p in arg]
-        if any(v is True for v in vals):
-            return True
-        return False if all(v is False for v in vals) else UNKNOWN
-    if op == "not":
-        v = tri(arg, facts, unknown)
-        return None if v is None else not v
+
+def _leaf_list(pred: Any) -> list[dict]:
+    """Every condition (not a connective) of a predicate, depth first."""
+    return [leaf for leaf, _ in _leaves_with_polarity(pred)]
+
+
+def _leaves_with_polarity(pred: Any) -> list[tuple[dict, bool]]:
+    """Each condition with whether it is a requirement (True) or an exclusion
+    (False: under a `not`, or a `missing` test). Same order as `_replace`."""
+    out: list[tuple[dict, bool]] = []
+
+    def walk(p: Any, positive: bool) -> None:
+        if not isinstance(p, dict) or len(p) != 1:
+            return
+        op, arg = next(iter(p.items()))
+        if op in ("all", "any"):
+            for q in arg:
+                walk(q, positive)
+        elif op == "not":
+            walk(arg, not positive)
+        elif op != "always":
+            out.append((p, positive and op != "missing"))
+    walk(pred, True)
+    return out
+
+
+def _replace(pred: Any, fixed: dict[int, bool]) -> Any:
+    """`pred` with the conditions at the given positions replaced by a known truth."""
+    counter = [0]
+
+    def walk(p: Any) -> Any:
+        if not isinstance(p, dict) or len(p) != 1:
+            return p
+        op, arg = next(iter(p.items()))
+        if op in ("all", "any"):
+            return {op: [walk(q) for q in arg]}
+        if op == "not":
+            return {op: walk(arg)}
+        if op == "always":
+            return p
+        i = counter[0]
+        counter[0] += 1
+        return {"always": fixed[i]} if i in fixed else p
+    return walk(pred)
+
+
+def _fact_of(leaf: dict) -> Optional[str]:
+    op, arg = next(iter(leaf.items()))
     if op == "has_evidence":
-        return arg in (facts.get("evidence_kinds") or [])
-    name = arg if isinstance(arg, str) else arg[0]
-    if name in unknown:
-        return UNKNOWN
-    if facts.get(name) is _ANY:
-        # Some answer, value not known: present, but any comparison is open.
-        if op in ("is", "exists"):
-            return True
-        if op == "missing":
-            return False
-        return UNKNOWN
-    return evaluate(pred, facts)
+        return None                      # evidence is uploaded, not answered
+    return arg if isinstance(arg, str) else arg[0]
+
+
+def _is_open(leaf: dict, view: dict, unreliable) -> bool:
+    return evaluate3(leaf, view, unreliable=unreliable) is None
+
+
+@dataclass
+class Effect:
+    """What answering `fact` could do to one UNRESOLVED module."""
+    module_id: str
+    statuses: set = field(default_factory=set)       # every status an answer could lead to
+    sensitive: bool = False                          # some completion where answers differ
+    can_support: bool = False                        # SUPPORTED is reachable at all
+    decisive: bool = False                           # one answer, nothing else missing, SUPPORTED
+    in_use_when: bool = False
+    in_blocker: bool = False
+    yes: Optional[str] = None
+    no: Optional[str] = None
+
+    @property
+    def material(self) -> bool:
+        return self.sensitive and self.can_support
 
 
 class QuestionAuthority:
@@ -222,6 +294,7 @@ class QuestionAuthority:
         so the window cannot decide whether an answer matters."""
         out = Review()
         facts = case.fact_view()
+        self._ctx = None                      # eligibility is read afresh every round
         self._selected = frozenset(selected or ())
         seen_facts: set[str] = set()
         seen_texts: set[str] = set(self._texts_already_asked(case))
@@ -281,6 +354,10 @@ class QuestionAuthority:
         # -------------------------------------------------------- dedupe / R2
         if fact in seen_facts:
             return REJECTED, "duplicate: another question for this fact was approved this round", None
+        if source == UNDERSTANDING and fact in case.asked_questions \
+                and fact in (case.raw_answers or {}):
+            # Asked, and settled without a usable answer (empty): not asked again.
+            return REJECTED, "question already asked and settled without an answer", None
         if not integrity:
             if case.has(fact):
                 return REJECTED, "fact already confirmed", None
@@ -327,38 +404,53 @@ class QuestionAuthority:
                 or "the documents and the customer's answers disagree",
                 "impact_if_yes": "the case continues on the confirmed value",
                 "impact_if_no": "the case continues on the confirmed value",
-                "_rank": (0, 0, 0, EFFORT.get(cand.get("type"), 3))}
-        if source in UNLOCK_SOURCES or (
-                cand.get("kb_gated") and cand.get("unlocks")):
-            mods = [m for m in (cand.get("unlocks") or [])
-                    if m in self.kg.modules and self.kg.modules[m].status == "ACTIVE"]
-            if not mods and source in UNLOCK_SOURCES:
+                "source_module_ids": [], "possible_effect": [], "tier": TIER_INTEGRITY,
+                "_rank": (TIER_INTEGRITY, 0, 0, EFFORT.get(cand.get("type"), 3))}
+        if source in UNLOCK_SOURCES:
+            # The source has computed, deterministically, which modules the answer
+            # would open (it evaluates them as if the answer were given). Phase 3
+            # is asked only whether any of them is already decided regardless of
+            # that answer: a SUPPORTED module needs nothing, a BLOCKED one cannot
+            # be unlocked. A REJECTED or UNRESOLVED one may be exactly what the
+            # missing fact (the site, the trade body) is holding shut, so it stays.
+            listed = [m for m in (cand.get("unlocks") or [])
+                      if m in self.kg.modules and self.kg.modules[m].status == "ACTIVE"]
+            if not listed:
                 return REJECTED, "R1: no in-force module would be unlocked", None
-            if mods:
-                best = max(mods, key=lambda m: self.kg.modules[m].strength)
-                return APPROVED, f"R5: answering would unlock {', '.join(mods)}", {
-                    "related_module": best, "issue": "MODULE",
-                    "material_reason": cand.get("material_reason")
-                    or f"needed to decide whether {best} applies",
-                    "impact_if_yes": f"{best} can be considered",
-                    "impact_if_no": f"{best} stays unavailable",
-                    "_rank": (1, -1, -self.kg.modules[best].strength,
-                              EFFORT.get(cand.get("type"), 3))}
-            # kb_gated without resolvable unlocks → fall through to module materiality.
+            ctx = self._round(case)
+            mods = [m for m in listed if ctx.outcome(m).status not in (ME_SUPPORTED, ME_BLOCKED)]
+            if not mods:
+                states = ", ".join(f"{m} {ctx.outcome(m).status}" for m in listed)
+                return REJECTED, f"R5: every module this would unlock is already decided ({states})", None
+            best = max(mods, key=lambda m: self.kg.modules[m].strength)
+            return APPROVED, f"R5: answering would unlock {', '.join(mods)}", {
+                "related_module": best, "issue": "MODULE",
+                "material_reason": cand.get("material_reason")
+                or f"needed to decide whether {best} applies",
+                "impact_if_yes": f"{best} can be considered",
+                "impact_if_no": f"{best} stays unavailable",
+                "source_module_ids": sorted(mods), "possible_effect": [ME_SUPPORTED],
+                "tier": TIER_UNLOCK,
+                "_rank": (TIER_UNLOCK, -2, -self.kg.modules[best].strength,
+                          EFFORT.get(cand.get("type"), 3))}
 
         return self._module_materiality(case, cand, facts)
 
     def _module_materiality(self, case, cand, facts):
+        """R1 + R5 against Phase 3 eligibility.
+
+        For every in-force module that depends on the fact: what is it now? Only
+        an UNRESOLVED module can be asked about, and only if the fact is one of
+        the conditions still unknown and an answer could move it somewhere."""
         fact = cand["fact"]
         named = cand.get("related_module")
         related = [m for m in self.kg.active_modules()
                    if fact in self.kg.gating_facts(m.module_id)
                    or fact in (m.required_facts or [])]
-        if named:
-            related = [m for m in related if m.module_id == named]
+        if named and named not in {m.module_id for m in related}:
+            return REJECTED, f"R1: {named} does not depend on this fact", None
         if not related:
-            return REJECTED, ("R1: no in-force module depends on this fact"
-                              if not named else f"R1: {named} does not depend on this fact"), None
+            return REJECTED, "R1: no in-force module depends on this fact", None
         cls = allegation_class(facts.get("alleged_breach"))
         excluded = ROUTES_IRRELEVANT_TO.get(cls or "", frozenset())
         fitting = [m for m in related if str(getattr(m.route, "value", m.route)) not in excluded]
@@ -367,93 +459,196 @@ class QuestionAuthority:
                               f"{', '.join(sorted({str(getattr(m.route, 'value', m.route)) for m in related}))}"
                               ), None
 
-        best, best_rank, best_impact = None, None, None
+        ctx = self._round(case)
+        decided: dict[str, str] = {}          # module -> why it is not asked about
+        found: list[tuple[Any, Effect, int]] = []
         for m in fitting:
-            impact = self._flip(m, fact, cand, facts, self._selected)
-            if impact is None:
+            out = ctx.outcome(m.module_id)
+            if out.status != ME_UNRESOLVED:
+                decided[m.module_id] = out.status
                 continue
-            decisive = impact["decisive"]
-            rank = (1, -(2 if decisive else 1), -m.strength, EFFORT.get(cand.get("type"), 3))
-            if best_rank is None or rank < best_rank:
-                best, best_rank, best_impact = m, rank, impact
-        if best is None:
+            effect = self._effect(m, fact, cand, ctx)
+            if effect is None or not effect.material:
+                continue
+            tier = self._tier(m, effect, ctx)
+            if tier is None:
+                decided[m.module_id] = "SUPPORT_ONLY"
+                continue
+            found.append((m, effect, tier))
+
+        if not found:
+            if decided and len(decided) == len(fitting):
+                parts = ", ".join(f"{k} {v}" for k, v in sorted(decided.items()))
+                if all(v in (ME_SUPPORTED, ME_REJECTED, ME_BLOCKED) for v in decided.values()):
+                    return REJECTED, f"R5: every module that depends on this fact is already decided ({parts})", None
+                return REJECTED, f"R5: no module that depends on this fact can use the answer ({parts})", None
             ruled = sorted({str(getattr(m.route, "value", m.route)) for m in related
                             if m not in fitting})
             if ruled:
                 return REJECTED, (f"R1: the allegation ({cls.lower()}) cannot be answered by "
                                   f"{', '.join(ruled)}; R5: no other module's result changes"), None
             return REJECTED, "R5: every possible answer leads to the same result", None
+
+        def rank(item):
+            m, effect, tier = item
+            return (tier, -(2 if effect.decisive else 1), -m.strength,
+                    EFFORT.get(cand.get("type"), 3))
+        found.sort(key=rank)
+        best, effect, tier = found[0]
+        effects = sorted({x for _, e, _ in found for x in e.statuses
+                          if x in (ME_SUPPORTED, ME_REJECTED, ME_BLOCKED)})
         return APPROVED, f"R5: the answer changes whether {best.module_id} applies", {
             "related_module": best.module_id, "issue": "MODULE",
             "material_reason": cand.get("material_reason")
             or f"needed to decide whether {best.module_id} ({best.topic}) applies",
-            "impact_if_yes": best_impact["yes"], "impact_if_no": best_impact["no"],
-            "_rank": best_rank}
+            "impact_if_yes": self._say(best.module_id, effect.yes),
+            "impact_if_no": self._say(best.module_id, effect.no),
+            "source_module_ids": [m.module_id for m, _, _ in found],
+            "possible_effect": effects, "tier": tier,
+            "_rank": rank(found[0])}
 
-    def _flip(self, module, fact, cand, facts, selected=frozenset()) -> Optional[dict]:
-        """R5. The module's gate now, and under each possible answer.
+    @staticmethod
+    def _say(mid: str, status: Optional[str]) -> str:
+        return {ME_SUPPORTED: f"{mid} applies", ME_REJECTED: f"{mid} does not apply",
+                ME_BLOCKED: f"{mid} does not apply",
+                ME_UNRESOLVED: f"{mid} may apply, subject to other facts"}.get(
+                    status, f"{mid} may apply, subject to other facts")
 
-        An answer matters only if it could OPEN the module (move it from
-        ruled out to possible, or from possible to applies) - or, for a module
-        already selected for the letter, rule it out. A fact the module only
-        uses to exclude itself ("not payment_made") is never asked on its own
-        account: answering it can only take a ground away. `do_not_use_when`
-        is evaluated as the reasoning gate (R-03) does, on what is known; it
-        is an exclusion, not something to ask about.
+    # ------------------------------------------------------- the effect of an answer
+    def _effect(self, module, fact, cand, ctx) -> Optional[Effect]:
+        """What each possible answer to `fact` does to this UNRESOLVED module.
 
-        None when no answer changes the result (yes and no lead to the same
-        place), otherwise the impacts and whether the answer is decisive.
+        The conditions still unknown are the case's open questions; this finds
+        the ones on `fact`. The question is material when
+
+          * the answers lead to different statuses on what is known now (an
+            answer to a condition that another unknown fact already decides
+            changes nothing yet), and
+          * the module can still be SUPPORTED through facts a customer can
+            answer (a condition on uploaded evidence is not answerable here, so a
+            module that waits on one cannot be unlocked by an answer), and
+          * an exclusion (a hard blocker, a `not ...` condition) is asked about
+            only once the module's requirements stand, or the module was not
+            otherwise open: asking whether something rules a ground out, before
+            there is a ground, spends the customer's patience on nothing.
         """
-        unknown = {f for f in self.kg.gating_facts(module.module_id) | set(module.required_facts or [])
-                   if f != fact and f not in facts}
-        base = {k: v for k, v in facts.items() if k != fact}
-
-        def gate(view):
-            if evaluate(module.do_not_use_when, view):
-                return False
-            return tri(module.use_when, view, unknown)
-
+        view, unreliable = ctx.view, ctx.unreliable
+        use = _leaves_with_polarity(module.use_when)
+        dnu = _leaves_with_polarity(module.do_not_use_when)
         try:
-            current = gate(base)
-            in_gate = fact in _gate_facts(module)
-            if in_gate:
-                results = {label: gate({**base, fact: value})
-                           for label, value in self._answers(fact, cand)}
-            else:
-                # A required fact the gate does not test: needed to argue the
-                # ground, so it matters only while the ground can still apply.
-                if current is False:
-                    return None
-                results = {"answered": current, "unanswered": False}
+            open_use = [i for i, (lf, _) in enumerate(use) if _is_open(lf, view, unreliable)]
+            open_dnu = [i for i, (lf, _) in enumerate(dnu) if _is_open(lf, view, unreliable)]
         except PredicateError:
             return None
-        if len(set(results.values())) < 2:
-            return None
-        if in_gate:
-            opens = any(_ORDER[v] > _ORDER[current] for v in results.values())
-            rules_out = module.module_id in selected and \
-                any(_ORDER[v] < _ORDER[current] for v in results.values())
-            if not (opens or rules_out):
+        mine_use = [i for i in open_use if _fact_of(use[i][0]) == fact]
+        mine_dnu = [i for i in open_dnu if _fact_of(dnu[i][0]) == fact]
+        if not mine_use and not mine_dnu:
+            return None                                  # not the missing fact
+        eff = Effect(module.module_id, in_use_when=bool(mine_use), in_blocker=bool(mine_dnu))
+
+        positive = [i for i in mine_use if use[i][1]]
+        if not positive:
+            # Only ever an exclusion here. Ask once the requirements are met.
+            waiting = [i for i in open_use if use[i][1] and _fact_of(use[i][0]) not in (None, fact)]
+            if waiting:
                 return None
-        mid = module.module_id
+        # One condition a truth value per possible answer.
+        answers = self._leaf_answers(fact, cand, view, unreliable,
+                                     [lf for lf, _ in use], [lf for lf, _ in dnu], mine_use, mine_dnu)
+        if not answers:
+            return None
 
-        def say(v):
-            return {True: f"{mid} applies", False: f"{mid} does not apply",
-                    None: f"{mid} may apply, subject to other facts"}[v]
-        vals = list(results.values())
-        return {"yes": say(vals[0]), "no": say(vals[-1]),
-                "decisive": True in vals and False in vals}
+        def status_of(answer, completion) -> str:
+            fu, fd = dict(answer[0]), dict(answer[1])
+            for (kind, i), v in completion.items():
+                (fu if kind == "u" else fd)[i] = v
+            gate = evaluate3(_replace(module.use_when, fu), view, unreliable=unreliable)
+            dnuw = evaluate3(_replace(module.do_not_use_when, fd), view, unreliable=unreliable)
+            return decide(gate, dnuw)
 
-    def _answers(self, fact: str, cand: dict) -> list[tuple[str, Any]]:
+        now = [status_of(a, {}) for a in answers]            # the case as it stands
+        eff.statuses = set(now)
+        eff.sensitive = len(set(now)) > 1
+        eff.decisive = ME_SUPPORTED in now
+        eff.yes, eff.no = now[0], now[-1]
+        # Could the module still be SUPPORTED through answerable facts?
+        others = ([("u", i) for i in open_use if i not in mine_use and _fact_of(use[i][0])]
+                  + [("d", i) for i in open_dnu if i not in mine_dnu and _fact_of(dnu[i][0])])
+        if len(others) > MAX_OPEN:
+            eff.can_support = all(v != ME_REJECTED and v != ME_BLOCKED for v in now) or \
+                ME_SUPPORTED in now
+        else:
+            eff.can_support = any(
+                status_of(a, dict(zip(others, bits))) == ME_SUPPORTED
+                for bits in _bits(len(others)) for a in answers)
+        return eff
+
+    def _leaf_answers(self, fact, cand, view, unreliable, use_leaves, dnu_leaves,
+                      mine_use, mine_dnu) -> list[tuple[dict, dict]]:
+        """One (use_when, do_not_use_when) truth assignment for the conditions on
+        `fact` per possible answer. A yes/no or a choice is evaluated on the value
+        itself; free text or a number only says "some answer", so each condition
+        is taken both ways (an `is`/`exists` condition holds, `missing` does not)."""
         qtype = cand.get("type") or (self.kg.question_for(fact) or {}).get("type") or "text"
+        held = frozenset(u for u in unreliable if u != fact)
+        values: list[Any] = []
         if qtype == "bool":
-            return [("yes", True), ("no", False)]
-        options = cand.get("options") or (self.kg.question_for(fact) or {}).get("options") or []
-        if qtype == "choice" and len(options) >= 2:
-            return [(str(o), o) for o in options]
-        # Free text / number: some answer versus none. The gate's comparison on
-        # the value itself is left open (unknown), which is what "some answer" is.
-        return [("answered", _ANY), ("unanswered", None)]
+            values = [True, False]
+        elif qtype == "choice":
+            options = cand.get("options") or (self.kg.question_for(fact) or {}).get("options") or []
+            values = [str(o) for o in options] if len(options) >= 2 else []
+        if values:
+            out = []
+            for v in values:
+                answered = {**view, fact: v}
+                fu = {i: evaluate3(use_leaves[i], answered, unreliable=held) for i in mine_use}
+                fd = {i: evaluate3(dnu_leaves[i], answered, unreliable=held) for i in mine_dnu}
+                if any(t is None for t in [*fu.values(), *fd.values()]):
+                    continue
+                out.append((fu, fd))
+            return out
+        slots = [("u", i, use_leaves[i]) for i in mine_use] + [("d", i, dnu_leaves[i]) for i in mine_dnu]
+        choices = []
+        for _, _, leaf in slots:
+            op = next(iter(leaf))
+            choices.append((True,) if op in ("is", "exists") else (False,) if op == "missing"
+                           else (True, False))
+        out = []
+        for combo in _product(choices):
+            fu = {i: v for (k, i, _), v in zip(slots, combo) if k == "u"}
+            fd = {i: v for (k, i, _), v in zip(slots, combo) if k == "d"}
+            out.append((fu, fd))
+        return out
+
+    def _tier(self, module, effect: Effect, ctx) -> Optional[int]:
+        """Where this module's question sits, or None when it may not be asked.
+
+        A substantive ground is asked about directly. A supporting or evidence
+        module is asked about only once a substantive ground it shares a fact
+        with already stands: otherwise the answer cannot change the appeal."""
+        if role_of(module) == SUBSTANTIVE_GROUND:
+            return TIER_UNLOCK if effect.in_use_when else TIER_BLOCKER
+        mine = self._shared_facts(module)
+        for other in self.kg.active_modules():
+            if other.module_id == module.module_id or role_of(other) != SUBSTANTIVE_GROUND:
+                continue
+            if ctx.outcome(other.module_id).status != ME_SUPPORTED:
+                continue
+            if mine & (self._shared_facts(other) | set(other.required_facts or [])):
+                return TIER_SUPPORT
+        return None
+
+    def _shared_facts(self, module) -> set[str]:
+        from ..rules.dsl import referenced_facts
+        gate = referenced_facts(module.use_when) | referenced_facts(module.do_not_use_when)
+        return {f for f in gate if f not in DOCUMENT_OWNED and f not in EVIDENCE_OWNED}
+
+    # ------------------------------------------------------------ the round
+    def _round(self, case: CaseFile) -> "_Round":
+        """Eligibility of every module on the case as it stands this round."""
+        if getattr(self, "_ctx", None) is None:
+            self._ctx = _Round(self.kg, case)
+        return self._ctx
 
     # ------------------------------------------------------------ helpers
     @staticmethod
@@ -489,6 +684,15 @@ class QuestionAuthority:
             "impact_if_yes": extra["impact_if_yes"],
             "impact_if_no": extra["impact_if_no"],
             "source": cand.get("source") or MODEL,
+            # The internal contract (never shown: customer_safe cuts a question
+            # to fact/text/type/options).
+            "fact_key": fact,
+            "question": text,
+            "source_module_ids": list(extra.get("source_module_ids") or []),
+            "current_status": ME_UNRESOLVED,
+            "materiality_reason": extra["material_reason"],
+            "possible_effect": list(extra.get("possible_effect") or []),
+            "tier": extra.get("tier"),
             "_rank": extra["_rank"],
         })
         for k in ("hypothesis_id", "reason", "possible_impact", "kb_gated"):
@@ -507,27 +711,103 @@ class QuestionAuthority:
                 "decision": decision, "reason": reason,
                 "material_reason": q.get("material_reason") if decision == APPROVED else None,
                 "impact_if_yes": q.get("impact_if_yes"), "impact_if_no": q.get("impact_if_no"),
+                **({k: q.get(k) for k in ("fact_key", "question", "source_module_ids",
+                                          "current_status", "materiality_reason",
+                                          "possible_effect", "tier")}
+                   if decision == APPROVED else {}),
                 "shown": False}
 
 
-class _Any:
-    """An answer whose exact value is not known: satisfies `is`/`exists`."""
-    def __bool__(self):
-        return True
+class _Round:
+    """The case's module eligibility for one review: the authoritative fact view
+    (with the verified legal findings the gates read) and each module's Phase 3
+    outcome, computed once and only when asked for."""
 
-    def __repr__(self):
-        return "<answered>"
+    def __init__(self, kg: KnowledgeGraph, case: CaseFile):
+        from ..legal import findings as legal_findings
+        from .module_eligibility import effective_view
+        facts = legal_findings.gate_facts(case.fact_view(), list(case.get("pofa_findings") or []))
+        states = dict(facts.get("pofa_finding_states") or {})
+        for r in getattr(case, "legal_findings", None) or []:
+            if r.get("finding_type") and r.get("status"):
+                states.setdefault(str(r["finding_type"]), str(r["status"]))
+        if states:
+            facts["pofa_finding_states"] = states
+        self.kg = kg
+        # Held but not trusted (uncertain, conflicted): not in the view, and never
+        # a value a condition can be settled on.
+        self.unreliable = frozenset(k for k, f in (getattr(case, "facts", None) or {}).items()
+                                    if not f.usable)
+        self.view = effective_view(facts)
+        self._out: dict = {}
+
+    def outcome(self, module_id: str):
+        if module_id not in self._out:
+            self._out[module_id] = evaluate_module_id(
+                self.kg, module_id, self.view, unreliable=self.unreliable)
+        return self._out[module_id]
 
 
-_ANY = _Any()
+def _bits(n: int):
+    import itertools
+    return itertools.product((False, True), repeat=n)
 
 
-def _gate_facts(module) -> set[str]:
-    from ..rules.dsl import referenced_facts
-    return referenced_facts(module.use_when) | referenced_facts(module.do_not_use_when)
+def _product(choices):
+    import itertools
+    return itertools.product(*choices)
 
 
 def trace(case: CaseFile) -> list[dict]:
     """Every question decision on the case, oldest first. Admin only."""
     return [{k: v for k, v in a.items() if k not in ("event", "_persisted")}
             for a in case.audit if a.get("event") == "question_review"]
+
+
+# ------------------------------------------------------------------ lifecycle
+def lifecycle(case: CaseFile) -> list[dict]:
+    """Where each question the customer has been shown now stands. Derived from
+    the case (what was shown, what the customer answered, what FactManager holds),
+    never stored, so it cannot disagree with it.
+
+      PENDING     shown, and still waiting for an answer
+      ANSWERED    the fact is held (FactManager) from the customer's answer
+      UNRESOLVED  shown and settled without a value: skipped, "not sure" or empty.
+                  The fact stays unknown, the question is not asked again, and
+                  no module is rejected for it
+      SUPERSEDED  shown, then no longer needed: the fact became known another way,
+                  or the modules it served were decided without it
+    """
+    from ..models import SourceKind
+    shown: dict[str, dict] = {}
+    last: dict[str, dict] = {}
+    for a in case.audit:
+        if a.get("event") != "question_review":
+            continue
+        fact = a.get("target_fact") or ""
+        last[fact] = a
+        if a.get("shown") and fact not in shown:
+            shown[fact] = a
+    for fact in case.asked_questions or []:
+        shown.setdefault(fact, {"question_id": None, "candidate_question": "", "target_fact": fact})
+    pending = {q.get("fact") for q in (case.pending_questions or [])}
+    out = []
+    for fact, row in shown.items():
+        node = case.facts.get(fact) if getattr(case, "facts", None) else None
+        held = bool(node is not None and node.usable and node.value not in (None, "", []))
+        if held and node.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT):
+            state = ANSWERED
+        elif held:
+            state = SUPERSEDED
+        elif fact in (case.raw_answers or {}):
+            state = UNRESOLVED_STATE
+        elif fact in pending:
+            state = PENDING
+        elif last.get(fact, {}).get("decision") == REJECTED and str(
+                last[fact].get("reason", "")).startswith("R5"):
+            state = SUPERSEDED
+        else:
+            state = UNRESOLVED_STATE
+        out.append({"question_id": row.get("question_id"), "target_fact": fact,
+                    "question": row.get("candidate_question"), "state": state})
+    return out
