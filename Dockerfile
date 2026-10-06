@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
       libffi8 \
       shared-mime-info \
       fonts-dejavu-core \
+      tesseract-ocr \
+      tesseract-ocr-eng \
       curl \
     && rm -rf /var/lib/apt/lists/*
 

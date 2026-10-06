@@ -22,7 +22,7 @@ const STEPS: Step[] = [
   { id: "result", label: "Download" },
 ];
 
-export default function ProgressRail({ stage }: { stage: RailStage }) {
+export default function ProgressRail({ stage, resultLabel = "Download" }: { stage: RailStage; resultLabel?: string }) {
   const steps = STEPS.filter((s) => s.enabled !== false);
   const current = steps.findIndex((s) => s.id === stage);
 
@@ -39,7 +39,7 @@ export default function ProgressRail({ stage }: { stage: RailStage }) {
             <span className="bar" aria-hidden="true">
               {status === "done" ? "✓" : i + 1}
             </span>
-            <span>{step.label}</span>
+            <span>{step.id === "result" ? resultLabel : step.label}</span>
           </li>
         );
       })}

@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "functions": {
     "app/api/[...path]/route.ts": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "memory": 1024
     },
     "app/api/blob/upload/route.ts": {

@@ -181,7 +181,7 @@ app.include_router(admin_db_router)
 CUSTOMER_ROUTES: tuple[tuple[str, re.Pattern], ...] = (
     ("POST", re.compile(r"^/appeal(/files|/[^/]+)?$")),
     ("POST", re.compile(r"^/cases$")),
-    ("POST", re.compile(r"^/cases/[^/]+/(files|blobs|confirm)$")),
+    ("POST", re.compile(r"^/cases/[^/]+/(files|blobs|confirm|reopen-upload)$")),
     ("GET", re.compile(r"^/cases/[^/]+(/confirmation|/letter\.pdf)?$")),
 )
 
@@ -432,7 +432,9 @@ def _rehydrate(case_id: str) -> Optional[dict[str, Any]]:
         return None
     try:
         # The letter already released, so the PDF is the one the customer saw.
-        output = case_store.load_output(case)
+        output = (case_store.load_output(case) if case.state not in (
+            CaseState.CREATED, CaseState.EXTRACTED, CaseState.CONFIRMED, CaseState.QUESTIONING
+        ) else None)
     except Exception as exc:
         output = None
         case.audit.append({"event": "output_rehydrate_failed", "reason": str(exc)[:200]})
@@ -554,6 +556,7 @@ def health():
     """
     from .engines import validation
     from .llm import probe
+    from .ocr import available as ocr_available
     p = probe()
     # Production on anything but the real provider is not a healthy service,
     # whatever else works: it cannot produce a letter anyone should receive.
@@ -576,6 +579,7 @@ def health():
             # False). Derived from the probe rather than building a second client,
             # which in production raises when the provider is unusable.
             "vision": p["provider"] == "openai",
+            "ocr": "tesseract+vision" if ocr_available() else "vision-only",
             "max_upload_bytes": MAX_BYTES}
     return body if healthy else JSONResponse(body, status_code=503)
 
@@ -826,6 +830,19 @@ def _held_questions(case: CaseFile, out) -> dict:
 def create_case():
     case_id, _ = _new_case()
     return {"case_id": case_id, "state": CaseState.CREATED.value}
+
+
+@app.post("/cases/{case_id}/reopen-upload")
+def reopen_upload(case_id: str):
+    rec = _case(case_id)
+    from .document_retry import reopen
+    try:
+        case = reopen(rec["case"])
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    rec.update(case=case, output=None, questions=[], flags=[])
+    _persist(case)
+    return {"case_id": case.case_id, "state": case.state.value}
 
 
 @app.post("/cases/{case_id}/documents")

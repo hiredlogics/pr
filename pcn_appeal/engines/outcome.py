@@ -46,12 +46,12 @@ CUSTOMER_COPY = {
         "can_continue": True,
     },
     OUTCOME_NEEDS_DOCUMENTS: {
-        "title": "We need clearer documents",
+        "title": "Please check that your pages match",
         "lede": (
-            "Parts of the notice we need are missing or unreadable. Upload the "
-            "missing pages or a clearer photo to this same case."
+            "We read different notice details on your uploaded pages. Check that "
+            "they belong to the same notice, then upload the matching pages or clearer copies."
         ),
-        "next": "Add the other side of the notice or a clearer scan, then continue.",
+        "next": "Replace the uploaded pages with clear copies of the notice you are appealing.",
         "cta": "Upload more documents",
         "can_continue": True,
     },

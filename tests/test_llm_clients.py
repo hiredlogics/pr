@@ -103,6 +103,12 @@ class RequestShape(unittest.TestCase):
         parts = stub.captured[0]["messages"][1]["content"]
         self.assertEqual(parts[1]["type"], "image_url")
         self.assertTrue(parts[1]["image_url"]["url"].startswith("data:image/jpeg;base64,"))
+        self.assertEqual(parts[1]["image_url"]["detail"], "high")
+
+    def test_gpt54_uses_original_detail_for_small_notice_print(self):
+        client, stub = build(env={"OPENAI_MODEL_EXTRACTION": "gpt-5.4"})
+        client.complete_json(task="extraction", system="S", user="U", images=[b"jpeg"])
+        self.assertEqual(stub.captured[0]["messages"][1]["content"][1]["image_url"]["detail"], "original")
 
     def test_strips_markdown_fences(self):
         client, _ = build(reply='```json\n{"a": 1}\n```')

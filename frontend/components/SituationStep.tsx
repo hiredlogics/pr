@@ -10,11 +10,13 @@ import { useState } from "react";
 export default function SituationStep({
   onSubmit,
   busy,
+  initialAccount = "",
 }: {
   onSubmit: (narrative: string, driverAlreadyNamed: boolean | null) => void;
   busy?: boolean;
+  initialAccount?: string;
 }) {
-  const [free, setFree] = useState("");
+  const [free, setFree] = useState(initialAccount);
   const [localError, setLocalError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {

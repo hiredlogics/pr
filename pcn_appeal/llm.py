@@ -79,7 +79,8 @@ class OpenAIClient:
 
     def __init__(self, api_key: str | None = None, preferences: dict | None = None):
         from openai import OpenAI          # imported lazily so tests run without the SDK
-        self._c = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self._c = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"),
+                         timeout=60.0, max_retries=1)
         self._prefs = preferences or OPENAI_PREFERENCES
         self.models = self._resolve_models()
 
@@ -121,7 +122,9 @@ class OpenAIClient:
         for img in images or []:
             b64 = base64.b64encode(img).decode()
             content.append({"type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}",
+                                          "detail": ("original" if self.models[task].startswith("gpt-5.4")
+                                                     else "high")}})
         resp = self._c.chat.completions.create(
             model=self.models[task],
             response_format={"type": "json_object"},
@@ -129,7 +132,10 @@ class OpenAIClient:
                       {"role": "user", "content": content}])
         text = (resp.choices[0].message.content or "").strip()
         text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        return json.loads(text)
+        out = json.loads(text)
+        if not isinstance(out, dict):
+            raise ValueError(f"{task}: expected a JSON object")
+        return out
 
 
 class FakeLLM:

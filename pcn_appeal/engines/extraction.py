@@ -370,7 +370,13 @@ class ExtractionEngine:
         for name, f in _fields_of(out).items():
             if f is None or f.get("value") in (None, ""):
                 continue
-            val, conf = f["value"], float(f.get("confidence", 0))
+            val = f["value"]
+            try:
+                conf = float(f.get("confidence", 0))
+            except (ValueError, TypeError, OverflowError):
+                conf = 0.0
+            if not 0 <= conf <= 1:
+                conf = 0.0
             if name in DATE_FIELDS:
                 val = parse_uk_date(val)
                 if val is None:
@@ -586,7 +592,7 @@ class ExtractionEngine:
         status question (has it already been given to the operator?), never as
         'who was driving'."""
         from ..document_identity import (
-            CRITICAL_FIELDS, STATUS_CONFLICT, STATUS_VERIFIED,
+            CRITICAL_FIELDS, STATUS_VERIFIED,
             load_identity_state,
         )
         identity = load_identity_state(case) or {}
@@ -596,14 +602,13 @@ class ExtractionEngine:
                 value = parse_uk_date(value)
             if name == "operator_ata":
                 value = normalise_operator_ata(value) or value
-            # Customer confirmation must not silently override clear document
-            # evidence that already conflicts with a different strong reading.
-            if name in CRITICAL_FIELDS and field_status.get(name) == STATUS_CONFLICT:
+            # An explicit field correction settles competing OCR/vision reads.
+            # Blanket confirmation below still cannot settle a flagged field.
+            # A genuinely foreign page remains blocked by the independent pair gate.
+            if value in (None, ""):
                 case.audit.append({
-                    "event": "identity_confirmation_blocked",
+                    "event": "identity_correction_invalid",
                     "field": name,
-                    "reason": "document_identity_conflict",
-                    "attempted": str(value)[:80],
                 })
                 continue
             case.put(Fact(f"F-{name}", name, value, FactStatus.CORRECTED,
@@ -625,8 +630,10 @@ class ExtractionEngine:
             case.set_status(name, FactStatus.CONFIRMED, reason="confirmation_screen")
         # Explicit confirm/correct of the PCN clears a cross-document conflict gate
         # only when identity is not in conflict on that field.
-        if (("pcn_number" in corrections or "pcn_number" in confirmed)
-                and field_status.get("pcn_number") != STATUS_CONFLICT):
+        if (("pcn_number" in corrections and case.facts.get("pcn_number")
+             and case.facts["pcn_number"].source.kind == SourceKind.ANSWER)
+                or ("pcn_number" in confirmed
+                    and field_status.get("pcn_number") == STATUS_VERIFIED)):
             case.put(Fact("F-pcn_conflict", "pcn_conflict", False, FactStatus.DERIVED,
                           FactSource(SourceKind.ANSWER, "confirm:pcn_number")))
         # Re-run identity after confirmation corrections so revision tracks changes.

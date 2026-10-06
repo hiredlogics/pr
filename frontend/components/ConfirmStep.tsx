@@ -18,10 +18,11 @@ export default function ConfirmStep({
 }: {
   details: Detail[];
   busy: boolean;
-  /** Only the values the customer changed, keyed by fact name. */
+  /** Explicit corrections or checked uncertain values, keyed by fact name. */
   onConfirm: (corrections: Record<string, string>) => void;
 }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<Set<string>>(
     () => new Set(details.filter((d) => d.needs_attention).map((d) => d.name)),
   );
@@ -32,10 +33,14 @@ export default function ConfirmStep({
     const out: Record<string, string> = {};
     for (const d of details) {
       const next = (edits[d.name] ?? d.value).trim();
-      if (next !== d.value.trim()) out[d.name] = next;
+      // Checking a flagged value is an explicit field confirmation, even when
+      // the characters stay the same. The blanket button never implies this.
+      if (next !== d.value.trim() || (d.needs_attention && checked.has(d.name))) {
+        if (next) out[d.name] = next;
+      }
     }
     return out;
-  }, [details, edits]);
+  }, [details, edits, checked]);
 
   const changed = Object.keys(corrections).length;
   const attention = details.filter((d) => d.needs_attention).length;
@@ -112,6 +117,23 @@ export default function ConfirmStep({
                   {editing ? "Done" : "Edit"}
                 </button>
               </dd>
+              {d.needs_attention && value(d).trim() && (
+                <dd>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={checked.has(d.name)}
+                      onChange={(e) => setChecked((prev) => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(d.name);
+                        else next.delete(d.name);
+                        return next;
+                      })}
+                    />{" "}
+                    I checked this {d.label.toLowerCase()} against my notice
+                  </label>
+                </dd>
+              )}
             </div>
           );
         })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { confirmDetails, createCase, getConfirmation, getHealth, submitAnswers } from "@/lib/api";
+import { confirmDetails, createCase, getConfirmation, getHealth, reopenUpload, submitAnswers } from "@/lib/api";
 import { sendFiles } from "@/lib/upload";
 import {
   ApiError,
@@ -37,7 +37,7 @@ const RAIL: Record<Screen, RailStage> = {
 const WORKING: Record<string, { label: string; detail: string; steps: string[] }> = {
   reading: {
     label: "We're reading your notice…",
-    detail: "Our system is extracting the key details from your notice. This only takes a few seconds.",
+    detail: "We are reading the notice details and checking that the uploaded pages match.",
     steps: ["Identifying parking company", "Reading notice details", "Extracting key information"],
   },
   drafting: {
@@ -77,6 +77,7 @@ export default function Page() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [data, setData] = useState<AppealResponse | null>(null);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
+  const [account, setAccount] = useState("");
   // Held here, not inside UploadStep: the step unmounts while the reading
   // screen shows, so local state would drop the customer's file on any error.
   const [files, setFiles] = useState<File[]>([]);
@@ -98,6 +99,7 @@ export default function Page() {
   // error renders on the next commit, and the button that triggered it is at
   // the bottom of the page, so otherwise a failed submit looks like a no-op.
   const errorRef = useRef<HTMLDivElement | null>(null);
+  const running = useRef(false);
   useEffect(() => {
     if (error || errorRejected) {
       errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -120,6 +122,8 @@ export default function Page() {
   }
 
   async function run(kind: "reading" | "drafting", work: () => Promise<void>) {
+    if (running.current) return;
+    running.current = true;
     setBusy(kind);
     setError(null);
     setErrorRejected(null);
@@ -128,6 +132,7 @@ export default function Page() {
     } catch (e) {
       fail(e);
     } finally {
+      running.current = false;
       setBusy(null);
     }
   }
@@ -135,7 +140,7 @@ export default function Page() {
   /** Step 1 -> 2: create the case, upload, then show what was read. */
   const upload = () =>
     run("reading", async () => {
-      const created = await createCase();
+      const created = caseId ? { case_id: caseId } : await createCase();
       setCaseId(created.case_id);
       const uploaded = await sendFiles(created.case_id, files);
       // Intake routed the case away from the appeal journey (a debt letter, an
@@ -163,6 +168,7 @@ export default function Page() {
   const submitSituation = (narrative: string, alreadyNamed: boolean | null) =>
     run("drafting", async () => {
       if (!caseId || !confirmation) return;
+      setAccount(narrative);
       const confirmed = confirmation.details.filter((d) => d.value).map((d) => d.name);
       const next = await confirmDetails(caseId, corrections, confirmed, narrative, alreadyNamed);
       setData(next);
@@ -185,6 +191,7 @@ export default function Page() {
     setConfirmation(null);
     setData(null);
     setCorrections({});
+    setAccount("");
     setFiles([]);
     setRound(0);
     setError(null);
@@ -195,6 +202,22 @@ export default function Page() {
   const continueCase = () =>
     run("drafting", async () => {
       if (!caseId) return;
+      if (data?.outcome === "NEEDS_DOCUMENTS" || data?.state === "CLASSIFICATION_FAILED") {
+        await reopenUpload(caseId);
+        setFiles([]);
+        setConfirmation(null);
+        setScreen("upload");
+        return;
+      }
+      if (data?.outcome === "NEEDS_FACTS") {
+        setConfirmation(await getConfirmation(caseId));
+        setScreen("confirm");
+        return;
+      }
+      if (data?.outcome === "NO_SUPPORTED_GROUNDS") {
+        setScreen("situation");
+        return;
+      }
       const next = await submitAnswers(caseId, {}, false);
       setData(next);
       setRound((r) => (next.questions.length > 0 ? r + 1 : r));
@@ -214,7 +237,7 @@ export default function Page() {
           {healthFailed
             ? "Appeal service unreachable"
             : health
-              ? `${health.app_version ? `${health.app_version} · ` : ""}${health.provider === "demo" ? "Demo reader" : `${health.provider} reader`} · ${health.modules} legal modules`
+              ? (health.provider === "demo" ? "Demo appeal service" : "Appeal service online")
               : "Checking service…"}
         </p>
         <button className="menubtn" type="button" aria-label="Menu">
@@ -224,7 +247,8 @@ export default function Page() {
         </button>
       </header>
 
-      <ProgressRail stage={busy === "reading" ? "reading" : RAIL[screen]} />
+      <ProgressRail stage={busy === "reading" ? "reading" : RAIL[screen]}
+                    resultLabel={screen === "result" && data?.state !== "RELEASED" ? "Next steps" : "Download"} />
 
       <div className="layout">
         <div className="layout-main">
@@ -254,7 +278,7 @@ export default function Page() {
           ) : screen === "confirm" && confirmation ? (
             <ConfirmStep details={confirmation.details} busy={false} onConfirm={acceptDetails} />
           ) : screen === "situation" ? (
-            <SituationStep busy={false} onSubmit={submitSituation} />
+            <SituationStep busy={false} initialAccount={account} onSubmit={submitSituation} />
           ) : screen === "questions" && data ? (
             <QuestionsStep
               questions={data.questions}

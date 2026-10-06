@@ -27,9 +27,9 @@ from typing import Optional
 # these three numbers disagreeing is how a customer gets told 10MB and refused at 11.
 MAX_BYTES = 10 * 1024 * 1024
 MAX_PDF_PAGES = 6                   # a PCN plus a Notice to Keeper never needs more
-RASTER_DPI = 150                    # legible for OCR-grade text without huge payloads
+RASTER_DPI = 220                    # retain small print for OCR and vision
 MIN_TEXT_CHARS = 120                # below this a PDF is treated as scanned
-JPEG_QUALITY = 80
+JPEG_QUALITY = 92
 
 TEXT_TYPES = {"text/plain", "text/markdown", "text/csv", ""}
 # Only formats _to_jpeg can actually decode. HEIC/HEIF were listed here while
@@ -121,7 +121,11 @@ def read_upload(evidence_id: str, filename: str, content_type: Optional[str], da
     if kind == "text":
         return Ingested(evidence_id, filename, text=_decode(data), note="read as text")
     if kind == "image":
-        return Ingested(evidence_id, filename, images=[_to_jpeg(data)], note="sent to vision model")
+        from .ocr import transcribe_pages
+        images = [_to_jpeg(data)]
+        text, note = transcribe_pages(images)
+        return Ingested(evidence_id, filename, text=text, images=images,
+                        note="sent to vision model; " + note)
     return _read_pdf(evidence_id, filename, data)
 
 
@@ -173,10 +177,13 @@ def _to_jpeg(data: bytes) -> bytes:
     """The LLM clients send images as image/jpeg, so anything else is converted
     rather than mislabelled. Alpha is flattened; JPEG has no alpha channel.
 
-    PyMuPDF first (JPEG, PNG, TIFF, GIF, BMP); Pillow for what it cannot
-    decode, which in practice is WebP - the format many phones save
-    screenshots in."""
+    Pillow corrects phone EXIF orientation before conversion. PyMuPDF is
+    retained as a fallback for formats Pillow cannot decode."""
     import pymupdf
+    # Honour phone EXIF orientation before recompression.
+    converted = _pillow_to_jpeg(data)
+    if converted is not None:
+        return converted
     try:
         pix = pymupdf.Pixmap(data)
     except Exception as exc:
@@ -229,7 +236,10 @@ def _read_pdf(evidence_id: str, filename: str, data: bytes) -> Ingested:
     note = f"scanned PDF: {len(images)} of {pages} page(s) rendered for the vision model"
     if pages > len(images):
         note += f" (capped at {MAX_PDF_PAGES})"
-    return Ingested(evidence_id, filename, text=text.strip(), images=images, note=note)
+    from .ocr import transcribe_pages
+    ocr_text, ocr_note = transcribe_pages(images)
+    return Ingested(evidence_id, filename, text="\n\n".join(filter(None, (text.strip(), ocr_text))),
+                    images=images, note=note + "; " + ocr_note)
 
 
 def _pdf_text(data: bytes) -> str:

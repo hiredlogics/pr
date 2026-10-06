@@ -341,7 +341,7 @@ class IdentityPipelineTests(unittest.TestCase):
         self.assertIsNone(identity_blocks_claim_plan(case))
         self.assertEqual(case.get("vrm"), "AB12CDE")
 
-    def test_pair_conflict_asks_for_matching_reverse(self):
+    def test_pair_conflict_requires_an_upload_instead_of_a_text_answer(self):
         from pcn_appeal.document_identity import (
             DocumentIdentityState, identity_customer_questions,
         )
@@ -354,7 +354,8 @@ class IdentityPipelineTests(unittest.TestCase):
         )
         attach_identity_state(case, st)
         qs = identity_customer_questions(case)
-        self.assertEqual(qs[0]["fact"], "notice_reverse_pages")
+        self.assertEqual(qs, [])
+        self.assertEqual(identity_blocks_claim_plan(case), "DOCUMENT_PAIR_CONFLICT")
 
 
 class NoOperatorSpecificTests(unittest.TestCase):

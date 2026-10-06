@@ -33,7 +33,7 @@ DDL = """
 CREATE TABLE cases (case_id PRIMARY KEY, customer_id, state, driver_status, kb_release_id,
   commit_sha, llm_provider, retention_until, route, document_type, stage, scope_stop,
   document_classes, classifications, timeline, asked_questions, pending_questions,
-  current_run_id DEFAULT 0, run_status DEFAULT 'NONE', frontend_version, created_at);
+  current_run_id DEFAULT 0, run_status DEFAULT 'NONE', frontend_version, release_metadata, created_at);
 CREATE TABLE evidence (evidence_id PRIMARY KEY, case_id, label, kind, filename, s3_key, sha256,
   ocr_text);
 CREATE TABLE evidence_pages (case_id, label, page_no, sha256, image, created_at,

@@ -39,7 +39,7 @@ async function unwrap<T>(res: Response): Promise<T> {
   }
   if (res.status === 502 || res.status === 504) {
     throw new ApiError(
-      "The appeal service timed out while reading your notice. Please try again with a clearer, smaller photo.",
+      "The appeal service took too long to respond. Your case may already be saved; try continuing the same case.",
       res.status,
     );
   }
@@ -107,6 +107,10 @@ export async function uploadBlobs(
 
 export async function getConfirmation(caseId: string): Promise<Confirmation> {
   return unwrap<Confirmation>(await call(`/cases/${encodeURIComponent(caseId)}/confirmation`));
+}
+
+export async function reopenUpload(caseId: string): Promise<void> {
+  await unwrap(await call(`/cases/${encodeURIComponent(caseId)}/reopen-upload`, { method: "POST" }));
 }
 
 /**

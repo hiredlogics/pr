@@ -152,7 +152,11 @@ def canonicalize(name: str, value: Any) -> Any:
         from .engines.extraction import parse_uk_date
         parsed = parse_uk_date(value)
         return parsed.isoformat() if parsed else None
-    if name in ("operator_name", "parking_location"):
+    if name == "operator_name":
+        # Legal suffixes are presentation, not a second parking operator.
+        value = re.sub(r"\s+(?:limited|ltd\.?)\s*$", "", str(value).strip(), flags=re.I)
+        return re.sub(r"\s+", " ", value)
+    if name == "parking_location":
         return re.sub(r"\s+", " ", str(value).strip())
     return value
 
@@ -172,6 +176,12 @@ def canonical_equal(name: str, a: Any, b: Any) -> bool:
 
 def _obs(*, raw, name, method, evidence_id="", page=None, side="",
          excerpt="", confidence=0.0, read_status="", revision=0) -> FieldObservation:
+    try:
+        confidence = float(confidence or 0)
+    except (ValueError, TypeError, OverflowError):
+        confidence = 0.0
+    if not 0 <= confidence <= 1:
+        confidence = 0.0
     return FieldObservation(
         raw_value=raw,
         canonical_value=canonicalize(name, raw),
@@ -179,7 +189,7 @@ def _obs(*, raw, name, method, evidence_id="", page=None, side="",
         page=page,
         side=str(side or ""),
         source_excerpt=str(excerpt or "")[:240],
-        confidence=float(confidence or 0.0),
+        confidence=confidence,
         extraction_method=method,
         confirmation_status="",
         revision=revision,
@@ -261,7 +271,6 @@ def _observations_from_classifier(case: CaseFile) -> dict[str, list[FieldObserva
     return out
 
 
-_PCN_TOKEN = re.compile(r"\b(\d{6,14})\b")
 _VRM_TOKEN = re.compile(r"\b([A-Z]{2}\d{2}\s?[A-Z]{3})\b", re.I)
 
 
@@ -277,20 +286,14 @@ def _observations_from_text_scan(case: CaseFile) -> dict[str, list[FieldObservat
             continue
         if "FRONTEND_LIVE_TEST" in text or "NOTICE TO KEEPER — REVERSE" in text:
             continue
-        seen: set[str] = set()
-        for m in _PCN_TOKEN.finditer(text):
-            seen.add(m.group(1))
-            out["pcn_number"].append(_obs(
-                raw=m.group(1), name="pcn_number", method="text_scan",
-                evidence_id=e.evidence_id, excerpt=m.group(0),
-                confidence=0.55, read_status=READ_UNCERTAIN,
-            ))
         # A reference with a letter prefix has no \b before its digits, so the
         # scan above can never see it and the notice's own text could not
         # corroborate it. The extraction engine already reads labelled
         # references of either shape; use the same reader.
         from .engines.extraction import _pcn_candidates_from_text
-        for token in sorted(_pcn_candidates_from_text(text) - seen):
+        # Unlabelled digits may be a telephone, print code or company number.
+        # Only a charge-number label can corroborate the PCN identity.
+        for token in sorted(_pcn_candidates_from_text(text)):
             out["pcn_number"].append(_obs(
                 raw=token, name="pcn_number", method="text_scan",
                 evidence_id=e.evidence_id, excerpt=token,
@@ -371,7 +374,7 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         "ORIGINAL uploaded pages. Do NOT use any previously extracted values. "
         "If uncertain, set read_status UNCERTAIN or NOT_VISIBLE.\n\n" + docs
     )
-    digest = _verify_digest(user, images)
+    digest = _verify_digest(VERIFY_SYSTEM + user, images)
     try:
         models = getattr(llm, "models", None) or {}
         task = "identity_verification" if "identity_verification" in models else "extraction"
@@ -381,6 +384,7 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         elif hasattr(llm, "responses") and task == "extraction":
             # Avoid consuming the primary extraction queue on a second pass.
             return out
+        digest = _verify_digest(VERIFY_SYSTEM + str(models.get(task, task)) + user, images)
         held = _verify_cache(case).get(digest)
         if held is not None and held.get("raw") is not None:
             # These exact pages were already read; reading them again cannot
@@ -403,7 +407,10 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
         })
         _remember_verify(case, digest, {"failed": type(exc).__name__})
         return out
-    fields = raw.get("fields") if isinstance(raw, dict) else None
+    if not isinstance(raw, dict):
+        case.audit.append({"event": "identity_verification_skipped", "reason": "invalid_response_shape"})
+        return out
+    fields = raw.get("fields")
     if not isinstance(fields, dict):
         fields = {
             k: v for k, v in (raw or {}).items()
@@ -421,7 +428,7 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
                 evidence_id=str(entry.get("evidence_id") or ""),
                 page=entry.get("page"),
                 excerpt=str(entry.get("source_excerpt") or "")[:240],
-                confidence=float(entry.get("confidence") or 0),
+                confidence=entry.get("confidence"),
                 read_status=READ_NOT_VISIBLE,
             ))
             continue
@@ -430,7 +437,7 @@ def _independent_llm_verify(case: CaseFile, llm) -> dict[str, list[FieldObservat
             evidence_id=str(entry.get("evidence_id") or ""),
             page=entry.get("page"),
             excerpt=str(entry.get("source_excerpt") or "")[:240],
-            confidence=float(entry.get("confidence") or 0),
+            confidence=entry.get("confidence"),
             read_status=read if read in (READ_VERIFIED, READ_UNCERTAIN) else READ_UNCERTAIN,
         ))
     return out
@@ -496,10 +503,11 @@ def assess_document_pair(case: CaseFile) -> dict[str, Any]:
         }
         uniq = set(values.values())
         if len(uniq) >= 2:
-            # Strong conflict: different canonical identifiers on different pages.
-            result["document_pair_conflict"] = True
-            result["front_reverse_association"] = "CONFLICT"
-            result["reason"] = f"conflicting_{name}_across_pages"
+            # Conflicting model readings are not proof of different notices.
+            # different_notices above handles widely different identifiers;
+            # close discrepancies remain field conflicts for explicit correction.
+            result["front_reverse_association"] = "UNRESOLVED"
+            result["reason"] = f"unverified_{name}_across_pages"
             result["conflict_fields"].append(name)
             return result
 
@@ -558,6 +566,8 @@ def reconcile_field(name: str, observations: list[FieldObservation],
     groups: dict[str, list[FieldObservation]] = {}
     for o in usable:
         key = str(o.canonical_value)
+        if name in ("operator_name", "parking_location"):
+            key = key.casefold()
         groups.setdefault(key, []).append(o)
 
     if len(groups) == 1:
@@ -972,17 +982,8 @@ def identity_customer_questions(case: CaseFile) -> list[dict]:
     asked = set(case.asked_questions or [])
 
     if state.get("pair_conflict") or state.get("document_pair_conflict"):
-        if "notice_reverse_pages" not in asked:
-            out.append({
-                "fact": "notice_reverse_pages",
-                "type": "text",
-                "text": (
-                    "The reverse page does not appear to belong to the same notice "
-                    "as the front. Please upload the reverse (or a multipage PDF) "
-                    "of this same parking notice."
-                ),
-                "material_reason": "document pair identity conflict",
-            })
+        # A text answer cannot replace a page. The NEEDS_DOCUMENTS outcome
+        # offers the actual upload recovery action instead.
         return out
 
     values = state.get("values") or {}
@@ -1011,6 +1012,13 @@ def identity_customer_questions(case: CaseFile) -> list[dict]:
             candidate = canonicalize(name, node.value)
         if candidate not in (None, ""):
             shown = str(candidate)
+            if st == STATUS_CONFLICT:
+                out.append({
+                    "fact": name, "type": "text",
+                    "text": f"Our readings of the {label} disagree. Please type it exactly as printed on your notice.",
+                    "material_reason": f"document identity {st}:{name}",
+                })
+                break
             out.append({
                 "fact": name,
                 "type": "choice",
@@ -1059,6 +1067,10 @@ def confirm_identity_field(case: CaseFile, fact: str, value: Any) -> bool:
     if not state:
         return False
     canon = canonicalize(fact, text)
+    if canon is None:
+        case.audit.append({"event": "identity_confirmation_rejected", "field": fact,
+                           "reason": "invalid_value"})
+        return False
     # Prefer compact+full sync via FieldRecord-shaped dict mutation.
     field_blob = state.get(fact) if isinstance(state.get(fact), dict) else None
     if field_blob is None:
@@ -1111,7 +1123,8 @@ def confirm_identity_field(case: CaseFile, fact: str, value: Any) -> bool:
     }, default=str)[:8000]
 
     case.put(Fact(
-        f"F-{fact}", fact, text, FactStatus.CONFIRMED,
+        f"F-{fact}", fact, date.fromisoformat(canon) if fact in TIMING_IDENTITY_FIELDS else text,
+        FactStatus.CONFIRMED,
         FactSource(SourceKind.ANSWER, f"identity_confirm:{fact}"),
         confidence=0.99,
     ))

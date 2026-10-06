@@ -81,19 +81,9 @@ class AdminDbAuth(unittest.TestCase):
 
 
 def _ensure_database_url() -> bool:
-    if os.getenv("DATABASE_URL"):
-        return True
-    from pathlib import Path
-    root = Path(__file__).resolve().parents[1]
-    for name in (".env.staging.local", ".env.local"):
-        path = root / name
-        if not path.exists():
-            continue
-        for line in path.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
-            if line.startswith("DATABASE_URL="):
-                os.environ["DATABASE_URL"] = line.split("=", 1)[1].strip().strip("\"'")
-                return True
-    return False
+    # Live tests are opt-in; never load private dotenv files or mutate the
+    # environment of the remaining offline suite.
+    return os.getenv("PCN_RUN_LIVE_DB_TESTS") == "1" and bool(os.getenv("DATABASE_URL"))
 
 
 class AdminDbLiveOptional(unittest.TestCase):
