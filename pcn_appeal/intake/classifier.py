@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Optional
 
 from .. import prompts
+from ..document_read import input_digest, memo_call
 from ..models import CaseFile
 from . import document_types as T
 
@@ -161,8 +162,9 @@ def classify(case: CaseFile, llm) -> dict[str, DocumentClassification]:
         raise ClassificationFailed("no documents to classify")
     user, images = _payload(case)
     try:
-        out = llm.complete_json(task="classification", system=prompts.system("classification"),
-                                user=user, images=images or None)
+        out = memo_call(case, "classification", input_digest(user, images), lambda: llm.complete_json(
+            task="classification", system=prompts.system("classification"),
+            user=user, images=images or None))
     except Exception as exc:                      # provider error, bad JSON, timeout
         raise ClassificationFailed(f"classifier call failed: {type(exc).__name__}") from exc
 
@@ -205,8 +207,11 @@ def _read_references_per_document(case: CaseFile, llm,
         e = case.evidence[c.evidence_id]
         user = f"<document id='{e.evidence_id}' filename='{e.filename}'>\n{e.text}\n</document>"
         try:
-            out = llm.complete_json(task="page_references", system=prompts.system("page_references"),
-                                    user=user, images=list(e.images or []) or None)
+            out = memo_call(case, f"page_references:{e.evidence_id}",
+                            input_digest(user, list(e.images or [])),
+                            lambda: llm.complete_json(
+                                task="page_references", system=prompts.system("page_references"),
+                                user=user, images=list(e.images or []) or None))
         except Exception as exc:
             c.notes.append(f"per-document reference read failed: {type(exc).__name__}")
             continue
