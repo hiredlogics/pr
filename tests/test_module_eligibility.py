@@ -667,7 +667,9 @@ class UnknownBlockerMatrix(unittest.TestCase):
                 if m.do_not_use_when and m.do_not_use_when != {"always": False}]
 
     def test_there_are_modules_with_blockers(self):
-        self.assertGreaterEqual(len(self._modules()), 16)
+        # 16 modules had a hard blocker; PAY-01 and BREAK-01 lost theirs in 3B.2
+        # (nothing could ever settle them) and are checked in HardBlockerResolvability.
+        self.assertGreaterEqual(len(self._modules()), 14)
 
     def test_every_blocker_state_against_the_reference(self):
         from pcn_appeal.eval.eligibility import reference as R
@@ -687,7 +689,7 @@ class UnknownBlockerMatrix(unittest.TestCase):
                         ran += 1
                         with self.subTest(module=m.module_id, leaf=leaf, state=state):
                             self.assertEqual(out.status, want)
-        self.assertGreater(ran, 150)
+        self.assertGreater(ran, 100)
 
     def test_blocker_missing_uncertain_conflicted_is_never_supported(self):
         from pcn_appeal.eval.eligibility import reference as R
@@ -738,23 +740,20 @@ class UnknownBlockerMatrix(unittest.TestCase):
     def test_single_blocker_modules_literal_table(self):
         """Written out, not computed: TRUE -> BLOCKED, FALSE -> SUPPORTED, else UNRESOLVED."""
         table = {  # module: (fact, base view that otherwise supports it)
-            "KB-PAY-01": ("terms_rejected_left", {"payment_made": True}),
-            "KB-BREAK-01": ("fault_pre_existing_not_preventing",
-                            {"vehicle_immobilised": True, "immobilisation_prevented_departure": True}),
             "KB-ACT-02": ("payment_made", {"dropoff_activity": True, "permitted_period_ended": False}),
             "KB-CON-01": ("permitted_period_ended",
                           {"short_presence_before_acceptance": True, "payment_made": False}),
             "KB-CON-02": ("permitted_period_ended",
                           {"no_parking_took_place": True, "payment_made": False}),
             "KB-AUTH-02": ("lease_parking_clause_found", {"permit_held": True}),
-            "KB-POFA-01": ("relevant_land", {"driver_status": "UNIDENTIFIED",
-                                            "jurisdiction": "ENGLAND_WALES"}),
+            "KB-POFA-01": ("pofa_route", {"driver_status": "UNIDENTIFIED",
+                                         "jurisdiction": "ENGLAND_WALES"}),
         }
         for mid, (fact, base) in table.items():
             base = dict(base, driver_status=base.get("driver_status", "UNIDENTIFIED"))
             m = KG.modules[mid]
-            blocker_true = {"relevant_land": False}.get(fact, True)
-            blocker_false = {"relevant_land": True}.get(fact, False)
+            blocker_true = {"pofa_route": "NOT_APPLICABLE"}.get(fact, True)
+            blocker_false = {"pofa_route": "POSTAL"}.get(fact, False)
             with self.subTest(module=mid):
                 self.assertEqual(status(m, {**base, fact: blocker_true}), BLOCKED)
                 self.assertEqual(status(m, {**base, fact: blocker_false}), SUPPORTED)
@@ -851,10 +850,14 @@ class TwelveModuleAudit(unittest.TestCase):
               "KB-BREAK-01", "KB-CON-01", "KB-CON-02", "KB-EV-01", "KB-AUTH-01",
               "KB-AUTH-02", "KB-ACT-02"]
 
+    # PAY-01 and BREAK-01 no longer carry a hard blocker (3B.2): what they excluded
+    # on could never be known. They are audited in HardBlockerResolvability.
+    HARD = [m for m in TWELVE if m not in ("KB-PAY-01", "KB-BREAK-01")]
+
     def test_each_blocker_only_fact_when_missing_prevents_support(self):
         from pcn_appeal.eval.eligibility import reference as R
         unsettled = 0
-        for mid in self.TWELVE:
+        for mid in self.HARD:
             m = KG.modules[mid]
             only = dsl.referenced_facts(m.do_not_use_when) - dsl.referenced_facts(m.use_when)
             self.assertTrue(only, f"{mid} has no blocker-only fact")
@@ -911,14 +914,14 @@ class TwelveModuleAudit(unittest.TestCase):
     def test_the_audit_set_is_the_modules_with_blocker_only_facts(self):
         have = {m.module_id for m in KG.active_modules()
                 if dsl.referenced_facts(m.do_not_use_when) - dsl.referenced_facts(m.use_when)}
-        self.assertTrue(set(self.TWELVE) <= have)
+        self.assertTrue(set(self.HARD) <= have)
 
 
 class Pofa04(unittest.TestCase):
     """The reverse-dependent proposition stays open; the rest of the appeal is not held up."""
 
     BASE = {"driver_status": "UNIDENTIFIED", "notice_route": "POSTAL", "pofa_route": "POSTAL",
-            "relevant_land": True, "ntk_defect_document_confirmed": True,
+            "ntk_defect_document_confirmed": True,
             "ntk_defect_keeper_warning": True}
 
     def _s(self, **extra):
@@ -982,16 +985,16 @@ class DownstreamGates(unittest.TestCase):
     """The places that turn eligibility into a ground read the same rule."""
 
     def test_reasoning_gate_requires_every_blocker_false(self):
-        base = {"driver_status": "UNIDENTIFIED", "vehicle_immobilised": True,
-                "immobilisation_prevented_departure": True}
+        base = {"driver_status": "UNIDENTIFIED", "dropoff_activity": True,
+                "permitted_period_ended": False}
         eng = ReasoningEngine(KG)
         kept, why = eng.eligibility(dict(base), object(), [])
-        self.assertNotIn("KB-BREAK-01", {m.module_id for m in kept})
-        self.assertIn("R-03", why["KB-BREAK-01"])
-        kept, _ = eng.eligibility({**base, "fault_pre_existing_not_preventing": False}, object(), [])
-        self.assertIn("KB-BREAK-01", {m.module_id for m in kept})
-        kept, why = eng.eligibility({**base, "fault_pre_existing_not_preventing": True}, object(), [])
-        self.assertNotIn("KB-BREAK-01", {m.module_id for m in kept})
+        self.assertNotIn("KB-ACT-02", {m.module_id for m in kept})
+        self.assertIn("R-03", why["KB-ACT-02"])
+        kept, _ = eng.eligibility({**base, "payment_made": False}, object(), [])
+        self.assertIn("KB-ACT-02", {m.module_id for m in kept})
+        kept, why = eng.eligibility({**base, "payment_made": True}, object(), [])
+        self.assertNotIn("KB-ACT-02", {m.module_id for m in kept})
 
     def test_gate_holds_equals_supported_for_every_module(self):
         for m in KG.active_modules():
@@ -1000,23 +1003,38 @@ class DownstreamGates(unittest.TestCase):
                                  m.module_id)
 
     def test_the_matcher_reports_the_open_blocker_and_what_it_waits_on(self):
-        view = {"driver_status": "UNIDENTIFIED", "payment_made": True}
-        c = KM.KnowledgeMatcher(KG).match(CaseFile("m"), view).candidates["KB-PAY-01"]
+        view = {"driver_status": "UNIDENTIFIED", "dropoff_activity": True,
+                "permitted_period_ended": False}
+        c = KM.KnowledgeMatcher(KG).match(CaseFile("m"), view).candidates["KB-ACT-02"]
         self.assertIn(c.status, (KM.RELEVANT, KM.OPEN))
-        self.assertIn("terms_rejected_left", c.missing)
+        self.assertIn("payment_made", c.missing)
         self.assertTrue(c.unverified_blockers)
         self.assertIn("not yet ruled out", c.reason)
 
     def test_a_proposed_module_with_an_open_blocker_never_reaches_the_claim_plan(self):
-        import sys
-        sys.path.insert(0, "tests")
-        from test_private_parking_v2 import make_case, run_pipeline
-        case, pipe = make_case({"entry_time": "10:00", "exit_time": "10:03",
-                                "alleged_breach": "No ticket displayed"})
-        r = run_pipeline(case, pipe, "drove through then left", scenario="3b1-open-blocker")
-        suppressed = {row["module_id"]: row["why"] for row in r.suppressed}
-        self.assertIn("KB-POFA-01", suppressed, "relevant_land is unknown here")
-        self.assertIn("not yet ruled out", suppressed["KB-POFA-01"])
+        from pcn_appeal.engines.analysis import AnalysisEngine
+        from pcn_appeal.legal import pofa as pofa_mod
+        from pcn_appeal.llm import FakeLLM
+        from pcn_appeal.models import Fact, FactSource, FactStatus, SourceKind
+
+        def propose(*facts):
+            case = CaseFile("open-blocker")
+            for name, value in facts:
+                case.put(Fact(f"F-{name}", name, value, FactStatus.ANSWERED,
+                              FactSource(SourceKind.ANSWER, "q")))
+            llm = FakeLLM({"case_analysis": [{
+                "grounds": [{"module_id": "KB-ACT-02", "supported_by": ["dropoff_activity"],
+                             "note": "x"}], "questions": [], "not_supported": []}]})
+            return AnalysisEngine(KG, llm).analyse(
+                case, pofa=pofa_mod.PofaResult("POSTAL", [], []), code_version=None)
+
+        open_ = propose(("dropoff_activity", True), ("permitted_period_ended", False))
+        self.assertNotIn("KB-ACT-02", open_.module_ids, "payment_made is not known")
+        why = {row["module_id"]: row["why"] for row in open_.suppressed}
+        self.assertIn("not yet ruled out", why.get("KB-ACT-02", ""))
+        settled = propose(("dropoff_activity", True), ("permitted_period_ended", False),
+                          ("payment_made", False))
+        self.assertIn("KB-ACT-02", settled.module_ids)
 
 
 if __name__ == "__main__":

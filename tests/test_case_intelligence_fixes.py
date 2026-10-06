@@ -685,6 +685,12 @@ class GroundClassificationTests(unittest.TestCase):
         pipe.ingest(case)
         case.put(Fact("F-iec", "independent_evidence_contradicts", True,
                       FactStatus.ANSWERED, FactSource(SourceKind.ANSWER, "q")))
+        # In production the document belt (enrich -> recovery -> applicability) runs
+        # at confirm, before any analysis. That is what settles whether a receipt is
+        # being relied on; without it KB-EV-01's receipt exclusion is still open.
+        from pcn_appeal.document_baseline import establish_document_baseline
+        establish_document_baseline(pipe, case)
+        self.assertIs(case.get("shopping_purchase_confirmed"), False)
         # Analysis proposes EV-01.
         from pcn_appeal.engines.analysis import AnalysisEngine
         case.analysis_module_ids = ["KB-EV-01"]

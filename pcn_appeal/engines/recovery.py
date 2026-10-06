@@ -300,6 +300,16 @@ class FactRecoveryEngine:
         receipts = [e for e in case.evidence.values()
                     if e.kind == "RECEIPT" and e.uploaded]
         if not receipts:
+            # The uploaded evidence holds no receipt, so no purchase is confirmed by
+            # one. That is known from the evidence set, not a guess about the visit;
+            # without it the exclusion on a receipt left inconclusive could never
+            # be settled for a case that does not rely on a receipt at all.
+            held = case.facts.get("shopping_purchase_confirmed")
+            if held is None or (held.source.ref == "receipt_scan" and held.value is not False):
+                case.put(Fact(
+                    "F-shopping_purchase_confirmed", "shopping_purchase_confirmed", False,
+                    FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "receipt_scan"),
+                ))
             return
         # Document kind RECEIPT evidences a purchase artefact. It never proves
         # that parking validation / kiosk use occurred.

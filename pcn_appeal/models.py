@@ -468,6 +468,11 @@ class KBModule:
     # P10.5: explicit lead override. None = role default.
     # EVIDENCE_REQUIREMENT defaults can_lead_letter=false unless True here.
     can_lead_letter: Optional[bool] = None
+    # Non-authoritative caution (same predicate DSL as the gates). It is NEVER read
+    # by eligibility: no status (SUPPORTED/UNRESOLVED/REJECTED/BLOCKED) depends on
+    # it. It records a contextual condition a reviewer should weigh, and a fact a
+    # future question could ask about, without making the module wait on it.
+    advisory_when: Optional[dict] = None
 
 
 # Sentences inside approved block text that address the DRAFTER, not the
