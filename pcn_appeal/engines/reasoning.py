@@ -197,6 +197,7 @@ class ReasoningEngine:
                 notes.append("Preserved Schedule 4 invitation-content finding from notice scan.")
                 if (not keeper_route_blocked(case)
                         and case.get("jurisdiction") == "ENGLAND_WALES"
+                        and case.get("relevant_land") is not False
                         and case.get("notice_route") == "POSTAL"):
                     route = "POSTAL"
             res = PofaResult(route, findings, notes)
@@ -250,6 +251,7 @@ class ReasoningEngine:
             if (route in ("NOT_APPLICABLE", "UNRESOLVED")
                     and not keeper_route_blocked(case)
                     and case.get("jurisdiction") == "ENGLAND_WALES"
+                    and case.get("relevant_land") is not False
                     and case.get("notice_route") == "POSTAL"):
                 route = "POSTAL"
         trace += [f"pofa:{n}" for n in notes]

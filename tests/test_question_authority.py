@@ -127,7 +127,9 @@ class AnalysisRemainsFreeToAsk(unittest.TestCase):
             "type": "bool", "material_because": "permission defeats the alleged breach"}])
         _, questions = run(case, pipe, "I paid at the machine before I walked off")
         self.assertTrue(case.has("payment_made"))
-        self.assertEqual([q["fact"] for q in questions], [])
+        # P8: the overstay notice still points at the grace-period ground, so
+        # exit_delay_min may be asked; the settled payment fact may not.
+        self.assertNotIn("payment_made", [q["fact"] for q in questions])
 
 
 class NarrativeDoesNotSelectQuestions(unittest.TestCase):

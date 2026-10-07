@@ -568,7 +568,12 @@ class QuestionAuthority:
 
         now = [status_of(a, {}) for a in answers]            # the case as it stands
         eff.statuses = set(now)
-        eff.sensitive = len(set(now)) > 1
+        # P8: a number or free-text answer to an `exists` / `is` condition has
+        # one possible truth value, so "the answers differ" can never hold.
+        # Material there means the single answer moves the module off
+        # UNRESOLVED (KB-GRACE-01 waits on exit_delay_min: any answer settles it).
+        eff.sensitive = len(set(now)) > 1 or (
+            len(answers) == 1 and now[0] != ME_UNRESOLVED)
         eff.decisive = ME_SUPPORTED in now
         eff.yes, eff.no = now[0], now[-1]
         # Could the module still be SUPPORTED through answerable facts?

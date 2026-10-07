@@ -71,6 +71,82 @@ def is_internal_fact(fact: str) -> bool:
     return fact in INTERNAL_FACTS or fact.startswith(INTERNAL_PREFIXES)
 
 
+# --------------------------------------------------------------- P8 gate gaps
+_FACT_OPS = ("is", "exists", "missing")
+_CMP_OPS = ("eq", "ne", "in", "gt", "gte", "lt", "lte", "contains")
+
+
+def _conditions(pred: Any) -> list:
+    """Top-level conjuncts of a gate (the gate itself when it is not an `all`)."""
+    if isinstance(pred, dict) and set(pred) == {"all"}:
+        return list(pred["all"])
+    return [pred] if pred else []
+
+
+def _facts_in(pred: Any, out: Optional[set] = None) -> set:
+    out = set() if out is None else out
+    if isinstance(pred, dict):
+        for op, arg in pred.items():
+            if op in _FACT_OPS:
+                out.add(arg)
+            elif op in _CMP_OPS:
+                out.add(arg[0])
+            elif op in ("all", "any"):
+                for p in arg:
+                    _facts_in(p, out)
+            elif op == "not":
+                _facts_in(arg, out)
+    return out
+
+
+def _customer_sourced(case: CaseFile, fact: str) -> bool:
+    f = (case.facts or {}).get(fact)
+    return bool(f and f.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT))
+
+
+def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
+                          facts: dict[str, Any]) -> list[tuple[str, set]]:
+    """Claim grounds the documents point at, with the facts still to ask.
+
+    A module qualifies when its use_when is UNKNOWN (not FALSE), at least one of
+    its top-level conditions is already TRUE on facts the customer did not
+    supply (document, evidence or derivation), its do_not_use_when is not TRUE,
+    and every still-unknown gate fact has a question in the bank. Strongest
+    module first, so the question cap keeps the questions that matter most.
+    """
+    from ..module_roles import can_be_claim_ground
+    from ..rules.dsl import evaluate3
+
+    out: list[tuple[str, set]] = []
+    modules = sorted(kg.active_modules(), key=lambda m: (-int(m.strength or 0), m.module_id))
+    for m in modules:
+        if not can_be_claim_ground(m) or m.route == Route.LANDOWNER:
+            continue
+        uw = m.use_when
+        if not isinstance(uw, dict) or uw.get("always") is True:
+            continue
+        if evaluate3(uw, facts) is not None:      # already TRUE or FALSE
+            continue
+        if evaluate3(m.do_not_use_when, facts) is True:
+            continue
+        # A bare `exists` (alleged_breach, entry_time) is true on nearly every
+        # notice, so it says nothing about this case. Only a condition that tests
+        # a value (is / eq / not / ...) counts as the notice pointing at a ground.
+        pointed = any(
+            not (isinstance(c, dict) and set(c) == {"exists"})
+            and evaluate3(c, facts) is True
+            and not all(_customer_sourced(case, f) for f in _facts_in(c))
+            for c in _conditions(uw)
+        )
+        if not pointed:
+            continue
+        missing = {f for f in _facts_in(uw)
+                   if facts.get(f) in (None, "", []) and not is_internal_fact(f)}
+        if missing and all(kg.question_for(f) for f in missing):
+            out.append((m.module_id, missing))
+    return out
+
+
 ANPR_SHAPED_FACTS = {
     "anpr_sequence_incomplete", "anpr_discrepancy", "anpr_duration_disputed",
     "multiple_visits",
@@ -750,12 +826,19 @@ class AnalysisEngine:
                 "dropoff_activity",
             )
         )
-        narrative = str(
-            (case.raw_answers or {}).get("narrative")
-            or facts.get("customer_narrative")
-            or ""
-        ).strip()
-        thin_account = (not account_present) and len(narrative) < 40
+        # P8: "thin" is judged by what the account established, not by how
+        # long it is. A 79-character "I am the keeper and I do not accept this"
+        # used to count as a full account and skip every question below, while
+        # the same notice with no text at all was asked them.
+        customer_facts = any(
+            f.usable and f.value not in (None, "", [], False)
+            and f.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT)
+            # Narrative facts (vehicle_immobilised, left_site ...) ARE the
+            # account; only bookkeeping entries are excluded.
+            and not name.startswith("_") and name != "customer_described_event"
+            for name, f in (case.facts or {}).items()
+        )
+        thin_account = (not account_present) and not customer_facts
 
         blocked = [s.get("module_id") for s in result.suppressed
                    if s.get("why") == self.UNLOCKABLE]
@@ -771,7 +854,7 @@ class AnalysisEngine:
         out: list[dict] = []
         seen_facts: set[str] = set()
 
-        def _add(mid: str, facts_to_ask: set[str], why: str) -> None:
+        def _add(mid: str, facts_to_ask: set[str], why: str, prio: int = 0) -> None:
             module = self.kg.modules.get(mid)
             if module is None:
                 return
@@ -795,6 +878,7 @@ class AnalysisEngine:
                     "unlocks": [mid],
                     "kb_gated": True,
                     "source": "kb_gate",
+                    "_prio": prio,
                 })
 
         # 1) Original path: proposed-but-suppressed grounds.
@@ -804,6 +888,19 @@ class AnalysisEngine:
                 continue
             need = self.kg.gating_facts(mid) | set(module.required_facts or [])
             _add(mid, need, f"gates {mid}, which analysis proposed for this case")
+
+        # 1b) P8 document-pointed grounds (before the generic thin-account gates,
+        #     so the question cap never cuts what the notice itself points at). A claim ground whose gate is already
+        #     partly TRUE on document / derived facts (the notice points at it:
+        #     a 3-minute drop-off stay, a supermarket overstay) and not yet FALSE
+        #     is asked for its remaining customer facts, whatever the account
+        #     says. This is the gate deciding the question, not narrative hints,
+        #     so the same notice gets the same questions every time.
+        for mid, missing in document_pointed_gaps(self.kg, case, facts):
+            if mid in (result.module_ids or []):
+                continue
+            _add(mid, missing, f"the notice partly satisfies {mid}; "
+                               f"{', '.join(sorted(missing))} decides it", prio=2)
 
         # 2) Thin-account path: only primary ACCOUNT_GATES on unresolved /
         #    candidate claim grounds. If the resolver window is empty, still
@@ -823,23 +920,26 @@ class AnalysisEngine:
                 if not primary:
                     primary = set(module.required_facts or []) & ACCOUNT_GATES
                 if primary:
-                    _add(mid, primary, f"gates unresolved candidate {mid}")
-            if not any(q["fact"] in ACCOUNT_GATES for q in out):
-                for fact in ("multiple_visits", "payment_made"):
-                    if facts.get(fact) not in (None, "", []):
-                        continue
-                    mods = [
-                        m for m in self.kg.active_modules()
-                        if can_be_claim_ground(m)
-                        and fact in (self.kg.gating_facts(m.module_id) or set())
-                        and not self._is_always_on(m)
-                        and m.route != Route.LANDOWNER
-                    ]
-                    if not mods:
-                        continue
-                    best = max(mods, key=lambda m: int(getattr(m, "strength", 0) or 0))
-                    _add(best.module_id, {fact},
-                         f"thin account: {fact} gates {best.module_id}")
+                    _add(mid, primary, f"gates unresolved candidate {mid}", prio=3)
+            # P8: always offered (the authority still rejects an immaterial
+            # one). Gating this on "no other account question yet" let a
+            # genuine_customer candidate stop payment_made ever being asked on
+            # a no-valid-session notice, where payment is the central fact.
+            for fact in ("multiple_visits", "payment_made"):
+                if facts.get(fact) not in (None, "", []):
+                    continue
+                mods = [
+                    m for m in self.kg.active_modules()
+                    if can_be_claim_ground(m)
+                    and fact in (self.kg.gating_facts(m.module_id) or set())
+                    and not self._is_always_on(m)
+                    and m.route != Route.LANDOWNER
+                ]
+                if not mods:
+                    continue
+                best = max(mods, key=lambda m: int(getattr(m, "strength", 0) or 0))
+                _add(best.module_id, {fact},
+                     f"thin account: {fact} gates {best.module_id}", prio=3)
 
         # 3) The customer raised the topic themselves. A claim-ground candidate
         #    whose gate is already PART-satisfied by a fact that came from the
@@ -894,8 +994,13 @@ class AnalysisEngine:
                 _add(mid, gates - account_gates,
                      f"the account establishes {sorted(raised)[0]}, which gates "
                      f"{mid} alone; the remaining gate decides whether it can "
-                     f"be argued")
+                     f"be argued", prio=1)
 
+        # P8: one order however the paths ran. What the customer raised (1) is
+        # asked before what the notice points at (2), which is asked before the
+        # generic thin-account gates (3), so the question cap never cuts a
+        # customer's own topic for a generic one. Stable within a class.
+        out.sort(key=lambda q: q.pop("_prio", 0))
         return out
 
     def _has_leading_ground(self, module_ids: list[str]) -> bool:

@@ -1,0 +1,64 @@
+# Derivation rules: notice facts -> KB gate facts (P8 fact-to-ground matching).
+#
+# Extraction reads raw values off the notice (location, contravention wording,
+# entry/exit times). KB gates are written in terms of judgement facts
+# (customer_only_site, permitted_period_ended, ...). These rules bridge the two
+# deterministically, so a gate the notice can already settle is settled without
+# asking the customer and without a model's judgement.
+#
+# Admin-editable data, like code_versions.yaml. Every rule is conservative:
+#   * it only ever writes a value when its pattern matches; no match -> the fact
+#     stays unknown and the question bank can still ask for it;
+#   * it never overwrites a fact the customer confirmed, corrected or answered;
+#   * thresholds come from the resolved Code version, never from this file.
+#
+# LEGAL SIGN-OFF REQUIRED before production: the breach classes, the
+# permitted_period_ended mapping and the byelaw site list are judgement calls
+# made in code review, not approved legal positions.
+
+version: 1
+
+# alleged_breach text -> alleged_breach_type. First match wins (order matters).
+breach_types:
+  - type: DROPOFF_ZONE
+    patterns: ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'forecourt']
+  - type: OVERSTAY
+    patterns: ['overst', 'exceed\w*\s+(the\s+)?max', 'max(imum)?\s+(stay|time)', 'longer than']
+  - type: NO_PAYMENT
+    patterns: ['no\s+valid\s+(parking\s+)?(session|ticket|payment|pay)', 'without\s+(making\s+)?(a\s+)?valid\s+payment',
+               'not\s+paid', 'failed\s+to\s+(make|purchase|pay)', 'no\s+payment', 'insufficient\s+(time|payment)']
+  - type: PERMIT
+    patterns: ['permit', 'not\s+authori[sz]ed', 'residents?\s+only', 'without\s+(a\s+)?valid\s+permit']
+  - type: RESTRICTED_BAY
+    patterns: ['disabled\s+bay', 'parent\s*(and|&)\s*child', 'ev\s+bay', 'loading\s+bay', 'marked\s+bay', 'outside\s+(of\s+)?(a\s+)?bay']
+
+# alleged_breach_type -> permitted_period_ended.
+#   OVERSTAY: a maximum or paid period existed and was exceeded -> True.
+#   DROPOFF_ZONE: pay-to-use stop with no prior paid period -> False.
+# Other types are left unknown (the question bank asks).
+permitted_period_ended:
+  OVERSTAY: true
+  DROPOFF_ZONE: false
+
+# Site type from parking_location (and operator text). Pattern match only.
+site_types:
+  customer_only_site:
+    patterns: ['sainsbury', 'tesco', '\basda\b', 'morrisons', '\baldi\b', '\blidl\b', 'waitrose', '\bco-?op\b',
+               '\bb\s*&\s*m\b', 'iceland', 'marks\s*(and|&)\s*spencer', '\bm&s\b', 'home\s*bargains',
+               'retail\s+park', 'shopping\s+cent(re|er)', 'mcdonald', '\bkfc\b', 'burger\s+king', '\bcosta\b',
+               'starbucks', '\bpub\b', 'restaurant', '\bgym\b']
+  dropoff_site:
+    patterns: ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'forecourt']
+  hospital_site:
+    patterns: ['hospital', '\bnhs\b', 'infirmary', 'medical\s+cent']
+
+# Land under statutory control (byelaws) is not "relevant land" for PoFA
+# Schedule 4 (pofa.py docstring). Matching sets relevant_land = False, which
+# makes pofa.assess return NOT_APPLICABLE so no keeper-timing argument is made.
+# NOTE: the KB has no module that argues this point yet. Until the client adds
+# one, matching a byelaw site removes the PoFA framing, it does not add a ground.
+byelaw_sites:
+  patterns: ['stansted\s+airport', 'luton\s+airport', 'heathrow', 'gatwick', 'manchester\s+airport',
+             'birmingham\s+airport', 'bristol\s+airport', 'east\s+midlands\s+airport', 'liverpool\s+john\s+lennon',
+             'london\s+city\s+airport', 'leeds\s+bradford\s+airport', 'newcastle\s+airport',
+             'railway\s+station', '\bstation\s+car\s+park', '\bport\s+of\s+']

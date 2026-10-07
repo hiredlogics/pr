@@ -200,8 +200,14 @@ class OneClickAppeal(unittest.TestCase):
                    "recovery_attended": "yes", "immobilisation_cause": "flat battery",
                    "payment_made": "no", "payment_method": "OTHER",
                    "permitted_period_ended": "yes", "exit_delay_min": 20}
-        asked = {q["fact"] for q in first.questions}
-        second = pipe.auto_appeal(case, answers={k: v for k, v in answers.items() if k in asked})
+        # P8: an answer can make a further gate fact material (exit_delay_min
+        # for the grace period on an overstay), so answer every round asked.
+        second = first
+        for _ in range(5):
+            asked = {q["fact"] for q in second.questions}
+            if not asked:
+                break
+            second = pipe.auto_appeal(case, answers={k: v for k, v in answers.items() if k in asked})
 
         self.assertEqual(second.state, CaseState.RELEASED)
         self.assertEqual(second.output.pack.primary_route, "BREAKDOWN")

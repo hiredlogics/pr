@@ -1,0 +1,89 @@
+# Fact producer registry (P8). Every fact a KB gate reads (use_when /
+# do_not_use_when in kb_modules.yaml) must name at least one producer here.
+# tests/test_fact_producers.py fails when a gate fact has none, so a module the
+# system can never reach is caught when it is added, not when a customer hits it.
+#
+# Sources:
+#   DOCUMENT   read off the notice by extraction (engines/extraction.py)
+#   EVIDENCE   read off a supporting upload (lease, receipt, hire documents)
+#   DERIVED    engines/derivation.py rule over document facts (data/derivation_rules.yaml)
+#   SYSTEM     computed by an engine (PoFA calculator, account reading, disclosure)
+#   QUESTION   asked from data/questions.yaml (key must exist there)
+#   OPERATOR   only the operator can supply it; requested in the letter, never asked
+
+facts:
+  account_contradicts_allegation: [SYSTEM]
+  alleged_breach: [DOCUMENT]
+  allocated_bay: [QUESTION]
+  anpr_discrepancy: [QUESTION]
+  anpr_duration_disputed: [QUESTION]
+  anpr_sequence_incomplete: [QUESTION]
+  authorisation_source: [QUESTION]
+  authority_challenge_proportionate: [SYSTEM]
+  authority_evidence_redacted: [QUESTION]
+  authority_mismatch_identified: [QUESTION]
+  barrier_or_access_failure: [QUESTION]
+  blue_badge_displayed: [QUESTION]
+  clinical_delay: [QUESTION]
+  collection_or_checkin_delay: [QUESTION]
+  customer_only_site: [DERIVED, QUESTION]
+  disability_extra_time: [QUESTION]
+  disability_time_relates_to_breach: [QUESTION]
+  driver_status: [SYSTEM]
+  dropoff_activity: [QUESTION]
+  enforcement_interference: [QUESTION]
+  entry_time: [DOCUMENT]
+  ev_charging_session: [QUESTION]
+  exit_congestion: [QUESTION]
+  exit_delay_min: [QUESTION]
+  exit_time: [DOCUMENT]
+  genuine_customer: [QUESTION]
+  hire_docs_supplied: [EVIDENCE]
+  hospital_attendance: [QUESTION]
+  immobilisation_cause: [QUESTION]
+  immobilisation_prevented_departure: [QUESTION]
+  independent_evidence_contradicts: [QUESTION]
+  jurisdiction: [SYSTEM]
+  keeper_is_hire_firm: [SYSTEM]
+  keying_error_type: [QUESTION]
+  landholder_cancellation_route_available: [QUESTION]
+  lease_evidence_provided: [EVIDENCE]
+  lease_has_regulations_clause: [EVIDENCE]
+  lease_parking_clause_found: [EVIDENCE]
+  loading_activity: [QUESTION]
+  multiple_visits: [QUESTION]
+  no_parking_took_place: [QUESTION]
+  notice_sides_complete: [DOCUMENT]
+  ntk_defect_charge_amount: [QUESTION]
+  ntk_defect_creditor: [QUESTION]
+  ntk_defect_document_confirmed: [QUESTION]
+  ntk_defect_keeper_warning: [QUESTION]
+  ntk_defect_parking_details: [QUESTION]
+  ntk_defect_statutory_invitation: [QUESTION]
+  ntk_invites_pass_to_driver: [SYSTEM]
+  observation_window_min: [SYSTEM]
+  parking_validation_status: [EVIDENCE]
+  payment_attempt_failed: [QUESTION]
+  payment_made: [QUESTION]
+  payment_method: [QUESTION]
+  permit_held: [QUESTION]
+  permitted_period_ended: [DERIVED, QUESTION]
+  pofa_finding: [SYSTEM]
+  pofa_route: [SYSTEM]
+  recovery_attended: [QUESTION]
+  resident_status: [QUESTION]
+  restricted_bay_alleged: [SYSTEM]
+  shopping_purchase_confirmed: [EVIDENCE]
+  short_presence_before_acceptance: [DERIVED, QUESTION]
+  signage_issue_raised: [QUESTION]
+  signage_issue_type: [QUESTION]
+  substantial_interference: [QUESTION]
+  vehicle_immobilised: [QUESTION]
+  visitor_authorised: [QUESTION]
+
+# Derived facts no gate reads yet; used to target questions.
+derived_only:
+  - alleged_breach_type
+  - dropoff_site
+  - hospital_site
+  - relevant_land

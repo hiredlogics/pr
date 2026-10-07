@@ -352,7 +352,10 @@ def _r():
         {"fact": "no_parking_took_place", "type": "bool", "material_because": "consideration",
          "text": "Did the vehicle leave the site without parking?"}]
     h.round()
-    if h.status("KB-ACT-02") != "BLOCKED" or h.status("KB-CON-02") != "REJECTED":
+    # P8: the overstay wording now derives permitted_period_ended, which is
+    # KB-CON-02's hard blocker ("cannot be combined with an overstay account"),
+    # so CON-02 is BLOCKED rather than REJECTED. Either way it is decided.
+    if h.status("KB-ACT-02") != "BLOCKED" or h.status("KB-CON-02") not in ("REJECTED", "BLOCKED"):
         return bad("R", t, ELIGIBILITY,
                    f"ACT-02={h.status('KB-ACT-02')} CON-02={h.status('KB-CON-02')}")
     if h.shown:
@@ -548,7 +551,10 @@ def _u6():
 @scenario("U7", "a hard blocker the customer can settle is asked, against the right module")
 def _u7():
     t = "a hard blocker the customer can settle is asked, against the right module"
+    # P8: wording the derivation cannot classify, so permitted_period_ended is
+    # genuinely unknown (an overstay notice would settle it from the document).
     h = Harness(kg_facts={"payment_made": False, "short_presence_before_acceptance": True},
+                extra_fields={"alleged_breach": "Breach of the terms and conditions"},
                 ask=[gate_q("permitted_period_ended",
                             "Was there a paid or permitted parking period that ended before the vehicle left?",
                             "KB-CON-01")])

@@ -151,6 +151,15 @@ class FactRecoveryEngine:
         ]
 
         self._recover_from_documents(case, report)
+        # P8: turn document facts into KB gate facts before any calculation
+        # reads them (relevant_land feeds pofa.assess) and before analysis
+        # decides what is still unknown enough to ask.
+        from .derivation import derive
+        derived = derive(case)
+        for name, row in derived.items():
+            report.calculated[name] = row
+            report.do_not_ask.append(name)
+            report.trace.append(f"derived {name}={row['value']} via {row['rule']}")
         self._classify_receipt_vs_validation(case, report)
         self._run_calculations(case, report)
         self._assess_ntk_schedule4_content(case, report)
@@ -560,6 +569,7 @@ class FactRecoveryEngine:
         if (report.calculated.get("pofa_route") in (None, "UNRESOLVED", "NOT_APPLICABLE")
                 and not _disclosure_blocks_keeper(case)
                 and case.get("jurisdiction") == "ENGLAND_WALES"
+                and case.get("relevant_land") is not False
                 and route == "POSTAL"):
             report.calculated["pofa_route"] = "POSTAL"
             case.put(Fact(
