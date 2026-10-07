@@ -91,6 +91,8 @@ questions:
 
   # --- activity / infrastructure / EV (KB-ACT-01/02, KB-INFRA-01, KB-EVCH-01) ---
   loading_activity:  {text: "Was the vehicle's presence for loading or unloading goods?", type: bool}
+  # P8: a reminder or driver letter is not the first notice; its timing needs the original's date.
+  original_notice_issue_date: {text: "This letter refers to an earlier notice. What date is printed on the first notice you received about this charge (for example 22/05/2026)? If you don't have it, answer 'not sure'.", type: text}
   dropoff_activity:  {text: "Was the vehicle stopped only to drop off or collect a passenger?", type: bool}
   barrier_or_access_failure: {text: "Was entry, exit or compliance affected by a barrier, gate or access-system fault?", type: bool}
   ev_charging_session: {text: "Was the vehicle connected to an electric-vehicle charger during the visit?", type: bool}

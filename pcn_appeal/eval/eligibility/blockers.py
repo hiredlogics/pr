@@ -83,6 +83,8 @@ CLASSIFICATION = {
     "KB-POFA-01": "HARD_RESOLVABLE", "KB-POFA-02": "HARD_RESOLVABLE",
     "KB-POFA-03": "HARD_RESOLVABLE", "KB-POFA-04": "HARD_RESOLVABLE",
     "KB-POFA-05": "HARD_RESOLVABLE", "KB-RES-02": "HARD_RESOLVABLE",
+    # P8 (client instruction 2026-10-07): blocker is driver_status, settled by disclosure.
+    "KB-POFA-07": "HARD_RESOLVABLE", "KB-KEEPER-01": "HARD_RESOLVABLE",
 }
 
 # Conditions the audit removed from the hard set, and why (the verdict before it).

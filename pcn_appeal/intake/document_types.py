@@ -73,7 +73,7 @@ FIXED_FAMILY: dict[str, str] = {
 # back to the default and is noted in the audit, so a free-text stage can never
 # open or close a route by itself.
 STAGES: dict[str, tuple[str, ...]] = {
-    PRIVATE_PARKING_NOTICE: ("INITIAL_NOTICE", "REMINDER", "APPEAL_WINDOW_CLOSED"),
+    PRIVATE_PARKING_NOTICE: ("INITIAL_NOTICE", "REMINDER", "DRIVER_LETTER", "APPEAL_WINDOW_CLOSED"),
     PRIVATE_PARKING_APPEAL_RESPONSE: ("OPERATOR_RESPONSE",),
     DEBT_RECOVERY: ("DEBT_RECOVERY",),
     COUNCIL_PCN: ("PENALTY_CHARGE_NOTICE", "NOTICE_TO_OWNER"),

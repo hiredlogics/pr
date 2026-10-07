@@ -171,9 +171,10 @@ class AUsableAccountWithNothingSupported(unittest.TestCase):
         empty = _reading("UNDERSTOOD", concepts=[], events=[], narrative_atoms=[])
         case, out, _q = _run(empty, narrative=NO_ACCOUNT_MEANING)
         self.assertIsNone(U.customer_stream_blocked(case))
-        self.assertEqual(_ids(out), [])
-        self.assertEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
-        self.assertEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
+        # P8 (client instruction 2026-10-07): an understood account with no
+        # supported ground now gets the default keeper appeal, not no letter.
+        self.assertEqual(_ids(out), ["KB-KEEPER-01"])
+        self.assertNotEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
 
     def test_no_account_at_all_is_not_an_unresolved_account(self):
         case, out, _q = _run(_reading("UNDERSTOOD"), narrative="")

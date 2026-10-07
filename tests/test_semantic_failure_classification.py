@@ -210,8 +210,9 @@ class AUsableAccountWithNothingSupportedIsStillNoSupportedGrounds(unittest.TestC
         empty = _reading("UNDERSTOOD", concepts=[], events=[], narrative_atoms=[])
         case, out, _q = _run(empty, narrative=NO_ACCOUNT_MEANING)
         self.assertIsNone(U.customer_stream_blocked(case))
-        self.assertEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
-        self.assertEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
+        # P8: understood account, nothing supported -> default keeper appeal.
+        self.assertEqual(out.pack.module_ids, ["KB-KEEPER-01"])
+        self.assertNotEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
 
 
 class TheKindComesFromHowTheReadingWentNotFromTheLabel(unittest.TestCase):

@@ -66,8 +66,53 @@ assumed unknown; each keeps its original intent (see inline P8 comments).
 
 - Breach classes, `permitted_period_ended` mapping, site lists and byelaw site
   list in `derivation_rules.yaml`.
-- The KB has no module arguing "land under byelaws is not relevant land". With
-  this change airport notices no longer get a PoFA timing argument, but they do
-  not get a byelaw ground either until the client adds one.
+- ~~The KB has no module arguing "land under byelaws is not relevant land".~~
+  Done: KB-POFA-07, approved by the client on 7 Oct 2026 (see below).
 - KB-CUST-01 needs an uploaded receipt; the customer should be asked to upload
   one, which is an evidence request the question flow does not make yet.
+
+## Client instructions, 7 Oct 2026
+
+1. **KB-POFA-07 (airport / statutory control)**, ACTIVE, strength 95, leads like
+   a PoFA timing failure. Client wording verbatim (PP-POFA-009) plus a
+   strict-proof fallback (PP-POFA-010) for an operator that says the zone is
+   outside the controlled land. `pofa.assess` emits a verified
+   `POFA_NOT_RELEVANT_LAND` finding; PP-POFA-006 is not appended to it.
+2. **Location-level activation.** `statutory_control_sites` in
+   `derivation_rules.yaml`: only CONFIRMED locations set `relevant_land`
+   (Luton and Stansted pick-up/drop-off zones); other airports and other
+   Luton/Stansted locations are PENDING and change nothing. Each location
+   supplies its jurisdiction (the Luton notice prints no postcode). Railway
+   land stays out (2025 amendment order).
+3. **Default keeper appeal (KB-KEEPER-01).** When no ground can lead and the
+   keeper route is open, the orchestrator switches it on instead of ending
+   with no letter. It never stacks on a stronger ground, and a question that
+   could unlock a ground (site postcode) or an account not yet understood
+   still comes first. Wording is jurisdiction-neutral.
+4. **Document stage.** Classifier prompt v3 adds DRIVER_LETTER; text patterns
+   back it up. A reminder or driver letter is never timed as the first NTK:
+   the original is linked from an uploaded INITIAL_NOTICE or a date printed
+   in the letter, else the customer is asked once for it. Particulars say
+   "On the dates available" when the date came from the customer.
+   PP-DRIVER-001 (driver-letter strict proof) drafted at REVIEW.
+5. **Late appeals.** `appeal_period_expired` after 28 days from issue: the
+   letter carries PP-LATE-001 and the API returns a customer notice. Never
+   stopped.
+6. **PP-POFA-007**: "verified" removed.
+
+Also fixed while testing:
+- VAL-GROUND-COVERAGE had no topic cue for CON, CUST, HOSP, EQ, EVCH, INFRA
+  modules, so those grounds could never pass validation.
+- R-08c: a paragraph that asserts a customer-owned fact ("time was required to
+  consider the terms") needs the customer's own answer, not a derived value.
+- Fixed-form grounds (KB-POFA-07, KB-KEEPER-01) always carry all their
+  approved paragraphs, in order.
+
+Tests: `tests/test_p8_client_instructions.py` (15). Full suite: no new
+failures against the original baseline. Tests that expected "no supported
+grounds" were updated to the default keeper appeal; three run-bookkeeping
+tests switch the default off to keep the no-grounds terminal covered.
+
+Wording drafted by the developer, to confirm with the client: PP-POFA-010,
+PP-KEEPER-001/002/003, PP-LATE-001, PP-DRIVER-001 (REVIEW), and the customer
+notice text for a late appeal.

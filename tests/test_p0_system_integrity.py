@@ -249,10 +249,22 @@ class FailingAnalysis:
         return getattr(self._llm, name)
 
 
+def _without_default_keeper(test, pipe):
+    """These tests use a no-grounds case to check run bookkeeping. Since P8 a
+    keeper case with no leading ground gets the default keeper appeal
+    (KB-KEEPER-01); switching it off here keeps the NO_SUPPORTED_GROUNDS
+    terminal (still reachable, e.g. once a driver is identified) under test."""
+    m = pipe.kg.modules["KB-KEEPER-01"]
+    old = m.status
+    m.status = "DISABLED"
+    test.addCleanup(setattr, m, "status", old)
+
+
 class OnlyTheLatestRunDecides(unittest.TestCase):
 
     def test_no_grounds_then_an_api_failure_is_a_processing_error(self):
         case, pipe = case_with(extra=IN_TIME)
+        _without_default_keeper(self, pipe)
         _, first = outcome(case, pipe)
         self.assertEqual(first.outcome, "NO_SUPPORTED_GROUNDS")
         run1 = case.run_id
@@ -280,6 +292,7 @@ class OnlyTheLatestRunDecides(unittest.TestCase):
 
     def test_every_audit_entry_belongs_to_a_run(self):
         case, pipe = case_with(extra=IN_TIME)
+        _without_default_keeper(self, pipe)
         outcome(case, pipe)
         self.assertTrue(all(isinstance(a.get("run_id"), int) and a["run_id"] >= 1
                             for a in case.audit))
@@ -423,6 +436,7 @@ class EveryLetterHasAManifest(unittest.TestCase):
 
     def test_a_hold_has_a_manifest_too(self):
         case, pipe = case_with(extra=IN_TIME)
+        _without_default_keeper(self, pipe)
         _, out = outcome(case, pipe)
         self.assertEqual(out.manifest["result"]["outcome"], "NO_SUPPORTED_GROUNDS")
 

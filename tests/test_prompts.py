@@ -25,7 +25,7 @@ EXPECTED_VERSIONS = {
     "case_analysis": 9,
     "drafting": 18,
     "validation": 3,
-    "classification": 2,
+    "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,
 }
 

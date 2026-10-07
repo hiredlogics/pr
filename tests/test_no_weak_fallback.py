@@ -66,20 +66,24 @@ class UnreadablePostcode(unittest.TestCase):
         questions, out = outcome(case, pipe)
         self.assertEqual(postcode_unlocks(case, pipe.kg), [])
         self.assertNotIn("site_postcode", [q["fact"] for q in questions])
-        self.assertIsNone(out.letter)
-        self.assertEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
+        # P8: nothing to unlock, so the default keeper appeal is drafted rather
+        # than ending with no letter (client instruction 2026-10-07).
+        self.assertNotEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
+        self.assertIn("KB-KEEPER-01", out.pack.module_ids)
 
 
 class SupportOnlyGroundsAreNotALetter(unittest.TestCase):
 
     def test_landowner_only_is_no_supported_grounds(self):
+        """Support-only grounds still never lead. P8: instead of no letter, the
+        default keeper appeal (KB-KEEPER-01) leads and they may support it."""
         case, pipe = case_with(extra=IN_TIME)          # postcode known, nothing to argue
         _, out = outcome(case, pipe)
-        self.assertIsNone(out.letter)
-        self.assertEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
-        self.assertTrue(set(out.pack.module_ids) <= {"KB-LAND-01", "KB-POFA-01"}, out.pack.module_ids)
-        self.assertTrue(any(a.get("event") == "analysis_complete_no_supported_grounds"
-                            for a in case.audit))
+        self.assertNotEqual(out.outcome, "NO_SUPPORTED_GROUNDS")
+        self.assertEqual(out.pack.module_ids[0], "KB-KEEPER-01", out.pack.module_ids)
+        self.assertTrue(set(out.pack.module_ids) <= {"KB-KEEPER-01", "KB-LAND-01", "KB-POFA-01"},
+                        out.pack.module_ids)
+        self.assertTrue(any(a.get("event") == "default_keeper_appeal" for a in case.audit))
 
 
 class HeldCaseCarriesItsQuestion(unittest.TestCase):

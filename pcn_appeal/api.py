@@ -704,9 +704,12 @@ def _ground_labels(pack) -> list[str]:
 
 
 def _outcome_fields(out) -> dict:
-    """Customer hold outcome — never module IDs or validator internals."""
+    """Customer hold outcome — never module IDs or validator internals.
+    P8: customer notices (e.g. the appeal period may have passed) accompany a
+    released letter as well as a hold."""
+    notices = list(getattr(out, "customer_notices", None) or []) if out is not None else []
     if out is None or out.state == CaseState.RELEASED:
-        return {}
+        return {"notices": notices} if notices else {}
     if not getattr(out, "outcome", None):
         return {}
     fields = {
@@ -719,6 +722,8 @@ def _outcome_fields(out) -> dict:
     label = getattr(out, "cta_label", None)
     if label:
         fields["cta"] = {"label": label, "action": "CONTINUE_CASE"}
+    if notices:
+        fields["notices"] = notices
     return fields
 
 

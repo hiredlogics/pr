@@ -697,13 +697,19 @@ class FactRecoveryEngine:
         return False
 
 
+def timing_issue_date(case: CaseFile):
+    from .derivation import timing_issue_date as _t
+    return _t(case)
+
+
 def pofa_inputs(case: CaseFile) -> dict:
     """Everything the Schedule 4 calculator reads, except the jurisdiction."""
     return dict(
         relevant_land=case.get("relevant_land"),
         notice_route=case.get("notice_route", "UNKNOWN"),
         parking_event_date=case.get("parking_event_date"),
-        notice_issue_date=case.get("notice_issue_date"),
+        # P8: never the date of a reminder or driver letter (derivation.LATER_STAGES).
+        notice_issue_date=timing_issue_date(case),
         ntd_date=case.get("ntd_date"),
         actual_delivery_date=(
             case.get("notice_received_date") if case.get("delivery_date_proven") else None

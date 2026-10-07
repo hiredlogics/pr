@@ -914,8 +914,11 @@ prompts:
   # Charge Certificate could only be forced into a private-parking label. The
   # labels here decide routing (pcn_appeal/intake/router.py); `extraction` still
   # runs, inside the private parking service only, for that service's facts.
+  # v2 -> v3 (P8, client instruction 2026-10-07): DRIVER_LETTER stage. A letter
+  # addressed to a person the operator says was the driver is not a first keeper
+  # notice and must not be timed as one; a reminder links back to its original.
   classification:
-    version: 2
+    version: 3
     body: |-
       You classify UK documents about vehicle charges so they can be sent to the right
       service. You do not assess whether the charge is valid, and you do not decide the
@@ -957,8 +960,17 @@ prompts:
         PRIVATE_PARKING_NOTICE - a parking charge from a private company for parking on
           private land, still inviting payment or an appeal: a Parking Charge Notice, a
           Notice to Keeper, a windscreen Notice to Driver, or the operator's own reminder.
-          Stages: INITIAL_NOTICE | REMINDER | APPEAL_WINDOW_CLOSED (use the last only when
-          the document says on its face that the time to appeal has passed).
+          Stages: INITIAL_NOTICE | REMINDER | DRIVER_LETTER | APPEAL_WINDOW_CLOSED.
+            INITIAL_NOTICE - the first notice: a Notice to Keeper, a postal Parking Charge
+              Notice, or a windscreen Notice to Driver.
+            REMINDER - a later letter from the operator about the same charge that refers
+              to an earlier notice ("reminder", "we wrote to you", "previously issued").
+            DRIVER_LETTER - a letter addressed to a person the operator says WAS THE DRIVER,
+              usually after someone else named them ("Parking Charge to Driver", "we have
+              been advised that you were the driver"). A windscreen Notice to Driver is
+              INITIAL_NOTICE, not this.
+            APPEAL_WINDOW_CLOSED - only when the document says on its face that the time to
+              appeal has passed.
         PRIVATE_PARKING_APPEAL_RESPONSE - the private operator's reply to an appeal already
           made: a rejection or decision letter, often naming POPLA or the IAS.
           Stage: OPERATOR_RESPONSE.

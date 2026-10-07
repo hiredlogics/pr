@@ -105,6 +105,12 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
            r"prescribed\s+(wording|information|statement))\b)"),
         ("ntk_defect_statutory_invitation", "pofa_9_2_e_status", "notice_sides_complete")),
     FindingSpec(
+        "POFA_NOT_RELEVANT_LAND",
+        "the location is land under statutory control, not relevant land (Schedule 4 para 3)",
+        _R(r"^(?=.*\b(relevant\s+land|statutory\s+control|byelaws?)\b)"
+           r"(?=.*\b(not|no|outside|excluded|does not apply|do not apply)\b)"),
+        ("relevant_land", "statutory_control_site")),
+    FindingSpec(
         "NTK_CONTENT_DEFECT",
         "missing mandatory content in the Notice to Keeper (Schedule 4)",
         _R(r"^(?=.*\b(notice|ntk)\b)"
@@ -292,6 +298,16 @@ def evaluate(case, res: PofaResult, modules=()) -> list[dict]:
     base_calc: dict[str, Any] = {"pofa_route": route}
     for key in ("parking_event_date", "notice_issue_date", "ntd_date"):
         v = case.get(key)
+        if key == "notice_issue_date":
+            # P8: for a reminder / driver letter, the date the calculation used
+            # is the original notice's, never the later letter's.
+            from ..engines.derivation import LATER_STAGES, timing_issue_date
+            v = timing_issue_date(case)
+            if case.get("notice_stage") in LATER_STAGES:
+                f = case.facts.get("original_notice_issue_date")
+                base_calc["notice_issue_date_source"] = (
+                    "customer" if f is not None and f.source.kind.value in (
+                        "ANSWER", "CUSTOMER_FREE_TEXT") else "documents")
         if v is not None:
             base_calc[key] = str(v)
     if res.deadline:
@@ -338,6 +354,11 @@ def evaluate(case, res: PofaResult, modules=()) -> list[dict]:
                 calc["note"] = "both notice sides required before a content defect"
                 return UNRESOLVED, calc
             calc["note"] = "no document-confirmed content defect"
+            return NOT_SUPPORTED, calc
+        if ftype == "POFA_NOT_RELEVANT_LAND":
+            # Only reached when the calculator did not emit the code: the
+            # location is not a confirmed statutory-control site.
+            calc["note"] = "location not confirmed as land under statutory control"
             return NOT_SUPPORTED, calc
         return UNRESOLVED, calc                               # pragma: no cover
 
@@ -468,6 +489,10 @@ def particularised_sentence(finding: dict) -> str:
         tail.append(f"it is deemed delivered on {render_date(dates['presumed_delivery'])}")
     days = p.get("days")
     daytxt = f", {days} day{'s' if days != 1 else ''} outside that period" if days else ""
-    return (f"On the operator's own documents {', '.join(lead)}; "
+    source = (finding.get("calculation") or finding.get("calculation_result") or {}).get(
+        "notice_issue_date_source")
+    opener = ("On the dates available" if source == "customer"
+              else "On the operator's own documents")
+    return (f"{opener} {', '.join(lead)}; "
             f"{' and '.join(tail)}{daytxt}, so the notice was not delivered within the "
             "statutory period and keeper liability does not transfer.")

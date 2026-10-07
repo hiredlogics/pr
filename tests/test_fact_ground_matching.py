@@ -108,8 +108,9 @@ class ThinAccountJourneys(unittest.TestCase):
     def test_no_valid_session_asks_about_payment(self):
         _, asked, approved = journey(QUAYSIDE, {})
         self.assertIn("payment_made", asked)
-        # "No payment" and nothing else: no ground is invented.
-        self.assertEqual(approved, [])
+        # "No payment" and nothing else: no specific ground is invented; the
+        # default keeper appeal (client instruction 2026-10-07) carries it.
+        self.assertEqual(approved, ["KB-KEEPER-01"])
 
     def test_a_long_empty_account_is_still_thin(self):
         # 79 characters, no facts. The old 40-char rule treated this as a full

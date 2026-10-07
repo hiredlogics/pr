@@ -27,6 +27,7 @@ facts:
   clinical_delay: [QUESTION]
   collection_or_checkin_delay: [QUESTION]
   customer_only_site: [DERIVED, QUESTION]
+  default_keeper_appeal: [SYSTEM]
   disability_extra_time: [QUESTION]
   disability_time_relates_to_breach: [QUESTION]
   driver_status: [SYSTEM]
@@ -87,3 +88,7 @@ derived_only:
   - dropoff_site
   - hospital_site
   - relevant_land
+  - statutory_control_site
+  - notice_stage
+  - original_notice_issue_date
+  - appeal_period_expired

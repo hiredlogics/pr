@@ -31,8 +31,10 @@ from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
 from .. import case_state, evidence_review
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
+from .derivation import timing_issue_date
 from .extraction import derive_jurisdiction
 from ..legal import code_versions, findings as legal_findings, pofa
+from ..fact_ownership import CUSTOMER, owner_of
 from ..models import CaseFile, CaseState, Fact, FactSource, FactStatus, RetrievalPack, SourceKind
 from ..rag.retriever import Doc, HybridRetriever, find_parking_clauses
 from ..rules.dsl import evaluate
@@ -40,6 +42,8 @@ from .module_eligibility import gate_holds
 from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
+# Grounds whose approved paragraphs are always all used, in module order.
+FIXED_FORM_MODULES = frozenset({"KB-POFA-07", "KB-KEEPER-01"})
 GLOBAL_PROHIBITED = [
     "genuine pre-estimate of loss", "unlawful penalty", "who was driving",
     "breakdown automatically frustrates", "10 minutes always cancels",
@@ -234,7 +238,7 @@ class ReasoningEngine:
             relevant_land=case.get("relevant_land"),
             notice_route=case.get("notice_route", "UNKNOWN"),
             parking_event_date=case.get("parking_event_date"),
-            notice_issue_date=case.get("notice_issue_date"),
+            notice_issue_date=timing_issue_date(case),   # P8: never a reminder's date
             ntd_date=case.get("ntd_date"),
             actual_delivery_date=case.get("notice_received_date") if case.get("delivery_date_proven") else None,
             driver_identified=keeper_route_blocked(case))
@@ -481,6 +485,19 @@ class ReasoningEngine:
         allowed = {m.module_id for m in selected}
         query = f"{primary or ''} {case.get('alleged_breach', '')} " + " ".join(m.topic for m in selected)
         hits = self.retriever.search(query, allowed_ids=allowed, k=40)
+        # P8: fixed-form grounds (client instruction 2026-10-07) are argued with
+        # every approved paragraph, in the module's own order, whatever the
+        # ranked search surfaced: the airport ground's fallback and the default
+        # appeal's landowner limb are part of the ground, not optional extras.
+        fixed = [m for m in selected if m.module_id in FIXED_FORM_MODULES]
+        if fixed:
+            want = [(m, b) for m in fixed for b in m.building_blocks
+                    if b in self.kg.blocks and self.kg.blocks[b].status == "ACTIVE"]
+            want_ids = {b for _, b in want}
+            hits = [Doc(b, self.kg.blocks[b].letter_text,
+                        {"module_id": m.module_id, "kind": "block", "block_id": b})
+                    for m, b in want] + [d for d in hits if d.doc_id not in want_ids]
+            trace.append(f"fixed-form blocks: {[b for _, b in want]}")
         if widen:
             # Ranked search can leave a selected ground's own wording out of the
             # top hits, and the drafter then argues that ground with nothing to
@@ -509,6 +526,17 @@ class ReasoningEngine:
                     continue
                 if not all(facts.get(f) for f in blk.requires_facts):
                     trace.append(f"withheld block {blk.block_id}: asserts unproven fact {blk.requires_facts} (R-08b)")
+                    continue
+                # P8 R-08c: a paragraph that states a customer-owned fact as
+                # fact ("time was required to consider the terms") needs the
+                # customer's own answer. A derived value (a 3-minute ANPR stay)
+                # can open the ground; it cannot be asserted as what happened.
+                inferred = [f for f in blk.requires_facts
+                            if owner_of(f) == CUSTOMER and case.facts.get(f) is not None
+                            and case.facts[f].source.kind == SourceKind.CALCULATION]
+                if inferred:
+                    trace.append(f"withheld block {blk.block_id}: customer fact {inferred} "
+                                 f"is derived, not stated by the customer (R-08c)")
                     continue
                 if blk.placeholder_map:
                     placeholder_maps[blk.block_id] = dict(blk.placeholder_map)

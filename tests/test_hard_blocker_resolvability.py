@@ -40,9 +40,13 @@ ROOT = Path(__file__).resolve().parents[1] / "pcn_appeal"
 
 AUDITED = ["KB-ACT-02", "KB-AUTH-01", "KB-AUTH-02", "KB-BREAK-01", "KB-CON-01", "KB-CON-02",
            "KB-EV-01", "KB-PAY-01", "KB-PAY-02", "KB-PAY-03", "KB-POFA-01", "KB-POFA-02",
-           "KB-POFA-03", "KB-POFA-04", "KB-POFA-05", "KB-RES-02"]
+           "KB-POFA-03", "KB-POFA-04", "KB-POFA-05", "KB-RES-02",
+           # P8 client-approved modules; blocker driver_status is settled by disclosure.
+           "KB-POFA-07", "KB-KEEPER-01"]
 # The conditions the audit found nothing in production could ever settle.
-NO_PRODUCER = ("terms_rejected_left", "fault_pre_existing_not_preventing", "relevant_land")
+# P8: relevant_land now has a producer (engines/derivation.py, client-confirmed
+# statutory-control locations only), so it may appear in KB-POFA-07.
+NO_PRODUCER = ("terms_rejected_left", "fault_pre_existing_not_preventing")
 
 
 def _answer(case, name, value):
@@ -62,7 +66,7 @@ class Inventory(unittest.TestCase):
     def test_the_sixteen_audited_modules_are_the_hard_blockers_plus_the_two_removed(self):
         hard = {r["module_id"] for r in B.inventory(KG)}
         self.assertEqual(hard | {"KB-PAY-01", "KB-BREAK-01"}, set(AUDITED))
-        self.assertEqual(len(hard), 14)
+        self.assertEqual(len(hard), 16)   # 14 audited + KB-POFA-07, KB-KEEPER-01 (P8)
 
     def test_every_hard_blocker_fact_has_a_production_source(self):
         for r in B.inventory(KG):

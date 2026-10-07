@@ -240,6 +240,13 @@ def derive_jurisdiction(case: CaseFile) -> str:
             loc, re.I,
         ) and not re.search(r"\b(Scotland|Northern\s+Ireland|\bNI\b)\b", loc, re.I):
             j = "ENGLAND_WALES"
+    if j == "UNKNOWN":
+        # P8: a listed statutory-control location ("Luton Airport Pick Up /
+        # Drop Off Zone" prints no postcode) carries its own jurisdiction.
+        from .derivation import match_statutory_site
+        site = match_statutory_site(case.get("parking_location"), case.get("alleged_breach"))
+        if site is not None and site.get("jurisdiction"):
+            j = site["jurisdiction"]
     case.put(Fact("F-jurisdiction", "jurisdiction", j,
                   FactStatus.DERIVED if j != "UNKNOWN" else FactStatus.UNCERTAIN,
                   FactSource(SourceKind.CALCULATION, "postcode_jurisdiction")))

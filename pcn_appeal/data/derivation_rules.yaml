@@ -52,19 +52,72 @@ site_types:
   hospital_site:
     patterns: ['hospital', '\bnhs\b', 'infirmary', 'medical\s+cent']
 
+# Appeal period (client instruction 2026-10-07). After it, the appeal is NOT
+# stopped: the customer is told the normal period may have expired and the
+# letter carries PP-LATE-001. Counted from the uploaded notice's issue date.
+appeal_period:
+  days: 28
+
+# Document stage (client instruction 2026-10-07). The classifier labels each
+# upload's stage (INITIAL_NOTICE / REMINDER / DRIVER_LETTER); these patterns are
+# the deterministic backup over any text the documents carry. A later-stage
+# letter is never timed as if it were the first Notice to Keeper.
+notice_stages:
+  DRIVER_LETTER:
+    patterns: ['parking\s+charge\s+to\s+driver', 'advised\s+that\s+you\s+were\s+the\s+driver',
+               'you\s+(have\s+been|were)\s+(named|identified|nominated)\s+as\s+the\s+driver']
+  REMINDER:
+    patterns: ['\breminder\b', '\bfinal\s+notice\b', 'previously\s+(been\s+)?(sent|issued|served)',
+               'we\s+(wrote|have\s+written)\s+to\s+you', 'has\s+previously\s+been\s+served']
+# The original notice's date, when a later letter prints it.
+original_notice_date:
+  patterns: ['(?:notice\s+to\s+keeper|parking\s+charge\s+(?:notice|to\s+keeper)|original\s+notice)[^.\n]{0,60}?(?:issued|sent|served|dated)\s+(?:on\s+)?(\d{1,2}/\d{1,2}/\d{2,4})']
+
 # Land under statutory control (byelaws) is not "relevant land" for PoFA
-# Schedule 4, para 3 (pofa.py docstring). Each listed airport must be checked
-# against its own byelaws (that they cover parking/waiting) at legal sign-off.
-# Matching sets relevant_land = False, which
-# makes pofa.assess return NOT_APPLICABLE so no keeper-timing argument is made.
-# NOTE: the KB has no module that argues this point yet. Until the client adds
-# one, matching a byelaw site removes the PoFA framing, it does not add a ground.
-byelaw_sites:
-  patterns: ['stansted\s+airport', 'luton\s+airport', 'heathrow', 'gatwick', 'manchester\s+airport',
-             'birmingham\s+airport', 'bristol\s+airport', 'east\s+midlands\s+airport', 'liverpool\s+john\s+lennon',
-             'london\s+city\s+airport', 'leeds\s+bradford\s+airport', 'newcastle\s+airport',
-             '\bport\s+of\s+']
-# Railway stations are deliberately NOT listed. The Protection of Freedoms Act
-# 2012 (Definition of Relevant Land) (Amendment) Order 2025, in force
-# 26 December 2025, brought land under Railway Byelaws back into "relevant
-# land", so PoFA keeper liability can apply at station car parks again.
+# Schedule 4, para 3. Client instruction 2026-10-07: never assume a whole
+# airport is covered because airport byelaws exist. A location is ACTIVE only
+# once it is confirmed that the byelaws / statutory control cover parking or
+# waiting AT THAT LOCATION. Each entry therefore names a location, not just an
+# airport: every pattern group in `all_of` must match the notice's location
+# and contravention text together.
+#
+#   status CONFIRMED -> sets relevant_land = False -> pofa.assess emits the
+#                       POFA_NOT_RELEVANT_LAND finding -> KB-POFA-07 leads.
+#   status PENDING   -> recorded in the case audit for review; changes nothing.
+#
+# Railway land is deliberately not here and must stay separate: the Protection
+# of Freedoms Act 2012 (Definition of Relevant Land) (Amendment) Order 2025,
+# in force 26 December 2025, brought land under Railway Byelaws back into
+# "relevant land".
+statutory_control_sites:
+  - id: LTN-PUDO
+    name: London Luton Airport - Pick Up / Drop Off Zone
+    status: CONFIRMED
+    jurisdiction: ENGLAND_WALES
+    confirmation: "Client instruction 2026-10-07 for current tests. Record the byelaw reference and the plan showing the zone before production."
+    all_of:
+      - ['luton\s+airport']
+      - ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'drop[\s-]*off\s+area']
+  - id: STN-PUDO
+    name: London Stansted Airport - Pick Up / Drop Off Zone
+    status: CONFIRMED
+    jurisdiction: ENGLAND_WALES
+    confirmation: "Client instruction 2026-10-07 for current tests. Record the byelaw reference and the plan showing the zone before production."
+    all_of:
+      - ['stansted\s+airport']
+      - ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'drop[\s-]*off\s+area']
+  # Awaiting validation (client to confirm location by location).
+  - {id: LHR, name: Heathrow Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['heathrow']]}
+  - {id: LGW, name: Gatwick Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['gatwick']]}
+  - {id: MAN, name: Manchester Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['manchester\s+airport']]}
+  - {id: BHX, name: Birmingham Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['birmingham\s+airport']]}
+  - {id: BRS, name: Bristol Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['bristol\s+airport']]}
+  - {id: EMA, name: East Midlands Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['east\s+midlands\s+airport']]}
+  - {id: LPL, name: Liverpool John Lennon Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['liverpool\s+john\s+lennon']]}
+  - {id: LCY, name: London City Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['london\s+city\s+airport']]}
+  - {id: LBA, name: Leeds Bradford Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['leeds\s+bradford\s+airport']]}
+  - {id: NCL, name: Newcastle Airport, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['newcastle\s+airport']]}
+  # Luton / Stansted locations other than the drop-off zone (car parks,
+  # forecourts) are not confirmed; they fall here and change nothing.
+  - {id: LTN-OTHER, name: London Luton Airport - other locations, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['luton\s+airport']]}
+  - {id: STN-OTHER, name: London Stansted Airport - other locations, status: PENDING, jurisdiction: ENGLAND_WALES, all_of: [['stansted\s+airport']]}

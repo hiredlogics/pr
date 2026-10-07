@@ -73,6 +73,15 @@ _TOPIC_CUES: dict[str, re.Pattern] = {
     "GRACE": re.compile(r"\b(grace|consideration|period)\b", re.I),
     "LAND": re.compile(r"\b(landowner|authority)\b", re.I),
     "SIGN": re.compile(r"\b(sign|signage)\b", re.I),
+    # P8: these module families had no cue, so VAL-GROUND-COVERAGE could never
+    # pass for them however the letter argued the ground.
+    "CONSIDERATION": re.compile(r"\b(consider\w*|accept\w*|contract|terms)\b", re.I),
+    "CUSTOMER": re.compile(r"\b(customer|premises|purchase|receipt|shop\w*)\b", re.I),
+    "HOSPITAL": re.compile(r"\b(hospital|medical|clinic\w*|treatment|appointment|patient)\b", re.I),
+    "EQUALITY": re.compile(r"\b(disab\w*|equality|adjustment|blue badge)\b", re.I),
+    "EV_CHARGING": re.compile(r"\b(charg\w*|electric)\b", re.I),
+    "INFRASTRUCTURE": re.compile(r"\b(barrier|gate|access|fault\w*|malfunction\w*)\b", re.I),
+    "KEEPER": re.compile(r"\b(strict proof|keeper liability|registered keeper)\b", re.I),
 }
 
 
@@ -166,6 +175,12 @@ def _route_family(module_id: str) -> str:
         return "LAND"
     if mid.startswith("KB-SIGN-"):
         return "SIGN"
+    for prefix, family in (("KB-CON-", "CONSIDERATION"), ("KB-CUST-", "CUSTOMER"),
+                           ("KB-HOSP-", "HOSPITAL"), ("KB-EQ-", "EQUALITY"),
+                           ("KB-EVCH-", "EV_CHARGING"), ("KB-INFRA-", "INFRASTRUCTURE"),
+                           ("KB-KEEPER-", "KEEPER")):
+        if mid.startswith(prefix):
+            return family
     return "OTHER"
 
 

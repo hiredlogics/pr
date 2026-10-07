@@ -267,6 +267,11 @@ class AbsenceDerivations(unittest.TestCase):
         "keying_error_type", "material_account_proposition", "observation_window_min",
         "total_recorded_duration_min", "restricted_bay_alleged", "authority_challenge_proportionate",
         "jurisdiction", "notice_route", "parking_validation_status",
+        # P8 (engines/derivation.py and the default keeper appeal): each written
+        # only on a positive pattern match / mapped breach class / system
+        # decision; no match writes nothing, so absence is never read as "no".
+        "default_keeper_appeal", "permitted_period_ended",
+        "short_presence_before_acceptance", "customer_only_site", "relevant_land",
     }
     EVIDENCE_NOT_REVIEWED_BUG: set = set()          # lease_* were here until Phase 3C
 

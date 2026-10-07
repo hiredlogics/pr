@@ -582,15 +582,17 @@ class AdminRoutes(unittest.TestCase):
     def test_plans_explain_and_compare(self):
         base = f"/admin/cases/{self.case.case_id}/claim-plans"
         plans = self.client.get(base, headers=self.h).json()["plans"]
-        self.assertEqual([p["version"] for p in plans], [1, 2])
-        self.assertTrue(plans[1]["trace"])
+        # P8: the first generate has no leading ground, so the default keeper
+        # appeal adds a plan version before the payment answer arrives.
+        self.assertEqual([p["version"] for p in plans], [1, 2, 3])
+        self.assertTrue(plans[-1]["trace"])
         why = self.client.get(f"{base}/explain", params={"module_id": "KB-PAY-01"},
                               headers=self.h).json()
         self.assertIn("Selected KB-PAY-01", why["explanation"])
-        diff = self.client.get(f"{base}/compare", params={"a": 1, "b": 2}, headers=self.h).json()
+        diff = self.client.get(f"{base}/compare", params={"a": 2, "b": 3}, headers=self.h).json()
         self.assertIn("payment_made", diff["facts"]["added"])
         trace = self.client.get(f"/cases/{self.case.case_id}/trace", headers=self.h).json()
-        self.assertEqual(trace["claim_plan"]["version"], 2)
+        self.assertEqual(trace["claim_plan"]["version"], 3)
 
 
 if __name__ == "__main__":

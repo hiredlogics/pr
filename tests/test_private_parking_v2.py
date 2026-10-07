@@ -292,7 +292,8 @@ class S05_AnprAndVisits(unittest.TestCase):
         for mid in ("KB-CON-01", "KB-CON-02"):
             self.assertEqual(match.candidates[mid].status, "RELEVANT", mid)
             self.assertIn("payment_made", match.candidates[mid].missing, mid)
-        self.assertIsNone(r.primary_route, r.dump())
+        # P8: no ground leads, so the default keeper appeal is the letter.
+        self.assertIn(r.primary_route, (None, "POFA"), r.dump())
         # Must not invent a POFA timing defect from a short stay
         self.assertEqual(r.pofa_findings, [], r.dump())
 

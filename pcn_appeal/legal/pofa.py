@@ -74,7 +74,12 @@ def assess(*, jurisdiction: str, relevant_land: Optional[bool], notice_route: st
     if jurisdiction != "ENGLAND_WALES":
         return PofaResult("NOT_APPLICABLE", [], [f"Schedule 4 does not apply in {jurisdiction}."])
     if relevant_land is False:
-        return PofaResult("NOT_APPLICABLE", [], ["Land under statutory control - not relevant land."])
+        # Client instruction 2026-10-07 (KB-POFA-07): a confirmed statutory-
+        # control location is a verified finding that leads the letter, not
+        # merely the absence of a PoFA route. relevant_land is False only for a
+        # location confirmed in data/derivation_rules.yaml.
+        return PofaResult("NOT_APPLICABLE", ["POFA_NOT_RELEVANT_LAND"],
+                          ["Land under statutory control - not relevant land (Sch 4 para 3)."])
     if relevant_land is None:
         notes.append("Relevant-land status unconfirmed.")
 

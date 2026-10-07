@@ -48,6 +48,10 @@ MAX_ANALYSIS_ROUNDS = 3
 def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
     """Attach a customer outcome when the letter was not released, and close
     the run: this outcome is the run's, and the next step starts a new one."""
+    if case.get("appeal_period_expired"):
+        out.customer_notices = [dict(AppealPipeline.LATE_APPEAL_NOTICE)]
+        case.audit.append({"event": "customer_notice",
+                           "codes": ["APPEAL_PERIOD_MAY_HAVE_EXPIRED"]})
     if out.state == CaseState.RELEASED:
         case.complete_run(CaseState.RELEASED.value)
         return out
@@ -86,6 +90,8 @@ class AppealOutput:
     # P5.5: integrity checks and the execution trace for this run
     # (integrity/). Admin only.
     integrity: Optional[dict] = None
+    # P8: customer-facing notices that accompany a letter (never block it).
+    customer_notices: list = None
 
 
 
@@ -192,6 +198,7 @@ class AppealPipeline:
         #   Analysis: the model's questions and the KB gates of grounds it chose.
         from .document_identity import identity_customer_questions
         conflict = [dict(q, source=CONFLICT) for q in self._pcn_conflict_question(case)]
+        conflict += [dict(q, source=CONFIRMATION) for q in self._original_notice_question(case)]
         confirm = [dict(q, source=CONFIRMATION) for q in FactManager.confirmation_questions(case)]
         # P17.8/P17.10: identity uncertainty/pair conflict must pause with a
         # customer question — never fall through to generate → empty hold.
@@ -326,6 +333,23 @@ class AppealPipeline:
         # gets only fact/text/type (customer_safe.customer_question).
         return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
                  "source": POSTCODE, "unlocks": unlocks}]
+
+    def _original_notice_question(self, case: CaseFile) -> list[dict]:
+        """P8: a reminder or driver letter is not the first Notice to Keeper.
+        When its original could not be linked, ask once for the original date
+        (the keeper-liability timing depends on it). Never asked when the
+        keeper route is closed or the date is already known."""
+        from .disclosure import keeper_route_blocked
+        from .engines.derivation import LATER_STAGES
+        fact = "original_notice_issue_date"
+        if case.get("notice_stage") not in LATER_STAGES or case.has(fact):
+            return []
+        if fact in case.asked_questions or keeper_route_blocked(case):
+            return []
+        q = self.kg.question_for(fact) or {}
+        if not q.get("text"):
+            return []
+        return [{"fact": fact, "text": q["text"], "type": q.get("type", "text")}]
 
     @staticmethod
     def _pcn_conflict_question(case: CaseFile) -> list[dict]:
@@ -651,6 +675,14 @@ class AppealPipeline:
                 AppealOutput(case.state, None, pack, Draft(case.case_id, []),
                              ValidationResult(False, []), self._evidence_list(case)),
                 case)
+        # P8 (client instruction 2026-10-07): a keeper case with no stronger
+        # ground gets the default keeper appeal (KB-KEEPER-01) instead of no
+        # letter. Only where the hold below would otherwise be the terminal
+        # "no supported grounds": a question that could unlock a ground, or an
+        # account not yet understood, is still put to the customer first.
+        if not self.reasoning.leading_grounds(pack.module_ids or []) \
+                and self._default_keeper_appeal_applies(case):
+            plan, pack = self._with_default_keeper_appeal(case)
         if not (pack.module_ids or []):
             return self._hold_without_a_leading_ground(
                 case, pack, "case analysis finalized with no selectable grounds")
@@ -717,6 +749,10 @@ class AppealPipeline:
                 })
                 break
 
+            late_blocks = self._with_late_appeal(case, draft, pack)
+            if late_blocks:
+                case.audit.append({"event": "late_appeal_wording", "attempt": attempt,
+                                   "blocks": late_blocks})
             closing_blocks = self._with_closing(draft, pack)
             if closing_blocks:
                 case.audit.append({"event": "closing_added", "attempt": attempt,
@@ -929,6 +965,45 @@ class AppealPipeline:
                 break              # the same answer twice; another round is waste
         return pack
 
+    DEFAULT_KEEPER_MODULE = "KB-KEEPER-01"
+
+    def _default_keeper_appeal_applies(self, case: CaseFile) -> bool:
+        """True when the case would otherwise end with no letter and the keeper
+        route is open. Mirrors _hold_without_a_leading_ground: every branch
+        that asks the customer something or holds for processing keeps
+        priority over the default letter."""
+        from .disclosure import keeper_route_blocked
+        from .semantics import understanding
+        module = self.kg.modules.get(self.DEFAULT_KEEPER_MODULE)
+        if module is None or module.status != "ACTIVE":
+            return False
+        if case.driver_status.value != "UNIDENTIFIED" or keeper_route_blocked(case):
+            return False
+        if analysis_failed(case):
+            return False
+        unlocks, q = self._postcode_materiality(case)
+        if unlocks and q:
+            return False
+        if understanding.customer_stream_blocked(case):
+            return False
+        return True
+
+    def _with_default_keeper_appeal(self, case: CaseFile):
+        """Switch on KB-KEEPER-01 and re-decide the plan. The fact is a system
+        decision (CALCULATION source), never a customer or document value."""
+        from .models import Fact, FactSource, SourceKind
+        case.put(Fact("F-default_keeper_appeal", "default_keeper_appeal", True,
+                      FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "default_keeper_appeal")))
+        selected = list(case.analysis_module_ids or [])
+        if self.DEFAULT_KEEPER_MODULE not in selected:
+            selected.append(self.DEFAULT_KEEPER_MODULE)
+        case.analysis_module_ids = selected
+        case.audit.append({"event": "default_keeper_appeal",
+                           "reason": "no ground that can lead the letter; keeper route open"})
+        plan = self.claim_authority.decide(case, trust=self._plan_trust())
+        return plan, self.reasoning.pack_for(case, plan)
+
     def _hold_without_a_leading_ground(self, case: CaseFile, pack, reason: str) -> AppealOutput:
         """No ground that can lead the letter: a detail is missing that would
         unlock one (the site postcode, `postcode_unlocks`), or nothing we can
@@ -986,6 +1061,39 @@ class AppealPipeline:
                          ValidationResult(False, []), self._evidence_list(case)),
             case)
 
+    LATE_APPEAL_NOTICE = {
+        "code": "APPEAL_PERIOD_MAY_HAVE_EXPIRED",
+        "title": "The normal appeal period may have passed",
+        "message": ("The notice gives a set period to appeal, and it looks as if that "
+                    "period has passed. Your appeal has still been prepared and the letter "
+                    "asks the operator to consider it, but the operator may say it was made "
+                    "too late. Send it as soon as you can."),
+    }
+
+    def _with_late_appeal(self, case: CaseFile, draft, pack) -> list[str]:
+        """P8: when the normal appeal period has expired, say so in the letter
+        (PP-LATE-001, after the opening paragraph). Never stops the appeal."""
+        if not case.get("appeal_period_expired") or not draft.paragraphs:
+            return []
+        blk = self.kg.blocks.get("PP-LATE-001")
+        if blk is None or blk.status != "ACTIVE":
+            return []
+        body = _said(blk.letter_text)
+        if body and body in _said(draft.plain_text()):
+            return []
+        sentences = self.fallback._sentences(blk.letter_text, pack, "STRUCTURAL")
+        if not sentences:
+            return []
+        draft.paragraphs.insert(1 if len(draft.paragraphs) > 1 else len(draft.paragraphs),
+                                sentences)
+        return ["PP-LATE-001"]
+
+    def customer_notices(self, case: CaseFile) -> list[dict]:
+        out = []
+        if case.get("appeal_period_expired"):
+            out.append(dict(self.LATE_APPEAL_NOTICE))
+        return out
+
     def _with_closing(self, draft, pack) -> list[str]:
         """Ensure the letter ends with an approved conclusion, not a bare ground.
 
@@ -1028,8 +1136,13 @@ class AppealPipeline:
             used.append(bid)
             return True
 
+        # PP-POFA-006 says the Schedule 4 requirements "have also not been
+        # satisfied" - true of a timing or content failure, wrong for land that
+        # is outside Schedule 4 altogether (KB-POFA-07 states its own conclusion).
+        outside_sch4 = set(getattr(pack, "pofa_findings", None) or []) == {"POFA_NOT_RELEVANT_LAND"}
+        closing_ids = ("PP-POFA-007",) if outside_sch4 else ("PP-POFA-006", "PP-POFA-007")
         if pofa_failed and not has_pofa_close:
-            for bid in ("PP-POFA-006", "PP-POFA-007"):
+            for bid in closing_ids:
                 if not _append(bid):
                     return []
             if "clear response addressing" not in text.lower():

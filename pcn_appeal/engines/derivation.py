@@ -47,7 +47,17 @@ _PROTECTED = (FactStatus.CONFIRMED, FactStatus.CORRECTED, FactStatus.ANSWERED,
 DERIVED_FACTS = (
     "alleged_breach_type", "permitted_period_ended", "short_presence_before_acceptance",
     "customer_only_site", "dropoff_site", "hospital_site", "relevant_land",
+    "statutory_control_site", "notice_stage", "original_notice_issue_date",
+    "appeal_period_expired",
 )
+
+# Days the operator's appeal period runs from the notice's issue date (the
+# period printed on the notices tested). Admin-editable in derivation_rules.yaml.
+DEFAULT_APPEAL_PERIOD_DAYS = 28
+
+# Stages at which the uploaded letter is not the first Notice to Keeper, so its
+# own date must never be used for the Schedule 4 timing calculation.
+LATER_STAGES = ("REMINDER", "DRIVER_LETTER")
 
 
 @lru_cache(maxsize=1)
@@ -64,8 +74,22 @@ def load_rules(path: str = str(RULES_PATH)) -> dict:
             name: [re.compile(p, re.I) for p in (row or {}).get("patterns") or []]
             for name, row in (data.get("site_types") or {}).items()
         },
-        "byelaw_sites": [re.compile(p, re.I)
-                         for p in (data.get("byelaw_sites") or {}).get("patterns") or []],
+        "notice_stages": [
+            (stage, [re.compile(p, re.I) for p in (row or {}).get("patterns") or []])
+            for stage, row in (data.get("notice_stages") or {}).items()
+        ],
+        "original_notice_date": [re.compile(p, re.I) for p in
+                                 (data.get("original_notice_date") or {}).get("patterns") or []],
+        "appeal_period_days": int((data.get("appeal_period") or {}).get("days")
+                                  or DEFAULT_APPEAL_PERIOD_DAYS),
+        "statutory_control_sites": [
+            {"id": row["id"], "name": row.get("name", row["id"]),
+             "status": str(row.get("status", "PENDING")).upper(),
+             "jurisdiction": row.get("jurisdiction"),
+             "all_of": [[re.compile(p, re.I) for p in group]
+                        for group in row.get("all_of") or []]}
+            for row in data.get("statutory_control_sites") or []
+        ],
     }
     return compiled
 
@@ -113,6 +137,21 @@ def consideration_minutes(case: CaseFile) -> Optional[int]:
     return int(value) if value is not None else None
 
 
+def match_statutory_site(location: Any, breach: Any,
+                         rules: Optional[dict] = None) -> Optional[dict]:
+    """First listed statutory-control location whose every pattern group
+    matches the notice's location + contravention text; None when none does."""
+    rules = rules or load_rules()
+    blob = " ".join(str(t) for t in (location, breach) if t)
+    if not blob:
+        return None
+    for site in rules["statutory_control_sites"]:
+        groups = site["all_of"]
+        if groups and all(any(p.search(blob) for p in group) for group in groups):
+            return site
+    return None
+
+
 def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
     """Apply every derivation rule; return {fact: {value, rule}} for what was written."""
     rules = rules or load_rules()
@@ -146,10 +185,114 @@ def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
         if _matches(patterns, location, breach if name == "dropoff_site" else None):
             _write(case, name, True, f"site:{name}", written)
 
-    # D-land: land under statutory control is not relevant land (PoFA Sch 4).
-    if _matches(rules["byelaw_sites"], location):
-        _write(case, "relevant_land", False, "byelaw_site", written)
+    # D-land: land under statutory control is not relevant land (PoFA Sch 4
+    # para 3). Only a location the client has CONFIRMED is covered for parking
+    # or waiting changes anything; a PENDING match is recorded for review.
+    site = match_statutory_site(location, breach, rules)
+    if site is not None:
+        if site["status"] == "CONFIRMED":
+            _write(case, "relevant_land", False, f"statutory_control:{site['id']}", written)
+            _write(case, "statutory_control_site", site["id"],
+                   f"statutory_control:{site['id']}", written)
+        else:
+            case.audit.append({"event": "statutory_control_site_pending",
+                               "site": site["id"], "name": site["name"],
+                               "note": "location not yet confirmed; relevant_land left unknown"})
+
+    # D-stage: what stage the uploaded letter is at, and the original notice's
+    # date when it can be linked (client instruction 2026-10-07).
+    stage, original = notice_stage(case, rules)
+    if stage:
+        _write(case, "notice_stage", stage, "notice_stage", written)
+    if original is not None:
+        _write(case, "original_notice_issue_date", original, "original_notice_link", written)
+
+    # D-late: the normal appeal period may have expired (client instruction
+    # 2026-10-07: flag it and adapt the wording; never stop the appeal).
+    expired, end = appeal_period_status(case, rules)
+    if expired is not None:
+        _write(case, "appeal_period_expired", expired, f"appeal_period_end:{end}", written)
 
     if written:
         case.audit.append({"event": "derivation", "derived": written})
     return written
+
+
+def today():
+    """The date the appeal is being prepared. Patched in tests."""
+    from datetime import date
+    return date.today()
+
+
+def appeal_period_status(case: CaseFile, rules: Optional[dict] = None):
+    """(expired, period_end) from the uploaded notice's issue date, or
+    (None, None) when there is no date to count from."""
+    from datetime import timedelta
+    rules = rules or load_rules()
+    issued = case.get("notice_issue_date")
+    if not hasattr(issued, "year"):
+        return None, None
+    end = issued + timedelta(days=int(rules.get("appeal_period_days") or DEFAULT_APPEAL_PERIOD_DAYS))
+    return today() > end, end
+
+
+def notice_stage(case: CaseFile, rules: Optional[dict] = None):
+    """(stage, original_notice_date) for the case's private parking notice.
+
+    Stage comes from the classifier's per-document labels, the latest stage
+    winning; text patterns are the backup when no label is later than
+    INITIAL_NOTICE. The original notice is linked from an INITIAL_NOTICE upload
+    carrying a date (same PCN, or none printed), else from a date the later
+    letter itself prints for the earlier notice. Unlinked -> None.
+    """
+    from .extraction import parse_uk_date
+    rules = rules or load_rules()
+    order = ("INITIAL_NOTICE", "REMINDER", "DRIVER_LETTER")
+    pcn = str(case.get("pcn_number") or "").replace(" ", "").upper()
+    labelled, initial_dates = [], []
+    for row in (getattr(case, "classifications", None) or {}).values():
+        if row.get("document_type") != "PRIVATE_PARKING_NOTICE":
+            continue
+        st = row.get("stage")
+        if st in order:
+            labelled.append(st)
+        refs = row.get("references") or {}
+        same = not refs.get("pcn_number") or not pcn or \
+            str(refs["pcn_number"]).replace(" ", "").upper() == pcn
+        if st == "INITIAL_NOTICE" and same and row.get("document_date"):
+            d = parse_uk_date(row["document_date"])
+            if d is not None:
+                initial_dates.append(d)
+    stage = max(labelled, key=order.index) if labelled else None
+    if stage in (None, "INITIAL_NOTICE"):
+        text = "\n".join((e.text or "") for e in case.evidence.values())
+        for st, patterns in rules["notice_stages"]:
+            if any(p.search(text) for p in patterns):
+                stage = st
+                break
+    original = min(initial_dates) if initial_dates and stage in LATER_STAGES else None
+    if original is None and stage in LATER_STAGES:
+        text = "\n".join((e.text or "") for e in case.evidence.values())
+        for p in rules["original_notice_date"]:
+            m = p.search(text)
+            if m:
+                original = parse_uk_date(m.group(1))
+                if original is not None:
+                    break
+    return stage, original
+
+
+def timing_issue_date(case: CaseFile):
+    """The date the Schedule 4 timing check must use.
+
+    The first notice's own date normally. For a reminder or driver letter the
+    letter's date is not the Notice to Keeper's, so only a linked original date
+    (or one the customer gave) may be used; none -> None, and the calculator
+    returns UNRESOLVED instead of a "62 days late" error."""
+    from .extraction import parse_uk_date
+    if case.get("notice_stage") in LATER_STAGES:
+        value = case.get("original_notice_issue_date")
+        if value is None:
+            return None
+        return value if hasattr(value, "year") else parse_uk_date(str(value))
+    return case.get("notice_issue_date")

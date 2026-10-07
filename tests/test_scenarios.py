@@ -176,10 +176,12 @@ class ScenarioD_LateNTK(unittest.TestCase):
         self.assertEqual(out.pack.pofa_route, "NOT_APPLICABLE")
         self.assertNotIn("Schedule 4", out.letter or "")
         # Schedule 4 does not apply in Scotland, so the late-notice ground that
-        # carries this case in England is unavailable and nothing else here is
-        # strong enough to lead. No-grounds terminal, not routine manual review.
-        self.assertEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
-        self.assertIsNone(out.letter)
+        # carries this case in England is unavailable. P8 (client instruction
+        # 2026-10-07): the case gets the default keeper appeal instead of no
+        # letter, worded without any Schedule 4 reference.
+        self.assertEqual(out.pack.module_ids, ["KB-KEEPER-01"])
+        self.assertNotIn("Schedule 4", out.draft.plain_text())
+        self.assertNotEqual(out.state, CaseState.NO_SUPPORTED_GROUNDS)
 
 
 class PofaCalculator(unittest.TestCase):

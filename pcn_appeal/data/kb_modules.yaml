@@ -210,6 +210,62 @@ modules:
     source_reference: null  # not in source document
     change_notes: Not in the source document. Set to REVIEW under KB-GOV-03. Its building block PP-POFA-008 is not in Appendix A. Activate only after it is added to the approved knowledge base and legally reviewed.
 
+  # ---- CLIENT-APPROVED ADDITIONS, 2026-10-07 (not in source document) ----
+  - module_id: KB-POFA-07
+    route: POFA
+    topic: "Land subject to statutory control is not relevant land"
+    # Fires only on a VERIFIED finding: pofa.assess emits POFA_NOT_RELEVANT_LAND
+    # when relevant_land is False, which derivation sets only for a location the
+    # client has confirmed is covered by byelaws / statutory control for parking
+    # or waiting (data/derivation_rules.yaml `statutory_control_sites`, status
+    # CONFIRMED). An airport name alone never sets it.
+    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {in: [pofa_finding, [POFA_NOT_RELEVANT_LAND]]}]}
+    do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
+    core_proposition: "Land subject to statutory control is not relevant land for Schedule 4, so the keeper-liability provisions do not apply and, with the driver unidentified, liability cannot be transferred to the registered keeper."
+    required_facts: [relevant_land, pofa_finding]
+    evidence_helpful: [PCN, NTK]
+    legal_basis: [PoFA-2012-Sch4-para3]
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Use the client wording (PP-POFA-009) and the strict-proof fallback (PP-POFA-010). Never say the whole airport is covered; the confirmed location is what is relied on. Never identify a driver.
+    prohibited_claims: [the driver was, identity of the driver, the whole airport is covered by byelaws]
+    building_blocks: [PP-POFA-009, PP-POFA-010, PP-POFA-007]
+    strength: 95
+    status: ACTIVE
+    module_role: SUBSTANTIVE_GROUND
+    version: "1.0"
+    effective_from: 2026-10-07
+    effective_to: null
+    last_legal_review: 2026-10-07
+    source_reference: "Client instruction 2026-10-07"
+    change_notes: Added at the client's instruction. Leads like a PoFA timing failure (strength 95). Activated for client-confirmed locations only (Luton, Stansted drop-off zones for current tests).
+
+  - module_id: KB-KEEPER-01
+    route: POFA
+    topic: "Default keeper appeal"
+    # Never selected by analysis. The orchestrator writes default_keeper_appeal
+    # only when no ground that can lead the letter was found and the keeper
+    # route is open, so the case ends with a letter instead of none (client
+    # instruction 2026-10-07). It never stacks on top of a stronger ground.
+    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: default_keeper_appeal}]}
+    do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
+    core_proposition: "Where no stronger specific ground is established, the keeper appeals and puts the operator to strict proof of the basis for keeper liability, the contractual terms and signage relied upon, and its landowner authority, without identifying the driver."
+    required_facts: [default_keeper_appeal]
+    evidence_helpful: [PCN, NTK]
+    legal_basis: [PoFA-2012-Sch4]
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Put to strict proof only; assert no defect and no fact the case has not established. Keep the driver unidentified. Landowner authority wording is PP-KEEPER-003 (PP-LAND-001 put as strict proof).
+    prohibited_claims: [the driver was, identity of the driver, the notice is defective, the signage was inadequate]
+    building_blocks: [PP-KEEPER-001, PP-KEEPER-002, PP-KEEPER-003]
+    strength: 50
+    status: ACTIVE
+    module_role: SUBSTANTIVE_GROUND
+    version: "1.0"
+    effective_from: 2026-10-07
+    effective_to: null
+    last_legal_review: 2026-10-07
+    source_reference: "Client instruction 2026-10-07"
+    change_notes: Added at the client's instruction so a keeper case never ends with no letter.
+
   - module_id: KB-PAY-01
     route: PAYMENT
     topic: "Payment made"
@@ -1402,6 +1458,7 @@ conflicts_with:
 
 legal_sources:
   PoFA-2012-Sch4:       {title: Protection of Freedoms Act 2012 Schedule 4, jurisdiction: ENGLAND_WALES, in_source_register: true, note: Keeper liability only. Apply the correct notice route and statutory requirements.}
+  PoFA-2012-Sch4-para3: {title: PoFA 2012 Sch 4 para 3 (relevant land), jurisdiction: ENGLAND_WALES, in_source_register: false}
   PoFA-2012-Sch4-para8: {title: PoFA 2012 Sch 4 para 8, jurisdiction: ENGLAND_WALES, in_source_register: true}
   PoFA-2012-Sch4-para9: {title: PoFA 2012 Sch 4 para 9, jurisdiction: ENGLAND_WALES, in_source_register: true}
   EqA-2010:             {title: Equality Act 2010, jurisdiction: GB, in_source_register: true, note: Apply only where statutory conditions are met.}
