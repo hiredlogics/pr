@@ -1,7 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "builds": [],
+  "installCommand": "",
+  "buildCommand": "",
   "rewrites": [
     { "source": "/", "destination": "https://api-p7-production.up.railway.app/health" },
     { "source": "/:path*", "destination": "https://api-p7-production.up.railway.app/:path*" }

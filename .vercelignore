@@ -1,30 +1,4 @@
-# The API project deploys from the repository root, so keep everything that is
-# not the Python service out of the upload. Without this the venv and the
-# frontend's node_modules go too - roughly 450MB of nothing useful.
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-
-# The frontend is its own Vercel project with its own root directory.
-frontend/
-
-# Local only
-tests/
-.env
-.env.*
-*.docx
-*.pdf
-.git/
-.pytest_cache/
-.ruff_cache/
-
-# Docs and container config are not needed by the function
-DEPLOY.md
-README.md
-Dockerfile
-.dockerignore
-fly.toml
-infra/docker-compose.yml
-infra/neo4j_schema.cypher
-scripts/
+# This project only forwards the legacy API domain to Railway.
+# Keep application code, dependencies, documents, and secrets out of its upload.
+*
+!vercel.json
