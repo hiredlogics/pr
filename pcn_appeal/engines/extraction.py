@@ -444,9 +444,13 @@ class ExtractionEngine:
             # for the customer to check against the notice. It is not the
             # cross-document conflict below - both readings may be wrong, so a
             # closed choice between them would not help.
+            # Readings from the optional back, or that are not charge-number
+            # shaped, are print codes rather than a second reading of the PCN.
+            from ..notice_completeness import classifier_charge_number
             readings = {_normalise_pcn(((c or {}).get("references") or {}).get("pcn_number"))
                         for c in (case.classifications or {}).values()
-                        if (c or {}).get("document_type") == "PRIVATE_PARKING_NOTICE"}
+                        if (c or {}).get("document_type") == "PRIVATE_PARKING_NOTICE"
+                        and classifier_charge_number(c)}
             readings = {r for r in readings if len(r) >= 6}
             if readings and extracted_pcn not in readings and "pcn_number" in case.facts:
                 case.set_status("pcn_number", FactStatus.UNCERTAIN, reason="pcn_read_disagreement")

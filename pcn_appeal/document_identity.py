@@ -12,6 +12,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from .models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+from .notice_completeness import classifier_charge_number
 
 CRITICAL_FIELDS = (
     "operator_name",
@@ -255,6 +256,10 @@ def _observations_from_classifier(case: CaseFile) -> dict[str, list[FieldObserva
         for name in ("pcn_number", "vrm", "operator_name"):
             raw = refs.get(name)
             if raw in (None, ""):
+                continue
+            # The optional back carries form and print codes the classifier can
+            # take for a charge number; such a reading may not contradict the front.
+            if name == "pcn_number" and not classifier_charge_number(c):
                 continue
             out[name].append(_obs(
                 raw=raw, name=name, method="classifier_references",

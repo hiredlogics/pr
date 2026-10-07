@@ -21,7 +21,7 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
     "semantic_extraction": 4,
-    "extraction": 10,
+    "extraction": 11,
     "case_analysis": 9,
     "drafting": 18,
     "validation": 3,
@@ -170,8 +170,8 @@ class JudgeUsesTheRegistry(unittest.TestCase):
         prompts.reset()
 
     def _pack(self):
-        return RetrievalPack(primary_route="POFA", secondary_routes=[], module_ids=["KB-LAND-01"],
-                             verified_facts={}, fact_refs={}, missing_facts=[], evidence_refs=[],
+        return RetrievalPack(primary_route="POFA", secondary_routes=[], module_ids=["KB-PAY-01"],
+                             verified_facts={"payment_made": True}, fact_refs={"payment_made": "F-payment_made"}, missing_facts=[], evidence_refs=[],
                              prohibited_claims=[], code_version=None, pofa_route="POSTAL",
                              pofa_findings=[], driver_status="UNIDENTIFIED",
                              jurisdiction="ENGLAND_WALES", context_chunks=[], lease_clauses=[])
@@ -179,8 +179,8 @@ class JudgeUsesTheRegistry(unittest.TestCase):
     def test_judge_is_sent_the_registered_validation_prompt(self):
         judge = FakeLLM({"validation": [{"issues": []}]})
         draft = Draft("C-1", [[DraftSentence(
-            "The operator is requested to establish landowner authority.",
-            [], ["KB-LAND-01"])]])
+            "A parking payment was made.",
+            ["F-payment_made"], ["KB-PAY-01"])]])
         result = ValidationEngine(judge).validate(draft, self._pack())
 
         self.assertTrue(result.passed, result.issues)

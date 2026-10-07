@@ -10,6 +10,7 @@ import re
 from typing import Any, Optional
 
 from .models import CaseFile, Fact, FactSource, FactStatus, SourceKind
+from .ocr import strip_ocr
 from .rules import scope
 
 REVERSE_NAME = re.compile(r"(?:back|reverse|rear|verso|page\s*[2-9])\b", re.I)
@@ -28,13 +29,16 @@ NON_FRONT_SIDES = {"REVERSE", "CONTINUATION", "BLANK"}
 
 DIFFERENT_NOTICES_MESSAGE = (
     "These pages look like they come from different notices: the charge number or the "
-    "vehicle registration does not match. Please upload the front and back of the same notice."
+    "vehicle registration does not match. Please upload the front of one notice; the back "
+    "is optional, but if you add it, it must be from the same notice."
 )
 DUPLICATE_PAGES_MESSAGE = (
-    "Two of your photos are the same picture. Please upload the front and the back of "
-    "your notice. Both sides are mandatory, even if the back is blank."
+    "Two of your photos are the same picture. The front of your notice is all you need; "
+    "the back is optional. Remove the duplicate, or replace it with the back if you have it."
 )
 
+# Only for routes whose own policy still needs both sides (Charge Certificate,
+# not live). The private-parking route never shows it.
 BOTH_SIDES_MESSAGE = (
     "Please upload the front and back of your notice. Both sides are mandatory, "
     "even if the back is blank. You cannot continue until both sides have been uploaded."
@@ -79,11 +83,25 @@ def rejectable_optional_page(case: CaseFile) -> Optional[str]:
     differed = different_notices(case)
     if not differed:
         return None
-    order = [e.evidence_id for e in _notice_evidence(case)] or list(case.evidence)
-    later = [d for d in (differed.get("documents") or []) if d in order[1:]]
-    if not later or len(order) < 2:
+    # Upload order, not filenames: at intake every page is still kind OTHER, so
+    # a filename filter could leave one page here and nothing would be set aside.
+    order = list(case.evidence)
+    if len(order) < 2:
         return None
-    return max(later, key=order.index)
+    implicated = [d for d in (differed.get("documents") or []) if d in order]
+
+    def sides(ev_id: str) -> set[str]:
+        pages = ((case.classifications or {}).get(ev_id) or {}).get("pages") or []
+        return {str(p.get("side") or "").upper() for p in pages if isinstance(p, dict)} - {""}
+
+    # The page the classifier saw as the face is the front, wherever it came in
+    # the upload order: a back added first must not push the real front out.
+    fronts = [d for d in implicated if "FRONT" in sides(d)]
+    if len(fronts) == 1:
+        others = [d for d in implicated if d != fronts[0]]
+        return max(others, key=order.index) if others else None
+    later = [d for d in implicated if d in order[1:]]
+    return max(later, key=order.index) if later else None
 
 
 def upload_pages_sufficient(evidence_items: list) -> tuple[bool, str]:
@@ -132,9 +150,9 @@ def rejection_message(reason: str) -> str:
         return DIFFERENT_NOTICES_MESSAGE
     if reason == "duplicate_front_images":
         return DUPLICATE_PAGES_MESSAGE
-    if reason == "no_readable_page":
-        return FRONT_REQUIRED_MESSAGE
-    return BOTH_SIDES_MESSAGE
+    if reason == "front_only_or_single_page":
+        return BOTH_SIDES_MESSAGE
+    return FRONT_REQUIRED_MESSAGE
 
 
 def _norm_ref(value) -> str:
@@ -147,6 +165,19 @@ def _charge_number_like(value: str) -> bool:
     and comparing them with the face's charge number refused genuine pairs."""
     digits = sum(ch.isdigit() for ch in value)
     return len(value) >= 6 and digits >= 5 and digits * 10 >= len(value) * 6
+
+
+def classifier_charge_number(classification: dict | None) -> str:
+    """The classifier's charge-number reading for one upload, normalised, or ""
+    when it cannot count as one: the upload is only the (optional) back, whose
+    form and print codes the classifier reads as a PCN, or the reading is not
+    charge-number-shaped. Such a reading may never contradict the front."""
+    c = classification or {}
+    raw = _norm_ref((c.get("references") or {}).get("pcn_number"))
+    sides = {str(p.get("side") or "").upper() for p in c.get("pages") or [] if isinstance(p, dict)}
+    if not raw or (sides and sides <= NON_FRONT_SIDES) or not _charge_number_like(raw):
+        return ""
+    return raw
 
 
 def _edits(a: str, b: str) -> int:
@@ -277,7 +308,9 @@ def assess_notice_sides(case: CaseFile) -> dict[str, Any]:
     single_ev_multi = any(len(e.images or []) >= 2 for e in notice_ev)
 
     named_reverse = any(REVERSE_NAME.search(e.filename or "") for e in notice_ev)
-    text_blob = "\n".join((e.text or "") for e in notice_ev)
+    # Machine OCR of the page images is not more pages: one front photo now
+    # carries its own transcription, which must not read as "the reverse too".
+    text_blob = "\n".join(strip_ocr(e.text or "") for e in notice_ev)
     text_has_reverse = sum(1 for g in REVERSE_TEXT_GROUPS if g.search(text_blob or "")) >= 2
     # Vision may have transcribed invitation / reverse content into bools even
     # when OCR char count is 0 — that is page-backed evidence, not unreadability.
@@ -369,6 +402,27 @@ def apply_notice_sides_fact(case: CaseFile) -> dict[str, Any]:
     ))
     case.audit.append({"event": "notice_sides_assessment", **assessed})
     return assessed
+
+
+# Completeness reasons that mean a page was positively seen to be the reverse.
+# Two distinct photos alone are not that: both may be of the front.
+REVERSE_READ_REASONS = frozenset({
+    "classifier_labelled_reverse_page",
+    "named_reverse_with_distinct_pages",
+    "text_includes_reverse_particulars",
+})
+
+
+def reverse_page_read(case: CaseFile) -> bool:
+    """True only when the back of the notice was supplied and read.
+
+    The back is optional. Anything that concludes wording is *absent* from the
+    notice needs this, not just `notice_sides_complete`: wording not seen on a
+    front-only upload is unknown, never missing."""
+    fact = case.facts.get("notice_sides_complete")
+    if not fact or not fact.usable or fact.value is not True:
+        return False
+    return (fact.source.ref or "").split("notice_sides:", 1)[-1] in REVERSE_READ_REASONS
 
 
 # `requires_complete_notice` and `incompleteness_payload` are deliberately gone.

@@ -369,3 +369,92 @@ class EAMissingReverseIsNotAnOutcome(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ------------------------------------------- G. the back stays a bonus, never a gap
+class GAMissingBackIsUnknownNeverAbsent(unittest.TestCase):
+    """Found by the post-merge audit: OCR on every photo, filename-dependent
+    set-aside, and reverse print codes each let a missing or optional back
+    page cost the customer something. Each is pinned here."""
+
+    OCR_REVERSE = ('<ocr_transcription page="1" engine="tesseract">\n'
+                   "Machine OCR may misread characters. Check against the attached page; "
+                   "this is not customer confirmation.\n" + BACK + "\n" + FRONT * 3
+                   + "\n</ocr_transcription>")
+
+    def _sides(self, value, reason):
+        case = CaseFile("C-sides")
+        case.put(Fact("F-notice_sides_complete", "notice_sides_complete", value,
+                      FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, f"notice_sides:{reason}")))
+        return case
+
+    def test_no_customer_message_says_both_sides_are_mandatory(self):
+        from pcn_appeal.notice_completeness import (
+            FRONT_REQUIRED_MESSAGE, rejection_message)
+        for reason in ("no_page_uploaded", "no_readable_page", "different_notices",
+                       "duplicate_front_images", "anything_else"):
+            self.assertNotIn("mandatory", rejection_message(reason), reason)
+        self.assertEqual(rejection_message("no_page_uploaded"), FRONT_REQUIRED_MESSAGE)
+
+    def test_one_photo_with_ocr_text_is_still_front_only(self):
+        case = CaseFile("C-ocr")
+        case.evidence["E1"] = EvidenceItem("E1", "NTK", "IMG_1.jpg", images=[b"ONE"],
+                                           text=self.OCR_REVERSE)
+        case.document_classes["E1"] = "NTK"
+        assessed = assess_notice_sides(case)
+        self.assertTrue(assessed["applicable"], assessed)
+        self.assertFalse(assessed["complete"], assessed)
+
+    def test_set_aside_does_not_depend_on_filenames(self):
+        for names in (("IMG_1.jpg", "notice_back.jpg"), ("pcn_front.jpg", "IMG_2.jpg")):
+            case = CaseFile("C-names")
+            for ev, name, refs in (("E1", names[0], CAForeignReverseIsSetAsideNotFatal.REFS_FRONT),
+                                   ("E2", names[1], CAForeignReverseIsSetAsideNotFatal.REFS_OTHER)):
+                case.evidence[ev] = EvidenceItem(ev, "OTHER", name, images=[ev.encode() * 4])
+                case.classifications[ev] = {"document_type": "PRIVATE_PARKING_NOTICE",
+                                            "references": refs}
+            self.assertEqual(rejectable_optional_page(case), "E2", names)
+
+    def test_a_back_uploaded_first_never_pushes_out_the_front(self):
+        case = CaseFile("C-order")
+        for ev, side, refs in (("E1", "REVERSE", CAForeignReverseIsSetAsideNotFatal.REFS_OTHER),
+                               ("E2", "FRONT", CAForeignReverseIsSetAsideNotFatal.REFS_FRONT)):
+            case.evidence[ev] = EvidenceItem(ev, "OTHER", f"{ev}.jpg", images=[ev.encode() * 4])
+            case.classifications[ev] = {"document_type": "PRIVATE_PARKING_NOTICE",
+                                        "references": refs,
+                                        "pages": [{"page": 1, "side": side}]}
+        self.assertEqual(rejectable_optional_page(case), "E1")
+
+    def test_only_a_page_seen_as_the_back_counts_as_the_back_read(self):
+        from pcn_appeal.notice_completeness import reverse_page_read
+        self.assertFalse(reverse_page_read(self._sides(False, "front_only_or_single_page")))
+        self.assertFalse(reverse_page_read(self._sides(True, "distinct_pages_or_multipage")),
+                         "two photos are not proof one of them is the back")
+        self.assertTrue(reverse_page_read(self._sides(True, "classifier_labelled_reverse_page")))
+
+    def test_wording_not_on_the_front_is_not_recorded_as_absent(self):
+        from pcn_appeal.engines.recovery import FactRecoveryEngine, RecoveryReport
+        case = self._sides(False, "front_only_or_single_page")
+        case.evidence["E1"] = EvidenceItem("E1", "NTK", "front.jpg", images=[b"F"],
+                                           text=FRONT * 5)
+        _fact(case, "notice_route", "POSTAL")
+        report = RecoveryReport()
+        FactRecoveryEngine()._assess_ntk_schedule4_content(case, report)
+        self.assertIsNone(case.get("ntk_invites_pass_to_driver"))
+        self.assertIsNone(case.get("ntk_invites_name_driver"))
+        self.assertEqual(case.get("pofa_9_2_e_status"), "UNRESOLVED")
+        self.assertNotIn("request_document",
+                         [g.get("action") for g in report.unknown_material],
+                         "the optional back was put to the customer as a document to supply")
+
+    def test_a_reverse_print_code_is_not_a_second_charge_number(self):
+        from pcn_appeal.notice_completeness import classifier_charge_number
+        back = {"references": {"pcn_number": "00998877"},
+                "pages": [{"page": 1, "side": "REVERSE"}]}
+        code = {"references": {"pcn_number": "PKN/P/0524"}}
+        front = {"references": {"pcn_number": "00112233"},
+                 "pages": [{"page": 1, "side": "FRONT"}]}
+        self.assertEqual(classifier_charge_number(back), "")
+        self.assertEqual(classifier_charge_number(code), "")
+        self.assertEqual(classifier_charge_number(front), "00112233")

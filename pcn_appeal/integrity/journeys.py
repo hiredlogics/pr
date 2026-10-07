@@ -191,7 +191,8 @@ class JourneyRunner:
                 failures.append(f"still asking after {MAX_ROUNDS} rounds")
             if final.get("_needs_documents") and not expect.get("needs_documents"):
                 failures.append("the system asked for documents the journey does not supply "
-                                "(add the reverse page, or expect: needs_documents: true)")
+                                "(a page-pair identity conflict: check the journey's pages "
+                                "agree, or expect: needs_documents: true)")
             audit = self.audit(final["case_id"])
             plan = audit.get("claim_plan") or {}
             digests.append(plan.get("plan_digest"))

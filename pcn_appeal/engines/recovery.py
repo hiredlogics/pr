@@ -20,6 +20,7 @@ from .. import case_state
 from ..legal import code_versions, pofa
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 from ..disclosure import keeper_route_blocked
+from ..notice_completeness import reverse_page_read
 from ..routes import GENERAL_GROUND_ROUTES, Route
 from .extraction import (
     DATE_FIELDS, TIME_FIELDS, VRM_FIELDS, _hhmm, _pcn_candidates_from_text,
@@ -400,15 +401,18 @@ class FactRecoveryEngine:
                          if e.kind in ("PCN", "NTK", "NTD"))
         flag = pofa.scan_keeper_warning(blob)
         model_read = case.get("ntk_keeper_liability_warning")
-        report.calculated["ntk_keeper_liability_warning"] = flag
+        # Not seen on a lone front is not "absent": the back is optional, so
+        # without it the warning stays undetermined rather than recorded False.
+        report.calculated["ntk_keeper_liability_warning"] = (
+            None if flag is False and not reverse_page_read(case) else flag)
         if flag is None and model_read is not None:
             report.trace.append(f"keeper warning: image read only ({model_read}), not relied on")
             return
         if flag is not False:
             report.trace.append(f"keeper warning: {'present' if flag else 'not determinable'}")
             return
-        if case.get("notice_sides_complete") is not True:
-            report.trace.append("keeper warning: not seen, but both sides are not confirmed")
+        if not reverse_page_read(case):
+            report.trace.append("keeper warning: not seen, but the back was not read")
             return
         for name in ("ntk_defect_keeper_warning", "ntk_defect_document_confirmed"):
             case.put(Fact(f"F-{name}", name, True, FactStatus.DERIVED,
@@ -472,6 +476,13 @@ class FactRecoveryEngine:
             defect = scan.defect_statutory_invitation
             notes = list(scan.notes)
 
+        # The back is optional. Wording not found on a front-only upload is
+        # unknown, never a recorded absence: only a positive find is kept.
+        if not reverse_page_read(case):
+            has_name = True if has_name else None
+            has_pass = True if has_pass else None
+            defect = False
+
         report.calculated["ntk_content_notes"] = notes
         report.calculated["ntk_has_name_driver_invitation"] = has_name
         report.calculated["ntk_has_pass_to_driver_invitation"] = has_pass
@@ -499,15 +510,7 @@ class FactRecoveryEngine:
                 FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
             ))
             report.calculated["pofa_9_2_e_status"] = status
-            report.unknown_material.append({
-                "fact": "notice_reverse_or_clear_copy",
-                "why_material": (
-                    "Schedule 4 invitation wording must be read from the notice; "
-                    "available upload has insufficient text (often a single photo of one side)."
-                ),
-                "sources_checked": report.sources_checked,
-                "action": "request_document",
-            })
+            report.unknown_material.append(_reverse_not_supplied(report))
             report.trace.append("ntk content: UNRESOLVED — insufficient text")
             return
 
@@ -523,23 +526,14 @@ class FactRecoveryEngine:
 
         # Both sides must have been checked before concluding wording is absent.
         # A single face that lacks pass-on wording is UNRESOLVED, not a pleaded defect.
-        sides_complete = case.get("notice_sides_complete")
-        if sides_complete is not True:
+        if not reverse_page_read(case):
             status = "UNRESOLVED"
             case.put(Fact(
                 "F-pofa_9_2_e_status", "pofa_9_2_e_status", status,
                 FactStatus.DERIVED, FactSource(SourceKind.CALCULATION, "pofa.content"),
             ))
             report.calculated["pofa_9_2_e_status"] = status
-            report.unknown_material.append({
-                "fact": "notice_reverse_or_clear_copy",
-                "why_material": (
-                    "Both sides of the notice must be reviewed before concluding that "
-                    "Schedule 4 invitation wording is absent."
-                ),
-                "sources_checked": report.sources_checked,
-                "action": "request_document",
-            })
+            report.unknown_material.append(_reverse_not_supplied(report))
             report.trace.append(
                 "ntk content: UNRESOLVED — cannot plead invitation defect without both sides"
             )
@@ -748,3 +742,19 @@ def postcode_unlocks(case: CaseFile, kg) -> list[str]:
         pass                      # no baseline assessment: treat as unsupported
     already = supported(baseline_facts)
     return [mid for mid in sorted(counterfactual) if mid not in already]
+
+
+def _reverse_not_supplied(report: RecoveryReport) -> dict:
+    """The Schedule 4 wording gap when the back was not read. Recorded so the
+    finding stays unresolved, but the back is optional: this is not a document
+    to ask the customer for, and nothing waits on it."""
+    return {
+        "fact": "notice_reverse_wording",
+        "why_material": (
+            "Schedule 4 invitation wording was not found on the pages supplied. The back "
+            "of the notice is optional, so the content finding stays unresolved and is "
+            "not pleaded; do not ask the customer for the back."
+        ),
+        "sources_checked": report.sources_checked,
+        "action": "unresolved_optional_page",
+    }

@@ -3,11 +3,18 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import shutil
 import subprocess
 
 OCR_MARKER = "<ocr_transcription"
 MAX_OCR_CHARS = 16000
+_OCR_BLOCK = re.compile(r"<ocr_transcription\b.*?</ocr_transcription>", re.S)
+
+
+def strip_ocr(text: str) -> str:
+    """The text with every machine-OCR block removed: what the upload itself said."""
+    return _OCR_BLOCK.sub("", text or "").strip()
 
 
 def available() -> bool:

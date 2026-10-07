@@ -19,6 +19,8 @@ import json
 import os
 import re
 import uuid
+from collections.abc import Mapping
+from dataclasses import fields, is_dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -889,7 +891,6 @@ def save_output(case: CaseFile, out) -> None:
     a replay could reach the right KB release and still not know what wrote the
     letter or which rules cleared it.
     """
-    from dataclasses import asdict
 
     from ..engines import validation
     draft_id = str(uuid.uuid4())
@@ -903,8 +904,8 @@ def save_output(case: CaseFile, out) -> None:
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (draft_id, case.case_id, out.draft.attempt, type(out.draft).__name__,
                   out.draft.model, out.draft.prompt_version,
-                  _json(_jsonable([[asdict(s) for s in p] for p in out.draft.paragraphs])),
-                  _json(_jsonable(asdict(out.pack))),
+                  _json(_jsonable(out.draft.paragraphs)),
+                  _json(_jsonable(out.pack)),
                   # What the customer was given. Without these a restarted
                   # process had the draft but not whether it was released, so
                   # the letter PDF answered 404 for a released case.
@@ -916,7 +917,7 @@ def save_output(case: CaseFile, out) -> None:
                 INSERT INTO validations (draft_id, passed, issues, validator_version)
                 VALUES (%s, %s, %s, %s)
             """, (draft_id, out.validation.passed,
-                  _json(_jsonable([asdict(i) for i in out.validation.issues])),
+                  _json(_jsonable(out.validation.issues)),
                   validation.VERSION))
             if out.state == CaseState.MANUAL_REVIEW:
                 cur.execute("INSERT INTO review_queue (case_id, reason, sla_due) VALUES (%s, %s, now())",
@@ -981,9 +982,15 @@ def _json(value: Any):
 
 
 def _jsonable(value: Any) -> Any:
+    # Dataclasses are walked field by field rather than through asdict(): asdict
+    # deep-copies every leaf, and the locked claim plan in a retrieval pack is
+    # frozen into read-only mappings that cannot be copied. That made saving a
+    # drafted case to Postgres fail with "cannot pickle 'mappingproxy'".
+    if is_dataclass(value) and not isinstance(value, type):
+        return {f.name: _jsonable(getattr(value, f.name)) for f in fields(value)}
     if isinstance(value, (date, datetime)):
         return value.isoformat()
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return {k: _jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]

@@ -95,8 +95,8 @@ stop_rules:
     customer_title: "We couldn't find a private parking notice"
     customer_message: >-
       We couldn't identify a private parking charge notice in what you uploaded.
-      Please upload a clear photo or scan of the parking charge notice itself -
-      all pages, and both sides if it is printed on both.
+      Please upload a clear photo or scan of the front of the parking charge
+      notice itself. The back is optional - add it if you have it.
     cta:
       label: "Upload the notice again"
       action: RESTART_UPLOAD

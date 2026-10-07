@@ -37,7 +37,7 @@ const RAIL: Record<Screen, RailStage> = {
 const WORKING: Record<string, { label: string; detail: string; steps: string[] }> = {
   reading: {
     label: "We're reading your notice…",
-    detail: "We are reading the notice details and checking that the uploaded pages match.",
+    detail: "We are reading the details on your notice.",
     steps: ["Identifying parking company", "Reading notice details", "Extracting key information"],
   },
   drafting: {

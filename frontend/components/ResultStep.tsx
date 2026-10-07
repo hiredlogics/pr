@@ -177,7 +177,7 @@ export default function ResultStep({
       : technicalError
         ? "Something went wrong at our end"
         : isNeedsDocs
-          ? "We need clearer documents"
+          ? "Please check that your pages match"
           : isNeedsFacts
             ? "A few more details are needed"
             : isNoGrounds
