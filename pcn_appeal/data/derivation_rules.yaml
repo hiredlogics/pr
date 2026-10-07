@@ -53,7 +53,9 @@ site_types:
     patterns: ['hospital', '\bnhs\b', 'infirmary', 'medical\s+cent']
 
 # Land under statutory control (byelaws) is not "relevant land" for PoFA
-# Schedule 4 (pofa.py docstring). Matching sets relevant_land = False, which
+# Schedule 4, para 3 (pofa.py docstring). Each listed airport must be checked
+# against its own byelaws (that they cover parking/waiting) at legal sign-off.
+# Matching sets relevant_land = False, which
 # makes pofa.assess return NOT_APPLICABLE so no keeper-timing argument is made.
 # NOTE: the KB has no module that argues this point yet. Until the client adds
 # one, matching a byelaw site removes the PoFA framing, it does not add a ground.
@@ -61,4 +63,8 @@ byelaw_sites:
   patterns: ['stansted\s+airport', 'luton\s+airport', 'heathrow', 'gatwick', 'manchester\s+airport',
              'birmingham\s+airport', 'bristol\s+airport', 'east\s+midlands\s+airport', 'liverpool\s+john\s+lennon',
              'london\s+city\s+airport', 'leeds\s+bradford\s+airport', 'newcastle\s+airport',
-             'railway\s+station', '\bstation\s+car\s+park', '\bport\s+of\s+']
+             '\bport\s+of\s+']
+# Railway stations are deliberately NOT listed. The Protection of Freedoms Act
+# 2012 (Definition of Relevant Land) (Amendment) Order 2025, in force
+# 26 December 2025, brought land under Railway Byelaws back into "relevant
+# land", so PoFA keeper liability can apply at station car parks again.

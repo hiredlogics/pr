@@ -93,6 +93,13 @@ class Derivation(unittest.TestCase):
         derive(case)
         self.assertIs(case.get("short_presence_before_acceptance"), False)
 
+    def test_railway_station_is_relevant_land_since_the_2025_order(self):
+        # Railway Byelaws land was brought back into "relevant land" from
+        # 26 Dec 2025, so a station car park must not be marked as byelaw land.
+        case = notice("Stevenage Railway Station Car Park", "No valid parking session")
+        derive(case)
+        self.assertFalse(case.has("relevant_land"))
+
     def test_nothing_written_when_nothing_matches(self):
         case = notice("Canada Water Estate, SE16 7LL", "Breach of terms and conditions")
         self.assertEqual(derive(case), {})
