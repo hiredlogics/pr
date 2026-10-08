@@ -19,14 +19,18 @@ export default function QuestionsStep({
   busy,
   onSubmit,
   onSkip,
+  onUpload,
 }: {
   questions: Question[];
   round: number;
   busy: boolean;
   onSubmit: (answers: Record<string, unknown>) => void;
   onSkip: () => void;
+  /** An "upload" question (fact `evidence:<KIND>`): send the files, then continue. */
+  onUpload?: (kind: string, files: File[]) => void;
 }) {
   const [draft, setDraft] = useState<Draft>({});
+  const [uploads, setUploads] = useState<Record<string, File[]>>({});
   const [error, setError] = useState<string | null>(null);
 
   // A fresh round brings fresh facts; identity of the set is what resets us.
@@ -35,6 +39,7 @@ export default function QuestionsStep({
   if (seenKey !== key) {
     setSeenKey(key);
     setDraft({});
+    setUploads({});
     setError(null);
   }
 
@@ -51,10 +56,19 @@ export default function QuestionsStep({
     });
   }
 
-  const answeredCount = questions.filter((q) => draft[q.fact] !== undefined).length;
+  const answeredCount = questions.filter(
+    (q) => draft[q.fact] !== undefined || (uploads[q.fact]?.length ?? 0) > 0,
+  ).length;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    // An upload question is answered by its files. The backend asks for one
+    // document at a time, so an upload goes on its own.
+    const upload = questions.find((q) => q.type === "upload" && (uploads[q.fact]?.length ?? 0) > 0);
+    if (upload && onUpload) {
+      onUpload(upload.fact.replace(/^evidence:/, ""), uploads[upload.fact]);
+      return;
+    }
     const payload: Record<string, unknown> = {};
 
     for (const q of questions) {
@@ -82,7 +96,11 @@ export default function QuestionsStep({
     }
 
     if (Object.keys(payload).length === 0) {
-      setError("Answer at least one question, or choose to skip the rest.");
+      setError(
+        questions.some((q) => q.type === "upload")
+          ? "Choose a file to upload, or choose to skip if you don't have one."
+          : "Answer at least one question, or choose to skip the rest.",
+      );
       return;
     }
     onSubmit(payload);
@@ -151,6 +169,27 @@ export default function QuestionsStep({
                 placeholder="Number of minutes"
                 style={{ maxWidth: "12rem" }}
               />
+            )}
+
+            {q.type === "upload" && (
+              <div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                  multiple
+                  aria-label="Upload a receipt or statement"
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    setError(null);
+                    setUploads((u) => ({ ...u, [q.fact]: picked }));
+                  }}
+                />
+                {(uploads[q.fact]?.length ?? 0) > 0 && (
+                  <p className="lede" style={{ marginTop: 6 }}>
+                    {uploads[q.fact].map((f) => f.name).join(", ")}
+                  </p>
+                )}
+              </div>
             )}
 
             {q.type === "text" && (

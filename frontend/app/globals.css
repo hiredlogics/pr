@@ -764,6 +764,41 @@ input::placeholder {
   margin-bottom: 0;
 }
 
+.letter-sheet-addresses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 0 0 18px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .letter-sheet-addresses {
+    grid-template-columns: 1fr;
+  }
+}
+
+.letter-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.letter-placeholder {
+  color: #b45309;
+}
+
+.letter-subject {
+  font-weight: 700;
+}
+
+.letter-signature {
+  margin-top: 1.8em;
+}
+
 .letter-sheet-note {
   margin: 18px 0 0;
   padding-top: 10px;

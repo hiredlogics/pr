@@ -76,7 +76,8 @@ class DocumentPointedGaps(unittest.TestCase):
     def test_airport_dropoff_points_at_consideration_and_dropoff(self):
         g = self.gaps(LUTON["parking_location"], LUTON["alleged_breach"], 3)
         self.assertEqual(g.get("KB-CON-01"), {"payment_made"})
-        self.assertEqual(g.get("KB-ACT-02"), {"dropoff_activity"})
+        # payment_made is ACT-02's blocker; unknown, it is asked too (P8 follow-up).
+        self.assertEqual(g.get("KB-ACT-02"), {"dropoff_activity", "payment_made"})
 
     def test_supermarket_overstay_points_at_grace_and_customer(self):
         g = self.gaps(SAINSBURYS["parking_location"], SAINSBURYS["alleged_breach"], 207)

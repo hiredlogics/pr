@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Optional
 
 from .. import prompts
@@ -31,11 +33,12 @@ CONFIDENCE_THRESHOLD = 0.85
 # modules gate on their own evidence codes. Where the two names differ, the
 # label is translated here so `has_evidence` sees the code the modules use.
 DOC_TYPE_ALIASES = {"WITNESS_STATEMENT": "WITNESS"}
-DATE_FIELDS = {"parking_event_date", "notice_issue_date", "notice_received_date", "ntd_date"}
+DATE_FIELDS = {"parking_event_date", "notice_issue_date", "notice_received_date", "ntd_date",
+               "appeal_deadline_date"}
 VRM_FIELDS = {"vrm", "vrm_entered"}              # both normalised the same way (EX-08)
 # Normalised for the same reason dates are: notices print "19/09/2026 12:23" in a
 # field labelled as a time, and the raw value ends up quoted in the letter.
-TIME_FIELDS = {"entry_time", "exit_time", "observation_time", "event_time"}
+TIME_FIELDS = {"entry_time", "exit_time", "observation_time", "event_time", "paid_until_time"}
 BOOL_FIELDS = {
     "notice_sides_complete", "ntk_invites_name_driver", "ntk_invites_pass_to_driver",
     "ntk_defect_statutory_invitation", "ntk_defect_document_confirmed",
@@ -211,6 +214,34 @@ def jurisdiction_from_postcode(pc: Optional[str]) -> str:
     return "ENGLAND_WALES"
 
 
+_POSTCODE_IN_TEXT = re.compile(r"\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b", re.I)
+_PLACES_PATH = Path(__file__).resolve().parent.parent / "data" / "place_jurisdictions.yaml"
+
+
+def postcode_in(text: Any) -> Optional[str]:
+    """A full UK postcode printed in `text`, normalised ("M50 3AH"), or None."""
+    m = _POSTCODE_IN_TEXT.search(str(text or ""))
+    return f"{m.group(1).upper()} {m.group(2).upper()}" if m else None
+
+
+@lru_cache(maxsize=1)
+def _place_patterns() -> dict:
+    import yaml
+    with open(_PLACES_PATH, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    return {j: re.compile(r"\b(" + "|".join(re.escape(n).replace(r"\ ", r"[\s-]+").replace(r"\-", r"[\s-]+")
+                                           for n in names) + r")\b", re.I)
+            for j, names in data.items() if names}
+
+
+def place_jurisdiction(text: Any) -> str:
+    """Jurisdiction named by the place in the site wording; UNKNOWN when none
+    is named or places in more than one jurisdiction are."""
+    blob = str(text or "")
+    hits = {j for j, pat in _place_patterns().items() if pat.search(blob)}
+    return hits.pop() if len(hits) == 1 else "UNKNOWN"
+
+
 def derive_jurisdiction(case: CaseFile) -> str:
     """EX-05. Also called again before the PoFA assessment: `site_postcode` can
     arrive from an answer long after extraction, and Schedule 4 does not apply
@@ -227,19 +258,27 @@ def derive_jurisdiction(case: CaseFile) -> str:
     if held is not None and held.value not in (None, "", "UNKNOWN") \
             and held.status in (FactStatus.CORRECTED, FactStatus.CONFIRMED, FactStatus.ANSWERED):
         return held.value
+    if not case.get("site_postcode"):
+        # A postcode printed inside the site wording is the site's own
+        # ("Quayside Shopping Centre (M50 3AH)"); record it so it is not asked.
+        pc = postcode_in(case.get("parking_location"))
+        if pc:
+            case.put(Fact("F-site_postcode", "site_postcode", pc, FactStatus.DERIVED,
+                          FactSource(SourceKind.CALCULATION, "postcode_in_location")))
     j = jurisdiction_from_postcode(case.get("site_postcode"))
     # Keeper letterhead postcodes must not decide site jurisdiction. If the
-    # postcode lookup is UNKNOWN, a clear England/Wales site wording on the
-    # notice is enough to open Schedule 4 for further checks (timing/content).
+    # postcode lookup is UNKNOWN, a place named in the site wording decides
+    # (data/place_jurisdictions.yaml); places in two jurisdictions -> UNKNOWN.
     if j == "UNKNOWN":
         loc = " ".join(str(case.get(n) or "") for n in (
             "parking_location", "relevant_land_hint", "alleged_breach"))
-        if re.search(
-            r"\b(London|Wembley|Manchester|Birmingham|Leeds|Liverpool|Bristol|"
-            r"Sheffield|England|Wales|EW|United\s+Kingdom|UK)\b",
-            loc, re.I,
-        ) and not re.search(r"\b(Scotland|Northern\s+Ireland|\bNI\b)\b", loc, re.I):
-            j = "ENGLAND_WALES"
+        j = place_jurisdiction(loc)
+    if j == "UNKNOWN":
+        # The model's reading of the site's own location (extraction
+        # `site_country`), for towns the place list does not hold.
+        country = str(case.get("site_country") or "").upper()
+        j = {"ENGLAND": "ENGLAND_WALES", "WALES": "ENGLAND_WALES",
+             "SCOTLAND": "SCOTLAND", "NORTHERN_IRELAND": "NORTHERN_IRELAND"}.get(country, j)
     if j == "UNKNOWN":
         # P8: a listed statutory-control location ("Luton Airport Pick Up /
         # Drop Off Zone" prints no postcode) carries its own jurisdiction.

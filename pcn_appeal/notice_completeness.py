@@ -200,7 +200,19 @@ def different_notices(case: CaseFile) -> Optional[dict]:
     notices differed in every character: refusing a genuine pair leaves the
     customer stuck, and a smaller misread is shown on the confirmation screen."""
     seen: dict[str, dict[str, str]] = {"vrm": {}, "pcn_number": {}}
+    operators: dict[str, str] = {}
     for ev_id, c in (case.classifications or {}).items():
+        if (c or {}).get("document_type") in (None, "PRIVATE_PARKING_NOTICE"):
+            issuer = (c or {}).get("issuer") or {}
+            if str(issuer.get("kind") or "PRIVATE_OPERATOR").upper() == "PRIVATE_OPERATOR":
+                name = issuer.get("name")
+                if operator_words(name):
+                    for other_id, other in operators.items():
+                        if same_operator(name, other) is False:
+                            # Back-page check: pages printed by two different
+                            # operators are not one notice (live CP Plus case).
+                            return {"field": "operator_name", "documents": [other_id, ev_id]}
+                    operators[ev_id] = name
         if (c or {}).get("document_type") not in (None, "PRIVATE_PARKING_NOTICE"):
             continue
         refs = (c or {}).get("references") or {}
@@ -217,6 +229,51 @@ def different_notices(case: CaseFile) -> Optional[dict]:
                     return {"field": key, "documents": [other_id, ev_id]}
             seen[key][ev_id] = value
     return None
+
+
+# Words that say what kind of company it is, not which one.
+_OPERATOR_FILLER = frozenset("""
+ltd limited plc llp llc uk gb the and of co company group holdings services service
+parking park parks car cars management managements enforcement solutions systems
+""".split())
+
+
+_LEGAL_WORDS = frozenset("ltd limited plc llp llc the and of uk gb co".split())
+
+
+def _squash(words: list[str]) -> str:
+    return "".join(w for w in words if w not in _LEGAL_WORDS)
+
+
+def same_operator(a, b) -> Optional[bool]:
+    """Do two printed operator names name the same company? None when either
+    name has nothing distinguishing in it, which never counts as a mismatch.
+    Same when they share a distinguishing word ("APCOA Parking (UK) Ltd" /
+    "APCOA"), one is the other run together ("ParkMaven" / "Park Maven Ltd"),
+    or one is the other's initials ("ECP Ltd" / "Euro Car Parks Limited")."""
+    wa = re.findall(r"[a-z0-9]+", str(a or "").lower())
+    wb = re.findall(r"[a-z0-9]+", str(b or "").lower())
+    ca, cb = operator_words(a), operator_words(b)
+    if not ca or not cb:
+        return None
+    if ca & cb:
+        return True
+    sa, sb = _squash(wa), _squash(wb)
+    if sa and sb and (sa in sb or sb in sa):
+        return True
+    def initials(words):
+        # "UKPC" keeps the UK, "CEL" keeps the Ltd: try with and without them.
+        head = [w if w in ("uk", "gb") else w[0] for w in words]
+        return {x for x in ("".join(head),
+                            "".join(w[0] for w in words if w not in _LEGAL_WORDS)) if len(x) >= 2}
+    return bool({sb, "".join(wb)} & initials(wa)) or bool({sa, "".join(wa)} & initials(wb))
+
+
+def operator_words(name) -> set[str]:
+    """The distinguishing words of an operator name: "Euro Car Parks Limited" ->
+    {"euro"}; "CP Plus Ltd" -> {"cp", "plus"}."""
+    words = re.findall(r"[a-z0-9]+", str(name or "").lower())
+    return {w for w in words if w not in _OPERATOR_FILLER and len(w) > 1}
 
 
 def notice_pages_sufficient(case: CaseFile) -> tuple[bool, str]:

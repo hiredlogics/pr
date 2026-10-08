@@ -43,7 +43,7 @@ from ..routes import Route
 
 SUPPORTING_THRESHOLD = 50
 # Grounds whose approved paragraphs are always all used, in module order.
-FIXED_FORM_MODULES = frozenset({"KB-POFA-07", "KB-KEEPER-01"})
+FIXED_FORM_MODULES = frozenset({"KB-POFA-07", "KB-POFA-08", "KB-KEEPER-01"})
 GLOBAL_PROHIBITED = [
     "genuine pre-estimate of loss", "unlawful penalty", "who was driving",
     "breakdown automatically frustrates", "10 minutes always cancels",
@@ -558,7 +558,7 @@ class ReasoningEngine:
         # Free-text answer values and raw material points must never reach the
         # drafter as pasteable copy — only structured / professionally authored facts.
         withheld_from_drafter = (
-            "lease_clauses", "keeper_name", "keeper_address",
+            "lease_clauses", "keeper_name", "keeper_address", "operator_address",
             "material_account_points", "material_account_summary",
             "customer_described_event",          # provenance only (P1), not letter content
             *NARRATIVE_INTERNAL,                 # internal narrative atoms only

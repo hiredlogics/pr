@@ -105,6 +105,35 @@ export async function uploadBlobs(
   );
 }
 
+/** A document the case asked for mid-way (a receipt), multipart. */
+export async function uploadEvidence(
+  caseId: string,
+  kind: string,
+  files: File[],
+): Promise<AppealResponse> {
+  const body = new FormData();
+  body.append("kind", kind);
+  for (const f of files) body.append("files", f, f.name);
+  return unwrap<AppealResponse>(
+    await call(`/cases/${encodeURIComponent(caseId)}/evidence`, { method: "POST", body }),
+  );
+}
+
+/** The same, for files the browser uploaded straight to storage. */
+export async function uploadEvidenceBlobs(
+  caseId: string,
+  kind: string,
+  blobs: { url: string; filename: string }[],
+): Promise<AppealResponse> {
+  return unwrap<AppealResponse>(
+    await call(`/cases/${encodeURIComponent(caseId)}/evidence-blobs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, blobs }),
+    }),
+  );
+}
+
 export async function getConfirmation(caseId: string): Promise<Confirmation> {
   return unwrap<Confirmation>(await call(`/cases/${encodeURIComponent(caseId)}/confirmation`));
 }

@@ -41,7 +41,7 @@ const ALLOWED: ReadonlyArray<readonly [string, RegExp]> = [
   ["POST", /^appeal\/files$/],
   ["POST", /^appeal\/(?!files$)[^/]+$/],
   ["POST", /^cases$/],
-  ["POST", /^cases\/[^/]+\/(files|blobs|confirm|reopen-upload)$/],
+  ["POST", /^cases\/[^/]+\/(files|blobs|confirm|reopen-upload|evidence|evidence-blobs)$/],
   ["GET", /^cases\/[^/]+\/(confirmation|letter\.pdf)$/],
 ];
 

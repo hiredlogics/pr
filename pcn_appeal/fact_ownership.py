@@ -26,6 +26,8 @@ DOCUMENT_OWNED = frozenset({
     "contravention_date", "entry_time", "exit_time",
     "charge_amount", "reduced_amount", "alleged_breach",
     "parking_location", "site_postcode", "keeper_name", "keeper_address",
+    "operator_address", "permitted_period", "paid_until_time", "appeal_deadline_date",
+    "statutory_land_indicator", "statutory_land_evidence", "site_country",
 })
 
 CUSTOMER_OWNED = frozenset({

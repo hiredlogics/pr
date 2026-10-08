@@ -47,6 +47,11 @@ from .knowledge_matcher import OFFERABLE, RELEVANT, SUPPORTED, KnowledgeMatcher
 # default. `questions.yaml` still supplies these caps and the banned terms; it no
 # longer supplies the questions.
 DEFAULT_MAX_QUESTIONS = 4
+
+# Grounds that cite a Schedule 4 paragraph but assert no defect: they put the
+# operator to proof (KB-POFA-08: is the airport land relevant land?). They need
+# no verified PoFA finding, because they claim none.
+STRICT_PROOF_MODULES = frozenset({"KB-POFA-08"})
 DEFAULT_MAX_ROUNDS = 3
 CANDIDATE_LIMIT = 24
 
@@ -105,7 +110,7 @@ def _customer_sourced(case: CaseFile, fact: str) -> bool:
 
 
 def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
-                          facts: dict[str, Any]) -> list[tuple[str, set]]:
+                          facts: dict[str, Any], hints: bool = True) -> list[tuple[str, set]]:
     """Claim grounds the documents point at, with the facts still to ask.
 
     A module qualifies when its use_when is UNKNOWN (not FALSE), at least one of
@@ -117,6 +122,9 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
     from ..module_roles import can_be_claim_ground
     from ..rules.dsl import evaluate3
 
+    from ..engines.derivation import load_rules
+    hinted = {mid for fact, mids in (load_rules().get("points_at") or {}).items()
+              if facts.get(fact) is True for mid in mids} if hints else set()
     out: list[tuple[str, set]] = []
     modules = sorted(kg.active_modules(), key=lambda m: (-int(m.strength or 0), m.module_id))
     for m in modules:
@@ -125,9 +133,11 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
         uw = m.use_when
         if not isinstance(uw, dict) or uw.get("always") is True:
             continue
-        if evaluate3(uw, facts) is not None:      # already TRUE or FALSE
+        gate = evaluate3(uw, facts)
+        if gate is False:
             continue
-        if evaluate3(m.do_not_use_when, facts) is True:
+        blocker = evaluate3(m.do_not_use_when, facts)
+        if blocker is True:
             continue
         # A bare `exists` (alleged_breach, entry_time) is true on nearly every
         # notice, so it says nothing about this case. Only a condition that tests
@@ -139,11 +149,34 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
             for c in _conditions(uw)
         )
         if not pointed:
+            # Retrieval aid: a site character the notice shows (derivation
+            # `points_at`) points at grounds whose gates do not name it.
+            pointed = m.module_id in hinted
+        if not pointed:
+            continue
+        if gate is True:
+            # The gate is met; only an unresolved blocker the customer can
+            # settle stands between the case and the ground (KB-CON-01 on a
+            # short stay with no breach class settling permitted_period_ended).
+            if blocker is None:
+                need = {f for f in _facts_in(m.do_not_use_when)
+                        if facts.get(f) in (None, "", []) and not is_internal_fact(f)
+                        and kg.question_for(f)}
+                if need:
+                    out.append((m.module_id, need))
             continue
         missing = {f for f in _facts_in(uw)
                    if facts.get(f) in (None, "", []) and not is_internal_fact(f)}
-        if missing and all(kg.question_for(f) for f in missing):
-            out.append((m.module_id, missing))
+        # An unresolved blocker the customer can settle (permitted_period_ended
+        # for KB-CON-01 once no breach class settles it) is asked too.
+        if evaluate3(m.do_not_use_when, facts) is None:
+            missing |= {f for f in _facts_in(m.do_not_use_when)
+                        if facts.get(f) in (None, "", []) and not is_internal_fact(f)}
+        # Only what the customer can be asked; a fact a calculation supplies
+        # (within_grace_period) is one alternative, not a reason to skip.
+        askable = {f for f in missing if kg.question_for(f)}
+        if askable:
+            out.append((m.module_id, askable))
     return out
 
 
@@ -784,6 +817,8 @@ class AnalysisEngine:
     def _needs_pofa_finding(module: KBModule) -> bool:
         """A ground that alleges a Schedule 4 timing failure. The framing ground
         (keeper liability is not automatic) asserts no defect, so it is exempt."""
+        if module.module_id in STRICT_PROOF_MODULES:
+            return False
         bases = [str(s) for s in (module.legal_basis or [])]
         return any("para" in b and "PoFA" in b for b in bases)
 
@@ -878,6 +913,9 @@ class AnalysisEngine:
                     "unlocks": [mid],
                     "kb_gated": True,
                     "source": "kb_gate",
+                    # The notice itself points at this ground (P8): the
+                    # Question Authority asks these before generic gates.
+                    "notice_pointed": prio == 2,
                     "_prio": prio,
                 })
 
@@ -896,11 +934,16 @@ class AnalysisEngine:
         #     is asked for its remaining customer facts, whatever the account
         #     says. This is the gate deciding the question, not narrative hints,
         #     so the same notice gets the same questions every time.
+        # A ground reached only through a retrieval hint (a retail park points
+        # at KB-CUST-01) is asked after the generic gates (4), so a hint never
+        # pushes a central question such as payment_made past the cap.
+        strong = {mid for mid, _ in document_pointed_gaps(self.kg, case, facts, hints=False)}
         for mid, missing in document_pointed_gaps(self.kg, case, facts):
             if mid in (result.module_ids or []):
                 continue
             _add(mid, missing, f"the notice partly satisfies {mid}; "
-                               f"{', '.join(sorted(missing))} decides it", prio=2)
+                               f"{', '.join(sorted(missing))} decides it",
+                 prio=2 if mid in strong else 4)
 
         # 2) Thin-account path: only primary ACCOUNT_GATES on unresolved /
         #    candidate claim grounds. If the resolver window is empty, still
@@ -1139,6 +1182,8 @@ class AnalysisEngine:
                 question["unlocks"] = list(entry["unlocks"])
             if kb_gated:
                 question["kb_gated"] = True
+            if (entry or {}).get("notice_pointed"):
+                question["notice_pointed"] = True
             if (entry or {}).get("material_because"):
                 question["material_reason"] = str(entry["material_because"])
             out.append(question)

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { AppealResponse } from "@/lib/types";
-import { FlagNotes, ReadAsNotes, RejectedNotes } from "./Notices";
+import type { AppealResponse, LetterDocument } from "@/lib/types";
+import { CustomerNotices, FlagNotes, ReadAsNotes, RejectedNotes } from "./Notices";
 import TraceGate from "./trace/TraceGate";
 
 /**
@@ -71,13 +71,23 @@ function letterParagraphs(letter: string): string[] {
     .filter(Boolean);
 }
 
-function LetterPreview({ caseId, letter }: { caseId: string; letter: string }) {
+function LetterPreview({
+  caseId,
+  letter,
+  doc,
+}: {
+  caseId: string;
+  letter: string;
+  doc?: LetterDocument;
+}) {
   const paragraphs = letterParagraphs(letter);
-  const today = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const today =
+    doc?.date ??
+    new Date().toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
 
   return (
     <article className="letter-sheet" aria-label="Appeal letter preview">
@@ -93,11 +103,38 @@ function LetterPreview({ caseId, letter }: { caseId: string; letter: string }) {
           <div>{today}</div>
         </div>
       </header>
+      {doc && (
+        <div className="letter-sheet-addresses">
+          <div>
+            <div className="letter-label">From</div>
+            {doc.from_lines.map((l, i) => (
+              <div key={i} className={doc.from_complete ? undefined : "letter-placeholder"}>{l}</div>
+            ))}
+          </div>
+          <div>
+            <div className="letter-label">To</div>
+            {doc.to_lines.map((l, i) => (
+              <div key={i} className={!doc.to_complete && l.startsWith("[") ? "letter-placeholder" : undefined}>
+                {l}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="letter-sheet-body">
+        {doc && <p className="letter-subject">{doc.subject}</p>}
+        {doc && <p>{doc.salutation}</p>}
         {paragraphs.map((p, i) => (
           <p key={i}>{p}</p>
         ))}
+        {doc && <p>{doc.sign_off}</p>}
+        {doc?.signature && <p className="letter-signature">{doc.signature}</p>}
       </div>
+      {doc && (!doc.from_complete || !doc.to_complete) && (
+        <p className="letter-sheet-note">
+          Fill in anything shown in [brackets] before you send the letter.
+        </p>
+      )}
       <p className="letter-sheet-note">
         Preview of your letter. Download the PDF to send to the operator.
       </p>
@@ -285,11 +322,17 @@ export default function ResultStep({
             <p className="qcount">Ready to send</p>
             <span className="letter-actions">
               <DownloadPdfButton caseId={data.case_id} />
-              <CopyButton text={data.letter as string} />
+              <CopyButton text={(data.letter_full ?? data.letter) as string} />
             </span>
           </div>
 
-          <LetterPreview caseId={data.case_id} letter={data.letter as string} />
+          {data.notices && <CustomerNotices notices={data.notices} />}
+
+          <LetterPreview
+            caseId={data.case_id}
+            letter={data.letter as string}
+            doc={data.letter_document}
+          />
         </div>
       ) : (
         <div className="card stack">

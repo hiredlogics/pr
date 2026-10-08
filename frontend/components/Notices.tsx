@@ -1,5 +1,5 @@
 import { describeFlag } from "@/lib/flags";
-import type { ReadAs, Rejected } from "@/lib/types";
+import type { CustomerNotice, ReadAs, Rejected } from "@/lib/types";
 
 /**
  * What the backend could not read, in the customer's terms.
@@ -61,5 +61,20 @@ export function ReadAsNotes({ readAs }: { readAs: ReadAs[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Things the customer should know about their letter (e.g. a late appeal). */
+export function CustomerNotices({ notices }: { notices: CustomerNotice[] }) {
+  if (notices.length === 0) return null;
+  return (
+    <>
+      {notices.map((n) => (
+        <div className="notice" data-tone="attention" key={n.code}>
+          <h3>{n.title}</h3>
+          <p>{n.message}</p>
+        </div>
+      ))}
+    </>
   );
 }

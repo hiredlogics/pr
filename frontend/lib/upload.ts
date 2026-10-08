@@ -1,5 +1,5 @@
-import { ApiError, type UploadResult } from "./types";
-import { uploadBlobs, uploadToCase } from "./api";
+import { ApiError, type AppealResponse, type UploadResult } from "./types";
+import { uploadBlobs, uploadEvidence, uploadEvidenceBlobs, uploadToCase } from "./api";
 import { prepareFilesForUpload } from "./compress";
 
 /**
@@ -28,7 +28,7 @@ export function tooLarge(files: File[]): File[] {
   return files.filter((f) => f.size > MAX_UPLOAD_BYTES);
 }
 
-export async function sendFiles(caseId: string, files: File[]): Promise<UploadResult> {
+async function prepare(files: File[]): Promise<File[]> {
   // Shrink large phone photos before any network hop — otherwise Vercel drops
   // the request (413 FUNCTION_PAYLOAD_TOO_LARGE) and the browser often reports
   // a generic "could not reach the appeal service" error.
@@ -43,14 +43,15 @@ export async function sendFiles(caseId: string, files: File[]): Promise<UploadRe
       413,
     );
   }
+  return prepared;
+}
 
-  if (UPLOAD_MODE === "proxy") return uploadToCase(caseId, prepared);
-
+async function toBlobs(files: File[]): Promise<{ url: string; filename: string }[]> {
   // Dynamic import: the client SDK is only pulled into the bundle for
   // deployments that actually use it.
   const { upload } = await import("@vercel/blob/client");
-  const blobs = await Promise.all(
-    prepared.map(async (file) => {
+  return Promise.all(
+    files.map(async (file) => {
       const result = await upload(file.name, file, {
         access: "public",
         handleUploadUrl: "/api/blob/upload",
@@ -59,5 +60,21 @@ export async function sendFiles(caseId: string, files: File[]): Promise<UploadRe
       return { url: result.url, filename: file.name };
     }),
   );
-  return uploadBlobs(caseId, blobs);
+}
+
+export async function sendFiles(caseId: string, files: File[]): Promise<UploadResult> {
+  const prepared = await prepare(files);
+  if (UPLOAD_MODE === "proxy") return uploadToCase(caseId, prepared);
+  return uploadBlobs(caseId, await toBlobs(prepared));
+}
+
+/** A document the case asked for mid-way (e.g. a receipt), then continue. */
+export async function sendEvidence(
+  caseId: string,
+  kind: string,
+  files: File[],
+): Promise<AppealResponse> {
+  const prepared = await prepare(files);
+  if (UPLOAD_MODE === "proxy") return uploadEvidence(caseId, kind, prepared);
+  return uploadEvidenceBlobs(caseId, kind, await toBlobs(prepared));
 }

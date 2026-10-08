@@ -45,11 +45,27 @@ MAX_ATTEMPTS = 3
 MAX_ANALYSIS_ROUNDS = 3
 
 
+DECLINED_KEY = "_declined"
+
+
+def declined_questions(case: CaseFile) -> set[str]:
+    """Facts the customer chose to skip. Recorded in raw_answers so it persists
+    with the case; never asked again and never a reason to hold."""
+    raw = (case.raw_answers or {}).get(DECLINED_KEY) or ""
+    return {f for f in raw.split(",") if f}
+
+
+def record_declined(case: CaseFile, facts) -> None:
+    now = declined_questions(case) | {f for f in facts if f}
+    if now:
+        case.raw_answers[DECLINED_KEY] = ",".join(sorted(now))
+
+
 def _with_outcome(out: AppealOutput, case: CaseFile) -> AppealOutput:
     """Attach a customer outcome when the letter was not released, and close
     the run: this outcome is the run's, and the next step starts a new one."""
     if case.get("appeal_period_expired"):
-        out.customer_notices = [dict(AppealPipeline.LATE_APPEAL_NOTICE)]
+        out.customer_notices = [AppealPipeline.late_notice(case)]
         case.audit.append({"event": "customer_notice",
                            "codes": ["APPEAL_PERIOD_MAY_HAVE_EXPIRED"]})
     if out.state == CaseState.RELEASED:
@@ -272,6 +288,13 @@ class AppealPipeline:
         postcode anyway at hold time. Returns ([], {}) when asking it cannot
         change the outcome.
         """
+        if "site_postcode" in declined_questions(case):
+            # Skip-loop fix: the customer skipped it once; holding for it again
+            # would show the same question forever. The keeper appeal that does
+            # not depend on the jurisdiction goes ahead instead.
+            case.audit.append({"event": "site_postcode_skipped",
+                               "reason": "customer_declined"})
+            return [], {}
         if case.get("jurisdiction") not in (None, "", "UNKNOWN"):
             case.audit.append({
                 "event": "site_postcode_skipped",
@@ -333,6 +356,71 @@ class AppealPipeline:
         # gets only fact/text/type (customer_safe.customer_question).
         return [{"fact": "site_postcode", "type": q.get("type", "text"), "text": q["text"],
                  "source": POSTCODE, "unlocks": unlocks}]
+
+    # Documents a customer can be asked to upload (pcn_appeal/evidence_requests.py).
+    from .evidence_requests import EVIDENCE_REQUESTS
+
+    def evidence_requests(self, case: CaseFile) -> list[dict]:
+        """Upload requests for grounds held back only by a missing document.
+
+        A module qualifies when its use_when is not yet TRUE, would be TRUE with
+        that document uploaded, and its do_not_use_when is not TRUE. Asked once:
+        an upload or a skip settles it. Never asked when the keeper route is
+        closed, since nothing here could then be argued."""
+        from .disclosure import keeper_route_blocked
+        from .rules.dsl import evaluate3
+        if keeper_route_blocked(case):
+            return []
+        view = case.fact_view()
+        have = set(view.get("evidence_kinds") or [])
+        declined = declined_questions(case)
+        out: list[dict] = []
+        for kind, spec in self.EVIDENCE_REQUESTS.items():
+            fact = f"evidence:{kind}"
+            if fact in case.asked_questions or fact in declined:
+                continue
+            if have & {kind, *spec["also"]}:
+                continue
+            with_doc = dict(view, evidence_kinds=sorted(have | {kind}))
+            unlocks = [m.module_id for m in self.kg.active_modules()
+                       if evaluate3(m.use_when, view) is not True
+                       and evaluate3(m.use_when, with_doc) is True
+                       and evaluate3(m.do_not_use_when, with_doc) is not True]
+            if not unlocks:
+                continue
+            location = str(case.get("parking_location") or "the site")
+            out.append({"fact": fact, "type": "upload", "evidence_kind": kind,
+                        "text": spec["text"].format(location=location)})
+            case.asked_questions.append(fact)
+            case.audit.append({"event": "evidence_requested", "kind": kind, "unlocks": unlocks})
+        if out:
+            case.pending_questions = out
+        return out
+
+    def add_customer_evidence(self, case: CaseFile, kind: str, items: list) -> list[str]:
+        """Attach documents the customer uploaded in answer to an evidence
+        request. The kind is the one requested, so the gate that asked for it
+        reads it; the file is listed among the letter's enclosures."""
+        from .models import EvidenceItem
+        if kind not in self.EVIDENCE_REQUESTS:
+            raise ValueError(f"no request for evidence of kind {kind}")
+        added = []
+        for doc in items:
+            n = len(case.evidence) + 1
+            while f"E{n}" in case.evidence:
+                n += 1
+            ev_id = f"E{n}"
+            case.evidence[ev_id] = EvidenceItem(ev_id, kind, doc.filename, text=doc.text,
+                                                images=doc.images,
+                                                storage_url=getattr(doc, "storage_url", None))
+            case.document_classes[ev_id] = kind
+            added.append(ev_id)
+        if added:
+            case.audit.append({"event": "customer_evidence_added", "kind": kind,
+                               "evidence": added})
+            case.pending_questions = [q for q in case.pending_questions or []
+                                      if q.get("fact") != f"evidence:{kind}"]
+        return added
 
     def _original_notice_question(self, case: CaseFile) -> list[dict]:
         """P8: a reminder or driver letter is not the first Notice to Keeper.
@@ -411,6 +499,9 @@ class AppealPipeline:
         customer did not substantiate.
         """
         flags: list[str] = []
+        # What the customer was looking at when they chose to skip: re-analysis
+        # below replaces pending_questions, so read it first.
+        shown_before = [q.get("fact") for q in (case.pending_questions or [])]
         case.ensure_run("auto_appeal")
         if case.state == CaseState.CREATED:
             flags = self.ingest(case)
@@ -432,8 +523,16 @@ class AppealPipeline:
         if answers:
             questions = self.answer(case, answers)
 
+        if not questions and not skip_remaining:
+            # Receipt request: a ground that only lacks a document the customer
+            # may hold (a receipt for KB-CUST-01) asks for it once.
+            questions = self.evidence_requests(case)
         blocking = [] if skip_remaining else questions
         skipped = [q["fact"] for q in questions if q not in blocking]
+        if skip_remaining:
+            record_declined(case, skipped + shown_before
+                            + [q.get("fact") for q in case.pending_questions or []])
+            case.pending_questions = []
         if blocking:
             case.audit.append({"event": "auto_appeal_paused",
                                "asking": [q["fact"] for q in blocking], "skipped": skipped})
@@ -753,6 +852,12 @@ class AppealPipeline:
             if late_blocks:
                 case.audit.append({"event": "late_appeal_wording", "attempt": attempt,
                                    "blocks": late_blocks})
+            if self._with_recorded_times(draft, pack):
+                case.audit.append({"event": "recorded_times_added", "attempt": attempt})
+            repeats = _without_repeats(draft)
+            if repeats:
+                case.audit.append({"event": "repeated_sentences_removed", "attempt": attempt,
+                                   "count": repeats})
             closing_blocks = self._with_closing(draft, pack)
             if closing_blocks:
                 case.audit.append({"event": "closing_added", "attempt": attempt,
@@ -1075,7 +1180,11 @@ class AppealPipeline:
         (PP-LATE-001, after the opening paragraph). Never stops the appeal."""
         if not case.get("appeal_period_expired") or not draft.paragraphs:
             return []
-        blk = self.kg.blocks.get("PP-LATE-001")
+        # Client 2026-10-08: when only a reminder is held and the original
+        # deadline cannot be established, the appeal MAY be late (PP-LATE-002).
+        bid = "PP-LATE-002" if case.get("appeal_period_status") == "MAY_HAVE_EXPIRED" \
+            else "PP-LATE-001"
+        blk = self.kg.blocks.get(bid)
         if blk is None or blk.status != "ACTIVE":
             return []
         body = _said(blk.letter_text)
@@ -1086,13 +1195,50 @@ class AppealPipeline:
             return []
         draft.paragraphs.insert(1 if len(draft.paragraphs) > 1 else len(draft.paragraphs),
                                 sentences)
-        return ["PP-LATE-001"]
+        return [bid]
+
+    @staticmethod
+    def _with_recorded_times(draft, pack) -> bool:
+        """Letter quality: state the operator's own recorded entry and exit
+        times when the letter does not already. They are document facts, read
+        off the notice; the sentence attributes them to the operator's records
+        and says nothing about who was driving."""
+        facts = pack.verified_facts or {}
+        entry, exit_ = facts.get("entry_time"), facts.get("exit_time")
+        if not entry or not exit_ or not draft.paragraphs:
+            return False
+        text = draft.plain_text()
+        if str(entry) in text and str(exit_) in text:
+            return False
+        from .models import DraftSentence
+        refs = [pack.fact_refs[k] for k in ("entry_time", "exit_time") if k in pack.fact_refs]
+        sentence = DraftSentence(
+            f"The operator's records show the vehicle entering at {entry} and leaving at {exit_}.",
+            refs, ["STRUCTURAL"], [])
+        for i, para in enumerate(draft.paragraphs):
+            if any("alleges" in s.text for s in para):
+                para.append(sentence)
+                return True
+        draft.paragraphs.insert(1 if len(draft.paragraphs) > 1 else len(draft.paragraphs),
+                                [sentence])
+        return True
 
     def customer_notices(self, case: CaseFile) -> list[dict]:
         out = []
         if case.get("appeal_period_expired"):
-            out.append(dict(self.LATE_APPEAL_NOTICE))
+            out.append(self.late_notice(case))
         return out
+
+    @classmethod
+    def late_notice(cls, case: CaseFile) -> dict:
+        notice = dict(cls.LATE_APPEAL_NOTICE)
+        if case.get("appeal_period_status") == "MAY_HAVE_EXPIRED":
+            notice["message"] = (
+                "This letter refers to an earlier notice, and we could not find the date of "
+                "that first notice, so the normal appeal period may already have passed. "
+                "Your appeal has still been prepared, but the operator may say it was made "
+                "too late. Send it as soon as you can.")
+        return notice
 
     def _with_closing(self, draft, pack) -> list[str]:
         """Ensure the letter ends with an approved conclusion, not a bare ground.
@@ -1160,9 +1306,20 @@ class AppealPipeline:
         # one, a statutory conclusion appended after it left the letter asking
         # for cancellation and then carrying on, so the conclusion goes before
         # that last paragraph and the request to cancel stays last.
-        if len(draft.paragraphs) > 1 and _CANCEL_REQUEST.search(
-                " ".join(s.text for s in draft.paragraphs[-1])):
+        last = " ".join(s.text for s in draft.paragraphs[-1])
+        if len(draft.paragraphs) > 1 and _CANCEL_REQUEST.search(last):
             draft.paragraphs.insert(len(draft.paragraphs) - 1, closing)
+            # Letter quality: the statutory conclusion (PP-POFA-007, "For the
+            # reasons set out above, ...") now sits right before a closing that
+            # opens with the same words. Say it once: the closing keeps its
+            # request to cancel without repeating the opener.
+            head = _GENERIC_CLOSE.match(last)
+            if head and _GENERIC_CLOSE.match(closing[0].text):
+                first = draft.paragraphs[-1][0]
+                rest = first.text[head.end():].lstrip(" ,")
+                if rest:
+                    first.text = rest[0].upper() + rest[1:]
+                    used.append("closing_opener_deduplicated")
         else:
             draft.paragraphs.append(closing)
         return used
@@ -1238,6 +1395,30 @@ def _failed_section_ids(issues, draft_plan, draft) -> list[str]:
 # cancellation ground" asks for nothing).
 _CANCEL_REQUEST = re.compile(r"\b(request\w*|ask\w*|should|please|invited?)\b[^.]{0,80}\bcancel", re.I)
 _POFA_CONCLUSION = re.compile(r"keeper liability under Schedule 4", re.I)
+_GENERIC_CLOSE = re.compile(r"\s*(For (all )?the reasons (set out|given) above|In (the )?light of the above|"
+                            r"Accordingly)\b", re.I)
+
+
+def _without_repeats(draft) -> int:
+    """Drop a sentence the letter has already said word for word. Returns the
+    number removed. Empty paragraphs are removed with them."""
+    seen: set[str] = set()
+    removed = 0
+    paragraphs = []
+    for para in draft.paragraphs:
+        kept = []
+        for sent in para:
+            key = _said(sent.text)
+            if key and key in seen:
+                removed += 1
+                continue
+            seen.add(key)
+            kept.append(sent)
+        if kept:
+            paragraphs.append(kept)
+    if removed:
+        draft.paragraphs = paragraphs
+    return removed
 
 
 def _said(text: str) -> str:

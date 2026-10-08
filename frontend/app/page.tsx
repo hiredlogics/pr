@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { confirmDetails, createCase, getConfirmation, getHealth, reopenUpload, submitAnswers } from "@/lib/api";
-import { sendFiles } from "@/lib/upload";
+import { sendEvidence, sendFiles } from "@/lib/upload";
 import {
   ApiError,
   type AppealResponse,
@@ -185,6 +185,16 @@ export default function Page() {
       setScreen(next.questions.length > 0 ? "questions" : "result");
     });
 
+  /** A document the case asked for (a receipt): upload it, then carry on. */
+  const uploadRequested = (kind: string, picked: File[]) =>
+    run("drafting", async () => {
+      if (!caseId) return;
+      const next = await sendEvidence(caseId, kind, picked);
+      setData(next);
+      setRound((r) => (next.questions.length > 0 ? r + 1 : r));
+      setScreen(next.questions.length > 0 ? "questions" : "result");
+    });
+
   function restart() {
     setScreen("upload");
     setCaseId(null);
@@ -286,6 +296,7 @@ export default function Page() {
               busy={false}
               onSubmit={(answers) => answer(answers)}
               onSkip={() => answer({}, true)}
+              onUpload={(kind, picked) => uploadRequested(kind, picked)}
             />
           ) : screen === "result" && data ? (
             <ResultStep data={data} onRestart={restart} onContinue={continueCase} />

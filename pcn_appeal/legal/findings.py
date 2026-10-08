@@ -135,7 +135,10 @@ PUT_TO_PROOF = _R(
     r"\b(operator|creditor)\b[^.]{0,80}\b(is\s+)?(requested|required|invited|put to proof|"
     r"asked|must|should)\b[^.]{0,80}\b(produce|provide|demonstrate|establish|prove|show|"
     r"evidence|confirm)\b"
-    r"|\brequested to (produce|provide|demonstrate|establish|prove|show|confirm)\b")
+    r"|\brequested to (produce|provide|demonstrate|establish|prove|show|confirm)\b"
+    # P8 follow-up: "the operator is put to strict proof that ..." asks the
+    # operator to prove a point; it asserts no defect (KB-POFA-08, PP-POFA-010).
+    r"|\b(operator|creditor)\b[^.]{0,40}\bput to (strict )?proof\b")
 
 # The specific ntk_defect_* facts that make NTK_CONTENT_DEFECT verified. From
 # the document pipeline only (document-confirmed), never from the narrative.

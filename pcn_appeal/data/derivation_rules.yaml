@@ -19,11 +19,15 @@
 version: 1
 
 # alleged_breach text -> alleged_breach_type. First match wins (order matters).
+# Client 2026-10-08: the allegation decides. Overstay wording is matched first,
+# so "exceeded the free period in the drop-off zone" is an overstay (a permitted
+# period existed and ended) while "use of the drop-off zone without payment"
+# stays a drop-off allegation with no assumption about any permitted period.
 breach_types:
+  - type: OVERSTAY
+    patterns: ['overst', 'exceed\w*\s+(the\s+)?(max|free|permitted|paid|allowed)', 'max(imum)?\s+(stay|time)', 'longer than']
   - type: DROPOFF_ZONE
     patterns: ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'forecourt']
-  - type: OVERSTAY
-    patterns: ['overst', 'exceed\w*\s+(the\s+)?max', 'max(imum)?\s+(stay|time)', 'longer than']
   - type: NO_PAYMENT
     patterns: ['no\s+valid\s+(parking\s+)?(session|ticket|payment|pay)', 'without\s+(making\s+)?(a\s+)?valid\s+payment',
                'not\s+paid', 'failed\s+to\s+(make|purchase|pay)', 'no\s+payment', 'insufficient\s+(time|payment)']
@@ -34,27 +38,58 @@ breach_types:
 
 # alleged_breach_type -> permitted_period_ended.
 #   OVERSTAY: a maximum or paid period existed and was exceeded -> True.
-#   DROPOFF_ZONE: pay-to-use stop with no prior paid period -> False.
+#     (Client 2026-10-08: "Parked longer than the time paid for" is an overstay.)
+# Client 2026-10-08: no blanket assumption for DROPOFF_ZONE. A drop-off location
+# may have a permitted stopping period and/or a payment requirement, so the
+# allegation and the terms decide; left unknown here.
 # Other types are left unknown (the question bank asks).
 permitted_period_ended:
   OVERSTAY: true
-  DROPOFF_ZONE: false
+
+# Grace at the end of parking (client 2026-10-08). When the notice prints the
+# permitted period (a maximum stay, or the time paid until), the actual overstay
+# is calculated from the operator's own entry/exit times and compared with the
+# grace period of the resolved Code version (never a number in this file).
+permitted_period:
+  # "Max stay 3 hours", "2 hrs", "90 minutes", "1 hour 30 minutes"
+  hours: '(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b'
+  minutes: '(\d+)\s*(?:minutes?|mins?|m)\b'
 
 # Site type from parking_location (and operator text). Pattern match only.
 site_types:
+  # Named stores and venues: approved by the client 2026-10-08 as customer sites.
   customer_only_site:
     patterns: ['sainsbury', 'tesco', '\basda\b', 'morrisons', '\baldi\b', '\blidl\b', 'waitrose', '\bco-?op\b',
                '\bb\s*&\s*m\b', 'iceland', 'marks\s*(and|&)\s*spencer', '\bm&s\b', 'home\s*bargains',
-               'retail\s+park', 'shopping\s+cent(re|er)', 'mcdonald', '\bkfc\b', 'burger\s+king', '\bcosta\b',
+               'mcdonald', '\bkfc\b', 'burger\s+king', '\bcosta\b',
                'starbucks', '\bpub\b', 'restaurant', '\bgym\b']
+  # Client 2026-10-08: a retail park or shopping centre only prompts the
+  # genuine-customer questions. Parking arrangements vary within such sites,
+  # so the description alone never establishes a customer-only site.
+  retail_site:
+    patterns: ['retail\s+park', 'shopping\s+(cent(re|er)|park|mall)', '\boutlet\s+(village|centre)']
   dropoff_site:
     patterns: ['pick[\s-]*up\s*/?\s*drop[\s-]*off', 'drop[\s-]*off\s+zone', 'forecourt']
   hospital_site:
     patterns: ['hospital', '\bnhs\b', 'infirmary', 'medical\s+cent']
 
-# Appeal period (client instruction 2026-10-07). After it, the appeal is NOT
-# stopped: the customer is told the normal period may have expired and the
-# letter carries PP-LATE-001. Counted from the uploaded notice's issue date.
+# Retrieval aids (client 2026-10-08): a site character the notice shows points
+# at the grounds worth asking about. Pointing only decides which questions are
+# put; every ground still has to pass its own gate on the answers.
+points_at:
+  dropoff_site: [KB-ACT-02, KB-CON-01]
+  retail_site: [KB-CUST-01]
+  customer_only_site: [KB-CUST-01]
+  hospital_site: [KB-HOSP-01]
+
+# Appeal period (client instructions 2026-10-07 and 2026-10-08). After it, the
+# appeal is NOT stopped: the customer is told the normal period may have expired
+# and the letter says so. In order:
+#   1. an appeal deadline printed on the notice (extraction: appeal_deadline_date);
+#   2. `days` from the FIRST notice's issue date (the original, for a reminder
+#      or driver letter);
+#   3. a reminder / driver letter whose original cannot be dated: never a fresh
+#      period from the reminder's date - the appeal MAY be late (flagged).
 appeal_period:
   days: 28
 
@@ -89,6 +124,19 @@ original_notice_date:
 # of Freedoms Act 2012 (Definition of Relevant Land) (Amendment) Order 2025,
 # in force 26 December 2025, brought land under Railway Byelaws back into
 # "relevant land".
+#
+# Client 2026-10-08: this list is reference material and a verification aid,
+# NEVER a whitelist of the land the system may recognise. Recognition is the
+# model's: extraction reads `statutory_land_indicator` off the notice (an
+# airport, a port, byelaws named on the notice), backed by the patterns in
+# `statutory_land_indicators` below. Then:
+#   * a CONFIRMED entry covers the location -> verified, KB-POFA-07 leads;
+#   * anything else recognised as airport land (any airport, listed or not,
+#     PENDING or never seen) -> statutory_control_possible, and KB-POFA-08 puts
+#     the operator to strict proof that the land is relevant land.
+#   * railway land is excluded (see above).
+statutory_land_indicators:
+  AIRPORT: ['\bairport\b', '\bterminal\s+\d\b', 'airport\s+byelaws?', '\b(heathrow|gatwick|stansted)\b']
 statutory_control_sites:
   - id: LTN-PUDO
     name: London Luton Airport - Pick Up / Drop Off Zone

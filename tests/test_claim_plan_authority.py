@@ -222,8 +222,11 @@ class SharedBoilerplateIsNotAnArgument(unittest.TestCase):
         cls.pipe = AppealPipeline(ReferenceAnalysisLLM({}))
         kg = cls.pipe.kg
         attached = {b for m in kg.modules.values() for b in m.building_blocks}
+        # An orphan block that requires case facts is an argument kept out of
+        # use (PP-AUTH-008, a genuine-customer point), not shared boilerplate.
         cls.structural = [b for b in kg.blocks.values()
-                          if b.status == "ACTIVE" and b.block_id not in attached]
+                          if b.status == "ACTIVE" and b.block_id not in attached
+                          and not getattr(b, "requires_facts", None)]
 
     def pack(self, approved):
         from pcn_appeal.models import RetrievalPack

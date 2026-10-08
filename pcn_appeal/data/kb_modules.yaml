@@ -239,6 +239,37 @@ modules:
     source_reference: "Client instruction 2026-10-07"
     change_notes: Added at the client's instruction. Leads like a PoFA timing failure (strength 95). Activated for client-confirmed locations only (Luton, Stansted drop-off zones for current tests).
 
+  - module_id: KB-POFA-08
+    route: POFA
+    topic: "Possible statutory control: strict proof that the land is relevant land"
+    # Client 2026-10-08: the confirmed-location list is an aid, not a whitelist.
+    # Any notice the model (or the indicator patterns) reads as airport land,
+    # where no confirmed material covers the location, raises this point.
+    # It asserts nothing about the land: it puts the operator to proof.
+    use_when: {all: [{eq: [driver_status, UNIDENTIFIED]}, {is: statutory_control_possible}]}
+    # KB-POFA-07 and this never meet: derivation only flags the possibility
+    # when no confirmed material has already settled relevant_land.
+    do_not_use_when: {eq: [driver_status, FORMALLY_IDENTIFIED]}
+    core_proposition: "Where the notice places the event on airport land and it is not established whether that land is under statutory control, the operator must prove that the land is relevant land before relying on Schedule 4 against the keeper."
+    required_facts: [statutory_control_possible]
+    evidence_helpful: [PCN, NTK]
+    legal_basis: [PoFA-2012-Sch4-para3]
+    legal_basis_origin: NOT_IN_SOURCE
+    drafting_notes: Strict proof only. Never state that the location IS under statutory control or that the whole airport is covered. Never identify a driver.
+    prohibited_claims: [the driver was, identity of the driver, the whole airport is covered by byelaws, the location is land subject to statutory control]
+    building_blocks: [PP-POFA-011]
+    # Below SUPPORTING_THRESHOLD (50): a claim the letter makes, never the
+    # one that carries it; the default keeper appeal (or a stronger ground) leads.
+    strength: 45
+    status: ACTIVE
+    module_role: SUBSTANTIVE_GROUND
+    version: "1.0"
+    effective_from: 2026-10-08
+    effective_to: null
+    last_legal_review: null
+    source_reference: "Client instruction 2026-10-08 (AI-led statutory control)"
+    change_notes: Drafted 2026-10-08; wording PP-POFA-011 awaiting client approval. Accompanies the default keeper appeal or a stronger ground; never leads on its own (strength 45).
+
   - module_id: KB-KEEPER-01
     route: POFA
     topic: "Default keeper appeal"
@@ -668,7 +699,9 @@ modules:
   - module_id: KB-GRACE-01
     route: GRACE
     topic: "End grace period"
-    use_when: {all: [{is: permitted_period_ended}, {exists: exit_delay_min}]}
+    # Client 2026-10-08: the overstay is also calculated from the notice
+    # (derivation: overstay_min / within_grace_period against the Code version).
+    use_when: {all: [{is: permitted_period_ended}, {any: [{exists: exit_delay_min}, {is: within_grace_period}]}]}
     do_not_use_when: {always: false}
     core_proposition: "Apply the applicable end-of-parking grace requirement only after establishing that it applies to the site/event."
     required_facts: [exit_delay_min]
@@ -677,7 +710,7 @@ modules:
     legal_basis_origin: SOURCE_MODULE
     drafting_notes: Do not hard-code '10 minutes always cancels'; use the resolved Code version values.
     prohibited_claims: [10 minutes always]
-    building_blocks: [PP-GRACE-001, PP-GRACE-002, PP-GRACE-003, PP-GRACE-004]
+    building_blocks: [PP-GRACE-005, PP-GRACE-001, PP-GRACE-002, PP-GRACE-003, PP-GRACE-004]
     strength: 60
     status: ACTIVE
     version: "1.0"
@@ -977,7 +1010,7 @@ modules:
     legal_basis_origin: NOT_IN_SOURCE
     drafting_notes: Use where site terms, policy or landholder authorisation make it relevant. Never present it as a rule that the charge must be cancelled.
     prohibited_claims: [automatic cancellation, customers are always exempt]
-    building_blocks: [PP-AUTH-001]
+    building_blocks: [PP-CUST-001, PP-AUTH-001]
     strength: 55
     status: ACTIVE
     version: "1.0"

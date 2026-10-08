@@ -37,6 +37,8 @@ facts:
   ev_charging_session: [QUESTION]
   exit_congestion: [QUESTION]
   exit_delay_min: [QUESTION]
+  within_grace_period: [DERIVED]
+  statutory_control_possible: [DERIVED, DOCUMENT]
   exit_time: [DOCUMENT]
   genuine_customer: [QUESTION]
   hire_docs_supplied: [EVIDENCE]
@@ -92,3 +94,6 @@ derived_only:
   - notice_stage
   - original_notice_issue_date
   - appeal_period_expired
+  - appeal_period_status
+  - retail_site
+  - overstay_min

@@ -18,7 +18,7 @@ export type CaseState =
    *  customer's fault. Distinct from NO_APPEAL_RIGHT, which is a refusal. */
   | "CLASSIFICATION_FAILED";
 
-export type QuestionType = "bool" | "choice" | "int" | "text";
+export type QuestionType = "bool" | "choice" | "int" | "text" | "upload";
 
 export type Question = {
   fact: string;
@@ -93,6 +93,20 @@ export type BlockingIssue = {
   sentence: string | null;
 };
 
+export type LetterDocument = {
+  from_lines: string[];
+  from_complete: boolean;
+  to_lines: string[];
+  to_complete: boolean;
+  date: string;
+  subject: string;
+  salutation: string;
+  sign_off: string;
+  signature: string;
+};
+
+export type CustomerNotice = { code: string; title: string; message: string };
+
 export type AppealResponse = {
   case_id: string;
   state: CaseState;
@@ -107,6 +121,12 @@ export type AppealResponse = {
   grounds?: string[]; // plain-English route labels; only when state === "RELEASED"
   evidence_list?: string[];
   letter?: string; // only when state === "RELEASED"
+  /** Addresses, date, reference, salutation and sign-off around the letter body. */
+  letter_document?: LetterDocument;
+  /** The postable letter as plain text: letter_document + letter. */
+  letter_full?: string;
+  /** Things the customer should know, e.g. the appeal period may have passed. */
+  notices?: CustomerNotice[];
   route?: Route | null;
   /** Set when state === NO_APPEAL_RIGHT: the document was routed out of this service. */
   stop_code?: string;

@@ -104,5 +104,27 @@ class HeldCaseCarriesItsQuestion(unittest.TestCase):
         self.assertEqual(_held_questions(case, out), {})
 
 
+class SkippingThePostcodeDoesNotLoop(unittest.TestCase):
+    """Live: "Skip the rest" on the postcode question held the case for the
+    postcode, which showed the same question again, forever."""
+
+    def test_a_skipped_postcode_is_not_asked_again_and_a_letter_follows(self):
+        from datetime import date
+        from pcn_appeal.api import _held_questions
+        from pcn_appeal.orchestrator import declined_questions
+        from test_p8_client_instructions import released_on
+        with released_on(date(2026, 7, 10)):
+            case, pipe = case_with(drop=("site_postcode",), extra=LATE)
+            first = pipe.auto_appeal(case, "I would like to appeal this charge.")
+            self.assertEqual([q["fact"] for q in first.questions], ["site_postcode"])
+            out = pipe.auto_appeal(case, "", None, skip_remaining=True).output
+        self.assertIn("site_postcode", declined_questions(case))
+        self.assertNotEqual(out.outcome, "NEEDS_FACTS")
+        if out.outcome:
+            self.assertNotIn("site_postcode",
+                             [q["fact"] for q in _held_questions(case, out).get("questions", [])])
+        self.assertEqual(out.pack.module_ids[0], "KB-KEEPER-01")
+
+
 if __name__ == "__main__":
     unittest.main()

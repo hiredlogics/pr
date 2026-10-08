@@ -55,7 +55,10 @@ class Derivation(unittest.TestCase):
                       minutes=3)
         derive(case)
         self.assertEqual(case.get("alleged_breach_type"), "DROPOFF_ZONE")
+        # Client 2026-10-08: not because it is a drop-off zone, but because no
+        # overstay is alleged and the whole stay is inside the consideration period.
         self.assertIs(case.get("permitted_period_ended"), False)
+        self.assertIn("no_overstay_alleged", case.facts["permitted_period_ended"].source.ref)
         self.assertIs(case.get("short_presence_before_acceptance"), True)
         self.assertIs(case.get("dropoff_site"), True)
         self.assertIs(case.get("relevant_land"), False)
@@ -72,13 +75,18 @@ class Derivation(unittest.TestCase):
         self.assertFalse(case.has("short_presence_before_acceptance"))
         self.assertFalse(case.has("relevant_land"))
 
-    def test_bm_and_shopping_centre_are_customer_sites(self):
-        for loc in ("B&M Chatham - ME4 4HA", "Quayside Shopping Centre (M50 3AH)"):
-            case = notice(loc, "No valid parking session")
-            derive(case)
-            self.assertIs(case.get("customer_only_site"), True, loc)
-            # NO_PAYMENT does not settle whether a permitted period existed.
-            self.assertFalse(case.has("permitted_period_ended"), loc)
+    def test_bm_is_a_customer_site_a_shopping_centre_only_prompts(self):
+        # Client 2026-10-08: named stores are customer sites; a retail park or
+        # shopping centre only prompts the genuine-customer questions.
+        case = notice("B&M Chatham - ME4 4HA", "No valid parking session")
+        derive(case)
+        self.assertIs(case.get("customer_only_site"), True)
+        case = notice("Quayside Shopping Centre (M50 3AH)", "No valid parking session")
+        derive(case)
+        self.assertFalse(case.has("customer_only_site"))
+        self.assertIs(case.get("retail_site"), True)
+        # NO_PAYMENT does not settle whether a permitted period existed.
+        self.assertFalse(case.has("permitted_period_ended"))
 
     def test_short_presence_needs_a_resolved_code_version(self):
         case = notice("Luton Airport Pick Up / Drop Off Zone", "drop off zone",

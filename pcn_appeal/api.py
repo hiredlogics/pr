@@ -90,6 +90,12 @@ def _set_aside_foreign_optional_page(case: CaseFile) -> Optional[str]:
     ev_id = rejectable_optional_page(case)
     if ev_id is None:
         return None
+    from .notice_completeness import different_notices
+    differed = different_notices(case) or {}
+    item = case.evidence.get(ev_id)
+    case.audit.append({"event": "optional_page_set_aside_note", "evidence_id": ev_id,
+                       "filename": getattr(item, "filename", "") or ev_id,
+                       "field": differed.get("field")})
     case.evidence.pop(ev_id, None)
     (case.classifications or {}).pop(ev_id, None)
     case.document_classes.pop(ev_id, None)
@@ -646,7 +652,7 @@ async def appeal_files(files: list[UploadFile] = File(...), narrative: str = For
         raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
 
     payload = _intake(rec) or _run_auto(rec, narrative, None)
-    payload["rejected"] = rejected
+    payload["rejected"] = rejected + _set_aside_notes(case)
     payload["read_as"] = _read_as(case)
     return payload
 
@@ -660,6 +666,68 @@ def appeal_continue(case_id: str, body: AnswersIn):
     return _run_auto(rec, "", body.answers, skip=body.skip)
 
 
+class EvidenceBlobsIn(BaseModel):
+    kind: str
+    blobs: list[UploadedBlob]
+
+
+def _attach_evidence(rec: dict[str, Any], kind: str, docs: list, rejected: list[dict]) -> dict:
+    """Attach the documents an evidence request asked for, then continue the
+    case exactly as answering a question would."""
+    case: CaseFile = rec["case"]
+    if f"evidence:{kind}" not in case.asked_questions:
+        raise HTTPException(409, "no upload was requested for this case")
+    if not docs:
+        raise HTTPException(422, {"message": "nothing readable was uploaded", "rejected": rejected})
+    try:
+        rec["pipe"].add_customer_evidence(case, kind, docs)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    payload = _run_auto(rec, "", None)
+    payload["rejected"] = rejected
+    return payload
+
+
+@app.post("/cases/{case_id}/evidence")
+async def upload_evidence(case_id: str, kind: str = Form(...),
+                          files: list[UploadFile] = File(...)):
+    """A receipt (or other requested document) uploaded mid-case."""
+    rec = _case(case_id)
+    docs, rejected = [], []
+    for i, upload in enumerate(files, start=1):
+        try:
+            doc = read_upload(f"X{i}", upload.filename or f"evidence-{i}",
+                              upload.content_type, await upload.read())
+        except UnsupportedUpload as exc:
+            rejected.append({"filename": upload.filename, "reason": str(exc)})
+            continue
+        if not doc.readable:
+            rejected.append({"filename": upload.filename, "reason": "no readable content"})
+            continue
+        docs.append(doc)
+    return _attach_evidence(rec, kind, docs, rejected)
+
+
+@app.post("/cases/{case_id}/evidence-blobs")
+def upload_evidence_blobs(case_id: str, body: EvidenceBlobsIn):
+    """The blob-storage form of /cases/{id}/evidence, for serverless web tiers."""
+    rec = _case(case_id)
+    docs, rejected = [], []
+    for i, blob in enumerate(body.blobs, start=1):
+        label = blob.filename or blob.url
+        try:
+            doc = fetch_upload(f"X{i}", blob.url, blob.filename or None)
+        except UnsupportedUpload as exc:
+            rejected.append({"filename": label, "reason": str(exc)})
+            continue
+        if not doc.readable:
+            rejected.append({"filename": label, "reason": "no readable content"})
+            continue
+        doc.storage_url = blob.url
+        docs.append(doc)
+    return _attach_evidence(rec, body.kind, docs, rejected)
+
+
 @app.get("/cases/{case_id}/letter.pdf")
 def letter_pdf(case_id: str):
     """The customer-facing document: a formatted letter, not the raw `letter`
@@ -668,6 +736,7 @@ def letter_pdf(case_id: str):
     a letter nobody has approved for release."""
     from fastapi.responses import Response
 
+    from .letterhead import letter_document
     from .pdf import render_letter_pdf
 
     rec = _case(case_id)
@@ -682,7 +751,8 @@ def letter_pdf(case_id: str):
         pdf = render_letter_pdf(out.draft, out.pack, case_id,
                                 evidence_list=out.evidence_list, grounds=_ground_labels(out.pack),
                                 keeper_name=case.get("keeper_name"),
-                                keeper_address=case.get("keeper_address"))
+                                keeper_address=case.get("keeper_address"),
+                                letterhead=letter_document(case))
     except (ImportError, OSError) as exc:
         # WeasyPrint renders through Pango and cairo, which are system libraries.
         # A serverless function has no way to install them, so PDF rendering is
@@ -804,6 +874,11 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
         # customer never received, which read as a letter that had been written.
         payload["grounds"] = _ground_labels(out.pack)
         payload["letter"] = out.letter
+        # The validated body above, plus what a posted letter needs around it.
+        from .letterhead import full_letter, letter_document
+        doc = letter_document(case)
+        payload["letter_document"] = doc
+        payload["letter_full"] = full_letter(out.letter, doc)
         # the plain-text field above is what validation checked; this is the
         # same letter laid out as a document a customer can actually send
         payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"
@@ -820,10 +895,12 @@ def _held_questions(case: CaseFile, out) -> dict:
     customer can answer it on this case (it was already shown once and skipped)."""
     if out.outcome not in ("NEEDS_FACTS", "NEEDS_DOCUMENTS"):
         return {}
-    pending = list(case.pending_questions or [])
+    from .orchestrator import declined_questions
+    declined = declined_questions(case)
+    pending = [q for q in (case.pending_questions or []) if q.get("fact") not in declined]
     if not pending:
         from .document_identity import identity_customer_questions
-        pending = identity_customer_questions(case)
+        pending = [q for q in identity_customer_questions(case) if q.get("fact") not in declined]
         if pending:
             case.pending_questions = pending
     if pending:
@@ -924,11 +1001,29 @@ def _private_service(rec: dict[str, Any]):
     return PrivateParkingService(rec["pipe"])
 
 
+SET_ASIDE_REASONS = {
+    "operator_name": "This page names a different parking operator from the front of the "
+                     "notice, so it looks like part of another notice. It was not used.",
+    "vrm": "This page shows a different vehicle registration from the front of the notice, "
+           "so it looks like part of another notice. It was not used.",
+    "pcn_number": "This page shows a different charge number from the front of the notice, "
+                  "so it looks like part of another notice. It was not used.",
+}
+
+
+def _set_aside_notes(case: CaseFile) -> list[dict]:
+    """Customer notes for pages set aside as belonging to another notice."""
+    return [{"filename": a.get("filename") or "", "reason": SET_ASIDE_REASONS.get(
+                a.get("field"), "This page looks like part of another notice. It was not used.")}
+            for a in case.audit if a.get("event") == "optional_page_set_aside_note"]
+
+
 def _ingest_upload(rec: dict[str, Any], rejected: list[dict]) -> dict:
     """After the files are read: intake, then the private engine's extraction
     only if intake routed the case there."""
     case: CaseFile = rec["case"]
     stopped = _intake(rec)
+    rejected = rejected + _set_aside_notes(case)
     if stopped is not None:
         return {**stopped, "rejected": rejected, "read_as": _read_as(case)}
     rec["flags"] = _private_service(rec).extract_service_facts(case)

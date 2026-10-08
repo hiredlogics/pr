@@ -145,6 +145,7 @@ _TEMPLATE = """<!doctype html>
     border-left: 3pt solid {{ brand_colour }};
   }
   .body p { margin: 0 0 11pt 0; text-align: justify; }
+  .body p.signature { margin-top: 28pt; text-align: left; }
   .enclosures {
     margin-top: 20pt;
     padding-top: 10pt;
@@ -187,7 +188,11 @@ _TEMPLATE = """<!doctype html>
     </div>
     <div class="block">
       <div class="label">To</div>
-      {{ operator_name or '[Parking operator name and address]' | e }}
+      {% if to_lines %}
+        {% for line in to_lines %}<div>{{ line }}</div>{% endfor %}
+      {% else %}
+        {{ operator_name or '[Parking operator name and address]' | e }}
+      {% endif %}
     </div>
   </div>
 
@@ -196,9 +201,11 @@ _TEMPLATE = """<!doctype html>
   </div>
 
   <div class="body">
+    {% if salutation %}<p>{{ salutation }}</p>{% endif %}
     {% for para in paragraphs %}
     <p>{{ para }}</p>
     {% endfor %}
+    {% if sign_off %}<p>{{ sign_off }}</p><p class="signature">{{ signature or '' }}</p>{% endif %}
   </div>
 
   {% if evidence_list %}
@@ -224,7 +231,8 @@ def render_letter_pdf(draft: Draft, pack: RetrievalPack, case_id: str,
                       evidence_list: Optional[list[str]] = None,
                       grounds: Optional[list[str]] = None,
                       keeper_name: Optional[str] = None,
-                      keeper_address: Optional[str] = None) -> bytes:
+                      keeper_address: Optional[str] = None,
+                      letterhead: Optional[dict] = None) -> bytes:
     """RELEASED draft + its pack -> a formatted PDF. Raises if WeasyPrint or
     its native libraries (Pango/cairo) are not installed - see requirements.txt.
 
@@ -250,6 +258,10 @@ def render_letter_pdf(draft: Draft, pack: RetrievalPack, case_id: str,
         brand_footer=BRAND_FOOTER,
         today=date.today().strftime("%d %B %Y"),
         operator_name=facts.get("operator_name"),
+        to_lines=(letterhead or {}).get("to_lines") or [],
+        salutation=(letterhead or {}).get("salutation"),
+        sign_off=(letterhead or {}).get("sign_off"),
+        signature=(letterhead or {}).get("signature"),
         pcn_number=facts.get("pcn_number"), vrm=facts.get("vrm"),
         pcn_label="PCN " if facts.get("pcn_number") else "",
         # Same text as the API letter; dates in UK form. Grounds are not printed:

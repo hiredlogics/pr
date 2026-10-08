@@ -48,7 +48,8 @@ DERIVED_FACTS = (
     "alleged_breach_type", "permitted_period_ended", "short_presence_before_acceptance",
     "customer_only_site", "dropoff_site", "hospital_site", "relevant_land",
     "statutory_control_site", "notice_stage", "original_notice_issue_date",
-    "appeal_period_expired",
+    "appeal_period_expired", "appeal_period_status", "retail_site",
+    "statutory_control_possible", "overstay_min", "within_grace_period",
 )
 
 # Days the operator's appeal period runs from the notice's issue date (the
@@ -82,6 +83,12 @@ def load_rules(path: str = str(RULES_PATH)) -> dict:
                                  (data.get("original_notice_date") or {}).get("patterns") or []],
         "appeal_period_days": int((data.get("appeal_period") or {}).get("days")
                                   or DEFAULT_APPEAL_PERIOD_DAYS),
+        "points_at": {k: list(v or []) for k, v in (data.get("points_at") or {}).items()},
+        "permitted_period": {k: re.compile(v, re.I)
+                             for k, v in (data.get("permitted_period") or {}).items()},
+        "statutory_land_indicators": {
+            kind: [re.compile(p, re.I) for p in pats or []]
+            for kind, pats in (data.get("statutory_land_indicators") or {}).items()},
         "statutory_control_sites": [
             {"id": row["id"], "name": row.get("name", row["id"]),
              "status": str(row.get("status", "PENDING")).upper(),
@@ -178,6 +185,24 @@ def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
     if isinstance(mins, (int, float)) and limit is not None and 0 <= mins <= limit:
         _write(case, "short_presence_before_acceptance", True,
                f"duration<={limit}min", written)
+        # Client 2026-10-08: no blanket "drop-off means no permitted period";
+        # the allegation decides. When the operator does not allege an overstay
+        # and its own times put the whole stay inside the consideration period,
+        # no permitted period can have ended before the vehicle left.
+        if kind and kind != "OVERSTAY":
+            _write(case, "permitted_period_ended", False,
+                   f"no_overstay_alleged_and_duration<={limit}min", written)
+
+    # D-grace (client 2026-10-08): the actual overstay from the operator's own
+    # times against the permitted period printed on the notice, compared with
+    # the grace period of the resolved Code version.
+    over = overstay_minutes(case, rules)
+    if over is not None:
+        _write(case, "overstay_min", over, "overstay_calc", written)
+        grace = grace_minutes(case)
+        if grace is not None:
+            _write(case, "within_grace_period", 0 < over <= grace,
+                   f"overstay<={grace}min", written)
 
     # D-site: site character from the location wording (and breach wording,
     # which for drop-off zones names the zone).
@@ -198,6 +223,13 @@ def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
             case.audit.append({"event": "statutory_control_site_pending",
                                "site": site["id"], "name": site["name"],
                                "note": "location not yet confirmed; relevant_land left unknown"})
+    # Client 2026-10-08: the list is an aid, not a whitelist. Land the notice
+    # shows is at an airport, and that no confirmed entry covers, is flagged
+    # for the strict-proof point (KB-POFA-08) whether or not it is listed.
+    if case.get("relevant_land") is not False:
+        kind = statutory_land_kind(case, rules)
+        if kind == "AIRPORT":
+            _write(case, "statutory_control_possible", True, "statutory_land:AIRPORT", written)
 
     # D-stage: what stage the uploaded letter is at, and the original notice's
     # date when it can be linked (client instruction 2026-10-07).
@@ -209,9 +241,11 @@ def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
 
     # D-late: the normal appeal period may have expired (client instruction
     # 2026-10-07: flag it and adapt the wording; never stop the appeal).
-    expired, end = appeal_period_status(case, rules)
-    if expired is not None:
-        _write(case, "appeal_period_expired", expired, f"appeal_period_end:{end}", written)
+    status, end = appeal_period(case, rules)
+    if status is not None:
+        _write(case, "appeal_period_status", status, f"appeal_period_end:{end}", written)
+        _write(case, "appeal_period_expired", status != "IN_TIME", f"appeal_period_end:{end}",
+               written)
 
     if written:
         case.audit.append({"event": "derivation", "derived": written})
@@ -224,16 +258,107 @@ def today():
     return date.today()
 
 
-def appeal_period_status(case: CaseFile, rules: Optional[dict] = None):
-    """(expired, period_end) from the uploaded notice's issue date, or
-    (None, None) when there is no date to count from."""
+def _as_date(value):
+    from .extraction import parse_uk_date
+    if value is None or hasattr(value, "year"):
+        return value
+    return parse_uk_date(str(value))
+
+
+def appeal_period(case: CaseFile, rules: Optional[dict] = None):
+    """(status, period_end). status: IN_TIME / EXPIRED / MAY_HAVE_EXPIRED, or
+    (None, None) when there is nothing to count from.
+
+    Client 2026-10-08: the deadline printed on the notice first; else the
+    period from the FIRST notice's date. A reminder or driver letter never
+    starts a fresh period from its own date: with no original date it is
+    MAY_HAVE_EXPIRED."""
     from datetime import timedelta
     rules = rules or load_rules()
-    issued = case.get("notice_issue_date")
+    printed = _as_date(case.get("appeal_deadline_date"))
+    later = case.get("notice_stage") in LATER_STAGES
+    if hasattr(printed, "year") and not later:
+        return ("EXPIRED" if today() > printed else "IN_TIME"), printed
+    issued = _as_date(case.get("original_notice_issue_date")) if later \
+        else _as_date(case.get("notice_issue_date"))
     if not hasattr(issued, "year"):
-        return None, None
+        return ("MAY_HAVE_EXPIRED", None) if later else (None, None)
     end = issued + timedelta(days=int(rules.get("appeal_period_days") or DEFAULT_APPEAL_PERIOD_DAYS))
-    return today() > end, end
+    return ("EXPIRED" if today() > end else "IN_TIME"), end
+
+
+def appeal_period_status(case: CaseFile, rules: Optional[dict] = None):
+    """(expired, period_end); kept for callers of the 2026-10-07 version."""
+    status, end = appeal_period(case, rules)
+    return (None if status is None else status != "IN_TIME"), end
+
+
+def grace_minutes(case: CaseFile) -> Optional[int]:
+    """End-of-parking grace period from the resolved Code version."""
+    version, _status = code_versions.resolve(
+        case.get("parking_event_date"), case.get("operator_ata"),
+        case.get("operator_transitioned"))
+    value = (getattr(version, "provisions", None) or {}).get("grace_period_min_minutes") \
+        if version is not None else None
+    return int(value) if value is not None else None
+
+
+def permitted_minutes(text: Any, rules: Optional[dict] = None) -> Optional[int]:
+    """"Max stay 3 hours" -> 180; "1 hour 30 minutes" -> 90; None if unreadable."""
+    if text in (None, ""):
+        return None
+    if isinstance(text, (int, float)):
+        return int(text)
+    rules = rules or load_rules()
+    pats = rules.get("permitted_period") or {}
+    total, found = 0.0, False
+    if "hours" in pats:
+        m = pats["hours"].search(str(text))
+        if m:
+            total += float(m.group(1)) * 60
+            found = True
+    if "minutes" in pats:
+        m = pats["minutes"].search(str(text))
+        if m:
+            total += int(m.group(1))
+            found = True
+    return int(round(total)) if found and total > 0 else None
+
+
+def overstay_minutes(case: CaseFile, rules: Optional[dict] = None) -> Optional[int]:
+    """Minutes the operator's own times run past the permitted period printed
+    on the notice. Paid-until time first (exit - paid_until), else a printed
+    period (duration - period). None when the notice gives neither."""
+    from .extraction import _hhmm
+    exit_t, paid = _hhmm(case.get("exit_time")), _hhmm(case.get("paid_until_time"))
+    if exit_t and paid:
+        eh, em = map(int, exit_t.split(":"))
+        ph, pm = map(int, paid.split(":"))
+        diff = (eh * 60 + em) - (ph * 60 + pm)
+        if diff < -12 * 60:
+            diff += 24 * 60                  # paid until before midnight, left after
+        return diff
+    period = permitted_minutes(case.get("permitted_period"), rules)
+    duration = case.get("total_recorded_duration_min")
+    if period is None or not isinstance(duration, (int, float)):
+        return None
+    return int(duration) - period
+
+
+def statutory_land_kind(case: CaseFile, rules: Optional[dict] = None) -> Optional[str]:
+    """What statutory-control land the notice shows: the extraction model's
+    reading first (it sees the whole notice), the indicator patterns over the
+    location and allegation as backup. Railway land is never returned."""
+    rules = rules or load_rules()
+    read = str(case.get("statutory_land_indicator") or "").upper()
+    if read and read not in ("NONE", "RAILWAY", "NULL"):
+        return read
+    blob = " ".join(str(case.get(n) or "") for n in ("parking_location", "alleged_breach",
+                                                      "statutory_land_evidence"))
+    for kind, pats in (rules.get("statutory_land_indicators") or {}).items():
+        if any(p.search(blob) for p in pats):
+            return kind
+    return None
 
 
 def notice_stage(case: CaseFile, rules: Optional[dict] = None):

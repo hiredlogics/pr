@@ -249,6 +249,13 @@ def _fact_of(leaf: dict) -> Optional[str]:
     return arg if isinstance(arg, str) else arg[0]
 
 
+def _requestable(leaf: dict) -> bool:
+    """An evidence condition on a document the customer can be asked for."""
+    from ..evidence_requests import REQUESTABLE
+    op, arg = next(iter(leaf.items()))
+    return op == "has_evidence" and arg in REQUESTABLE
+
+
 def _is_open(leaf: dict, view: dict, unreliable) -> bool:
     return evaluate3(leaf, view, unreliable=unreliable) is None
 
@@ -491,7 +498,12 @@ class QuestionAuthority:
 
         def rank(item):
             m, effect, tier = item
-            return (tier, -(2 if effect.decisive else 1), -m.strength,
+            # P8 follow-up: within a tier, a ground the notice itself points at
+            # (a supermarket overstay -> genuine customer, grace) is asked
+            # before a generic thin-account gate, since rounds are limited.
+            return (tier, -(2 if effect.decisive else 1),
+                    1 if (cand.get("source") == KB_GATE and not cand.get("notice_pointed"))
+                    else 0, -m.strength,
                     EFFORT.get(cand.get("type"), 3))
         found.sort(key=rank)
         best, effect, tier = found[0]
@@ -577,7 +589,10 @@ class QuestionAuthority:
         eff.decisive = ME_SUPPORTED in now
         eff.yes, eff.no = now[0], now[-1]
         # Could the module still be SUPPORTED through answerable facts?
-        others = ([("u", i) for i in open_use if i not in mine_use and _fact_of(use[i][0])]
+        # P8 follow-up: a document the case can ask for (a receipt) is
+        # obtainable too, so a ground waiting on it can still be unlocked.
+        others = ([("u", i) for i in open_use if i not in mine_use
+                   and (_fact_of(use[i][0]) or _requestable(use[i][0]))]
                   + [("d", i) for i in open_dnu if i not in mine_dnu and _fact_of(dnu[i][0])])
         if len(others) > MAX_OPEN:
             eff.can_support = all(v != ME_REJECTED and v != ME_BLOCKED for v in now) or \

@@ -388,10 +388,11 @@ class Materiality(unittest.TestCase):
         self.auth = QuestionAuthority(KG)
 
     def test_yes_and_no_give_the_same_result(self):
-        # Genuine-customer ground needs a receipt or bank statement: without one,
-        # yes and no both leave it closed.
+        # Genuine-customer ground needs a receipt or bank statement. P8 follow-up:
+        # a receipt is now asked for after a "yes" (evidence request), so the
+        # question is material even before one is uploaded.
         r = self.auth.review(self.case, [GENUINE])
-        self.assertEqual(r.rows[-1]["reason"], "R5: every possible answer leads to the same result")
+        self.assertEqual(r.rows[-1]["reason"], "R5: the answer changes whether KB-CUST-01 applies")
 
     def test_the_same_question_is_material_once_the_evidence_exists(self):
         self.case.evidence["R1"] = EvidenceItem("R1", "RECEIPT", "receipt.jpg", text="Receipt")
@@ -556,7 +557,10 @@ class AdminTrace(unittest.TestCase):
         with mock.patch.dict("os.environ", {"ADMIN_TRACE_TOKEN": "", "ADMIN_TOKEN": "",
                                             "APP_ENV": "development"}):
             body = client.get(f"/cases/{case.case_id}/facts").json()
-        self.assertEqual(body["question_trace"][0]["related_module"], "KB-PAY-01")
+        # P8 follow-up: a retail park is no longer a customer-only site, so the
+        # model's other proposals (dropped before review) now head the trace.
+        shown = [t for t in body["question_trace"] if t.get("decision") == "APPROVED"]
+        self.assertEqual(shown[0]["related_module"], "KB-PAY-01")
         with mock.patch.dict("os.environ", {"ADMIN_TRACE_TOKEN": "t"}):
             self.assertEqual(client.get(f"/cases/{case.case_id}/facts").status_code, 401)
         customer = client.get(f"/cases/{case.case_id}").json()

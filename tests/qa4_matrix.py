@@ -358,7 +358,11 @@ def _r():
     if h.status("KB-ACT-02") != "BLOCKED" or h.status("KB-CON-02") not in ("REJECTED", "BLOCKED"):
         return bad("R", t, ELIGIBILITY,
                    f"ACT-02={h.status('KB-ACT-02')} CON-02={h.status('KB-CON-02')}")
-    if h.shown:
+    # P8 follow-up: a retail park now prompts the genuine-customer questions
+    # (client 2026-10-08), which belong to neither decided module. What must
+    # stop are the decided modules' own questions.
+    stale = [f for f in h.shown if f in ("dropoff_activity", "no_parking_took_place")]
+    if stale:
         return bad("R", t, MATERIALITY, f"shown={h.shown}", h.shown)
     return ok("R", t)
 

@@ -1,0 +1,138 @@
+# Site jurisdiction from the parking location wording, used only when the notice
+# prints no readable site postcode (the keeper's address never decides this).
+#
+# A postcode printed inside the location text ("Quayside Shopping Centre
+# (M50 3AH)") is read first. Otherwise a place name below decides. If the
+# wording names places in more than one jurisdiction ("London Road, Glasgow")
+# the answer stays UNKNOWN and the postcode is asked as before.
+#
+# Names that exist in more than one jurisdiction (e.g. Bangor: Wales and
+# Northern Ireland) are deliberately left out.
+ENGLAND_WALES:
+  - England
+  - Wales
+  - London
+  - Heathrow
+  - Gatwick
+  - Stansted
+  - Luton
+  - Wembley
+  - Croydon
+  - Manchester
+  - Salford
+  - Birmingham
+  - Wolverhampton
+  - Coventry
+  - Leeds
+  - Bradford
+  - Liverpool
+  - Bristol
+  - Sheffield
+  - Nottingham
+  - Leicester
+  - Derby
+  - Newcastle upon Tyne
+  - Gateshead
+  - Sunderland
+  - Middlesbrough
+  - York
+  - Hull
+  - Kingston upon Hull
+  - Southampton
+  - Portsmouth
+  - Brighton
+  - Reading
+  - Oxford
+  - Cambridge
+  - Milton Keynes
+  - Northampton
+  - Peterborough
+  - Norwich
+  - Ipswich
+  - Exeter
+  - Plymouth
+  - Bournemouth
+  - Poole
+  - Swindon
+  - Gloucester
+  - Cheltenham
+  - Bath
+  - Stoke-on-Trent
+  - Preston
+  - Blackpool
+  - Bolton
+  - Stockport
+  - Warrington
+  - Wigan
+  - Huddersfield
+  - Wakefield
+  - Doncaster
+  - Rotherham
+  - Lincoln
+  - Chelmsford
+  - Colchester
+  - Southend
+  - Basildon
+  - Watford
+  - St Albans
+  - Slough
+  - Guildford
+  - Woking
+  - Crawley
+  - Maidstone
+  - Canterbury
+  - Dartford
+  - Bluewater
+  - Stevenage
+  - Harlow
+  - Bedford
+  - Worcester
+  - Hereford
+  - Telford
+  - Shrewsbury
+  - Chester
+  - Carlisle
+  - Durham
+  - Harrogate
+  - Cardiff
+  - Swansea
+  - Newport
+  - Wrexham
+  - Bridgend
+  - Merthyr Tydfil
+  - Llanelli
+  - Aberystwyth
+SCOTLAND:
+  - Scotland
+  - Glasgow
+  - Edinburgh
+  - Aberdeen
+  - Dundee
+  - Inverness
+  - Stirling
+  - Paisley
+  - East Kilbride
+  - Livingston
+  - Falkirk
+  - Kilmarnock
+  - Dunfermline
+  - Kirkcaldy
+  - Motherwell
+  - Cumbernauld
+  - Greenock
+  - Coatbridge
+  - Airdrie
+NORTHERN_IRELAND:
+  - Northern Ireland
+  - Belfast
+  - Londonderry
+  - Derry
+  - Lisburn
+  - Newry
+  - Armagh
+  - Omagh
+  - Enniskillen
+  - Coleraine
+  - Ballymena
+  - Craigavon
+  - Newtownabbey
