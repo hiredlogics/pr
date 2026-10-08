@@ -82,7 +82,9 @@ class Harness:
 
     # ------------------------------------------------------------- rounds
     def round(self) -> list[str]:
-        self.last = self.pipe._reanalyse(self.case, self.narrative)
+        questions, shown = self.pipe._reanalyse(self.case, self.narrative)
+        self.pipe._commit_shown(self.case, shown)
+        self.last = questions
         return self.shown
 
     def answer(self, fact: str, raw: Any) -> list[str]:

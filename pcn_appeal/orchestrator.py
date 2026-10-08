@@ -182,23 +182,48 @@ class AppealPipeline:
         if self._apply_scope_stop(case):
             return []
         self.reasoning.enrich(case)
-        return self._reanalyse(case, narrative)
+        questions, shown = self._reanalyse(case, narrative)
+        self._commit_shown(case, shown)
+        return questions
 
     # step 3 (called per answer batch; returns follow-ups or [] when done)
     def answer(self, case: CaseFile, answers: dict) -> list[dict]:
         case.ensure_run("answer")
         for fact, raw in answers.items():
             self.questions.record_answer(case, fact, raw)
-        return self._reanalyse(case, case.raw_answers.get("narrative", ""))
+        questions, shown = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+        self._commit_shown(case, shown)
+        return questions
+
+    @staticmethod
+    def _commit_shown(case: CaseFile, shown: list[dict]) -> None:
+        """Record a question as asked only once it is the result actually
+        returned to the customer for this request - never for a question that
+        was only selected during an internal re-analysis pass whose return
+        value was then discarded in favour of a later one in the same request
+        (auto_appeal can call _reanalyse via confirm/answer more than once).
+        Idempotent, so calling it again for the same facts is harmless."""
+        for q in shown:
+            fact = q.get("fact")
+            if fact and fact not in case.asked_questions:
+                case.asked_questions.append(fact)
+            if q.get("hypothesis_id"):
+                Hypotheses.mark_asked(case, q["hypothesis_id"], q["text"])
 
     # ------------------------------------------------------------ V2 analysis
-    def _reanalyse(self, case: CaseFile, narrative: str) -> list[dict]:
+    def _reanalyse(self, case: CaseFile, narrative: str) -> tuple[list[dict], list[dict]]:
         """Re-run case analysis against everything now known, and return only the
-        questions it still genuinely needs.
+        questions it still genuinely needs, plus the raw `review.shown` entries
+        behind them.
 
         Called after confirmation and again after every answer, because an answer
         changes what is material: it can settle a ground, open one, or make a
         question that looked necessary pointless.
+
+        Does NOT mark anything as asked - a caller within the same request
+        (auto_appeal) may call this more than once and only the last result is
+        actually shown to the customer. The caller must commit `shown` via
+        `_commit_shown` once it knows which result is final.
         """
         # P17.9: single semantic boundary → FactManager (no raw→fact bypass).
         SemanticCaseResolver.resolve(case, llm=self.llm, narrative=narrative)
@@ -262,17 +287,13 @@ class AppealPipeline:
         analysis.questions = customer_safe.customer_questions(review.shown)
         case.pending_questions = analysis.questions
         # Q-07: once shown, a question must not reappear under a new name on the
-        # next round. Mark as asked when presented; record_answer is idempotent.
-        for q in review.shown:
-            fact = q.get("fact")
-            if fact and fact not in case.asked_questions:
-                case.asked_questions.append(fact)
-            if q.get("hypothesis_id"):
-                Hypotheses.mark_asked(case, q["hypothesis_id"], q["text"])
+        # next round - but "shown" here only means this pass selected it; the
+        # caller commits it to asked_questions (_commit_shown) only once this
+        # pass's result is the one actually returned to the customer.
         case.audit.append({"event": "analysis_round", "grounds": analysis.module_ids,
                            "asking": [q["fact"] for q in analysis.questions],
                            "approved_waiting": [q["fact"] for q in review.approved[1:]]})
-        return analysis.questions
+        return analysis.questions, review.shown
 
     def _could_change_a_ground(self, fact: str) -> bool:
         """Material: some in-force KB module is gated on or requires the fact."""
@@ -517,7 +538,9 @@ class AppealPipeline:
             stopped = self._stop_if_no_appeal_right(case, flags)
             if stopped:
                 return stopped
-            questions = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            questions, shown = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            if not answers:
+                self._commit_shown(case, shown)
         if case.state in (CaseState.NO_APPEAL_RIGHT, CaseState.CLASSIFICATION_FAILED):
             return self._stop_if_no_appeal_right(case, flags)  # type: ignore[return-value]
         if answers:
@@ -1053,7 +1076,7 @@ class AppealPipeline:
             if self.reasoning.leading_grounds(pack.module_ids):
                 return pack
             before = list(case.analysis_module_ids or [])
-            asked = self._reanalyse(case, case.raw_answers.get("narrative", ""))
+            asked, _shown = self._reanalyse(case, case.raw_answers.get("narrative", ""))
             now = list(case.analysis_module_ids or [])
             # Never silently wipe a finalized selection to empty — that maps to
             # a processing failure, not a merits judgment that "nothing stands up".

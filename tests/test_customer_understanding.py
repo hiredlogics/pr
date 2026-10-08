@@ -447,7 +447,8 @@ class ClarificationReachesTheCustomerThroughTheAuthority(unittest.TestCase):
         llm = ReferenceAnalysisLLM({"semantic_extraction": [_ask()]})
         pipe = AppealPipeline(llm)
         case.ensure_run("test")
-        out = pipe._reanalyse(case, case.raw_answers["narrative"])
+        out, shown = pipe._reanalyse(case, case.raw_answers["narrative"])
+        pipe._commit_shown(case, shown)
         self.assertEqual([q["fact"] for q in out], ["account_clarification_1"])
         self.assertEqual(set(out[0]), {"fact", "text", "type"})
 
@@ -456,10 +457,34 @@ class ClarificationReachesTheCustomerThroughTheAuthority(unittest.TestCase):
         llm = ReferenceAnalysisLLM({"semantic_extraction": [_ask(), _ask()]})
         pipe = AppealPipeline(llm)
         case.ensure_run("test")
-        pipe._reanalyse(case, case.raw_answers["narrative"])
+        _q, shown = pipe._reanalyse(case, case.raw_answers["narrative"])
+        pipe._commit_shown(case, shown)
         out = pipe.answer(case, {"account_clarification_1": "The phone payment."})
         self.assertNotIn("account_clarification_1", [q["fact"] for q in out])
         self.assertNotIn("account_clarification_2", [q["fact"] for q in out])
+
+    def test_a_question_selected_but_never_returned_is_not_marked_asked(self):
+        """auto_appeal can call _reanalyse (via confirm/answer) more than once
+        in a single request, discarding an earlier pass's `questions` in
+        favour of a later one. A question only ever selected during the
+        discarded pass must not be silently treated as already put to the
+        customer - it was never shown to anyone, so it must still be
+        available to ask in a later round."""
+        case = _case("My mum said she would sort it.")
+        llm = ReferenceAnalysisLLM({"semantic_extraction": [_ask(), _ask()]})
+        pipe = AppealPipeline(llm)
+        case.ensure_run("test")
+        # Round 1 selects account_clarification_1 but its result is discarded
+        # (never committed) - exactly what auto_appeal does when a second,
+        # answer-driven _reanalyse call immediately supersedes it.
+        discarded_questions, discarded_shown = pipe._reanalyse(
+            case, case.raw_answers["narrative"])
+        self.assertEqual([q["fact"] for q in discarded_questions],
+                         ["account_clarification_1"])
+        self.assertNotIn("account_clarification_1", case.asked_questions)
+        # The actually-returned round is the one answer() produces.
+        out = pipe.answer(case, {"some_other_fact": "not related"})
+        self.assertEqual([q["fact"] for q in out], ["account_clarification_1"])
 
 
 if __name__ == "__main__":
