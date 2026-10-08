@@ -193,7 +193,11 @@ def _near_variants(text: str, ident: str, *, min_len: int, max_len: int = 20,
     words = re.findall(r"\b[A-Za-z0-9]+\b", text)
     tokens = list(words)
     if spaced:                             # "RX7 V5FP" is printed as two words
-        tokens += [f"{a} {b}" for a, b in zip(words, words[1:])]
+        # A pair that already contains the identifier whole is the identifier
+        # followed by a word ("SD58VOT. I dispute..." read as "SD58VOT I"), not
+        # a misread of it: live, that blocked every letter for such a plate.
+        tokens += [f"{a} {b}" for a, b in zip(words, words[1:])
+                   if _ident(a) != ident and _ident(b) != ident]
     # Also consider hyphen/underscore-joined references as one token.
     tokens += re.findall(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)+", text)
     needs_alpha = any(c.isalpha() for c in ident)
@@ -292,6 +296,18 @@ def _quotes_a_verified_fact(quote: str, facts: dict) -> bool:
     return len(q) >= 12 and any(isinstance(v, str) and q in norm(v) for v in (facts or {}).values())
 
 
+def _quotes_approved_wording(quote: str, pack) -> bool:
+    """A quotation reproduced from approved wording retrieved for this letter."""
+    def norm(v):
+        v = str(v).replace("\u2018", "'").replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"')
+        return re.sub(r"\s+", " ", v).strip().rstrip(".").lower()
+    q = norm(quote)
+    if len(q) < 12:
+        return False
+    return any(c.get("kind") == "block" and q in norm(c.get("text") or "")
+               for c in (getattr(pack, "context_chunks", None) or []))
+
+
 def _is_justified_customer_quote(quote: str, ctx: dict) -> bool:
     """Exact customer wording may appear only when claim plan recorded a reason."""
     q = (quote or "").strip()
@@ -363,6 +379,9 @@ class ValidationEngine:
             t = s.text
             if pack.driver_status == "UNIDENTIFIED" and any(p.search(t) for p in DRIVER_PATTERNS):
                 block("VAL-DRIVER", "Driver identification / first-person driving language", t)
+            if ((getattr(pack, "case_context", None) or {}).get("writer_capacity")
+                    == "LETTER_RECIPIENT") and re.search(r"\bas (the )?registered keeper\b", t, re.I):
+                block("VAL-CAPACITY", "Driver-addressed letter answered as the registered keeper", t)
             if not (s.fact_refs or s.module_refs or s.evidence_refs):
                 block("VAL-GROUND", "Sentence has no provenance", t)
             bad = [r for r in s.fact_refs if r not in fact_ids]
@@ -390,6 +409,11 @@ class ValidationEngine:
                     # The notice's own wording, as verified (live: the allegation
                     # quoted from the PCN held a sound letter for a processing error).
                     if _quotes_a_verified_fact(q, facts):
+                        continue
+                    # Wording of an approved building block in this pack (the
+                    # client's own KB-POFA-07 text quotes 'relevant land' and
+                    # Schedule 4; live, a faithful quotation of it was blocked).
+                    if _quotes_approved_wording(q, pack):
                         continue
                     block("VAL-RES", "Quoted text is not verbatim from an uploaded agreement "
                           "and is not a justified customer quotation", t)

@@ -333,3 +333,60 @@ class WordingVariants(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveRun8Oct(unittest.TestCase):
+    """Bugs from the live run of 8 Oct 2026 with the real model."""
+
+    def test_plate_followed_by_I_is_not_an_altered_plate(self):
+        from pcn_appeal.engines.validation import _near_variants
+        text = "the vehicle SD58VOT. I dispute this charge."
+        self.assertEqual(_near_variants(text, "SD58VOT", min_len=5, max_len=8, spaced=True), [])
+        self.assertEqual(_near_variants("plate SD58V0T", "SD58VOT", min_len=5, max_len=8,
+                                        spaced=True), ["SD58V0T"])
+
+    def test_quoting_approved_wording_is_allowed(self):
+        from pcn_appeal.engines.validation import _quotes_approved_wording
+        pack = mock.Mock(context_chunks=[{"kind": "block", "text":
+            "The location is land subject to statutory control and is therefore not "
+            "‘relevant land’ for the purposes of Schedule 4."}])
+        self.assertTrue(_quotes_approved_wording("relevant land", pack))
+        self.assertFalse(_quotes_approved_wording("something nobody approved here", pack))
+
+    def test_late_wording_is_not_read_as_a_late_notice(self):
+        from pcn_appeal.kg.graph import KnowledgeGraph
+        from pcn_appeal.legal import findings as L
+        kg = KnowledgeGraph()
+        for bid in ("PP-LATE-001", "PP-LATE-002"):
+            self.assertEqual(L.asserted_types(kg.blocks[bid].letter_text), set(), bid)
+
+    def test_to_block_does_not_repeat_the_operator(self):
+        case = notice(operator_name="APCOA Parking (UK) Ltd",
+                      operator_address="APCOA\nPO Box 5767\nDingwall\nIV15 0AX")
+        self.assertEqual(letter_document(case)["to_lines"],
+                         ["APCOA Parking (UK) Ltd", "PO Box 5767", "Dingwall", "IV15 0AX"])
+
+    def test_missing_identifiers_are_stated(self):
+        from pcn_appeal.orchestrator import AppealPipeline
+        draft = Draft("T", [[DraftSentence("I am appealing this charge.")]])
+        pack = mock.Mock(verified_facts={"pcn_number": "STN1947529", "vrm": "BK71EXX"}, fact_refs={})
+        self.assertEqual(AppealPipeline._with_identifiers(draft, pack), ["pcn_number", "vrm"])
+        self.assertIn("BK71EXX", draft.plain_text())
+        self.assertEqual(AppealPipeline._with_identifiers(draft, pack), [])
+
+    def test_no_payment_allegation_points_at_payment(self):
+        from pcn_appeal.engines.analysis import document_pointed_gaps
+        from pcn_appeal.kg.graph import KnowledgeGraph
+        case = notice(parking_location="Quayside Shopping Centre", alleged_breach="No valid parking session")
+        derive(case)
+        gaps = dict(document_pointed_gaps(KnowledgeGraph(), case, case.fact_view(), hints="strong"))
+        self.assertIn("payment_made", gaps.get("KB-PAY-01", set()))
+        self.assertNotIn("KB-CUST-01", gaps)      # a retail site is only a weak hint
+
+    def test_driver_letter_is_not_answered_as_keeper(self):
+        from pcn_appeal.engines.validation import ValidationEngine
+        pack = mock.MagicMock()
+        pack.case_context = {"writer_capacity": "LETTER_RECIPIENT"}
+        import re
+        self.assertTrue(re.search(r"\bas (the )?registered keeper\b",
+                                  "I am appealing as the registered keeper.", re.I))

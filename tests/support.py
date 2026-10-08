@@ -109,10 +109,15 @@ class ReferenceAnalysisLLM:
         paras: list[list[dict]] = []
         vrm = facts.get("vrm") or ctx.get("vrm") or "the vehicle"
         pcn = facts.get("pcn_number") or ctx.get("pcn_number") or "the notice"
+        # P8 follow-up: a driver-addressed letter is answered by its recipient.
+        recipient = ctx.get("writer_capacity") == "LETTER_RECIPIENT"
         paras.append([{
-            "text": (f"I write as the registered keeper of vehicle {vrm} in respect of "
-                     f"Parking Charge Notice {pcn}. I dispute liability for this parking "
-                     f"charge and require the operator to consider this appeal."),
+            "text": ((f"I write as the recipient of your letter about vehicle {vrm} in respect "
+                      f"of Parking Charge Notice {pcn}. No admission is made as to who was "
+                      f"driving, and I dispute this parking charge.") if recipient else
+                     (f"I write as the registered keeper of vehicle {vrm} in respect of "
+                      f"Parking Charge Notice {pcn}. I dispute liability for this parking "
+                      f"charge and require the operator to consider this appeal.")),
             "fact_refs": [refs[k] for k in ("vrm", "pcn_number") if k in refs],
             "module_refs": ["STRUCTURAL"], "evidence_refs": [], "quote_of": None,
         }])

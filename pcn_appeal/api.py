@@ -879,6 +879,8 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
         doc = letter_document(case)
         payload["letter_document"] = doc
         payload["letter_full"] = full_letter(out.letter, doc)
+        # Live: a released late appeal never showed its customer notice.
+        payload.update(_outcome_fields(out))
         # the plain-text field above is what validation checked; this is the
         # same letter laid out as a document a customer can actually send
         payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"

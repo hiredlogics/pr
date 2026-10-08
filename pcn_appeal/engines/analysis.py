@@ -110,7 +110,7 @@ def _customer_sourced(case: CaseFile, fact: str) -> bool:
 
 
 def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
-                          facts: dict[str, Any], hints: bool = True) -> list[tuple[str, set]]:
+                          facts: dict[str, Any], hints="all") -> list[tuple[str, set]]:
     """Claim grounds the documents point at, with the facts still to ask.
 
     A module qualifies when its use_when is UNKNOWN (not FALSE), at least one of
@@ -123,8 +123,19 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
     from ..rules.dsl import evaluate3
 
     from ..engines.derivation import load_rules
-    hinted = {mid for fact, mids in (load_rules().get("points_at") or {}).items()
-              if facts.get(fact) is True for mid in mids} if hints else set()
+    # Retrieval aids (derivation_rules.yaml `points_at`). "fact=VALUE" keys come
+    # from the allegation itself (strong: NO_PAYMENT points at the payment
+    # grounds); bare keys are site characters (weak: a retail park). hints:
+    # "all" | "strong" | False/"none".
+    def _hit(key: str) -> bool:
+        if "=" in key:
+            name, value = key.split("=", 1)
+            return str(facts.get(name) or "") == value
+        return facts.get(key) is True
+    level = "all" if hints is True else (hints or "none")
+    hinted = {mid for key, mids in (load_rules().get("points_at") or {}).items()
+              if (level == "all" or (level == "strong" and "=" in key)) and _hit(key)
+              for mid in mids} if level != "none" else set()
     out: list[tuple[str, set]] = []
     modules = sorted(kg.active_modules(), key=lambda m: (-int(m.strength or 0), m.module_id))
     for m in modules:
@@ -893,7 +904,9 @@ class AnalysisEngine:
             module = self.kg.modules.get(mid)
             if module is None:
                 return
-            for fact in sorted(facts_to_ask):
+            # What the customer can answer from experience first (genuine
+            # customer before "do the site terms limit parking to customers?").
+            for fact in sorted(facts_to_ask, key=lambda f: (f not in ACCOUNT_GATES, f)):
                 if fact in seen_facts:
                     continue
                 if facts.get(fact) not in (None, "", []):
@@ -937,7 +950,7 @@ class AnalysisEngine:
         # A ground reached only through a retrieval hint (a retail park points
         # at KB-CUST-01) is asked after the generic gates (4), so a hint never
         # pushes a central question such as payment_made past the cap.
-        strong = {mid for mid, _ in document_pointed_gaps(self.kg, case, facts, hints=False)}
+        strong = {mid for mid, _ in document_pointed_gaps(self.kg, case, facts, hints="strong")}
         for mid, missing in document_pointed_gaps(self.kg, case, facts):
             if mid in (result.module_ids or []):
                 continue

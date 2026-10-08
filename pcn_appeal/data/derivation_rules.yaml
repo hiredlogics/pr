@@ -77,6 +77,12 @@ site_types:
 # at the grounds worth asking about. Pointing only decides which questions are
 # put; every ground still has to pass its own gate on the answers.
 points_at:
+  # From the allegation (strong: asked with the notice-pointed questions).
+  alleged_breach_type=NO_PAYMENT: [KB-PAY-01, KB-PAY-02]
+  alleged_breach_type=DROPOFF_ZONE: [KB-PAY-01, KB-ACT-02]
+  alleged_breach_type=OVERSTAY: [KB-GRACE-01]
+  alleged_breach_type=PERMIT: [KB-AUTH-02]
+  # From the site character (weak: asked after the generic questions).
   dropoff_site: [KB-ACT-02, KB-CON-01]
   retail_site: [KB-CUST-01]
   customer_only_site: [KB-CUST-01]
