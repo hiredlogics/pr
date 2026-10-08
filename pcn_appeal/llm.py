@@ -77,13 +77,17 @@ class OpenAIClient:
 
     SUPPORTS_IMAGES = True
 
+    PROVIDER = "openai"
+    KEY_ENV = "OPENAI_API_KEY"
+    BASE_URL: str | None = None
+
     def __init__(self, api_key: str | None = None, preferences: dict | None = None):
         from openai import OpenAI          # imported lazily so tests run without the SDK
         # Retries are made here, not inside the SDK, so each one is counted and
         # the audit log can say which call was slow and why. The ceiling is the
         # SDK's own default (2); it is not raised.
-        self._c = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"), timeout=60.0,
-                         max_retries=0)
+        self._c = OpenAI(api_key=api_key or os.getenv(self.KEY_ENV), timeout=60.0,
+                         max_retries=0, base_url=self.BASE_URL)
         self.last_call: dict = {}
         self._prefs = preferences or OPENAI_PREFERENCES
         self.models = self._resolve_models()
@@ -122,6 +126,9 @@ class OpenAIClient:
 
     MAX_RETRIES = 2
 
+    def _retry_delay(self, exc: Exception, n: int) -> float:
+        return 0.5 * (2 ** n)
+
     @staticmethod
     def _transient(exc: Exception) -> bool:
         """Worth another attempt: the provider or the network, not the request.
@@ -149,22 +156,23 @@ class OpenAIClient:
                                   "attempt_seconds": attempts, "last_error": type(exc).__name__}
                 if n >= self.MAX_RETRIES or not self._transient(exc):
                     raise
-                time.sleep(0.5 * (2 ** n))
+                time.sleep(self._retry_delay(exc, n))
                 continue
             attempts.append(round(time.perf_counter() - started, 3))
             self.last_call = {"attempts": len(attempts), "retries": len(attempts) - 1,
                               "attempt_seconds": attempts}
             return resp
 
+    def _image_url(self, b64: str, task: str) -> dict:
+        return {"url": f"data:image/jpeg;base64,{b64}",
+                "detail": "original" if self.models[task].startswith("gpt-5.4") else "high"}
+
     def complete_json(self, *, task, system, user, images=None):
         import base64
         content: list[dict] = [{"type": "text", "text": user}]
         for img in images or []:
             b64 = base64.b64encode(img).decode()
-            content.append({"type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}",
-                                          "detail": ("original" if self.models[task].startswith("gpt-5.4")
-                                                     else "high")}})
+            content.append({"type": "image_url", "image_url": self._image_url(b64, task)})
         resp = self._create_with_retries(
             model=self.models[task],
             response_format={"type": "json_object"},
@@ -176,6 +184,91 @@ class OpenAIClient:
         if not isinstance(out, dict):
             raise ValueError(f"{task}: expected a JSON object")
         return out
+
+
+# Groq serves open models behind an OpenAI-compatible endpoint. Only the vision
+# tasks need a model that can see; the rest take the strongest text model. As
+# with OpenAI the first entry the key can list wins, and validation is kept off
+# the drafting model.
+_GROQ_VISION = ["qwen/qwen3.8-27b", "meta-llama/llama-4-maverick-17b-128e-instruct",
+                "meta-llama/llama-4-scout-17b-16e-instruct"]
+_GROQ_TEXT = ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "llama-3.3-70b-versatile"]
+GROQ_PREFERENCES = {
+    "classification": _GROQ_VISION, "extraction": _GROQ_VISION,
+    "identity_verification": _GROQ_VISION, "page_references": _GROQ_VISION,
+    "semantic_extraction": _GROQ_TEXT, "case_analysis": _GROQ_TEXT,
+    "drafting": _GROQ_TEXT,
+    "validation": ["openai/gpt-oss-20b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b"],
+}
+
+
+class GroqClient(OpenAIClient):
+    """Groq through its OpenAI-compatible API. Needs GROQ_API_KEY."""
+
+    PROVIDER = "groq"
+    KEY_ENV = "GROQ_API_KEY"
+    BASE_URL = "https://api.groq.com/openai/v1"
+    # The free tier caps tokens per minute and says how long to wait, so a 429
+    # is worth waiting out here, unlike OpenAI's exhausted-credit 429.
+    MAX_RETRIES = 3
+
+    def _retry_delay(self, exc: Exception, n: int) -> float:
+        m = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", str(exc))
+        if m:
+            return min(float(m.group(2)) + 60 * int(m.group(1) or 0) + 1.0, 45.0)
+        return super()._retry_delay(exc, n)
+
+    def __init__(self, api_key: str | None = None, preferences: dict | None = None):
+        super().__init__(api_key, preferences or GROQ_PREFERENCES)
+
+    def _resolve_models(self) -> dict[str, str]:
+        # OPENAI_MODEL_<TASK> overrides name OpenAI models; Groq has its own.
+        available = {m.id for m in self._c.models.list().data}
+        chosen: dict[str, str] = {}
+        for task, prefs in self._prefs.items():
+            avoid = chosen.get(DISTINCT_FROM.get(task, ""))
+            found = os.getenv(f"GROQ_MODEL_{task.upper()}") or next(
+                (m for m in prefs if m in available and m != avoid), None)
+            if found is None:
+                raise RuntimeError(f"no Groq model available for task {task!r}: tried {prefs}. "
+                                   f"Set GROQ_MODEL_{task.upper()}.")
+            chosen[task] = found
+        return chosen
+
+    def _image_url(self, b64: str, task: str) -> dict:
+        return {"url": f"data:image/jpeg;base64,{b64}"}      # Groq takes no "detail"
+
+
+class FallbackClient:
+    """Primary provider with a standby. A call the primary fails - credit
+    exhausted, bad key, timeout, outage - is answered by the standby instead of
+    failing the case. `last_call` says which provider answered."""
+
+    def __init__(self, primary, standby):
+        self.primary, self.standby = primary, standby
+        self.SUPPORTS_IMAGES = primary.SUPPORTS_IMAGES
+        self.last_call: dict = {}
+
+    @property
+    def models(self):
+        return self.primary.models
+
+    def complete_json(self, *, task, system, user, images=None):
+        try:
+            out = self.primary.complete_json(task=task, system=system, user=user, images=images)
+            self.last_call = {**getattr(self.primary, "last_call", {}),
+                              "provider": self.primary.PROVIDER}
+            return out
+        except Exception as exc:
+            print(f"[llm] {self.primary.PROVIDER} failed for {task} ({type(exc).__name__}); "
+                  f"using {self.standby.PROVIDER}")
+            _note(f"{self.primary.PROVIDER}: {exc}")
+            out = self.standby.complete_json(task=task, system=system, user=user, images=images)
+            self.last_call = {**getattr(self.standby, "last_call", {}),
+                              "provider": self.standby.PROVIDER,
+                              "fallback_from": self.primary.PROVIDER,
+                              "fallback_reason": type(exc).__name__}
+            return out
 
 
 class FakeLLM:
@@ -704,15 +797,39 @@ def default_client():
             "the demo stand-in is never permitted in production")
     if provider == "demo":
         return DemoLLM()
+    if provider == "groq":
+        return GroqClient()
     if provider == "openai":
-        return OpenAIClient()                      # let auth errors surface
+        return _with_standby(OpenAIClient())       # let auth errors surface
     if os.getenv("OPENAI_API_KEY"):
         try:
-            return OpenAIClient()
+            return _with_standby(OpenAIClient())
         except Exception as exc:
-            print(f"[llm] OpenAI unavailable ({type(exc).__name__}); using the demo stand-in")
+            print(f"[llm] OpenAI unavailable ({type(exc).__name__}); trying Groq")
+            _note(str(exc))
+    if os.getenv("GROQ_API_KEY"):
+        try:
+            return GroqClient()
+        except Exception as exc:
+            print(f"[llm] Groq unavailable ({type(exc).__name__}); using the demo stand-in")
             _note(str(exc))
     return DemoLLM()
+
+
+def _with_standby(primary):
+    """Wrap `primary` with Groq as standby when a Groq key is set. Never in
+    production unless LLM_FALLBACK=groq says so: a letter released to a customer
+    should come from the provider the release was validated on."""
+    from . import runtime
+    if not os.getenv("GROQ_API_KEY"):
+        return primary
+    if runtime.is_production() and (os.getenv("LLM_FALLBACK") or "").lower() != "groq":
+        return primary
+    try:
+        return FallbackClient(primary, GroqClient())
+    except Exception as exc:
+        print(f"[llm] Groq standby not available ({type(exc).__name__})")
+        return primary
 
 
 class ProviderPolicyError(RuntimeError):
@@ -751,4 +868,7 @@ def probe() -> dict[str, Any]:
         return {"provider": "demo", "models": {},
                 "reason": _last_error or ("no OPENAI_API_KEY set" if not os.getenv("OPENAI_API_KEY")
                                           else "OpenAI unavailable")}
-    return {"provider": "openai", "models": client.models, "reason": ""}
+    if isinstance(client, FallbackClient):
+        return {"provider": client.primary.PROVIDER, "models": client.models, "reason": "",
+                "standby": client.standby.PROVIDER, "standby_models": client.standby.models}
+    return {"provider": getattr(client, "PROVIDER", "openai"), "models": client.models, "reason": ""}

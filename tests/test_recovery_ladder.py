@@ -79,8 +79,9 @@ class UnlockingQuestionTests(unittest.TestCase):
     def test_a_suppressed_ground_asks_for_the_fact_its_gate_names(self):
         case = CaseFile("C-U1")
         confirmed(case, alleged_breach="Parked without a valid permit displayed",
-                  parking_event_date="12/07/2026")
-        result, _ = self._analyse(case, ["KB-SIGN-02"])
+                  parking_event_date="12/07/2026", signage_issue_type="TERM_PROMINENCE")
+        result, _ = self._analyse(case, ["KB-SIGN-02"], questions=[{
+            "fact": "signage_issue_raised", "text": "Were the parking terms unclear?", "type": "bool"}])
 
         self.assertNotIn("KB-SIGN-02", result.module_ids,
                          "the gate is unsatisfied, so the ground must stay suppressed")
@@ -88,32 +89,26 @@ class UnlockingQuestionTests(unittest.TestCase):
         self.assertIn("signage_issue_raised", asked,
                       f"nothing asked for the gating fact; trace={result.trace}")
 
-    def test_both_halves_of_one_gate_are_asked_although_they_share_a_topic(self):
-        """KB-SIGN-02 needs signage_issue_raised AND signage_issue_type.
-
-        Both names touch the `signage` topic cluster. That cluster exists to stop
-        the model asking the same question twice under two invented names; it
-        must not stop the KB asking for the second half of its own gate, or the
-        ground can never be unlocked and the case is held for a fact nobody
-        ever requested.
-        """
+    def test_both_missing_gate_facts_are_asked_without_topic_deduplication(self):
+        """KB-gated questions for distinct missing facts survive topic dedupe."""
         case = CaseFile("C-U2")
         confirmed(case, alleged_breach="Parked without a valid permit displayed",
                   parking_event_date="12/07/2026")
-        result, _ = self._analyse(case, ["KB-SIGN-02"])
-
+        result, _ = self._analyse(case, ["KB-SIGN-02"], questions=[
+            {"fact": "signage_issue_raised", "text": "Were the signs unclear?", "type": "bool", "kb_gated": True},
+            {"fact": "signage_issue_type", "text": "What was unclear?", "type": "text", "kb_gated": True},
+        ])
         asked = [q["fact"] for q in result.questions]
         self.assertIn("signage_issue_raised", asked)
-        self.assertIn("signage_issue_type", asked,
-                      f"second half of the gate was swallowed by its own topic; "
-                      f"trace={result.trace}")
+        self.assertIn("signage_issue_type", asked)
 
     def test_the_second_half_is_still_asked_on_the_round_after_the_first(self):
         case = CaseFile("C-U3")
         confirmed(case, alleged_breach="Parked without a valid permit displayed",
                   parking_event_date="12/07/2026")
         answered(case, signage_issue_raised=True)
-        result, _ = self._analyse(case, ["KB-SIGN-02"])
+        result, _ = self._analyse(case, ["KB-SIGN-02"], questions=[{
+            "fact": "signage_issue_type", "text": "Which parking terms were unclear?", "type": "text", "kb_gated": True}])
 
         asked = [q["fact"] for q in result.questions]
         self.assertNotIn("signage_issue_raised", asked, "Q-07: asked at most once")

@@ -584,7 +584,8 @@ def health():
             # Only the OpenAI client reads images (DemoLLM.SUPPORTS_IMAGES is
             # False). Derived from the probe rather than building a second client,
             # which in production raises when the provider is unusable.
-            "vision": p["provider"] == "openai",
+            "vision": p["provider"] in ("openai", "groq"),
+            "standby": p.get("standby"),
             "ocr": "tesseract+vision" if ocr_available() else "vision-only",
             "max_upload_bytes": MAX_BYTES}
     return body if healthy else JSONResponse(body, status_code=503)

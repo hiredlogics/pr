@@ -24,6 +24,8 @@ DEFAULT_FILES = (".env.local", ".env")
 # so export it yourself when you mean it.
 APP_SETTINGS = (
     "OPENAI_API_KEY",
+    "GROQ_API_KEY",
+    "LLM_FALLBACK",
     "LLM_PROVIDER",
     "OPENAI_MODEL_EXTRACTION",
     "OPENAI_MODEL_QUESTIONING",

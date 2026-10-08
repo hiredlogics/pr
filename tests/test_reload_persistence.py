@@ -95,10 +95,10 @@ class StoreRoundTrip(unittest.TestCase):
     def test_a_confirmation_survives_without_a_value_change(self):
         self.case.put(fact("vrm", "AB12CDE"))
         store.save(self.case)
-        self.case.put(fact("vrm", "AB12CDE", FactStatus.CONFIRMED, SourceKind.ANSWER, "confirm"))
+        self.case.set_status("vrm", FactStatus.CONFIRMED, reason="confirmation_screen")
         loaded = self.reload()
         self.assertEqual(loaded.facts["vrm"].status, FactStatus.CONFIRMED)
-        self.assertEqual(loaded.facts["vrm"].source.kind, SourceKind.ANSWER)
+        self.assertEqual(loaded.facts["vrm"].source.kind, SourceKind.DOCUMENT)
         # One node, updated in place; both versions are in the append-only history.
         self.assertEqual(sqlite_store.count(self.db, "facts", "fact_name = 'vrm'"), 1)
         self.assertEqual(sqlite_store.count(self.db, "fact_history", "fact = 'vrm'"), 2)
@@ -198,6 +198,23 @@ class ReleasedLetterSurvives(unittest.TestCase):
         self.assertEqual(loaded.pack, out.pack)
         self.assertEqual(loaded.validation, out.validation)
         self.assertEqual(loaded.evidence_list, out.evidence_list)
+
+    def test_locked_claim_plan_can_be_saved_and_reloaded(self):
+        from types import MappingProxyType
+        out = self.output()
+        out.pack.claim_plan = MappingProxyType({
+            "status": "LOCKED",
+            "approved": (MappingProxyType({"module_id": "KB-BAY-02"}),),
+        })
+        self.case.state = CaseState.RELEASED
+        store.save(self.case)
+        store.save_output(self.case, out)
+        loaded = store.load_output(store.load(self.case.case_id))
+        self.assertEqual(loaded.letter, out.letter)
+        self.assertEqual(loaded.pack.claim_plan, {
+            "status": "LOCKED", "approved": [{"module_id": "KB-BAY-02"}],
+        })
+        self.assertEqual(out.pack.claim_plan["status"], "LOCKED")
 
     def test_a_held_output_stays_held(self):
         self.case.state = CaseState.MANUAL_REVIEW
