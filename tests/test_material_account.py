@@ -101,6 +101,22 @@ class FreeTextExtractionScenarios(unittest.TestCase):
         self.assertTrue(case.get("disability_extra_time"))
         self.assertTrue(dig["contradicts"])
 
+    def test_disability_mention_without_needs_claim_is_not_invented(self):
+        """A disability/blue-badge context being described must not, on its
+        own, promote disability_extra_time=True - that is a materially
+        stronger claim (extra time was actually needed) that the narrative
+        never makes. Reproduces the exact narrative that previously caused
+        semantic extraction to invent this fact, which then survived a later
+        disconfirming answer to a DIFFERENT fact key and reached the draft
+        unsupported (PROCESSING_ERROR after 3 validation failures)."""
+        case = _case(
+            "Blue Badge not displayed",
+            "Blue Badge present but not displayed because it slipped off "
+            "the dashboard.",
+        )
+        assess_material_account(case)
+        self.assertIsNone(case.get("disability_extra_time"))
+
     def test_does_not_invent_from_unrelated_text(self):
         case = _case(
             "Parent and Child bay without being accompanied by a child",

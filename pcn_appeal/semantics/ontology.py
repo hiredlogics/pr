@@ -128,7 +128,11 @@ CONCEPT_TO_FACTS: dict[str, tuple[str, object]] = {
     "PERMIT_DISPLAYED": ("permit_held", True),
     "REGISTRATION_MISMATCH": ("keying_error_type", "MINOR"),
     "CHILD_PRESENT": ("child_occupant_present", True),
-    "DISABLED_PASSENGER": ("disability_extra_time", True),
+    # DISABLED_PASSENGER is intentionally NOT promoted to disability_extra_time:
+    # the concept only means a disability/blue-badge context was described
+    # (CONCEPT_DEFINITIONS above), not that extra time was actually needed.
+    # disability_extra_time is asked for via KB's own disconfirming question
+    # rather than assumed from the weaker concept.
 }
 
 # Additional FactManager writes when a concept is AFFIRMED (same provenance).

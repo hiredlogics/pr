@@ -156,15 +156,21 @@ _RULES: tuple[CircumstanceRule, ...] = (
     # Multiple visits: not a rule. "Left and came back" does not say the
     # VEHICLE left; engines/narrative.py reads it as a hypothesis, which is
     # asked about, and only the customer's answer sets `multiple_visits`.
-    # Disability / accessibility
+    # Disability / accessibility: a disability/badge context alone does not
+    # claim extra time was needed - only an explicit needs claim does, in
+    # either word order (narrative text may state the need before or after
+    # naming the disability/badge).
     CircumstanceRule(
         "disability_extra_time", True,
         re.compile(
             r"\b("
-            r"disability|disabled|blue\s*badge|accessibility|accessible|"
-            r"mobility (need|issue|impairment)|wheelchair|"
-            r"extra time .{0,30}(disability|disabled|badge)"
-            r")",
+            r"(extra|additional|more) time .{0,40}"
+            r"(disability|disabled|blue\s*badge|accessib|mobility|wheelchair)|"
+            r"(disability|disabled|blue\s*badge|accessib|mobility|wheelchair)"
+            r".{0,40}(extra|additional|more) time|"
+            r"(disability|disabled|blue\s*badge|accessib|mobility|wheelchair)"
+            r".{0,40}(needed?|required?|requiring) (more|extra|additional) time"
+            r")\b",
             re.I,
         ),
         "additional time was required in connection with a disability-related need",
