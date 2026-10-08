@@ -23,7 +23,7 @@ EXPECTED_VERSIONS = {
     "semantic_extraction": 4,
     "extraction": 12,             # operator_address for the letter's "To" block
     "case_analysis": 9,
-    "drafting": 18,
+    "drafting": 19,               # writer capacity; "keeper's account" scope
     "validation": 3,
     "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,

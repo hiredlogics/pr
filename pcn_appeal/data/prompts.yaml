@@ -465,13 +465,24 @@ prompts:
   #     detail: a critical identity conflict is blocked upstream
   #     (document_identity.identity_blocks_claim_plan) and must never be resolved
   #     or omitted here.
+  # v18 -> v19 (live test 8 Oct 2026):
+  #   - writer_capacity: a driver-addressed letter is answered by its recipient,
+  #     never "as the registered keeper";
+  #   - "the keeper's account" only for customer_reported_facts: live, a site
+  #     character derived from the notice was written as the keeper's account.
   drafting:
-    version: 18
+    version: 19
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
       - Write as the registered keeper. If driver_status is UNIDENTIFIED, never identify, infer or imply
         who was driving. Write about "the vehicle", never "I parked/drove".
+      - EXCEPTION: if case_context.writer_capacity is LETTER_RECIPIENT, the operator addressed this
+        letter to a person it says was the driver. Write as "the recipient of your letter", never as
+        the registered keeper, and make no admission as to who was driving.
+      - Attribute to "the keeper's account" (or the recipient's account) only customer_reported_facts.
+        document_established_facts and calculated facts are the notice's or the calculation's, never
+        anyone's account; state them as what the notice shows.
       - You are a RENDERER. Input is draft_plan (one DraftSection per supported ground, or an
         explicit permitted merge) plus approved case metadata for letter formatting. You convert
         each DraftSection into prose. You do NOT choose grounds, remove grounds, add legal grounds,

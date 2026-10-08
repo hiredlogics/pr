@@ -852,6 +852,10 @@ class AppealPipeline:
             if late_blocks:
                 case.audit.append({"event": "late_appeal_wording", "attempt": attempt,
                                    "blocks": late_blocks})
+            added_ids = self._with_identifiers(draft, pack)
+            if added_ids:
+                case.audit.append({"event": "identifiers_added", "attempt": attempt,
+                                   "fields": added_ids})
             if self._with_recorded_times(draft, pack):
                 case.audit.append({"event": "recorded_times_added", "attempt": attempt})
             repeats = _without_repeats(draft)
@@ -1084,6 +1088,10 @@ class AppealPipeline:
             return False
         if case.driver_status.value != "UNIDENTIFIED" or keeper_route_blocked(case):
             return False
+        if case.get("notice_stage") == "DRIVER_LETTER":
+            # Addressed to a person said to be the driver: a keeper appeal is
+            # the wrong answer to it (client 2026-10-08; PP-DRIVER-001 is off).
+            return False
         if analysis_failed(case):
             return False
         unlocks, q = self._postcode_materiality(case)
@@ -1196,6 +1204,29 @@ class AppealPipeline:
         draft.paragraphs.insert(1 if len(draft.paragraphs) > 1 else len(draft.paragraphs),
                                 sentences)
         return [bid]
+
+    @staticmethod
+    def _with_identifiers(draft, pack) -> list[str]:
+        """Live: a letter that never named the PCN or the registration failed
+        the identity check and ended as a processing error. The opening
+        paragraph states them from the verified facts when the drafter did not."""
+        from .engines.validation import _contains_token, _ident
+        from .models import DraftSentence
+        facts = pack.verified_facts or {}
+        if not draft.paragraphs:
+            return []
+        text = draft.plain_text()
+        added, parts = [], []
+        pcn, vrm = facts.get("pcn_number"), facts.get("vrm")
+        if pcn and not _contains_token(text, _ident(pcn)):
+            parts.append((f"This appeal concerns Parking Charge Notice {pcn}.", "pcn_number"))
+        if vrm and not _contains_token(text, _ident(vrm)):
+            parts.append((f"The vehicle concerned is registration {vrm}.", "vrm"))
+        for sentence, name in parts:
+            refs = [pack.fact_refs[name]] if name in pack.fact_refs else []
+            draft.paragraphs[0].append(DraftSentence(sentence, refs, ["STRUCTURAL"], []))
+            added.append(name)
+        return added
 
     @staticmethod
     def _with_recorded_times(draft, pack) -> bool:

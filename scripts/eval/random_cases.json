@@ -1,0 +1,145 @@
+{
+  "about": "20 varied synthetic cases for end-to-end checks against a running backend with the real model. Fictional people and plates. Dates are relative to 8 Oct 2026: 'in time' cases are recent, 'late NTK' cases are late for Schedule 4 but still inside the 28-day appeal period. Each case: notice text, customer account, answers keyed by a regex on the question text, and what a correct result must contain.",
+  "cases": [
+    {
+      "id": "R01", "title": "Late postal NTK, supermarket overstay, thin account",
+      "notice": "NOTICE TO KEEPER\nNorthgate Parking Services Ltd\nPCN Number: NG4418823\nVehicle Registration: RT19KLM\nDate of Event: 28/08/2026\nDate Issued: 22/09/2026\nLocation: Tesco Extra - Harlow Car Park\nEntry Time: 10:02  Exit Time: 13:47\nContravention: Your vehicle has overstayed the maximum stay period\nMaximum stay: 3 hours\nAmount due: £100.00\nPost to: Ms Ellen Tate, 4 Ash Row, Harlow CM20 1AA\nAppeals: Northgate Parking Services Ltd, PO Box 100, Leeds LS1 1AA",
+      "account": "I am the registered keeper. I do not accept this charge.",
+      "answers": {"minutes": "20", "genuine|customer": "No", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_has": ["Schedule 4"], "letter_any": ["deemed", "statutory period", "not delivered"]}
+    },
+    {
+      "id": "R02", "title": "Overstay within the 10-minute grace period (calculated from the notice)",
+      "notice": "PARKING CHARGE NOTICE - NOTICE TO KEEPER\nCityLink Car Parks Ltd\nPCN: CL7730021\nVRM: PK21XYZ\nDate of parking event: 25/09/2026\nDate of issue: 29/09/2026\nSite: Aldi Basingstoke, RG21 4AB\nArrived: 09:00  Departed: 11:07\nMax stay 2 hours\nContravention: Overstayed the maximum stay\nCharge: £70\nAddressed to: Mr Owen Price, 9 Mill Lane, Basingstoke RG21 7ZZ",
+      "account": "I am the keeper and I want to appeal.",
+      "answers": {".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["grace"]}
+    },
+    {
+      "id": "R03", "title": "Luton drop-off zone, 3 minutes (confirmed statutory land)",
+      "notice": "PARKING CHARGE\nAPCOA Parking (UK) Ltd\nParking Charge Number: LU9900112\nVehicle Registration: BX70ABC\nDate of Issue of this Charge: 30/09/2026\nCONTRAVENTION DETAILS\nAt: Luton Airport Pick Up / Drop Off Zone\nEntry Time/Date: 08:10 26/09/2026\nExit Time/Date: 08:13 26/09/2026\nThe alleged contravention is: Use of Pick Up / Drop Off Zone without making a valid payment\nParking charge amount: £95\nTo: Ms Priya Shah, 12 Elm Court, Bedford MK40 1AA",
+      "account": "I am the registered keeper. I do not accept this.",
+      "answers": {"payment": "No", "drop off or collect": "Yes", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_has": ["relevant land", "strict proof"]}
+    },
+    {
+      "id": "R04", "title": "Heathrow forecourt (airport not confirmed) - must still be recognised",
+      "notice": "PARKING CHARGE NOTICE\nSkyway Enforcement Ltd\nPCN: SKY5521876\nVRM: LN68FAA\nDate of event: 24/09/2026\nNotice issued: 29/09/2026\nLocation: Heathrow Terminal 5 Forecourt\nEntry 14:01 Exit 14:09\nContravention: Stopping in a restricted area of the forecourt\nAmount: £100\nTo: Mr Dan Cole, 5 Park Road, Slough SL1 1AA",
+      "account": "I am the keeper. I do not accept this charge.",
+      "answers": {".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_has": ["relevant land", "strict proof"], "letter_not": ["is land subject to statutory control and is therefore"]}
+    },
+    {
+      "id": "R05", "title": "Gatwick car park overstay (airport, not confirmed)",
+      "notice": "NOTICE TO KEEPER\nGatepark Management Ltd\nCharge reference: GP3310077\nRegistration: WD17HGT\nDate of contravention: 23/09/2026\nIssue date: 28/09/2026\nCar park: Gatwick Airport South Terminal Short Stay\nIn 06:30 Out 09:45\nReason: Parking for longer than the time paid for\nCharge £100\nKeeper: Ms Rosa Lind, 3 Oak Way, Crawley RH10 1AA",
+      "account": "I want to appeal this as the keeper.",
+      "answers": {"minutes": "15", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["relevant land", "grace", "strict proof"]}
+    },
+    {
+      "id": "R06", "title": "Railway station car park - railway land is NOT the airport rule",
+      "notice": "PARKING CHARGE NOTICE\nRailSide Parking Ltd\nPCN: RS2200991\nVehicle: GF19PLM\nDate: 26/09/2026\nIssued: 30/09/2026\nLocation: Stevenage Railway Station Car Park\nObserved 07:40 - 18:20\nContravention: No valid parking ticket or session\nAmount: £100\nTo: Mr Ian Ross, 7 Hill St, Stevenage SG1 1AA",
+      "account": "I am the registered keeper and dispute this charge.",
+      "answers": {".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_not": ["relevant land", "byelaw"]}
+    },
+    {
+      "id": "R07", "title": "Scotland retail park - no PoFA, keeper appeal must stay jurisdiction-neutral",
+      "notice": "PARKING CHARGE NOTICE\nClydePark Ltd\nPCN: CP8812001\nVRM: SN20GLA\nDate: 25/09/2026\nIssued: 30/09/2026\nLocation: Braehead Retail Park, Glasgow G51 4BN\nEntry 11:00 Exit 15:30\nContravention: Exceeded the maximum stay of 3 hours\nCharge: £100\nTo: Mrs Ailsa Burns, 2 Kelvin Rd, Glasgow G12 8AA",
+      "account": "I'm the keeper and I don't accept this.",
+      "answers": {"minutes": "30", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_not": ["Schedule 4 of the Protection of Freedoms Act 2012 do not apply", "keeper liability under Schedule 4"]}
+    },
+    {
+      "id": "R08", "title": "Hospital car park, appointment overran",
+      "notice": "NOTICE TO KEEPER\nCarePark Solutions Ltd\nPCN: CPS0042210\nRegistration: YR66HSP\nEvent date: 24/09/2026\nDate issued: 28/09/2026\nLocation: Royal County Hospital Visitor Car Park\nEntry 09:15 Exit 12:40\nContravention: Stayed longer than the paid tariff\nAmount: £60\nTo: Mr Ken Ade, 1 Brook Lane, Guildford GU1 1AA",
+      "account": "I was at the hospital for an outpatient appointment that ran much later than scheduled, so the paid time ran out while I was still inside.",
+      "answers": {"hospital|medical": "Yes", "delay|unexpected": "Yes", "minutes": "40", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["hospital", "appointment", "medical"]}
+    },
+    {
+      "id": "R09", "title": "Paid but registration keyed wrongly at the machine",
+      "notice": "PARKING CHARGE NOTICE\nPayZone Parking Ltd\nPCN: PZ7716654\nVRM: AB12CDE\nDate of event: 25/09/2026\nIssue date: 29/09/2026\nLocation: Riverside Town Centre Car Park, Reading RG1 2AA\nEntry 13:00 Exit 14:30\nContravention: No valid payment found for this vehicle\nAmount: £100\nTo: Ms Jo Hart, 8 Vale Rd, Reading RG2 2AA",
+      "account": "I paid at the machine for two hours but I typed the registration as AB12CDF by mistake. I have the payment confirmation.",
+      "answers": {"payment": "Yes", "mistake|keying|type": "MINOR", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["keying", "entered", "registration"]}
+    },
+    {
+      "id": "R10", "title": "Payment machine out of order",
+      "notice": "PARKING CHARGE NOTICE\nMetroPay Car Parks Ltd\nPCN: MP5512309\nVehicle Registration: KM18TRV\nDate: 26/09/2026\nIssued: 30/09/2026\nLocation: Station Road Car Park, Woking GU21 1AA\nIn 10:05 Out 11:20\nContravention: Failed to purchase a valid pay and display ticket\nAmount: £100\nTo: Mr Leo Grant, 6 Pine Cl, Woking GU22 2AA",
+      "account": "The pay machine was broken and would not accept card or coins, and the phone number on the sign did not connect. I tried to pay but could not.",
+      "answers": {"payment completed": "No", "attempt": "Yes", "machine|how": "MACHINE", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["machine", "unable to pay", "attempt"]}
+    },
+    {
+      "id": "R11", "title": "Resident with a valid permit, permit not visible",
+      "notice": "PARKING CHARGE NOTICE\nResiPark Ltd\nPCN: RP1100234\nVRM: HJ15RES\nDate: 25/09/2026\nIssued: 29/09/2026\nLocation: Marlowe Court Residents Car Park, Canterbury CT1 1AA\nTime observed: 21:10\nContravention: Parked without displaying a valid permit\nAmount: £100\nTo: Ms Amy Webb, Flat 4 Marlowe Court, Canterbury CT1 1AA",
+      "account": "I live at Marlowe Court and have a valid residents permit. It had fallen off the dashboard onto the floor of the car.",
+      "answers": {"permit": "Yes", "resident|permission": "RESIDENT", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["permit", "resident", "entitlement"]}
+    },
+    {
+      "id": "R12", "title": "Vehicle broke down, recovery called",
+      "notice": "NOTICE TO KEEPER\nSwiftPark Ltd\nPCN: SW9910023\nRegistration: OV14BRK\nDate of event: 24/09/2026\nIssued: 28/09/2026\nLocation: Meadow Retail Park, Derby DE1 1AA\nEntry 12:00 Exit 16:45\nContravention: Overstayed the maximum stay of 2 hours\nAmount: £85\nTo: Mr Sam Holt, 3 Ford Lane, Derby DE22 2AA",
+      "account": "The car broke down in the car park with a flat battery. We called the AA and had to wait for recovery, which is why it was there so long. I have the AA job sheet.",
+      "answers": {"broke|immobil|breakdown": "Yes", "recovery": "Yes", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["breakdown", "broke down", "recovery", "immobil"]}
+    },
+    {
+      "id": "R13", "title": "Two visits paired as one stay (ANPR)",
+      "notice": "PARKING CHARGE NOTICE\nCamWatch Parking Ltd\nPCN: CW4401276\nVRM: FG20ANP\nDate: 26/09/2026\nIssued: 30/09/2026\nLocation: Lidl Ashford Car Park TN23 1AA\nEntry 08:55 Exit 18:10\nContravention: Exceeded the free parking period of 90 minutes\nAmount: £100\nTo: Ms Gail Fox, 10 Bank St, Ashford TN24 1AA",
+      "account": "I visited Lidl in the morning for half an hour, left, and came back in the evening for another short shop. The cameras have joined my two visits into one long stay.",
+      "answers": {"more than once|leave the car park and return": "Yes", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["separate visits", "two visits", "continuous", "more than once"]}
+    },
+    {
+      "id": "R14", "title": "Reminder letter that prints a late original NTK date",
+      "notice": "REMINDER - PARKING CHARGE\nNorthgate Parking Services Ltd\nWe wrote to you previously about this charge. A Notice to Keeper was issued on 20/09/2026.\nPCN Number: NG7720045\nVehicle Registration: LK17RMD\nDate of Event: 25/08/2026\nDate of this letter: 05/10/2026\nLocation: Sainsburys Bromley Car Park\nEntry 10:00 Exit 13:30\nContravention: Overstayed the maximum stay period\nAmount now due: £100\nTo: Mr Ray Moss, 1 Kent Rd, Bromley BR1 1AA",
+      "account": "I am the registered keeper and do not accept this.",
+      "answers": {"minutes": "20", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["20 September 2026"], "letter_not": ["5 October 2026 is"]}
+    },
+    {
+      "id": "R15", "title": "Reminder with no original date - appeal may be late",
+      "notice": "FINAL REMINDER\nCityLink Car Parks Ltd\nWe have previously written to you about this unpaid parking charge.\nPCN: CL1188300\nVRM: DV19REM\nDate of event: 02/07/2026\nDate of this reminder: 01/10/2026\nSite: Asda Watford WD17 2AA\nContravention: No valid parking session\nAmount due: £100\nTo: Ms Tia Ross, 3 Lime Ave, Watford WD18 1AA",
+      "account": "I am the keeper and I want to appeal.",
+      "answers": {"first notice": "not sure", ".": "No"},
+      "expect": {"outcome_in": ["RELEASED", "NEEDS_FACTS"], "notice_code": "APPEAL_PERIOD_MAY_HAVE_EXPIRED"}
+    },
+    {
+      "id": "R16", "title": "Letter addressed to the alleged driver",
+      "notice": "PARKING CHARGE TO DRIVER\nNational Lot Parking Ltd\nA Parking Charge Notice to Keeper has previously been served on the registered keeper. We have been advised that you were the driver.\nPCN: NL3349987\nVRM: BG22DRV\nDate of event: 20/09/2026\nDate of this letter: 03/10/2026\nLocation: Fryer Street Car Park, Wolverhampton WV1 1AA\nEntry 21:00 Exit 23:30\nContravention: Parked longer than the time paid for\nAmount: £100\nTo: Mr Chris Vale, 9 Cross St, Birmingham B1 1AA",
+      "account": "I do not accept this charge.",
+      "answers": {"first notice": "not sure", "minutes": "8", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_not": ["as the registered keeper"]}
+    },
+    {
+      "id": "R17", "title": "Windscreen ticket then late NTK",
+      "notice": "NOTICE TO KEEPER\nOn 10/08/2026 a Notice to Driver was affixed to the vehicle.\nStreetWise Parking Ltd\nPCN: SWP2200871\nRegistration: EY16NTD\nDate of event: 10/08/2026\nDate issued: 20/09/2026\nLocation: Harbour Retail Park, Poole BH15 1AA\nTime: 14:22\nContravention: Parked in a marked bay without a valid ticket\nAmount: £100\nTo: Mr Will Dunn, 4 Quay Rd, Poole BH14 1AA",
+      "account": "I am the registered keeper and I do not accept liability.",
+      "answers": {".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_has": ["Schedule 4"]}
+    },
+    {
+      "id": "R18", "title": "Debt recovery letter - must stop, no appeal",
+      "notice": "DEBT RECOVERY PLUS LTD\nNOTICE OF DEBT\nOur client Northgate Parking Services Ltd has instructed us to recover the unpaid parking charge.\nReference: DRP998877 (PCN NG1100223)\nVehicle: TT18DBT\nAmount outstanding: £170 including recovery costs\nPay within 14 days to avoid further action.\nTo: Ms Kay Long, 2 Pond Rd, Luton LU1 1AA",
+      "account": "I want to appeal this.",
+      "answers": {".": "No"},
+      "expect": {"state": "NO_APPEAL_RIGHT"}
+    },
+    {
+      "id": "R19", "title": "Council Penalty Charge Notice - must redirect",
+      "notice": "PENALTY CHARGE NOTICE\nLondon Borough of Camden\nTraffic Management Act 2004\nPCN: CU12345678\nVehicle: LR19CNL\nContravention code 12: Parked in a residents or shared use parking place without clearly displaying a permit\nDate: 26/09/2026 Time 10:12\nLocation: Albert Street NW1\nPenalty charge £130 (reduced to £65 if paid within 14 days)\nYou may make representations to the council.",
+      "account": "I want to appeal.",
+      "answers": {".": "No"},
+      "expect": {"state": "NO_APPEAL_RIGHT"}
+    },
+    {
+      "id": "R20", "title": "Blue badge holder in a disabled bay, badge displayed",
+      "notice": "PARKING CHARGE NOTICE\nAccessWatch Parking Ltd\nPCN: AW6611802\nVRM: MX65BBD\nDate: 25/09/2026\nIssued: 29/09/2026\nLocation: Morrisons Bury Car Park BL9 0AA\nTime observed: 15:05\nContravention: Parked in a disabled bay without displaying a valid blue badge\nAmount: £100\nTo: Mrs June Pike, 5 Bell Ln, Bury BL8 1AA",
+      "account": "My blue badge was clearly displayed on the dashboard. I have a photo of it in the windscreen taken that day.",
+      "answers": {"badge|indicator": "Yes", "genuine|customer": "Yes", ".": "No"},
+      "expect": {"outcome": "RELEASED", "letter_any": ["blue badge", "badge"]}
+    }
+  ]
+}

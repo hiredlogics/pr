@@ -25,7 +25,7 @@ SIGN_OFF = "Yours faithfully,"
 def _lines(value: Any) -> list[str]:
     text = str(value or "").replace("\r", "")
     parts = text.split("\n") if "\n" in text else text.split(",")
-    return [p.strip() for p in parts if p.strip()]
+    return [p.strip().strip(",") for p in parts if p.strip().strip(",")]
 
 
 def _vrm(value: Any) -> str:
@@ -42,7 +42,18 @@ def letter_document(case: CaseFile, on: Optional[date] = None) -> dict:
     keeper = str(case.get("keeper_name") or "").strip()
     from_lines = ([keeper] if keeper else []) + _lines(case.get("keeper_address"))
     operator = str(case.get("operator_name") or "").strip()
-    to_lines = ([operator] if operator else []) + _lines(case.get("operator_address"))
+    address = _lines(case.get("operator_address"))
+    # Live: the printed address often starts with the operator's own name
+    # ("APCOA", "Euro Car Parks"), which repeated the name in the To block.
+    from .notice_completeness import same_operator
+    if address and operator and (address[0].lower() == operator.lower()
+                                 or same_operator(address[0], operator)):
+        address = address[1:]
+    # "Registered office: 1st Floor, ..., London, SE1 4PL" read as one line.
+    if len(address) == 1 and address[0].count(",") >= 2:
+        address = _lines(address[0].split(":", 1)[-1] if address[0].lower().startswith(
+            ("registered office", "address")) else address[0])
+    to_lines = ([operator] if operator else []) + address
     pcn, vrm = str(case.get("pcn_number") or "").strip(), _vrm(case.get("vrm"))
     subject = "Re: Parking Charge Notice " + (pcn or "[PCN number]")
     if vrm:

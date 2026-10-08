@@ -639,6 +639,10 @@ class ReasoningEngine:
 
         from ..document_identity import authoritative_identity_values
         case_context = {
+            # P8 follow-up: a letter the operator addressed to a person it says
+            # was the driver is answered by that recipient, not "the keeper".
+            "writer_capacity": ("LETTER_RECIPIENT" if case.get("notice_stage") == "DRIVER_LETTER"
+                                else "REGISTERED_KEEPER"),
             "operator_name": case.get("operator_name"),
             "parking_location": case.get("parking_location"),
             "alleged_breach": case.get("alleged_breach"),

@@ -630,9 +630,18 @@ class TemplateDrafter:
         # ordering has already been applied to pack.module_ids.
         grouped: list[tuple[str, list[DraftSentence]]] = []
 
-        intro = self._sentences(self.kg.blocks["PP-INTRO-001"].letter_text, pack, "STRUCTURAL")
-        if pack.driver_status == "UNIDENTIFIED":
-            intro += self._sentences(self.kg.blocks["PP-INTRO-002"].letter_text, pack, "STRUCTURAL")
+        if (pack.case_context or {}).get("writer_capacity") == "LETTER_RECIPIENT":
+            # A driver-addressed letter is answered by its recipient (P8 follow-up).
+            refs = [pack.fact_refs[k] for k in ("vrm", "pcn_number") if k in pack.fact_refs]
+            vf = pack.verified_facts or {}
+            intro = [DraftSentence(
+                f"I write as the recipient of your letter about Parking Charge Notice "
+                f"{vf.get('pcn_number') or ''}".rstrip() + ". No admission is made as to who "
+                f"was driving.", refs, ["STRUCTURAL"], [])]
+        else:
+            intro = self._sentences(self.kg.blocks["PP-INTRO-001"].letter_text, pack, "STRUCTURAL")
+            if pack.driver_status == "UNIDENTIFIED":
+                intro += self._sentences(self.kg.blocks["PP-INTRO-002"].letter_text, pack, "STRUCTURAL")
         paras.append(intro)
         used |= {"PP-INTRO-001", "PP-INTRO-002"}
 

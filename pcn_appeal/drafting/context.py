@@ -94,6 +94,7 @@ FORBIDDEN_KEYS = frozenset({
 
 # case_context keys the drafter may read. Everything else is withheld.
 CASE_CONTEXT_ALLOWED = (
+    "writer_capacity",
     "operator_name", "parking_location", "alleged_breach", "parking_event_date",
     "pcn_number", "vrm", "evidence", "unresolved_topics", "validation_status",
     "shopping_receipt_enclosed", "material_account_propositions",
