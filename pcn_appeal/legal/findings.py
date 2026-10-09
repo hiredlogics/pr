@@ -67,12 +67,17 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
     FindingSpec(
         "POFA_POSTAL_LATE",
         "late delivery of a postal Notice to Keeper (Schedule 4 para 9)",
+        # "notice"+"issued"+"after"+"period" are all words an ordinary overstay
+        # or grace-period sentence uses too ("the charge was issued after the
+        # grace period") with nothing about POSTAL DELIVERY timing at all, so
+        # the last lookahead must name the postal/delivery-timing concept this
+        # finding is actually about, not any generic "period"/"deadline".
         _R(r"^(?=.*\b(notice|ntk)\b)"
            r"(?=.*\b(deliver\w*|given|served|sent|posted|received|issued)\b)"
            r"(?=.*\b(not\s+(?:\w+\s+){0,3}within|outside|after|beyond|late\w*|exceed\w*|"
            r"fail\w*\s+to\s+meet)\b)"
-           r"(?=.*\b(statutory|applicable|required|relevant|prescribed|14[-\s]?days?|"
-           r"time\s*limit|period|deadline)\b)"),
+           r"(?=.*\b(deliver\w*|post\w*|served?|deemed|14[-\s]?days?|"
+           r"schedule\s*4|para(?:graph)?\s*9)\b)"),
         ("parking_event_date", "notice_issue_date", "notice_route"),
         timed=True),
     FindingSpec(
@@ -86,7 +91,15 @@ REGISTRY: dict[str, FindingSpec] = {spec.finding_type: spec for spec in (
     FindingSpec(
         "POFA_NTD_NTK_TOO_EARLY",
         "Notice to Keeper before the Schedule 4 para 8 window opened",
-        _R(r"^(?=.*\b(notice|ntk)\b)"
+        # Its sibling POFA_NTD_NTK_LATE requires "notice to driver|windscreen|ntd"
+        # so it cannot fire on an ordinary sentence that just says "notice" and
+        # "before"/"permitted" - this one was missing that same requirement, so
+        # an everyday overstay/grace sentence ("the permitted parking period had
+        # ended... before the vehicle exited") satisfied every lookahead without
+        # being about Schedule 4 timing at all. Requiring the NTD/windscreen
+        # anchor closes that the same way its sibling already does.
+        _R(r"^(?=.*\b(notice to driver|windscreen|ntd)\b)"
+           r"(?=.*\b(notice|ntk)\b)"
            r"(?=.*\b(too early|prematurely|before|earlier than)\b)"
            r"(?=.*\b(28|window|permitted|allowed|prescribed)\b)"),
         ("ntd_date", "notice_issue_date", "notice_route"),
