@@ -126,6 +126,33 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
         r"later left|then left|left after\b|"
         r"left,?\s+and\s+(then\s+)?(returned|came|come)|"
         r"left and (then )?(came|come) back|left and (then )?returned)\b", re.I)),
+    # KB-CON-02: the terms were considered and declined, and the vehicle left.
+    # The semantic class is "decision against the terms, then departure" - the
+    # production path reads CONCEPT_DEFINITIONS["TERMS_REJECTED_LEFT"] for the
+    # meaning; these cues only let the offline reference model reach the same
+    # concept. Requires BOTH a rejection of the terms and a departure, so
+    # "the sign was unclear" or a plain "I left" alone does not reach it.
+    ("TERMS_REJECTED_LEFT", re.compile(
+        r"\b(?:"
+        r"(?:read|saw|looked at|checked|considered)[^.]{0,60}"
+        r"(?:sign|term|condition|price|charge|tariff|rate)[^.]{0,80}"
+        r"(?:did ?n[o']t (?:agree|accept|want)|didn't like|not (?:agree|accept|"
+        r"prepared)|too expensive|refus|declin|chang(?:ed)? my mind)"
+        r"[^.]{0,80}(?:left|drove (?:off|out|away)|went|exit)"
+        r"|"
+        r"(?:did ?n[o']t (?:agree|accept)|didn't like|not (?:agree|accept|"
+        r"prepared)|too expensive|refus|declin)[^.]{0,80}"
+        r"(?:so|and|then)[^.]{0,40}(?:left|drove (?:off|out|away)|"
+        r"went (?:elsewhere|away)|exit)"
+        r"|"
+        r"(?:left|drove (?:off|out|away)|went elsewhere|exit\w*)"
+        r"[^.]{0,60}(?:because|as|since)[^.]{0,60}"
+        r"(?:did ?n[o']t (?:agree|accept)|not (?:agree|accept|prepared)|"
+        r"too expensive|refus|declin|would ?n[o']t pay)"
+        r"|"
+        r"(?:never|did\s?n[o']?t)\s+park(?:ed)?\b"
+        r"|no parking took place"
+        r")", re.I)),
     ("RETURNED", re.compile(
         r"\b(came back|come back|returned(?:\s+(to|later))?|went back (to|in)|"
         r"re-?entered|came back (later|afterwards)|"

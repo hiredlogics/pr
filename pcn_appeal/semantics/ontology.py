@@ -13,6 +13,7 @@ CONCEPTS: dict[str, str] = {
     "LEFT_SITE": "Customer left the parking site during the visit",
     "RETURNED": "Customer returned to the site or vehicle",
     "MULTIPLE_VISITS": "More than one visit / entry is described",
+    "TERMS_REJECTED_LEFT": "Terms were read but not accepted, and the vehicle left",
     # PAYMENT
     "PAYMENT_MADE": "A parking payment was made",
     "PAYMENT_ATTEMPTED": "A payment was attempted",
@@ -52,6 +53,23 @@ CONCEPT_DEFINITIONS: dict[str, str] = {
     "MULTIPLE_VISITS": (
         "More than one distinct visit, entry, or stay at the site is described "
         "for the same day or material period."
+    ),
+    # KB-CON-02 USE WHEN, verbatim in meaning: "Terms were considered but not
+    # accepted and the vehicle then left." The account describes deciding
+    # against staying - the terms, price, signage or conditions were seen and
+    # declined - and departing rather than parking under them. It is the
+    # decision that matters, not the words used for it: "read the sign and
+    # left", "did not agree so I drove out", "too expensive so I went
+    # elsewhere", "could not accept the conditions and left" all mean this.
+    # NOT this concept: leaving after having parked or paid, leaving because the
+    # car park was full or the barrier failed (no decision about terms), or a
+    # temporary departure and return (LEFT_SITE / RETURNED).
+    "TERMS_REJECTED_LEFT": (
+        "The account describes considering the parking terms, charge or "
+        "conditions and deciding NOT to accept them, and the vehicle leaving "
+        "the site instead of parking under them. The departure follows from "
+        "rejecting the terms, not from having parked, paid, or been unable to "
+        "find or reach a space."
     ),
     "PAYMENT_MADE": (
         "A parking payment was completed or settled (app, machine, phone, or "
@@ -112,6 +130,15 @@ CONCEPT_TO_FACTS: dict[str, tuple[str, object]] = {
     "LEFT_SITE": ("left_site", True),
     "RETURNED": ("returned_same_day", True),
     "MULTIPLE_VISITS": ("multiple_visits", True),
+    # KB-CON-02's gate reads `no_parking_took_place` - the observable fact its
+    # AI MUST CHECK asks for ("whether parking actually took place"). The
+    # concept IS that observation: the terms were declined and the vehicle
+    # left, so no parking happened. Without this mapping the fact was
+    # question-only, and a customer who plainly said they read the sign and
+    # drove out was not understood - the engine had to ask a question it
+    # already had the answer to, and the ground died when it asked something
+    # else instead.
+    "TERMS_REJECTED_LEFT": ("no_parking_took_place", True),
     "PAYMENT_MADE": ("payment_made", True),
     "PAYMENT_ATTEMPTED": ("payment_attempt_failed", True),
     "PAYMENT_FAILED": ("payment_attempt_failed", True),
