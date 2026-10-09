@@ -36,6 +36,7 @@ from ..legal import code_versions
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 
 RULES_PATH = Path(__file__).resolve().parent.parent / "data" / "derivation_rules.yaml"
+PRODUCERS_PATH = Path(__file__).resolve().parent.parent / "data" / "fact_producers.yaml"
 
 # Statuses that represent the customer or a document speaking; derivation never
 # replaces them (D-02).
@@ -99,6 +100,24 @@ def load_rules(path: str = str(RULES_PATH)) -> dict:
         ],
     }
     return compiled
+
+
+@lru_cache(maxsize=1)
+def establishable_by(path: str = str(PRODUCERS_PATH)) -> dict[str, tuple[str, ...]]:
+    """DERIVED gate fact -> the QUESTIONs whose answers can establish it instead.
+
+    A calculation cannot always settle a derived fact: `within_grace_period`
+    needs a permitted period AND a duration on the notice, and many notices
+    carry neither. The question named here is then the only thing that can
+    decide it, so the gap-finder is allowed to ask for it - but only while the
+    derived fact is still unknown. Once derivation settles the fact from the
+    operator's own figures, the answer could no longer change the appeal, and
+    the client rule is to not ask.
+    """
+    with open(path, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+    return {fact: tuple(qs or ())
+            for fact, qs in (data.get("establishable_by") or {}).items()}
 
 
 def classify_breach(text: Any, rules: Optional[dict] = None) -> Optional[str]:
@@ -199,10 +218,31 @@ def derive(case: CaseFile, rules: Optional[dict] = None) -> dict[str, dict]:
     over = overstay_minutes(case, rules)
     if over is not None:
         _write(case, "overstay_min", over, "overstay_calc", written)
+        if over <= 0:
+            # The operator's own times show the vehicle left at or before the
+            # permitted period ended, so no permitted period ended before
+            # departure - whatever the allegation wording says. D-period sets
+            # this flag from the contravention text alone; leaving both live
+            # would assert a duration contradiction the validator forbids
+            # (VAL-CONFLICT), and would gate grace/overstay grounds on a
+            # premise the operator's own figures disprove.
+            _write(case, "permitted_period_ended", False,
+                   f"operator_times_show_no_overstay:{over}min", written)
         grace = grace_minutes(case)
-        if grace is not None:
-            _write(case, "within_grace_period", 0 < over <= grace,
+        if grace is not None and over > 0:
+            _write(case, "within_grace_period", over <= grace,
                    f"overstay<={grace}min", written)
+    else:
+        # The notice does not give both a permitted period and a duration, so the
+        # overstay cannot be calculated from the operator's own figures. The
+        # customer's own account of the delay then genuinely decides the grace
+        # question, which is why exit_delay_min is worth asking HERE - and only
+        # here. Once the notice settles it, asking adds nothing.
+        delay = case.get("exit_delay_min")
+        grace = grace_minutes(case)
+        if isinstance(delay, (int, float)) and grace is not None:
+            _write(case, "within_grace_period", 0 < float(delay) <= grace,
+                   f"customer_exit_delay<={grace}min", written)
 
     # D-site: site character from the location wording (and breach wording,
     # which for drop-off zones names the zone).

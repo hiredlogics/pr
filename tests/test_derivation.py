@@ -89,10 +89,24 @@ class Derivation(unittest.TestCase):
         self.assertFalse(case.has("permitted_period_ended"))
 
     def test_short_presence_needs_a_resolved_code_version(self):
+        # No event date, so no Code version applies and nothing is derived from
+        # one. The date is what version-controls the sector Single Code.
+        case = notice("Luton Airport Pick Up / Drop Off Zone", "drop off zone",
+                      event=None, minutes=3)
+        derive(case)
+        self.assertFalse(case.has("short_presence_before_acceptance"))
+
+    def test_a_notice_without_a_trade_body_logo_still_resolves_the_code(self):
+        """The Single Code is version-controlled by event date; the trade body
+        only narrows the choice while versions actually differ by it. A notice
+        that shows no ATA (or an operator absent from the local name table, as
+        any unseen operator would be) must still get the Code provisions the
+        event date resolves - otherwise consideration/grace analysis silently
+        dies for every operator not already known."""
         case = notice("Luton Airport Pick Up / Drop Off Zone", "drop off zone",
                       ata="NOT_SHOWN", minutes=3)
         derive(case)
-        self.assertFalse(case.has("short_presence_before_acceptance"))
+        self.assertIs(case.get("short_presence_before_acceptance"), True)
 
     def test_customer_answer_is_never_overwritten(self):
         case = notice("Luton Airport Pick Up / Drop Off Zone", "drop off zone", minutes=3)
@@ -111,6 +125,97 @@ class Derivation(unittest.TestCase):
     def test_nothing_written_when_nothing_matches(self):
         case = notice("Canada Water Estate, SE16 7LL", "Breach of terms and conditions")
         self.assertEqual(derive(case), {})
+
+
+class OverstayReconciliation(unittest.TestCase):
+    """The allegation text and the operator's own figures must not be left
+    asserting opposite things about the same parking period (VAL-CONFLICT)."""
+
+    def _overstay_case(self, duration_min, permitted="3 hours"):
+        case = notice("Retail Park", "Maximum stay exceeded", minutes=duration_min)
+        doc(case, "permitted_period", permitted)
+        derive(case)
+        return case
+
+    def test_operator_times_showing_no_overstay_retract_the_text_derived_flag(self):
+        # Allegation says overstay; the operator's own times say the vehicle
+        # left 117 minutes BEFORE the permitted period ended.
+        case = self._overstay_case(63)
+        self.assertEqual(case.get("overstay_min"), -117)
+        self.assertIs(case.get("permitted_period_ended"), False)
+        self.assertFalse(case.has("within_grace_period"))
+
+    def test_leaving_exactly_at_the_limit_is_not_an_overstay(self):
+        case = self._overstay_case(180)
+        self.assertEqual(case.get("overstay_min"), 0)
+        self.assertIs(case.get("permitted_period_ended"), False)
+
+    def test_a_real_overstay_beyond_grace_is_kept_and_not_in_grace(self):
+        case = self._overstay_case(215)
+        self.assertEqual(case.get("overstay_min"), 35)
+        self.assertIs(case.get("permitted_period_ended"), True)
+        self.assertIs(case.get("within_grace_period"), False)
+
+    def test_a_real_overstay_inside_grace_is_in_grace(self):
+        case = self._overstay_case(185)
+        self.assertEqual(case.get("overstay_min"), 5)
+        self.assertIs(case.get("permitted_period_ended"), True)
+        self.assertIs(case.get("within_grace_period"), True)
+
+
+class GraceGateResolvability(unittest.TestCase):
+    """KB-GRACE-01's gate must be able to reach FALSE. It previously carried an
+    {exists: exit_delay_min} leg inside an `any`, and because that fact is
+    QUESTION-only, {exists:} could never be FALSE - so the gate stayed UNKNOWN
+    even once within_grace_period was known FALSE, and the engine kept asking
+    for a delay figure that could not change the outcome."""
+
+    def _gate(self):
+        import yaml
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        kb = yaml.safe_load((root / "pcn_appeal/data/kb_modules.yaml").read_text())
+        mods = kb.get("modules") or kb
+        return [m for m in mods if m.get("module_id") == "KB-GRACE-01"][0]["use_when"]
+
+    def test_overstay_beyond_grace_rejects_the_module(self):
+        from pcn_appeal.rules.dsl import evaluate3
+        self.assertIs(evaluate3(self._gate(), {
+            "permitted_period_ended": True, "within_grace_period": False}), False)
+
+    def test_overstay_inside_grace_selects_the_module(self):
+        from pcn_appeal.rules.dsl import evaluate3
+        self.assertIs(evaluate3(self._gate(), {
+            "permitted_period_ended": True, "within_grace_period": True}), True)
+
+    def test_no_kb_gate_hides_a_question_only_fact_inside_an_any(self):
+        """Generic guard: an {exists: <QUESTION-only fact>} leg inside an `any`
+        can never evaluate FALSE, so it pins the whole gate at UNKNOWN. No
+        module may reintroduce that shape."""
+        import yaml
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        kb = yaml.safe_load((root / "pcn_appeal/data/kb_modules.yaml").read_text())
+        prod = yaml.safe_load((root / "pcn_appeal/data/fact_producers.yaml").read_text())
+        question_only = {k for k, v in prod["facts"].items() if list(v) == ["QUESTION"]}
+
+        def traps(node, found):
+            if isinstance(node, dict):
+                for key, val in node.items():
+                    if key == "any":
+                        for leg in (val if isinstance(val, list) else [val]):
+                            if isinstance(leg, dict) and leg.get("exists") in question_only:
+                                found.append(leg["exists"])
+                    traps(val, found)
+            elif isinstance(node, list):
+                for item in node:
+                    traps(item, found)
+            return found
+
+        offenders = {m.get("module_id"): traps(m.get("use_when"), [])
+                     for m in (kb.get("modules") or kb)
+                     if traps(m.get("use_when"), [])}
+        self.assertEqual(offenders, {})
 
 
 if __name__ == "__main__":

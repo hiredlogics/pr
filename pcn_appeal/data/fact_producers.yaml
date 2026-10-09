@@ -97,3 +97,14 @@ derived_only:
   - appeal_period_status
   - retail_site
   - overstay_min
+
+# A DERIVED gate fact a calculation cannot always settle, and the QUESTION
+# whose answer establishes it instead. Question Authority asks the mapped
+# question only while the derived fact is still unknown - once a calculation
+# settles it, asking adds nothing and must not happen (client rule: ask only
+# when the answer could change the appeal).
+establishable_by:
+  # Derivation settles grace from the operator's own figures when the notice
+  # gives a permitted period AND a duration. Many notices give neither, and
+  # then only the customer's account of the delay decides it.
+  within_grace_period: [exit_delay_min]

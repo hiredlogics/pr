@@ -699,12 +699,21 @@ modules:
   - module_id: KB-GRACE-01
     route: GRACE
     topic: "End grace period"
-    # Client 2026-10-08: the overstay is also calculated from the notice
-    # (derivation: overstay_min / within_grace_period against the Code version).
-    use_when: {all: [{is: permitted_period_ended}, {any: [{exists: exit_delay_min}, {is: within_grace_period}]}]}
+    # KB USE WHEN: "A permitted/paid parking period ended and the allegation
+    # concerns additional time before exit." The gate stands on the grace
+    # FINDING, which derivation settles either from the operator's own figures
+    # (permitted period + duration on the notice) or, when the notice does not
+    # give both, from the customer's answer to exit_delay_min.
+    # `exit_delay_min` must NOT appear as an {exists:} leg here: it is a
+    # QUESTION-only fact, so {exists:} on it can never evaluate FALSE, which
+    # pinned this gate at UNKNOWN even once within_grace_period was known
+    # FALSE - and made the engine ask for a delay figure that could not change
+    # the outcome. Gating on within_grace_period keeps the question only while
+    # it is genuinely undecided.
+    use_when: {all: [{is: permitted_period_ended}, {is: within_grace_period}]}
     do_not_use_when: {always: false}
     core_proposition: "Apply the applicable end-of-parking grace requirement only after establishing that it applies to the site/event."
-    required_facts: [exit_delay_min]
+    required_facts: [within_grace_period]
     evidence_helpful: []
     legal_basis: [SCOP-grace]
     legal_basis_origin: SOURCE_MODULE

@@ -122,7 +122,7 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
     from ..module_roles import can_be_claim_ground
     from ..rules.dsl import evaluate3
 
-    from ..engines.derivation import load_rules
+    from ..engines.derivation import establishable_by, load_rules
     # Retrieval aids (derivation_rules.yaml `points_at`). "fact=VALUE" keys come
     # from the allegation itself (strong: NO_PAYMENT points at the payment
     # grounds); bare keys are site characters (weak: a retail park). hints:
@@ -186,6 +186,13 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
         # Only what the customer can be asked; a fact a calculation supplies
         # (within_grace_period) is one alternative, not a reason to skip.
         askable = {f for f in missing if kg.question_for(f)}
+        # A derived gate fact the calculation could not settle is asked through
+        # the question that establishes it instead (fact_producers.yaml
+        # `establishable_by`) - but only while it is still unknown, so a fact
+        # the notice already settled is never re-asked behind a proxy.
+        for fact in missing - askable:
+            askable |= {q for q in establishable_by().get(fact, ())
+                        if facts.get(q) in (None, "", []) and kg.question_for(q)}
         if askable:
             out.append((m.module_id, askable))
     return out

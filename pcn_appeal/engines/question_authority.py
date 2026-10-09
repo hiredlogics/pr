@@ -77,6 +77,7 @@ from ..kg.graph import KnowledgeGraph
 from ..models import CaseFile
 from ..module_roles import SUBSTANTIVE_GROUND, role_of
 from ..rules.dsl import PredicateError, evaluate3
+from .derivation import establishable_by
 from .module_eligibility import (BLOCKED as ME_BLOCKED, REJECTED as ME_REJECTED,
                                  SUPPORTED as ME_SUPPORTED, UNRESOLVED as ME_UNRESOLVED,
                                  decide, evaluate_module_id)
@@ -552,8 +553,22 @@ class QuestionAuthority:
             open_dnu = [i for i, (lf, _) in enumerate(dnu) if _is_open(lf, view, unreliable)]
         except PredicateError:
             return None
-        mine_use = [i for i in open_use if _fact_of(use[i][0]) == fact]
-        mine_dnu = [i for i in open_dnu if _fact_of(dnu[i][0]) == fact]
+        # The names this answer can settle. A gate normally reads the asked fact
+        # itself, but a DERIVED gate fact a calculation could not settle is
+        # established by a question instead (fact_producers.yaml
+        # `establishable_by`): the notice must give a permitted period AND a
+        # duration to compute `within_grace_period`, and many notices give
+        # neither, leaving the customer's account of the delay the only thing
+        # that can decide it. The gate names the derived fact, so without this
+        # the authority sees no module depending on the question and rejects it
+        # as unable to change anything - which is how a supermarket overstay
+        # stopped being asked about its own grace period. Only a derived fact
+        # still unknown is reachable this way, so a figure the notice already
+        # settled is never re-asked behind a proxy.
+        settles = {fact} | {d for d, qs in establishable_by().items()
+                            if fact in qs and view.get(d) in (None, "", [])}
+        mine_use = [i for i in open_use if _fact_of(use[i][0]) in settles]
+        mine_dnu = [i for i in open_dnu if _fact_of(dnu[i][0]) in settles]
         if not mine_use and not mine_dnu:
             return None                                  # not the missing fact
         eff = Effect(module.module_id, in_use_when=bool(mine_use), in_blocker=bool(mine_dnu))
@@ -561,7 +576,9 @@ class QuestionAuthority:
         positive = [i for i in mine_use if use[i][1]]
         if not positive:
             # Only ever an exclusion here. Ask once the requirements are met.
-            waiting = [i for i in open_use if use[i][1] and _fact_of(use[i][0]) not in (None, fact)]
+            waiting = [i for i in open_use if use[i][1]
+                       and _fact_of(use[i][0]) is not None
+                       and _fact_of(use[i][0]) not in settles]
             if waiting:
                 return None
         # One condition a truth value per possible answer.
