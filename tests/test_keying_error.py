@@ -352,10 +352,19 @@ class FactsPrintedOnTheNoticeCanBeAnswered(unittest.TestCase):
         out = run(case, pipe, "parent and child bay", {"operator_ata": "BPA"})
         self.assertIsNotNone(out.pack.code_version)
 
-    def test_not_shown_is_reported_as_a_missing_ata_not_a_date_problem(self):
+    def test_not_shown_resolves_the_code_but_flags_the_ata_as_unverified(self):
+        """Client decision: the sector Single Code is version-controlled by event
+        date, so a notice showing no trade-body logo still resolves the Code and
+        its provisions (overstay/grace stay calculable). Membership remains
+        unestablished, so the status carries that as a knowledge gap rather than
+        abandoning the calculation - which previously killed every operator
+        missing from the local name table, unseen operators included."""
         from datetime import date
-        _, status = code_versions.resolve(date(2026, 9, 19), "NOT_SHOWN")
-        self.assertEqual(status, "UNRESOLVED:ata_unknown")
+        version, status = code_versions.resolve(date(2026, 9, 19), "NOT_SHOWN")
+        self.assertEqual(status, "RESOLVED_ATA_UNVERIFIED")
+        self.assertTrue(code_versions.is_usable(status))
+        self.assertTrue(code_versions.ata_unverified(status))
+        self.assertIsNotNone(version)
 
     def test_a_corrected_jurisdiction_is_not_overwritten_by_the_postcode(self):
         case, pipe = make_case(BAY)

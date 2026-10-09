@@ -592,6 +592,13 @@ prompts:
         the support bundles, verified_facts and verified_legal_findings. Render those. If a detail
         is not in them, it is not available to the letter: do not infer it.
       - Do not state Code values unless code_version is set.
+      - When guidance.code_applicability is APPLIES_BY_DATE_OPERATOR_MEMBERSHIP_UNESTABLISHED, the
+        Code provision applies by the date of the event but the notice never showed which trade
+        body (if any) the operator belongs to. Any sentence using a Code value must say that the
+        notice does not state the operator's accredited-body membership and put the provision
+        conditionally (for example "insofar as the operator is bound by the Code") or ask the
+        operator to confirm its accreditation. Never state the allowance as settled, and never
+        assert or guess which body the operator belongs to.
       - Do not call ANPR entry-to-exit time 'parking time'. Do not merge consideration and grace.
       - No universal 10-minute rule. Nothing 'automatically' cancels. No penalty / pre-estimate argument.
       - Never describe a breakdown as automatic frustration; any conclusion must follow the stated facts.
@@ -912,7 +919,10 @@ prompts:
                      tokens alone as paste.
         VAL-EVIDENCE says evidence is enclosed or supplied when its evidence_id is not in evidence_refs.
         VAL-POFA     alleges a Schedule 4 / PoFA defect not named in pofa_findings.
-        VAL-CODE     states a Code rule, value or version when code_version is null.
+        VAL-CODE     states a Code rule, value or version when code_version is null, or states one
+                     as settled when code_applicability is
+                     APPLIES_BY_DATE_OPERATOR_MEMBERSHIP_UNESTABLISHED without saying the notice
+                     does not show the operator's accredited-body membership.
         VAL-RES      quotes lease/tenancy wording not found verbatim in lease_clauses, paraphrases it
                      inaccurately, or overstates the rights it grants (justified customer_quotations
                      with a recorded reason are the only non-lease quotation exception).

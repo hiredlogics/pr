@@ -44,6 +44,7 @@ from typing import Optional
 
 from .. import prompts
 from ..customer_safe import internal_ids
+from ..legal import code_versions
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
 from ..module_roles import classify_pack
@@ -84,6 +85,22 @@ POFA_DEFECT = R(r"(not delivered within|did not meet the applicable statutory ti
                 r"does not contain (a compliant|the applicable statutory)|does not (properly )?comply with the applicable)")
 CODE_VALUE = R(r"\b\d+[- ]minutes?\b.*\b(grace|consideration)\b|\b(grace|consideration)\b.*\b\d+[- ]minutes?\b")
 UNIVERSAL_RULE = R(r"\b(10[- ]minute rule|always cancel|automatically cancel)")
+# Wording that states a Code provision as conditional on the operator being
+# bound by the Code, rather than as settled. Required when the Code version
+# resolved by event date but the notice never showed the operator's trade body
+# (code_status RESOLVED_ATA_UNVERIFIED): the provision exists, its application
+# to THIS operator does not yet, and the letter must say so instead of
+# asserting it. Asking the operator to confirm membership counts.
+CODE_APPLICABILITY_CAVEAT = R(
+    r"\b(if|insofar as|to the extent that|where|should) (the|your) (operator|company)"
+    r"[^.]{0,80}\b(bound by|member|subscrib|accredit)"
+    r"|\b(bound by|member of|membership of|accredited (?:body|operator))"
+    r"[^.]{0,80}\b(not (?:been )?(?:stated|shown|confirmed|established|disclosed)|unclear|"
+    r"does not state|is not stated|no indication)"
+    r"|\bthe notice does not (?:state|show|identify)[^.]{0,80}"
+    r"\b(trade body|accredited|association|membership)"
+    r"|\b(confirm|state|disclose)[^.]{0,60}\b(trade body|accredited body|"
+    r"accreditation|membership of)")
 BREAK_AUTO = R(r"\bautomatic(ally)? (frustrat|void|cancel)|breakdown (always|automatically)")
 EQ_TERMS = R(r"\b(Equality Act|reasonable adjustment|disabilit)")
 ANPR_GENERIC = R(r"\b(calibrat|camera maintenance|synchroni[sz]ation of the camera)")
@@ -398,6 +415,18 @@ class ValidationEngine:
                 block("VAL-POFA", "PoFA defect alleged without verified finding", t)
             if CODE_VALUE.search(t) and not pack.code_version:
                 block("VAL-CODE", "Code value used without resolved Code version", t)
+            elif (CODE_VALUE.search(t)
+                  and code_versions.ata_unverified(pack.code_status)
+                  and not CODE_APPLICABILITY_CAVEAT.search(t)):
+                # The Code version resolved by event date, so the provision is
+                # real and quotable - but the notice never showed which trade
+                # body (if any) the operator belongs to, so whether it is bound
+                # by that Code is unestablished. Stating the allowance flatly
+                # would assert that applicability (KB-GOV-03: no legal
+                # proposition the knowledge base does not support). The
+                # sentence has to carry the gap rather than hide it.
+                block("VAL-CODE", "Code value stated as settled while the operator's "
+                                  "accredited-body membership is unestablished", t)
             if UNIVERSAL_RULE.search(t):
                 block("VAL-CODE", "Universal cancellation rule stated", t)
             if s.quote_of or re.search(r'"[^"]{12,}"', t):

@@ -542,6 +542,14 @@ class RetrievalPack:
     # and the validator read defects from here; UNRESOLVED and NOT_SUPPORTED
     # findings never enter a pack.
     legal_findings: list[dict] = field(default_factory=list)
+    # `code_versions.resolve` status behind `code_version`. The sector Single
+    # Code is version-controlled by event date, so a notice that does not show
+    # the operator's trade body still resolves a version
+    # (RESOLVED_ATA_UNVERIFIED): the Code's provisions apply by date, while
+    # whether this operator is bound by them is a knowledge gap. The drafter
+    # and VAL-CODE read it here so a Code value is never stated as settled on
+    # an applicability that was never established.
+    code_status: Optional[str] = None
 
 
 # --------------------------------------------------------------------------- drafting

@@ -638,7 +638,8 @@ class FactRecoveryEngine:
             if "no_event_date" in code_status:
                 return "required to resolve which Code of Practice version applies"
             return "required to anchor the parking event on the notice"
-        if name == "operator_ata" and "ata_unknown" in code_status:
+        if name == "operator_ata" and ("ata_unknown" in code_status
+                                       or code_versions.ata_unverified(code_status)):
             # Only material when a Code-dependent non-LAND ground is already
             # factually arguable — otherwise asking wastes the customer's time.
             if self.kg is not None and case is not None \

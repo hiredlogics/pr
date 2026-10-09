@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import unittest
 
+from pcn_appeal.engines.analysis import AnalysisEngine
+from pcn_appeal.legal import code_versions
 from pcn_appeal.models import CaseFile, EvidenceItem, FactStatus
 from pcn_appeal.orchestrator import AppealPipeline
 from support import ReferenceAnalysisLLM
@@ -92,13 +94,28 @@ class JurisdictionIsNeverAskedAutomatically(unittest.TestCase):
                           or "postcode" in q["fact"]], [])
 
     def test_the_grounds_that_need_it_are_withheld_instead(self):
-        """The safeguard is withholding, not asking: an unresolved Code version
-        must not let a Code-based ground into the letter."""
+        """The safeguard is withholding, not asking.
+
+        Client decision 2026-10-09: the sector Code is version-controlled by the
+        EVENT DATE, not by the trade body, so a notice that never showed the
+        operator's accredited body still resolves a version - the provisions did
+        apply on that date. What is unestablished is whether this operator is
+        bound by them, and that is a knowledge gap the letter must carry rather
+        than a reason to pretend no Code existed. So the version resolves, the
+        status says the membership is unverified, and no Code-based ground is
+        argued off it.
+        """
         case, pipe = case_with(drop=("site_postcode", "operator_ata"))
         run(case, pipe)
         out = pipe.generate(case)
-        self.assertNotEqual(out.pack.code_version, "SCOP-1.1")
-        self.assertIsNone(out.pack.code_version)
+        self.assertEqual(out.pack.code_version, "SCOP-1.1")
+        self.assertTrue(code_versions.ata_unverified(out.pack.code_status),
+                        f"the ATA gap must be flagged, not hidden: {out.pack.code_status}")
+        # The original safeguard, unchanged: nothing that stands on a Code rule
+        # gets into the letter on an applicability that was never established.
+        code_based = [mid for mid in (out.pack.module_ids or [])
+                      if AnalysisEngine._needs_code_version(pipe.kg.modules[mid])]
+        self.assertEqual(code_based, [])
 
     def test_the_site_is_not_asked_even_when_the_code_cannot_be_resolved(self):
         """Neither the missing postcode nor the missing trade body brings the

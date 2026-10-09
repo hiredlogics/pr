@@ -32,6 +32,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from ..legal import code_versions
 from ..models import RetrievalPack
 from .support_contract import (
     DraftContextError, DraftRequirement, SupportBundle,
@@ -234,6 +235,16 @@ class DraftContext:
             "context_chunks": chunks, "lease_clauses": list(pack.lease_clauses or []),
             "prohibited_claims": list(pack.prohibited_claims or []),
             "code_version": pack.code_version, "pofa_route": pack.pofa_route,
+            # Whether that Code version is settled or applies-by-date only. The
+            # sector Code is version-controlled by event date, so a notice that
+            # never showed the operator's trade body still resolves a version:
+            # the provision is real and quotable, but whether this operator is
+            # bound by it is unestablished. The drafter must write that gap into
+            # the sentence rather than assert the applicability (VAL-CODE).
+            "code_applicability": (
+                "APPLIES_BY_DATE_OPERATOR_MEMBERSHIP_UNESTABLISHED"
+                if code_versions.ata_unverified(pack.code_status) else "SETTLED"
+            ) if pack.code_version else "UNRESOLVED",
             "pofa_findings": list(pack.pofa_findings or []),
             # P6.1: VERIFIED legal findings only. The pack is built that way
             # (legal/findings.for_pack); this filter holds even if a caller

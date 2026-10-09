@@ -226,7 +226,7 @@ class ReasoningEngine:
                                    "findings": [{"finding_type": t, "status": s}
                                                 for t, s in sorted(after.items())],
                                    "identity_timing_blocked": timing_deps})
-            return version if status == "RESOLVED" else None, res
+            return version if code_versions.is_usable(status) else None, res
         if not loc_ok:
             trace.append(f"pofa:identity_location_blocked:{','.join(loc_deps)}")
             case.audit.append({
@@ -292,7 +292,7 @@ class ReasoningEngine:
                                             for t, s in sorted(after.items())]})
         trace += [f"legal_finding:{t}={s}" for t, s in sorted(after.items())
                   if s != legal_findings.NOT_SUPPORTED]
-        return version if status == "RESOLVED" else None, res
+        return version if code_versions.is_usable(status) else None, res
 
     # ------------------------------------------------------------------ main
     def analyse(self, case: CaseFile, selected_ids: Optional[list[str]] = None,
@@ -737,6 +737,15 @@ class ReasoningEngine:
             missing_facts=missing, evidence_refs=[e.evidence_id for e in case.evidence.values() if e.uploaded],
             prohibited_claims=prohibited,
             code_version=version.version_id if version else None,
+            # Re-resolved rather than threaded through every _applicability
+            # caller: resolve() is pure over the same three facts, so this is
+            # the same answer _applicability traced. The status matters because
+            # a resolved version no longer means a settled one - the Code
+            # applies by event date even when the notice does not show the
+            # operator's trade body, and VAL-CODE has to tell those apart.
+            code_status=code_versions.resolve(
+                case.get("parking_event_date"), case.get("operator_ata"),
+                case.get("operator_transitioned"))[1],
             pofa_route=pofa_res.route, pofa_findings=pofa_res.findings,
             legal_findings=legal_findings.for_pack(case),
             driver_status=case.driver_status.value, jurisdiction=case.get("jurisdiction", "UNKNOWN"),

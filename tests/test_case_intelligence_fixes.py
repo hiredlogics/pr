@@ -482,15 +482,19 @@ class FactRecoveryTests(unittest.TestCase):
             for g in report.unknown_material
         ))
 
-    def test_code_version_not_applied_without_ata(self):
+    def test_code_version_resolves_by_date_with_the_ata_left_unverified(self):
+        """Client decision: the Code follows the event date, so it resolves even
+        with no trade body on the notice, and the unestablished membership is
+        carried as a knowledge gap in the status (not a dead end)."""
         from pcn_appeal.engines.recovery import FactRecoveryEngine
+        from pcn_appeal.legal import code_versions
         from datetime import date
         case = CaseFile("C-R3")
         case.put(Fact("F-ev", "parking_event_date", date(2026, 8, 29), FactStatus.CONFIRMED,
                       FactSource(SourceKind.DOCUMENT, "E1")))
         report = FactRecoveryEngine().recover(case)
-        self.assertIsNone(report.calculated.get("code_version"))
-        self.assertIn("ata_unknown", str(report.calculated.get("code_status")))
+        self.assertIsNotNone(report.calculated.get("code_version"))
+        self.assertTrue(code_versions.ata_unverified(report.calculated.get("code_status")))
 
     def test_conflicting_pcn_not_guessed_by_recovery(self):
         from pcn_appeal.engines.recovery import FactRecoveryEngine
