@@ -28,7 +28,7 @@ import json
 from typing import Optional
 
 from .narrative import NARRATIVE_INTERNAL, NARRATIVE_LETTER_FACTS
-from .. import case_state, evidence_review
+from .. import case_state, evidence_review, kb_retrieval
 from ..kg.graph import KnowledgeGraph
 from ..disclosure import keeper_route_blocked
 from .derivation import timing_issue_date
@@ -121,7 +121,13 @@ class ReasoningEngine:
         self.kg = kg
         corpus = []
         for m in kg.modules.values():
-            corpus.append(Doc(m.module_id, f"{m.topic}. {m.core_proposition} {m.drafting_notes}",
+            # One retrieval unit per legal proposition, carrying its conditions
+            # (kb_retrieval.retrieval_text). Retrieving a proposition without
+            # its USE WHEN is the split the client brief forbids, and it was
+            # why a customer saying "I decided not to stay" never reached
+            # KB-CON-02. Reach only: eligibility is still decided by the gates
+            # against verified facts.
+            corpus.append(Doc(m.module_id, kb_retrieval.retrieval_text(m),
                               {"module_id": m.module_id, "kind": "module"}))
             for b in m.building_blocks:
                 # A block awaiting legal review is not approved wording, so it

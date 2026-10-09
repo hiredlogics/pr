@@ -1,0 +1,428 @@
+# Retrieval-only metadata (brief 2026-10-09 sections 4 and 5).
+#
+# NOT a legal rule and NOT a fact source. Nothing here may make a ground
+# supported, satisfy a gate, or enter a letter: eligibility is decided by
+# `use_when` / `do_not_use_when` in kb_modules.yaml against verified facts,
+# exactly as before. This file only decides which approved modules are LOOKED
+# AT for a case, so a customer's own words can reach the right proposition.
+#
+# Two kinds of text, both approved-source:
+#
+#   use_when / must_check
+#     The client knowledge base's own USE WHEN and AI MUST CHECK wording,
+#     verbatim from Private_Parking_AI_Legal_Knowledge_Base_COMPLETE_V2.docx.
+#     The retrieval chunk previously held only topic + core proposition +
+#     drafting notes, which left the proposition retrievable without its
+#     conditions - the separation the brief forbids. Keeping USE WHEN with the
+#     proposition is what lets "I decided not to stay" find KB-CON-02.
+#
+#   concepts
+#     Ways real customers describe the same meaning. These exist so retrieval
+#     is not a keyword whitelist; they are never legal tests, never facts, and
+#     are never quoted in a letter. Adding a phrase here widens what can be
+#     FOUND; it can never widen what can be ARGUED.
+#
+# Module ids not listed here still retrieve on their module text as before.
+
+modules:
+
+  KB-ACT-01:
+    use_when: "Vehicle presence was genuinely for loading/unloading and the allegation/site terms make this legally/factually relevant."
+    must_check: "Nature/duration of loading, goods, site terms, evidence."
+    concepts:
+      - "unloading"
+      - "loading the van"
+      - "delivering goods"
+      - "dropping off stock"
+      - "carrying heavy items in"
+      - "making a delivery"
+
+  KB-ACT-02:
+    use_when: "Vehicle stopped briefly for genuine drop-off/collection."
+    must_check: "Duration, location, signage, activity."
+    concepts:
+      - "dropping someone off"
+      - "picking someone up"
+      - "let my passenger out"
+      - "stopped to let my mother out"
+      - "collecting my daughter"
+      - "just a quick drop off"
+      - "stopped for two minutes for a passenger"
+      - "was not parking, only stopping"
+
+  KB-ACT-03:
+    use_when: "Authorised customer use involved a collection/check-in/waiting process."
+    must_check: "Booking/order/receipt, authorisation, timing."
+
+  KB-ANPR-01:
+    use_when: "Vehicle attended the site more than once and operator may have paired first entry with final exit."
+    must_check: "All visits; intermediate captures; evidence vehicle was elsewhere."
+    concepts:
+      - "went home and came back"
+      - "two separate visits"
+      - "left and returned later"
+      - "came back in the afternoon"
+      - "visited twice that day"
+      - "second trip"
+
+  KB-ANPR-02:
+    use_when: "Sequence appears incomplete or inconsistent."
+    must_check: "Image sequence, timestamps, camera lanes, complete logs if disclosed."
+
+  KB-ANPR-03:
+    use_when: "Image, registration read or timestamp appears inconsistent."
+    must_check: "Original images, timestamp, OCR/VRM read, system records."
+
+  KB-AUTH-01:
+    use_when: "Vehicle had permission from resident, employer, hotel, business, landholder or other authorised source."
+    must_check: "Source, scope, date/time, vehicle registration, evidence."
+    concepts:
+      - "I live there"
+      - "resident"
+      - "my employer allows it"
+      - "the hotel told me to park there"
+      - "the business gave me permission"
+      - "landowner said it was fine"
+      - "have permission to park"
+
+  KB-AUTH-02:
+    use_when: "A valid permit or whitelist entitlement existed."
+    must_check: "Permit number, validity, bay/site, VRM, digital record."
+    concepts:
+      - "I have a permit"
+      - "permit was displayed"
+      - "on the whitelist"
+      - "registered for the car park"
+
+  KB-AUTH-03:
+    use_when: "Vehicle was an authorised visitor."
+    must_check: "Host/resident confirmation, visitor system, dates, evidence."
+
+  KB-BREAK-01:
+    use_when: "A genuine mechanical event prevented the vehicle from being moved or prevented timely compliance/departure."
+    must_check: "Nature of fault; when it arose; whether vehicle could safely/reasonably be moved; recovery/repair steps; duration; whether the alleged breach was caused by the breakdown."
+    concepts:
+      - "car broke down"
+      - "would not start"
+      - "engine failed"
+      - "mechanical failure"
+      - "had to wait for recovery"
+      - "car would not move"
+      - "breakdown"
+
+  KB-BREAK-02:
+    use_when: "A puncture, flat battery or similar event actually immobilised the vehicle."
+    must_check: "Severity, safety, repair/recovery, time."
+    concepts:
+      - "flat tyre"
+      - "puncture"
+      - "flat battery"
+      - "tyre blew"
+      - "battery died"
+
+  KB-BREAK-03:
+    use_when: "Vehicle remained while awaiting legitimate roadside recovery/assistance."
+    must_check: "Call time, arrival time, departure/recovery time, recovery evidence."
+
+  KB-CON-01:
+    use_when: "Vehicle entered controlled land and time was needed before any parking terms could reasonably be accepted."
+    must_check: "ANPR times; site layout; reason for initial period; whether parking actually took place; whether terms were rejected and vehicle left."
+    concepts:
+      - "only there a couple of minutes"
+      - "needed time to read the sign"
+      - "was looking for a space"
+      - "entered and had not decided yet"
+      - "time to find the machine"
+      - "just arrived and was reading the terms"
+      - "had not started parking yet"
+
+  KB-CON-02:
+    use_when: "Terms were considered but not accepted and the vehicle then left."
+    must_check: "Duration; activity; evidence; whether any conduct clearly accepted the terms."
+    concepts:
+      - "read the sign and did not agree"
+      - "terms were not acceptable so I drove away"
+      - "looked at the conditions and decided not to stay"
+      - "did not accept the terms and left"
+      - "too expensive so I left"
+      - "changed my mind and drove out"
+      - "decided against parking there"
+      - "no contract was ever accepted"
+      - "never actually parked"
+      - "turned around and left"
+      - "pulled in and straight back out"
+      - "refused the terms"
+
+  KB-CUST-01:
+    use_when: "Site is customer-only and evidence shows genuine use of premises."
+    must_check: "Receipt/booking, premises, timing, landowner/occupier policy."
+    concepts:
+      - "I was shopping there"
+      - "was a customer"
+      - "bought something in the store"
+      - "using the shop"
+      - "have the till receipt"
+
+  KB-EQ-01:
+    use_when: "Facts indicate disability-related needs may have affected use of the parking service or time required."
+    must_check: "Relevant functional impact, extra time needed, operator knowledge where relevant, evidence supplied."
+    concepts:
+      - "I am disabled"
+      - "blue badge holder"
+      - "disabled passenger"
+      - "accessibility need"
+
+  KB-EQ-02:
+    use_when: "Disability-related circumstances reasonably required more time to enter, park, pay, return or leave."
+    must_check: "Why extra time was needed and how it relates to the alleged breach."
+    concepts:
+      - "disability meant I needed longer"
+      - "needed extra time because of my disability"
+      - "mobility problems slowed me down"
+      - "wheelchair took time to get out"
+      - "could not walk to the machine quickly"
+
+  KB-EQ-03:
+    use_when: "No visible badge/indicator but disability-related facts are relevant."
+    must_check: "Facts and evidence volunteered/necessary for the issue."
+
+  KB-EV-01:
+    use_when: "Uploaded evidence conflicts with operator's duration/location/account."
+    must_check: "Authenticity, timestamp, location and relevance of evidence."
+
+  KB-EVCH-01:
+    use_when: "Vehicle remained for genuine charging and allegation relates to duration/payment/authorisation."
+    must_check: "Charge session, app/charger record, bay terms, parking terms."
+    concepts:
+      - "charging my electric car"
+      - "EV charger"
+      - "was on the charger"
+      - "charging session"
+
+  KB-GRACE-01:
+    use_when: "A permitted/paid parking period ended and the allegation concerns additional time before exit."
+    must_check: "Parking end time; ANPR exit; applicable Code rule; event date; operator transition status."
+    concepts:
+      - "a few minutes over"
+      - "slightly over the time"
+      - "went over by a little"
+      - "just past the paid period"
+
+  KB-GRACE-02:
+    use_when: "Departure was delayed by queueing, congestion, barrier failure or site-management conditions."
+    must_check: "Cause and duration of delay; site evidence; barrier/queue information; actual parking end time."
+    concepts:
+      - "queue to get out"
+      - "traffic at the barrier"
+      - "barrier would not open"
+      - "congestion leaving the car park"
+      - "could not exit"
+      - "stuck in a queue at the exit"
+      - "gate was jammed"
+      - "held up leaving"
+
+  KB-HOSP-01:
+    use_when: "Parking event connected with hospital/medical attendance."
+    must_check: "Hospital, appointment/emergency, validation/payment process, evidence."
+    concepts:
+      - "hospital appointment"
+      - "at the hospital"
+      - "visiting a patient"
+      - "medical appointment"
+      - "A and E"
+      - "clinic appointment"
+      - "taking my mother to hospital"
+
+  KB-HOSP-02:
+    use_when: "Emergency or clinical delay caused timing/parking issue."
+    must_check: "Attendance records, appointment/clinical delay evidence where available."
+    concepts:
+      - "appointment ran late"
+      - "kept waiting at the hospital"
+      - "emergency delayed us"
+      - "clinical delay"
+      - "doctor was running behind"
+
+  KB-HOSP-03:
+    use_when: "NHS/healthcare landholder has a cancellation or exemption mechanism."
+    must_check: "Trust/site policy and evidence."
+
+  KB-INFRA-01:
+    use_when: "Entry/exit or compliance was prevented/delayed by site infrastructure."
+    must_check: "Barrier/access fault, queue, timestamps, evidence."
+    concepts:
+      - "barrier failure"
+      - "gate broken"
+      - "entry system failed"
+      - "could not get in"
+      - "intercom did not work"
+
+  KB-KEY-01:
+    use_when: "Payment made but VRM entry contains a minor error."
+    must_check: "Correct VRM, entered VRM, payment match, error type."
+    concepts:
+      - "typed my reg wrong"
+      - "mistyped my registration"
+      - "one digit wrong"
+      - "keyed in the wrong letter"
+      - "put the wrong number plate in"
+      - "typo in my reg"
+      - "entered my plate incorrectly"
+
+  KB-KEY-02:
+    use_when: "Payment was made but another known vehicle registration was entered."
+    must_check: "Entered VRM, relationship to keeper/customer, payment record."
+    concepts:
+      - "entered my other car's registration"
+      - "used my wife's reg by mistake"
+      - "put my old car's plate in"
+      - "wrong vehicle of mine"
+
+  KB-LAND-01:
+    use_when: "A proportionate authority challenge is relevant."
+    must_check: "Site, event date, contracting party, scope."
+
+  KB-LAND-02:
+    use_when: "Evidence suggests location, date or scope mismatch."
+    must_check: "Contract/authority evidence if supplied; site plan; dates."
+
+  KB-LAND-03:
+    use_when: "Operator later provides authority evidence but redactions prevent material verification."
+    must_check: "Document supplied and visible omissions."
+
+  KB-PAY-01:
+    use_when: "Evidence or confirmed facts show a tariff/payment was made."
+    must_check: "Payment method, time, amount, location, VRM entered, receipt/bank/app evidence."
+    concepts:
+      - "I paid"
+      - "paid for parking"
+      - "bought a ticket"
+      - "paid the tariff"
+      - "have the receipt"
+      - "paid on the app"
+      - "session was paid for"
+      - "payment was made"
+
+  KB-PAY-02:
+    use_when: "A genuine attempt to pay was prevented by a machine fault."
+    must_check: "Machine ID/location, attempt time, alternative methods, evidence of fault."
+    concepts:
+      - "machine was broken"
+      - "machine out of order"
+      - "meter not working"
+      - "kiosk was faulty"
+      - "pay and display machine would not take my money"
+      - "no ticket came out"
+      - "machine ate my coins"
+
+  KB-PAY-03:
+    use_when: "Operator requires or offers digital payment and the process failed."
+    must_check: "App/system, time, error, connectivity, alternative methods, records."
+    concepts:
+      - "app failed"
+      - "payment app not working"
+      - "could not pay online"
+      - "payment screen error"
+      - "app crashed"
+      - "payment would not go through"
+      - "website would not load"
+      - "card declined in the app"
+      - "no signal to use the app"
+      - "digital payment failed"
+      - "QR code would not scan"
+
+  KB-POFA-01:
+    use_when: "Registered keeper appeal; driver has not already been formally identified."
+    must_check: "Notice route; relevant land; event date; notice dates; whether a Notice to Driver preceded the NTK; required content; whether the operator is actually relying on PoFA."
+    concepts:
+      - "I am the registered keeper"
+      - "I was not driving"
+      - "will not say who was driving"
+
+  KB-POFA-02:
+    use_when: "Notice was first sent by post and no prior Notice to Driver was issued."
+    must_check: "Event date, issue date, presumed/actual delivery information, route."
+
+  KB-POFA-03:
+    use_when: "A Notice to Driver was placed on the vehicle and a later NTK is relied upon."
+    must_check: "Date of parking event, Notice to Driver, NTK issue/delivery."
+
+  KB-POFA-04:
+    use_when: "A specific required Schedule 4 element appears missing or defective."
+    must_check: "Vehicle, relevant land, period of parking, unpaid charge, creditor, statutory invitation/warning and other route-specific requirements."
+
+  KB-POFA-05:
+    use_when: "A valid PoFA failure is established and driver remains unidentified."
+    must_check: "Confirmed PoFA failure + driver_identified = NO."
+
+  KB-RES-01:
+    use_when: "Resident/tenant/leaseholder relies on an uploaded agreement granting parking rights."
+    must_check: "Exact parking clause; allocated/communal bay; permit wording; power to make regulations; variation mechanism; parties; commencement date."
+    concepts:
+      - "my tenancy includes parking"
+      - "lease gives me a space"
+      - "my agreement allows parking"
+      - "allocated space in my contract"
+
+  KB-RES-02:
+    use_when: "Uploaded instrument grants a parking right without the restriction now alleged."
+    must_check: "Exact clause and any qualifications/regulations."
+
+  KB-RES-03:
+    use_when: "Agreement identifies a specific bay/space or exclusive parking entitlement."
+    must_check: "Plan/bay number, lease clause, permit requirements, management powers."
+
+  KB-RES-04:
+    use_when: "Landlord/lessor granted a parking right and later arrangements arguably substantially interfere with the benefit granted."
+    must_check: "Nature of grant; later scheme; degree of interference; contractual powers."
+
+  KB-RES-05:
+    use_when: "Tenancy/lease rights and enforcement conduct raise a genuine interference issue."
+    must_check: "Agreement terms; conduct; repeated interference if relevant."
+
+  KB-RES-06:
+    use_when: "Lease/tenancy contains a permit requirement, regulations clause or power to introduce parking controls."
+    must_check: "Exact clause; whether regulations were validly made; notice/variation process; allegation."
+
+  KB-RES-07:
+    use_when: "Resident rights exist and third-party operator enforcement is challenged."
+    must_check: "Lease powers; management agreement if available; site boundary; operator authority."
+
+  KB-SIGN-01:
+    use_when: "Credible facts/evidence indicate parking terms were not adequately communicated on entry."
+    must_check: "Entrance route, sign position, visibility, event lighting, contemporaneous images."
+    concepts:
+      - "no sign at the entrance"
+      - "could not see any sign"
+      - "signs were hidden"
+      - "nothing told me the terms on the way in"
+
+  KB-SIGN-02:
+    use_when: "The specific restriction or parking charge was not prominent/clear."
+    must_check: "Sign wording, font/prominence, placement, allegation, lighting."
+    concepts:
+      - "sign was too small to read"
+      - "print was tiny"
+      - "charge was not clear on the sign"
+      - "could not see the price"
+
+  KB-SIGN-03:
+    use_when: "Different signs communicate inconsistent terms."
+    must_check: "Photos of each sign; site position; wording."
+    concepts:
+      - "signs said different things"
+      - "contradictory signs"
+      - "one sign said one thing another said something else"
+
+  KB-SIGN-04:
+    use_when: "Operator relies on generic/undated signage evidence or customer evidence suggests change/damage."
+    must_check: "Event date; operator photos; installation/change records if available."
+
+  KB-TIME-01:
+    use_when: "Operator relies on entry and exit cameras to calculate duration."
+    must_check: "Entry/exit location, manoeuvring, finding a bay, payment activity, queueing, multiple visits."
+    concepts:
+      - "I was not parked that whole time"
+      - "the cameras include driving time"
+      - "entry to exit is not parking time"
+      - "was queueing not parking"

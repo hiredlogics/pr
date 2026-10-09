@@ -730,6 +730,16 @@ def record_retrieval(case, result: RetrievalResult, window: Optional[list[str]] 
         case.audit.append({
             "event": "knowledge_retrieval", "version": RETRIEVAL_VERSION,
             "kb_release_id": result.kb_release_id, "candidates": result.module_ids,
+            # The ranked candidate set with its scores (client brief §3), so a
+            # reviewer can see what retrieval reached and how strongly. Ranking
+            # is not eligibility: `offered` below is still only what the gates
+            # allow, and a high score never makes a ground arguable.
+            "ranked": [{"module_id": c.module_id,
+                        "score": round(max(c.structured_score, c.vector_score), 2),
+                        "structured": round(c.structured_score, 2),
+                        "vector": round(c.vector_score, 2),
+                        "via": list(c.retrieval_sources or ())}
+                       for c in result.candidates[:8]],
             "routes": result.diagnostics.get("routes_used"),
             "customer_stream": result.diagnostics.get("customer_stream"),
             "offered": list(window) if window is not None else None,
