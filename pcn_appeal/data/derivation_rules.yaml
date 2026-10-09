@@ -51,9 +51,14 @@ permitted_period_ended:
 # is calculated from the operator's own entry/exit times and compared with the
 # grace period of the resolved Code version (never a number in this file).
 permitted_period:
-  # "Max stay 3 hours", "2 hrs", "90 minutes", "1 hour 30 minutes"
-  hours: '(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b'
-  minutes: '(\d+)\s*(?:minutes?|mins?|m)\b'
+  # "Max stay 3 hours", "2 hrs", "90 minutes", "1 hour 30 minutes", and the
+  # same written in words ("maximum stay of four hours"), which is how a great
+  # many notices print it. A permitted period the engine cannot read is not a
+  # harmless gap: it makes the overstay uncalculable, which used to send the
+  # grace question to the customer and let a 2.5-hour overstay be answered
+  # "5 minutes" and treated as within grace.
+  hours: '(\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|half)\s*(?:hours?|hrs?|h)\b'
+  minutes: '(\d+|ten|fifteen|twenty|thirty|forty|forty-?five|fifty|sixty|ninety)\s*(?:minutes?|mins?|m)\b'
 
 # Site type from parking_location (and operator text). Pattern match only.
 site_types:

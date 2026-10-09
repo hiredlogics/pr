@@ -162,6 +162,40 @@ class OverstayReconciliation(unittest.TestCase):
         self.assertIs(case.get("permitted_period_ended"), True)
         self.assertIs(case.get("within_grace_period"), True)
 
+    def test_a_period_written_in_words_is_read_like_one_in_digits(self):
+        """Notices print the period in words at least as often as in digits.
+
+        A period the engine cannot read is not a harmless gap: the overstay
+        becomes uncalculable, so the grace question goes to the customer, and a
+        long overstay answered with a small number would be recorded as within
+        grace. The operator's own figures must settle it instead.
+        """
+        for written, digits in (("four hours", "4 hours"),
+                                ("two hours", "2 hours"),
+                                ("ninety minutes", "90 minutes"),
+                                ("one hour", "1 hour")):
+            with self.subTest(permitted=written):
+                spelled = self._overstay_case(390, permitted=written)
+                numeric = self._overstay_case(390, permitted=digits)
+                self.assertEqual(spelled.get("overstay_min"),
+                                 numeric.get("overstay_min"),
+                                 f"{written!r} must read the same as {digits!r}")
+                self.assertIsNotNone(spelled.get("overstay_min"))
+
+    def test_a_long_overstay_is_settled_by_the_notice_not_by_asking(self):
+        """The grace question must not be reachable where it cannot help."""
+        case = self._overstay_case(390, permitted="four hours")
+        self.assertEqual(case.get("overstay_min"), 150)
+        self.assertIs(case.get("within_grace_period"), False)
+        # No customer answer was involved: the operator's figures decided it.
+        self.assertFalse(case.has("exit_delay_min"))
+
+    def test_an_unreadable_period_still_leaves_the_overstay_unknown(self):
+        """Failing closed: an allegation with no period stated stays undecided
+        rather than guessing one."""
+        case = self._overstay_case(390, permitted="Exceeded maximum stay")
+        self.assertIsNone(case.get("overstay_min"))
+
 
 class GraceGateResolvability(unittest.TestCase):
     """KB-GRACE-01's gate must be able to reach FALSE. It previously carried an

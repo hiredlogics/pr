@@ -38,6 +38,15 @@ MEANS_IT = (
     "I left because I would not pay that much",
     "I never parked there",
     "I didnt park, I just turned around",
+    # Same meaning, other orderings and movement verbs. These are the wordings
+    # an earlier version missed: each half of the meaning (declined / departed)
+    # has one vocabulary shared by both orders, and movement verbs take an
+    # adverb the way people write them ("drove STRAIGHT back out").
+    "I pulled in, saw the price on the sign, decided against it and drove straight back out.",
+    "Too expensive so I turned around",
+    "I refused to accept those terms and exited",
+    "decided against it and went right back out",
+    "no parking took place",
 )
 
 # Accounts that mention leaving, signage or not parking as INTENDED, but do not
@@ -51,6 +60,11 @@ DOES_NOT_MEAN_IT = (
     "I overstayed by ten minutes",
     "The barrier was broken so I could not get out",
     "I parked in the wrong bay by mistake",
+    # The hard negatives: both halves of the meaning are present in words, but
+    # the customer accepted the terms anyway, so no contract defence exists.
+    "It was too expensive but I paid anyway",
+    "I left after two hours of shopping",
+    "I drove out after paying",
 )
 
 

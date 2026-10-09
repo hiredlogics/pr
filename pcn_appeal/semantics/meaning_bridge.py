@@ -75,6 +75,16 @@ _NEGATIVE_LEFT = re.compile(
 def _uncertain(text: str) -> bool:
     return bool(_UNCERTAIN.search(text or ""))
 
+# "the vehicle departed" as a synonym class, written once. Movement verbs take
+# an optional adverb before the direction ("drove STRAIGHT back out", "went
+# right back out"), which is how people actually write it.
+_ADV = r"(?:\s(?:straight|right|immediately|just|back|then))*"
+_LEAVE = (
+    r"left|exit\w*|turned" + _ADV + r"\s(?:around|back)|"
+    r"(?:drove|driv\w+|went|pulled|headed)" + _ADV +
+    r"\s(?:off|out|away|back\sout|elsewhere|home)"
+)
+
 # concept → meaning cues (regex). Broad synonym classes; not case-specific.
 _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
     ("BROKEN_DOWN", re.compile(
@@ -133,26 +143,34 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
     # concept. Requires BOTH a rejection of the terms and a departure, so
     # "the sign was unclear" or a plain "I left" alone does not reach it.
     ("TERMS_REJECTED_LEFT", re.compile(
-        r"\b(?:"
-        r"(?:read|saw|looked at|checked|considered)[^.]{0,60}"
-        r"(?:sign|term|condition|price|charge|tariff|rate)[^.]{0,80}"
-        r"(?:did ?n[o']t (?:agree|accept|want)|didn't like|not (?:agree|accept|"
-        r"prepared)|too expensive|refus|declin|chang(?:ed)? my mind)"
-        r"[^.]{0,80}(?:left|drove (?:off|out|away)|went|exit)"
+        # One vocabulary for each half of the meaning, shared by every branch,
+        # so a phrasing that works in "declined THEN left" order also works in
+        # "left BECAUSE declined" order. Keeping three separate copies of the
+        # rejection list let "decided against it" match one order only.
+        # DECLINE: a decision against the terms/charge. LEAVE: a departure.
+        # The concept needs BOTH, in either order, so a bare "too expensive" or
+        # a bare "I left" never reaches it. The only standalone form is an
+        # explicit statement that no parking happened.
+        r"(?:"
+        r"(?:(?P<d1>did\s?n[o']?t\s(?:agree|accept|want)|does\s?n[o']?t\sagree"
+        r"|did\s?n[o']?t\slike|not\s(?:agree|accept|prepared|willing)"
+        r"|too\s(?:expensive|much|dear|steep)|refus\w*|declin\w*"
+        r"|decided\s(?:against|not)|chang\w*\smy\smind"
+        r"|would\s?n[o']?t\spay|unwilling)"
+        r"[^.!?]{0,90}"
+        r"(?P<l1>" + _LEAVE + r"))"
         r"|"
-        r"(?:did ?n[o']t (?:agree|accept)|didn't like|not (?:agree|accept|"
-        r"prepared)|too expensive|refus|declin)[^.]{0,80}"
-        r"(?:so|and|then)[^.]{0,40}(?:left|drove (?:off|out|away)|"
-        r"went (?:elsewhere|away)|exit)"
-        r"|"
-        r"(?:left|drove (?:off|out|away)|went elsewhere|exit\w*)"
-        r"[^.]{0,60}(?:because|as|since)[^.]{0,60}"
-        r"(?:did ?n[o']t (?:agree|accept)|not (?:agree|accept|prepared)|"
-        r"too expensive|refus|declin|would ?n[o']t pay)"
-        r"|"
-        r"(?:never|did\s?n[o']?t)\s+park(?:ed)?\b"
-        r"|no parking took place"
-        r")", re.I)),
+        r"(?:(?P<l2>" + _LEAVE + r")"
+        r"[^.!?]{0,90}"
+        r"(?P<d2>did\s?n[o']?t\s(?:agree|accept|want)|does\s?n[o']?t\sagree"
+        r"|did\s?n[o']?t\slike|not\s(?:agree|accept|prepared|willing)"
+        r"|too\s(?:expensive|much|dear|steep)|refus\w*|declin\w*"
+        r"|decided\s(?:against|not)|chang\w*\smy\smind"
+        r"|would\s?n[o']?t\spay|unwilling))"
+        r"|(?P<nopark>(?:never|did\s?n[o']?t)\s+park(?:ed)?\b"
+        r"|no parking took place)"
+        r")",
+        re.I)),
     ("RETURNED", re.compile(
         r"\b(came back|come back|returned(?:\s+(to|later))?|went back (to|in)|"
         r"re-?entered|came back (later|afterwards)|"

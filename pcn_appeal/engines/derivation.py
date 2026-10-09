@@ -343,8 +343,33 @@ def grace_minutes(case: CaseFile) -> Optional[int]:
     return int(value) if value is not None else None
 
 
+#: Spelled-out quantities the permitted-period patterns can capture. Notices
+#: print the period in words at least as often as in digits ("maximum stay of
+#: four hours"), and a period the engine cannot read makes the overstay
+#: uncalculable - which is far from harmless, because the grace question then
+#: goes to the customer and a long overstay can be answered with a small
+#: number and read as within grace.
+_WORD_NUMBERS = {
+    "half": 0.5, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
+    "forty-five": 45, "fortyfive": 45, "fifty": 50, "sixty": 60, "ninety": 90,
+}
+
+
+def _quantity(raw: str) -> Optional[float]:
+    """A captured quantity as a number, whether written in digits or words."""
+    raw = str(raw or "").strip().lower()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return _WORD_NUMBERS.get(raw)
+
+
 def permitted_minutes(text: Any, rules: Optional[dict] = None) -> Optional[int]:
-    """"Max stay 3 hours" -> 180; "1 hour 30 minutes" -> 90; None if unreadable."""
+    """"Max stay 3 hours" -> 180; "four hours" -> 240; None if unreadable."""
     if text in (None, ""):
         return None
     if isinstance(text, (int, float)):
@@ -354,13 +379,13 @@ def permitted_minutes(text: Any, rules: Optional[dict] = None) -> Optional[int]:
     total, found = 0.0, False
     if "hours" in pats:
         m = pats["hours"].search(str(text))
-        if m:
-            total += float(m.group(1)) * 60
+        if m and (qty := _quantity(m.group(1))) is not None:
+            total += qty * 60
             found = True
     if "minutes" in pats:
         m = pats["minutes"].search(str(text))
-        if m:
-            total += int(m.group(1))
+        if m and (qty := _quantity(m.group(1))) is not None:
+            total += qty
             found = True
     return int(round(total)) if found and total > 0 else None
 
