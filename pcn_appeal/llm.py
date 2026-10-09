@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from .legal import findings as legal_findings
 
@@ -344,6 +344,41 @@ _DEMO_LABELS = {
 # precede the supporting-evidence kinds, because a notice quotes the terms it
 # alleges were breached and would match those keywords ("permitted period",
 # "no valid receipt").
+#
+# A plain word search on "debt collection"/"bailiff" cannot tell a debt letter
+# from an ordinary PCN's own forward-looking warning about what happens if it
+# goes unpaid ("...may result in instructing a Debt Collection agency and/or
+# proceed with Court action"). That sentence is on nearly every operator's
+# notice and is not evidence the charge has left the appeal stage - so a bare
+# keyword hit a few words after "may", "could", "if unpaid" or "failure to pay"
+# is read as the notice's own prospective warning, not a verdict on the
+# document, and does not count as this hint.
+_PROSPECTIVE_WARNING = re.compile(
+    r"\b(?:may|might|could|if\s+(?:you\s+)?(?:do\s+not|don'?t|fail(?:ed)?\s+to)\s+pay|"
+    r"failure\s+to\s+pay|should\s+you\s+fail|in\s+the\s+event\s+(?:of|that))\b",
+    re.I)
+
+
+# Labels whose own wording is routinely quoted by an ordinary notice as a
+# forward warning about what MAY happen later, rather than only ever appearing
+# as a statement that it has already happened. Every other label (NTK, PCN,
+# receipt, permit, ...) names what the document IS, not a future consequence
+# of non-payment, so the guard would have nothing to do there.
+_PROSPECTIVE_GUARDED = frozenset({"COURT_CLAIM", "DEBT_RECOVERY", "OUT_OF_STAGE"})
+
+
+def _demo_hit(kind: str, pat: str, blob: str) -> Optional[re.Match]:
+    """A hint match that is not itself inside the blob's own prospective
+    warning about what MAY happen later - see _PROSPECTIVE_WARNING above."""
+    if kind not in _PROSPECTIVE_GUARDED:
+        return re.search(pat, blob, re.I)
+    for m in re.finditer(pat, blob, re.I):
+        window_start = max(0, m.start() - 60)
+        if not _PROSPECTIVE_WARNING.search(blob[window_start:m.start()]):
+            return m
+    return None
+
+
 _DEMO_DOC_HINTS = [
     ("COURT_CLAIM", r"claim form|letter before (action|claim)|letter of claim|"
                     r"county court|default judgment|particulars of claim|\bn1\b"),
@@ -496,7 +531,7 @@ class DemoLLM:
         for ev_id, filename, text in docs:
             blob = f"{filename}\n{text}"
             for kind, pat in _DEMO_DOC_HINTS:
-                if re.search(pat, blob, re.I):
+                if _demo_hit(kind, pat, blob):
                     doc_types[ev_id] = kind
                     break
             else:
@@ -531,7 +566,7 @@ class DemoLLM:
                     break
             else:
                 for kind, pat in _DEMO_DOC_HINTS:
-                    if re.search(pat, blob, re.I):
+                    if _demo_hit(kind, pat, blob):
                         legacy[ev_id] = kind
                         break
                 else:

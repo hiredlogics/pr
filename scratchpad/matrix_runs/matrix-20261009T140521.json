@@ -1,0 +1,202 @@
+{
+  "cases": 10,
+  "rows": [
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "my daughter was with me, she is 3. we went in for nappies",
+      "findings": [],
+      "seconds": 0.6,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present-poor",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "i had my kid in the car wot do they want",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-BAY-02"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::no-signage",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "there was no sign on that bay at all, nothing painted",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "signage"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::one-minute",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "observation and event time are the same minute, they watched me for 60 seconds",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "observation-window"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::silent",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "i want to appeal this charge",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::disabled-passenger",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "my mother has a blue badge and was in the car",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::paid-full",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "i paid for 6 hours at the machine, i have the receipt",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-PAY-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::no-limit-stated",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "the notice doesnt even say what the maximum time is",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::left-and-returned",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "i drove out and came back later, two separate trips",
+      "findings": [],
+      "seconds": 0.5,
+      "grounds": [
+        "KB-ANPR-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::barrier-queue",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "the barrier was stuck and there was a big queue to get out, took ages",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "grace"
+    }
+  ],
+  "by_layer": {}
+}

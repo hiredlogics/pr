@@ -731,7 +731,20 @@ def extract_semantic_product(texts: list[str], llm=None,
 def derive_multiple_visits_concept(concepts: list[SemanticConcept]) -> list[SemanticConcept]:
     """If LEFT_SITE + RETURNED are AFFIRMED, affirm MULTIPLE_VISITS when absent.
 
-    Does not override an explicit NEGATED MULTIPLE_VISITS (conflict path).
+    Does not override an explicit NEGATED MULTIPLE_VISITS (conflict path), and
+    requires the account to say the VEHICLE moved.
+
+    "Left and came back" does not say what moved. The customer may have walked
+    back to the car, left the shop and not the car park, or driven away and
+    returned - and only the last is a second parking event. Inferring one from
+    a departure and a return alone would put a fact in the case the customer
+    never gave, which is why engines/narrative.py proposes
+    `possible_vehicle_departure` as a hypothesis to be confirmed instead. So
+    LEFT_SITE is the vehicle leaving the site: meaning_bridge does not affirm
+    it for a departure from a BUILDING ("left the store") or on foot ("walked
+    back to the car"), so by the time two affirmed concepts reach here the
+    account has said the vehicle moved. What this still refuses is the case
+    where the customer's own words were never read as a site departure at all.
     """
     by = {c.concept: c for c in concepts}
     left, ret, multi = by.get("LEFT_SITE"), by.get("RETURNED"), by.get("MULTIPLE_VISITS")

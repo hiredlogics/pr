@@ -1,0 +1,84 @@
+{
+  "cases": 3,
+  "rows": [
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "my daughter was with me, she is 3. we went in for nappies",
+      "findings": [
+        [
+          "THEORY",
+          "theory is 'bay-entitlement' but argued ['KB-KEEPER-01']"
+        ],
+        [
+          "THEORY",
+          "only operator-proof grounds for a bay-entitlement case: ['KB-KEEPER-01']"
+        ]
+      ],
+      "seconds": 0.6,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present-poor",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "i had my kid in the car wot do they want",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-BAY-02"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::no-signage",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "there was no sign on that bay at all, nothing painted",
+      "findings": [
+        [
+          "THEORY",
+          "theory is 'signage' but argued ['KB-KEEPER-01']"
+        ],
+        [
+          "THEORY",
+          "only operator-proof grounds for a signage case: ['KB-KEEPER-01']"
+        ]
+      ],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "genuine_customer",
+        "evidence:RECEIPT"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "signage"
+    }
+  ],
+  "by_layer": {
+    "THEORY": 4
+  }
+}

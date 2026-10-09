@@ -42,8 +42,16 @@ class _Cue:
         return asdict(self)
 
 
+#: A coordinator starts a new predicate, so a negation before it belongs to the
+#: previous one. "The terms were not acceptable and I drove away" negates the
+#: terms, not the departure - without this the driving reads as not having
+#: happened, which contradicts what the customer said.
+_COORDINATOR = re.compile(r"\b(?:and|but|so|then|however|although|though)\b", re.I)
+
+
 def _window_negated(text: str, start: int, end: int) -> bool:
-    """Polarity negation is only material in the same clause before the cue."""
+    """Polarity negation is only material in the same clause before the cue,
+    and only when it is not separated from it by a new predicate."""
     clause_start = max(
         text.rfind(".", 0, start),
         text.rfind(";", 0, start),
@@ -52,6 +60,11 @@ def _window_negated(text: str, start: int, end: int) -> bool:
         text.rfind("\n", 0, start),
     ) + 1
     window = text[max(clause_start, start - 48):start]
+    last = None
+    for m in _COORDINATOR.finditer(window):
+        last = m
+    if last is not None:
+        window = window[last.end():]
     return bool(_NEGATION.search(window))
 
 
@@ -65,9 +78,61 @@ _NEGATIVE_BREAKDOWN = re.compile(
     r"(did not|didn't)\s+break\s+down|no\s+breakdown)\b",
     re.I,
 )
+#: A thing that can be left BEHIND rather than left FROM. "I never left the
+#: car there" says the vehicle was never parked; "I never left the car park"
+#: says the driver stayed. Opposite meanings from the same verb, so the object
+#: decides - and "car park" is a place, not an object, which is why the place
+#: words are excluded from this class explicitly.
+_LEFT_OBJECT = (r"(?:car|vehicle|van|motor|bike|motorbike|keys?|purse|wallet|"
+                r"bag|phone|child|children|baby|dog|shopping|ticket|note)"
+                r"(?!\s*(?:park|parking|space|bay|lot))")
+
+#: "I never left" / "I never left the site" negates departure. Negation only
+#: holds when what was not left is the site - named, or left implicit - never a
+#: thing left behind.
 _NEGATIVE_LEFT = re.compile(
-    r"\b((did not|didn't|do not|don't|never)\s+leave|"
-    r"did not leave the site|never left)\b",
+    r"\b(?:did\s+not|didn'?t|do\s+not|don'?t|never|at\s+no\s+point\s+did\s+\w+)\s+"
+    r"(?:leave|left)"
+    r"(?!\s+(?:the\s+|my\s+|our\s+|his\s+|her\s+|their\s+|a\s+|any\s+)?"
+    + _LEFT_OBJECT + r"\b)",
+    re.I,
+)
+
+#: The same distinction for the positive cue: a sentence whose only "left" is
+#: an object left behind asserts nothing about departure, so LEFT_SITE must not
+#: be affirmed from it either.
+_LEFT_OBJECT_ONLY = re.compile(
+    r"(?:did\s+not|didn'?t|do\s+not|don'?t|never)\s+(?:leave|left)\s+"
+    r"(?:the\s+|my\s+|our\s+|his\s+|her\s+|their\s+|a\s+|any\s+)?"
+    + _LEFT_OBJECT,
+    re.I,
+)
+
+def _BUILDING_ONLY_LEAVE(text: str) -> bool:
+    """The account's only departure is out of a BUILDING, on foot.
+
+    "I left the store", "came out of the shop", "walked back to the car": the
+    person moved, the vehicle did not. narrative.py draws this line already and
+    owns the patterns, so they are imported rather than restated.
+    """
+    from ..engines.narrative import _BUILDING_LEAVE, _VEHICLE
+    t = text or ""
+    if _VEHICLE.search(t) or _LEFT_SITE_POSITIVE.search(t):
+        return False
+    from ..engines.narrative import _ON_FOOT, _TO_VEHICLE
+    return bool(_BUILDING_LEAVE.search(t)
+                or (_ON_FOOT.search(t) and _TO_VEHICLE.search(t)))
+
+
+#: An actual departure stated somewhere in the same account, in words that are
+#: not "left <object>". "I turned round and went straight back out, never left
+#: the car there" both departs and leaves nothing behind, so the object clause
+#: must not suppress the departure the customer did state.
+_LEFT_SITE_POSITIVE = re.compile(
+    r"\b(?:left\s+(?:the\s+)?(?:site|car\s*park|retail\s*park|location)|"
+    r"departed|exited|drove\s+(?:away|out|off)|went\s+(?:back\s+)?out|"
+    r"turned\s+(?:round|around)|went\s+(?:off[\s-]?site|elsewhere|away)|"
+    r"was\s+no\s+longer\s+on\s+site)\b",
     re.I,
 )
 
@@ -79,10 +144,38 @@ def _uncertain(text: str) -> bool:
 # an optional adverb before the direction ("drove STRAIGHT back out", "went
 # right back out"), which is how people actually write it.
 _ADV = r"(?:\s(?:straight|right|immediately|just|back|then))*"
+#: Bare "left" is a departure only when nothing was left BEHIND: "I left" and
+#: "I left the site" depart, "I left my purse in the car" does not. The object
+#: class is _LEFT_OBJECT, defined above with the negation that needs the same
+#: distinction, so one list governs both.
+_LEFT_BARE = (r"left(?!\s+(?:the\s+|my\s+|our\s+|his\s+|her\s+|their\s+|a\s+|any\s+)?"
+              + _LEFT_OBJECT + r"\b)")
 _LEAVE = (
-    r"left|exit\w*|turned" + _ADV + r"\s(?:around|back)|"
+    _LEFT_BARE + r"|exit\w*|turned" + _ADV + r"\s(?:around|back)|"
     r"(?:drove|driv\w+|went|pulled|headed)" + _ADV +
     r"\s(?:off|out|away|back\sout|elsewhere|home)"
+)
+
+#: "a decision against the terms", written once and used in both clause orders
+#: ("declined THEN left" and "left BECAUSE declined"). Keeping separate copies
+#: is what let a phrasing work in one order only.
+_DECLINE = (
+    r"did\s?n[o']?t\s(?:agree|accept|want)|does\s?n[o']?t\sagree"
+    r"|did\s?n[o']?t\slike|not\s(?:agree|accept|prepared|willing|acceptable)"
+    # Contracted negated adjectives: "weren't acceptable", "wasn't willing".
+    r"|(?:was|were|is|are)\s?n[o']?t\s(?:acceptable|agreeable|willing|prepared)"
+    r"|too\s(?:expensive|much|dear|steep)|refus\w*|declin\w*"
+    r"|decided\s(?:against|not)|chang\w*\smy\smind"
+    r"|would\s?n[o']?t\spay|unwilling"
+)
+
+#: Declining by saying the stay did not happen: "decided not to stay", "chose
+#: not to park". The decision and its consequence are one phrase, so this
+#: reaches the concept without a separate departure word.
+_DECLINED_TO_STAY = (
+    r"(?:decided|chose|opted|elected)\s+not\s+to\s+(?:stay|park|remain|"
+    r"leave\s+(?:the|my|our)\s+(?:car|vehicle))"
+    r"|(?:decided|chose)\s+against\s+(?:staying|parking)"
 )
 
 # concept → meaning cues (regex). Broad synonym classes; not case-specific.
@@ -128,9 +221,18 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
         r"incorrect registration|mismatched (reg|plate|registration))\b", re.I)),
     ("LEFT_SITE", re.compile(
         r"\b(left (the )?(site|car park|retail park|location)|"
-        r"did not leave|didn't leave|never left|"
+        # "did not leave" / "never left" are departure words; the object clause
+        # excluded here ("never left the car there") is a thing left behind and
+        # means the opposite, so it must not reach this concept by either the
+        # positive cue or the generic negation window.
+        r"(?:did not|didn't|never)\s+(?:leave|left)"
+        r"(?!\s+(?:the |my |our |his |her |their |a |any )?" + _LEFT_OBJECT + r"\b)|"
         r"departed (the )?(site|location|car park)|"
         r"went (off site|elsewhere|away)|drove (away|out)|"
+        # One departure vocabulary, shared with TERMS_REJECTED_LEFT below, so
+        # "turned round", "went straight back out" and "drove right off" are
+        # departures for both concepts rather than for only one of them.
+        + _LEAVE + r"|"
         r"drove away before|exited (the )?(site|car park)|was no longer on site|"
         r"not on site during|went off-site|off-site|"
         r"later left|then left|left after\b|"
@@ -152,23 +254,19 @@ _MEANING_CUES: tuple[tuple[str, re.Pattern], ...] = (
         # a bare "I left" never reaches it. The only standalone form is an
         # explicit statement that no parking happened.
         r"(?:"
-        r"(?:(?P<d1>did\s?n[o']?t\s(?:agree|accept|want)|does\s?n[o']?t\sagree"
-        r"|did\s?n[o']?t\slike|not\s(?:agree|accept|prepared|willing)"
-        r"|too\s(?:expensive|much|dear|steep)|refus\w*|declin\w*"
-        r"|decided\s(?:against|not)|chang\w*\smy\smind"
-        r"|would\s?n[o']?t\spay|unwilling)"
+        r"(?:(?P<d1>" + _DECLINE + r")"
         r"[^.!?]{0,90}"
         r"(?P<l1>" + _LEAVE + r"))"
         r"|"
         r"(?:(?P<l2>" + _LEAVE + r")"
         r"[^.!?]{0,90}"
-        r"(?P<d2>did\s?n[o']?t\s(?:agree|accept|want)|does\s?n[o']?t\sagree"
-        r"|did\s?n[o']?t\slike|not\s(?:agree|accept|prepared|willing)"
-        r"|too\s(?:expensive|much|dear|steep)|refus\w*|declin\w*"
-        r"|decided\s(?:against|not)|chang\w*\smy\smind"
-        r"|would\s?n[o']?t\spay|unwilling))"
+        r"(?P<d2>" + _DECLINE + r"))"
+        # Standalone forms: an explicit statement that no parking happened, or
+        # a decision not to stay, which states the decision and its result at
+        # once and so needs no separate departure word.
         r"|(?P<nopark>(?:never|did\s?n[o']?t)\s+park(?:ed)?\b"
         r"|no parking took place)"
+        r"|(?P<nostay>" + _DECLINED_TO_STAY + r")"
         r")",
         re.I)),
     ("RETURNED", re.compile(
@@ -246,6 +344,20 @@ def extract_concepts_meaning_bridge(texts: Iterable[str]) -> list[dict]:
                 polarity = "NEGATED"
             if concept == "LEFT_SITE" and _NEGATIVE_LEFT.search(text):
                 polarity = "NEGATED"
+            elif (concept == "LEFT_SITE" and _BUILDING_ONLY_LEAVE(text)):
+                # "I left the store and came back in" is a shopper walking, not
+                # the vehicle leaving the car park. LEFT_SITE means the VEHICLE
+                # left the site, and downstream rules (a second visit, ANPR
+                # sequence) rely on that, so a departure from a building with
+                # nothing saying the vehicle moved is not this concept.
+                continue
+            elif (concept == "LEFT_SITE" and _LEFT_OBJECT_ONLY.search(text)
+                  and not _LEFT_SITE_POSITIVE.search(text)):
+                # The only departure word here is a thing left behind ("never
+                # left the car there"). That says nothing about whether the
+                # vehicle left the site, and asserting either way would put a
+                # fact in the case the customer never gave.
+                continue
             if uncertain and polarity == "AFFIRMED":
                 polarity = "UNCERTAIN"
             if uncertain and polarity == "NEGATED" and concept in (

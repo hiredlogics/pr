@@ -1,0 +1,1704 @@
+{
+  "cases": 102,
+  "rows": [
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "my daughter was with me, she is 3. we went in for nappies",
+      "findings": [],
+      "seconds": 0.6,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::child-present-poor",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "i had my kid in the car wot do they want",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::no-signage",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "there was no sign on that bay at all, nothing painted",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "signage"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::one-minute",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "observation and event time are the same minute, they watched me for 60 seconds",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "observation-window"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::silent",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "i want to appeal this charge",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-ECP-PARENTCHILD::disabled-passenger",
+      "cohort": "SEEN",
+      "family": "parent_child",
+      "operator": "Euro Car Parks",
+      "account": "my mother has a blue badge and was in the car",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::paid-full",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "i paid for 6 hours at the machine, i have the receipt",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-PAY-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::no-limit-stated",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "the notice doesnt even say what the maximum time is",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::left-and-returned",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "i drove out and came back later, two separate trips",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-ANPR-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::barrier-queue",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "the barrier was stuck and there was a big queue to get out, took ages",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "grace"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::shopping-whole-time",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "i was in the store the whole time doing a big shop",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "presence-not-parking"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::broke-down",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "the car wouldnt start when i came back out",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "immobilised"
+    },
+    {
+      "case_id": "R-ECP-OVERSTAY::silent",
+      "cohort": "SEEN",
+      "family": "overstay",
+      "operator": "Euro Car Parks",
+      "account": "please cancel this",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "pcn_number",
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::shopped-not-validated",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "i did my shop and have the receipt, nobody told me to put it in a machine",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::kiosk-broken",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "the validation machine was out of order that day",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "facility-failure"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::no-receipt",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "i shopped there but i threw the receipt away",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::never-shopped",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "i didnt go in the shop, i read the sign and left",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "no-contract"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::notice-late",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "this came nearly two months after the day it says",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "genuine_customer"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "pofa-late"
+    },
+    {
+      "case_id": "R-ECP-VOUCHER::left-site-returned",
+      "cohort": "SEEN",
+      "family": "voucher",
+      "operator": "Euro Car Parks",
+      "account": "i left the car park and drove back in later to collect my husband",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "pcn_number",
+        "multiple_visits"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::two-minutes",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "i was there two minutes dropping my wife at departures",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::paid-app-failed",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "i tried to pay on the app and it wouldnt load",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::no-sign-at-night",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "it was 4am, i couldnt see any sign in the dark",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "signage"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::paid-wrong-reg",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "i paid but typed the reg wrong, one letter out",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "keying"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::silent",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "i dont think this is fair",
+      "findings": [
+        [
+          "QUESTIONS",
+          "a silent account asked nothing and proceeded"
+        ]
+      ],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-APCOA-STANSTED::de-minimis",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking",
+      "account": "3 minutes. three. for a drop off.",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::two-minutes",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "i was there two minutes dropping my wife at departures",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::paid-app-failed",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "i tried to pay on the app and it wouldnt load",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "payment"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::no-sign-at-night",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "it was 4am, i couldnt see any sign in the dark",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "signage"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::paid-wrong-reg",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "i paid but typed the reg wrong, one letter out",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "keying"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::silent",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "i dont think this is fair",
+      "findings": [
+        [
+          "QUESTIONS",
+          "a silent account asked nothing and proceeded"
+        ]
+      ],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-APCOA-LUTON::de-minimis",
+      "cohort": "SEEN",
+      "family": "dropoff",
+      "operator": "APCOA Parking (UK) Ltd",
+      "account": "3 minutes. three. for a drop off.",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::staff-permit-held",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "i work there and i have a staff permit, its on the windscreen",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::permit-in-app",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "my permit is digital, its in the trust app",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::not-the-driver",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "i wasnt driving, i lend the car to my son",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "driver-identity"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::repeat-charge",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "this is the second one for the same bay, i park there every shift",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::windscreen-not-keeper",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "they stuck it on the windscreen, i never got anything in the post",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "notice-route"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-1::silent",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "appeal please",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::staff-permit-held",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "i work there and i have a staff permit, its on the windscreen",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::permit-in-app",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "my permit is digital, its in the trust app",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::not-the-driver",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "i wasnt driving, i lend the car to my son",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "driver-identity"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::repeat-charge",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "this is the second one for the same bay, i park there every shift",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::windscreen-not-keeper",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "they stuck it on the windscreen, i never got anything in the post",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "notice-route"
+    },
+    {
+      "case_id": "R-CPP-PERMIT-2::silent",
+      "cohort": "SEEN",
+      "family": "permit",
+      "operator": "Car Parking Partnership",
+      "account": "appeal please",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "hospital_attendance"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::resident",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "i live at weavers quarter, its my own parking space",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "authority"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::lease-right",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "my lease gives me the right to park, they cant charge me",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "lease"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::ambiguous-allegation",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "which is it, not registered or too long? it says both",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::visitor-registered",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "i registered my visitor on their website that night",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "permit"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::37-minutes",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "37 minutes in my own space and they want 100 pounds",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "penalty"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::never-parked-read-sign",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "i read the board, didnt agree with it, turned round and went straight back out. never left the car there",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "no-contract"
+    },
+    {
+      "case_id": "R-CPM-RESIDENTIAL::silent",
+      "cohort": "SEEN",
+      "family": "residential",
+      "operator": "UK Car Park Management",
+      "account": "i wish to appeal",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [],
+      "asked": [
+        "pcn_number"
+      ],
+      "letter_chars": 0,
+      "state": "QUESTIONING",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::paid-full",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "i paid for 6 hours at the machine, i have the receipt",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-PAY-01",
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::no-limit-stated",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "the notice doesnt even say what the maximum time is",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::left-and-returned",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "i drove out and came back later, two separate trips",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-ANPR-01",
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::barrier-queue",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "the barrier was stuck and there was a big queue to get out, took ages",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "grace"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::shopping-whole-time",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "i was in the store the whole time doing a big shop",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "presence-not-parking"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::broke-down",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "the car wouldnt start when i came back out",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "immobilised"
+    },
+    {
+      "case_id": "U-VERGE-OVERSTAY::silent",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Kestrel Verge Management",
+      "account": "please cancel this",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01",
+        "KB-REC-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::staff-permit-held",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "i work there and i have a staff permit, its on the windscreen",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::permit-in-app",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "my permit is digital, its in the trust app",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::not-the-driver",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "i wasnt driving, i lend the car to my son",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "driver-identity"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::repeat-charge",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "this is the second one for the same bay, i park there every shift",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::windscreen-not-keeper",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "they stuck it on the windscreen, i never got anything in the post",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "notice-route"
+    },
+    {
+      "case_id": "U-MARROW-PERMIT::silent",
+      "cohort": "UNSEEN",
+      "family": "permit",
+      "operator": "Marrowgate Civil Enforcement",
+      "account": "appeal please",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::paid-full",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "i paid for 6 hours at the machine, i have the receipt",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-PAY-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::no-limit-stated",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "the notice doesnt even say what the maximum time is",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::left-and-returned",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "i drove out and came back later, two separate trips",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-ANPR-01",
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::barrier-queue",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "the barrier was stuck and there was a big queue to get out, took ages",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "grace"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::shopping-whole-time",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "i was in the store the whole time doing a big shop",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "presence-not-parking"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::broke-down",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "the car wouldnt start when i came back out",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "immobilised"
+    },
+    {
+      "case_id": "U-OLDMILL-GRACE::silent",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Oldmill Yard Parking Solutions",
+      "account": "please cancel this",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-GRACE-01"
+      ],
+      "asked": [
+        "exit_delay_min"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::paid-full",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "i paid for 6 hours at the machine, i have the receipt",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-PAY-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::no-limit-stated",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "the notice doesnt even say what the maximum time is",
+      "findings": [],
+      "seconds": 0.6,
+      "grounds": [],
+      "asked": [
+        "site_postcode"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::left-and-returned",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "i drove out and came back later, two separate trips",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-ANPR-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "multiple-visits"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::barrier-queue",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "the barrier was stuck and there was a big queue to get out, took ages",
+      "findings": [],
+      "seconds": 0.6,
+      "grounds": [],
+      "asked": [
+        "site_postcode"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "grace"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::shopping-whole-time",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "i was in the store the whole time doing a big shop",
+      "findings": [],
+      "seconds": 0.5,
+      "grounds": [],
+      "asked": [
+        "site_postcode"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "presence-not-parking"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::broke-down",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "the car wouldnt start when i came back out",
+      "findings": [],
+      "seconds": 0.5,
+      "grounds": [],
+      "asked": [
+        "site_postcode"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "immobilised"
+    },
+    {
+      "case_id": "U-SATTERS-LATE::silent",
+      "cohort": "UNSEEN",
+      "family": "overstay",
+      "operator": "Sattersby Kerbside Compliance",
+      "account": "please cancel this",
+      "findings": [],
+      "seconds": 0.6,
+      "grounds": [],
+      "asked": [
+        "site_postcode"
+      ],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::resident",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "i live at weavers quarter, its my own parking space",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "authority"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::lease-right",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "my lease gives me the right to park, they cant charge me",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "lease"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::ambiguous-allegation",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "which is it, not registered or too long? it says both",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "allegation-particulars"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::visitor-registered",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "i registered my visitor on their website that night",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "permit"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::37-minutes",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "37 minutes in my own space and they want 100 pounds",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "penalty"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::never-parked-read-sign",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "i read the board, didnt agree with it, turned round and went straight back out. never left the car there",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [],
+      "asked": [
+        "payment_made"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "no-contract"
+    },
+    {
+      "case_id": "U-QUILLON-RESIDENT::silent",
+      "cohort": "UNSEEN",
+      "family": "residential",
+      "operator": "Quillon Estate Services",
+      "account": "i wish to appeal",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "permit_held"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::two-minutes",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "i was there two minutes dropping my wife at departures",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::paid-app-failed",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "i tried to pay on the app and it wouldnt load",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::no-sign-at-night",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "it was 4am, i couldnt see any sign in the dark",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "signage"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::paid-wrong-reg",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "i paid but typed the reg wrong, one letter out",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "keying"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::silent",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "i dont think this is fair",
+      "findings": [
+        [
+          "QUESTIONS",
+          "a silent account asked nothing and proceeded"
+        ]
+      ],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-DRAVEN-DROPOFF::de-minimis",
+      "cohort": "UNSEEN",
+      "family": "dropoff",
+      "operator": "Dravenhill Parking Partners",
+      "account": "3 minutes. three. for a drop off.",
+      "findings": [],
+      "seconds": 0.0,
+      "grounds": [],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "NO_APPEAL_RIGHT",
+      "theory": "grace"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::child-present",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "my daughter was with me, she is 3. we went in for nappies",
+      "findings": [],
+      "seconds": 0.4,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::child-present-poor",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "i had my kid in the car wot do they want",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-BAY-02"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::no-signage",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "there was no sign on that bay at all, nothing painted",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "signage"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::one-minute",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "observation and event time are the same minute, they watched me for 60 seconds",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "observation-window"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::silent",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "i want to appeal this charge",
+      "findings": [
+        [
+          "QUESTIONS",
+          "a silent account asked nothing and proceeded"
+        ]
+      ],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "unknown"
+    },
+    {
+      "case_id": "U-PELLWICK-BAY::disabled-passenger",
+      "cohort": "UNSEEN",
+      "family": "parent_child",
+      "operator": "Pellwick Site Services",
+      "account": "my mother has a blue badge and was in the car",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "bay-entitlement"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::shopped-not-validated",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "i did my shop and have the receipt, nobody told me to put it in a machine",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::kiosk-broken",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "the validation machine was out of order that day",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "facility-failure"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::no-receipt",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "i shopped there but i threw the receipt away",
+      "findings": [
+        [
+          "QUESTIONS",
+          "a silent account asked nothing and proceeded"
+        ]
+      ],
+      "seconds": 0.2,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "MANUAL_REVIEW",
+      "theory": "payment"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::never-shopped",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "i didnt go in the shop, i read the sign and left",
+      "findings": [],
+      "seconds": 0.5,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "no-contract"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::notice-late",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "this came nearly two months after the day it says",
+      "findings": [],
+      "seconds": 0.3,
+      "grounds": [
+        "KB-KEEPER-01"
+      ],
+      "asked": [],
+      "letter_chars": 0,
+      "state": "VALIDATION_FAILED",
+      "theory": "pofa-late"
+    },
+    {
+      "case_id": "U-GRINDLOW-VOUCHER::left-site-returned",
+      "cohort": "UNSEEN",
+      "family": "voucher",
+      "operator": "Grindlow Retail Parking",
+      "account": "i left the car park and drove back in later to collect my husband",
+      "findings": [],
+      "seconds": 0.2,
+      "grounds": [],
+      "asked": [
+        "multiple_visits"
+      ],
+      "letter_chars": 0,
+      "state": "CONFIRMED",
+      "theory": "multiple-visits"
+    }
+  ],
+  "by_layer": {
+    "QUESTIONS": 5
+  }
+}
