@@ -406,10 +406,14 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # only when the bundle carries none and there is a single substantive
         # section, for the same reason as the events below: a section answers
         # for the meaning of its own ground, and a statutory-timing paragraph
-        # is not where the keeper's errand belongs.
+        # is not where the keeper's errand belongs. A ground licensed by a
+        # verified legal finding is a calculated defect, argued independently
+        # of the account, so no case-level stand-in reaches it either.
+        calculated_ground = any(f.get("legal_module_id") in group for f in findings)
         ctx_atoms = list(bundle_atoms) + (
             _rows(ctx.get("narrative_atoms"))
-            if not bundle_atoms and len(groups) == 1 else [])
+            if not bundle_atoms and len(groups) == 1 and not calculated_ground
+            else [])
         dep = values.get("departure_reason")
         if not dep:
             for a in ctx_atoms:
@@ -488,7 +492,7 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # section express every event would demand the account sequence inside a
         # statutory-timing paragraph it has nothing to do with.
         ctx_events: list[dict] = []
-        if not bundle_events and len(groups) == 1:
+        if not bundle_events and len(groups) == 1 and not calculated_ground:
             ctx_events = (
                 _rows(ctx.get("supporting_events"))
                 or _rows(ctx.get("material_events"))
