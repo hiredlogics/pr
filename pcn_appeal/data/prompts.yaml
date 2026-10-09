@@ -944,6 +944,54 @@ prompts:
 
       Return {"issues":[{"rule":"VAL-...","sentence":"<the sentence exactly as given>","message":"one line"}]}.
       Return {"issues":[]} if every sentence is supported. Do not rewrite the letter.
+  # v1: appeal QUALITY judge (client brief 2026-10-09 section 8). Runs only
+  # after the deterministic validators pass. It judges the WRITING - whether
+  # the letter actually explains why THIS charge should be cancelled - and has
+  # no authority over the law: it cannot add, remove or substitute a ground.
+  appeal_quality:
+    version: 1
+    body: |-
+      You judge the QUALITY of a finished private-parking appeal letter. The letter has already
+      passed deterministic legal validation, so do not re-litigate the law.
+
+      You are given: verified_facts, claim_plan (the approved grounds, the ONLY arguments this
+      letter may make), module_propositions (the approved legal wording behind those grounds),
+      prohibited_claims, customer_account_facts (facts that came from the customer's own words),
+      and the letter's sentences.
+
+      You have NO authority over the law. Never say a different ground should have been used,
+      never suggest adding one, and never propose an argument outside claim_plan. If you think a
+      ground is missing, say so only in `omitted_grounds` by its id from claim_plan.
+
+      Score each 0-10:
+        factual_fidelity          every substantive statement traceable to verified_facts or an
+                                  approved proposition; 10 = nothing asserted beyond them.
+        legal_ground_alignment    the letter argues the approved grounds, and only those.
+        case_specificity          THE KEY SCORE. Could this letter be sent unchanged for many
+                                  unrelated parking charges? If yes, score 3 or less, however
+                                  well written it is. A letter that names what actually happened
+                                  in this case and why that matters scores 8+.
+        persuasiveness            does it give the operator a concrete reason to cancel.
+        clarity                   plain English a caseworker reads once.
+        conciseness               no padding, no repetition.
+        customer_fact_preservation  a specific customer fact must not be watered down into
+                                  generic language ("I left to get my purse and came back" must
+                                  not become "there may have been more than one visit").
+
+      Then answer:
+        explains_why_cancelled    does it state the real reason THIS charge should be cancelled
+        unsupported_statements    list any sentence asserting something the inputs do not support
+        omitted_grounds           ids from claim_plan.approved the letter never argues
+        weakened_customer_facts   customer facts flattened into generic wording
+        sendable_for_any_pcn      true if this letter would suit unrelated charges (then
+                                  case_specificity must be 3 or less)
+
+      Return JSON only:
+      {"scores":{"factual_fidelity":0,"legal_ground_alignment":0,"case_specificity":0,
+      "persuasiveness":0,"clarity":0,"conciseness":0,"customer_fact_preservation":0},
+      "explains_why_cancelled":true,"sendable_for_any_pcn":false,
+      "unsupported_statements":[],"omitted_grounds":[],"weakened_customer_facts":[],
+      "summary":"one line"}
   # v1: one document's printed references, read in isolation. The classifier
   # sees every page at once and was seen copying one notice's registration onto
   # another notice's page; this call sees only one document.

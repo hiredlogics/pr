@@ -19,7 +19,7 @@ from .semantics.resolver import SemanticCaseResolver
 from .engines.analysis import AnalysisEngine
 from .engines.claim_plan_authority import ClaimPlanBuilder
 from .integrity import ai_log
-from .drafting import shadow_judge, versions as draft_versions
+from .drafting import quality_judge, shadow_judge, versions as draft_versions
 from .drafting.context import DraftContext
 from .engines.draft_validation_engine import DraftValidationEngine, merge as merge_validation
 from .engines.extraction import ExtractionEngine
@@ -135,7 +135,8 @@ class AutoAppealResult:
 
 class AppealPipeline:
     def __init__(self, llm, drafter=None, judge=None, kg: Optional[KnowledgeGraph] = None,
-                 shadow_judge_enabled: Optional[bool] = None):
+                 shadow_judge_enabled: Optional[bool] = None,
+                 quality_judge_enabled: Optional[bool] = None):
         self.kg = kg or KnowledgeGraph()
         # P5.5: every model call is logged against the case it serves
         # (integrity/ai_log.py) - task, model, prompt version, digests, timing.
@@ -164,6 +165,13 @@ class AppealPipeline:
         self.draft_validation = DraftValidationEngine(kg=self.kg)
         self.shadow = (shadow_judge.ShadowJudge(judge or llm)
                        if shadow_judge.enabled(shadow_judge_enabled) else None)
+        # Appeal quality judge (client brief 2026-10-09 §8): scores a letter
+        # that already passed the validators for case specificity and fidelity,
+        # so a template that would suit any charge is caught. No authority over
+        # the law - it cannot add or remove a ground - and not blocking yet, on
+        # the same basis the shadow judge was introduced.
+        self.quality = (quality_judge.QualityJudge(judge or llm)
+                        if quality_judge.enabled(quality_judge_enabled) else None)
         # P5: the only authority over which claims a letter argues. Analysis,
         # reassessment and ground recovery propose; this decides and locks.
         self.claim_authority = ClaimPlanBuilder(self.kg, self.reasoning)
@@ -1027,14 +1035,23 @@ class AppealPipeline:
 
     def _record_version(self, case: CaseFile, plan, draft: Draft, result, dv, pack,
                         released: bool, parent: Optional[str] = None) -> dict:
-        """Store the draft as an immutable version tied to the claim plan; a draft
-        that is going out is also read by the shadow judge, whose verdict is
-        recorded and never acted on."""
+        """Store the draft as an immutable version tied to the claim plan. A draft
+        that is going out is also read by the observing judges - the shadow judge
+        and the appeal quality judge - whose verdicts are recorded and never
+        acted on."""
         judge = None
         if released and self.shadow is not None:
             judge = self.shadow.review(draft, pack)
             case.audit.append({"event": "shadow_judge", "status": judge["status"],
                                "reasons": judge.get("reasons"), "blocking": False})
+        if released and self.quality is not None:
+            q = self.quality.review(draft, pack, case)
+            case.audit.append({"event": "appeal_quality", "status": q["status"],
+                               "scores": q.get("scores"),
+                               "sendable_for_any_pcn": q.get("sendable_for_any_pcn"),
+                               "omitted_grounds": q.get("omitted_grounds"),
+                               "weakened_customer_facts": q.get("weakened_customer_facts"),
+                               "summary": q.get("summary"), "blocking": False})
         row = draft_versions.record(case, plan, draft, result, dv.grounding if dv else None,
                                     judge=judge, parent=parent, released=released)
         case.audit.append({"event": "draft_version", "draft_id": row["draft_id"],

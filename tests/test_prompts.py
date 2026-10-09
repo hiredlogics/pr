@@ -27,6 +27,7 @@ EXPECTED_VERSIONS = {
     "validation": 3,
     "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,
+    "appeal_quality": 1,          # client brief 2026-10-09 §8: the quality judge
 }
 
 # Each rule as the terms that show it is still stated, not the sentence that

@@ -58,10 +58,18 @@ OPENAI_PREFERENCES = {
     # share the writer's blind spots (see engines/validation.py)
     "validation":  ["gpt-5.1-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini",
                     "gpt-4o", "gpt-4.1"],
+    # Appeal QUALITY judge (brief 2026-10-09 §8): scores a letter that already
+    # passed the deterministic validators for case specificity and fidelity. It
+    # judges writing, never law - it cannot add or remove a ground - but it is
+    # reading for whether an argument is genuinely about THIS charge, which
+    # needs a capable reader, and it must not be the model that wrote the
+    # letter.
+    "appeal_quality": ["gpt-5.1-mini", "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini",
+                       "gpt-4o", "gpt-4.1"],
 }
 
 # Tasks that must not resolve to the same model as the key, for the reason above.
-DISTINCT_FROM = {"validation": "drafting"}
+DISTINCT_FROM = {"validation": "drafting", "appeal_quality": "drafting"}
 
 
 class OpenAIClient:
