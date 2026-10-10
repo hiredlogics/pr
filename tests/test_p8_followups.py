@@ -371,7 +371,8 @@ class LiveRun8Oct(unittest.TestCase):
         draft = Draft("T", [[DraftSentence("I am appealing this charge.")]])
         pack = mock.Mock(verified_facts={"pcn_number": "STN1947529", "vrm": "BK71EXX"}, fact_refs={})
         self.assertEqual(AppealPipeline._with_identifiers(draft, pack), ["pcn_number", "vrm"])
-        self.assertIn("BK71EXX", draft.plain_text())
+        # The registration is stated as the notice prints it, not in its normalised form.
+        self.assertIn("BK71 EXX", draft.plain_text())
         self.assertEqual(AppealPipeline._with_identifiers(draft, pack), [])
 
     def test_no_payment_allegation_points_at_payment(self):

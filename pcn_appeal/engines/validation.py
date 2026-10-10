@@ -36,6 +36,9 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-INVENTED a permit/bay/ticket identifier that is not a verified fact
   VAL-CALC     a stated day-count that contradicts a verified finding calculation
   VAL-ORPHAN-SUPPORT support/conclusion modules without a substantive ground
+  VAL-TEMPLATE the fixed letter frame (driver sentence, one request to cancel, PCN / registration /
+               postcode copied exactly) and style rules (no banned phrases, first person) -
+               letter_template_check.py, enforced by the pipeline
   VAL-STRENGTH a sentence asserting more than the case state establishes (a weaker fact
                restated as a stronger one; an approved conclusion widened) - assertion_strength.py
 """
@@ -62,7 +65,7 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-6"  # VAL-6: VAL-STRENGTH (a fact is never restated as a stronger one)
+VERSION = "VAL-7"  # VAL-7: VAL-TEMPLATE (fixed letter frame + style); VAL-6: VAL-STRENGTH
 # VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
 # VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
@@ -182,10 +185,14 @@ def _contains_token(text: str, ident: str) -> bool:
         return False
     # Spaced two-word tokens (legacy PCN / plate printing). Check the joined
     # form and each half so "PCN 1234567890" still matches the number alone.
-    for tok in re.findall(r"[A-Za-z0-9]+(?: [A-Za-z0-9]+)?", text):
-        for cand in (tok, *tok.split(" ")):
-            if _ident(cand) == ident:
-                return True
+    # A sliding window, not consecutive pairs: pairing words from the start of the text
+    # missed "AB12 CDE" whenever an odd number of words came before it.
+    words = re.findall(r"[A-Za-z0-9]+", text)
+    for i, word in enumerate(words):
+        if _ident(word) == ident:
+            return True
+        if i + 1 < len(words) and _ident(word + words[i + 1]) == ident:
+            return True
     # Hyphen/underscore-joined references (fixture and some operator formats).
     for tok in re.findall(r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)+", text):
         if _ident(tok) == ident:
@@ -373,10 +380,17 @@ def _customer_prose_pasted(source: str, letter: str, facts: dict,
 
 
 class ValidationEngine:
-    def __init__(self, judge: Optional[LLMClient] = None, allowed_next_step: str = "",
-                 kg=None):
+    def __init__(self, judge: Optional[LLMClient] = None, allowed_next_step="",
+                 kg=None, enforce_frame: bool = False):
         self.judge = judge
+        # The sentence(s) allowed to name the independent appeals service (VAL-STAGE).
         self.allowed_next_step = allowed_next_step
+        self._allowed_next = ({allowed_next_step} if isinstance(allowed_next_step, str)
+                              else set(allowed_next_step or ()))
+        # VAL-TEMPLATE: the fixed letter frame and style rules (letter_template_check.py).
+        # Off for a hand-written draft handed straight to validate(); the pipeline,
+        # which writes the frame, turns it on.
+        self.enforce_frame = enforce_frame
         # The knowledge base, only to recognise approved wording of a module the
         # claim plan did not approve (VAL-PLAN). None: that one check is skipped.
         self.kg = kg
@@ -463,7 +477,7 @@ class ValidationEngine:
                 block("VAL-EVIDENCE-CONTRADICTION",
                       "Draft claims independent evidence contradicts the allegation "
                       "without that fact being established", t)
-            if STAGE.search(t) and t.strip() != self.allowed_next_step:
+            if STAGE.search(t) and t.strip() not in self._allowed_next:
                 block("VAL-STAGE", "Wrong-stage language in an initial operator appeal", t)
             if OBSOLETE.search(t):
                 block("VAL-OBSOLETE", "Obsolete penalty / pre-estimate argument", t)
@@ -711,6 +725,11 @@ class ValidationEngine:
                       hits[1])
 
         issues += self._plan_conformance(draft, pack)
+
+        if self.enforce_frame:
+            from . import letter_template_check
+            for message, sentence in letter_template_check.check(draft, pack):
+                block("VAL-TEMPLATE", message, sentence)
 
         if self.judge and not any(i.severity == "BLOCK" for i in issues):
             issues += self._llm_judge(draft, pack)

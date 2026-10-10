@@ -14,10 +14,13 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Optional
 
+from .letter_frame import (PLACEHOLDER_ADDRESS, PLACEHOLDER_NAME, PLACEHOLDER_OPERATOR,
+                           PLACEHOLDER_OPERATOR_ADDRESS, PLACEHOLDER_PCN, display_reg)
 from .models import CaseFile
 
-FROM_PLACEHOLDER = "[Your name and address]"
-TO_PLACEHOLDER = "[The operator's appeals address, as printed on the notice]"
+# Every block is always present; a value that was not read is a visible placeholder.
+FROM_PLACEHOLDER = PLACEHOLDER_NAME
+TO_PLACEHOLDER = PLACEHOLDER_OPERATOR_ADDRESS
 SALUTATION = "Dear Sir or Madam,"
 SIGN_OFF = "Yours faithfully,"
 
@@ -28,9 +31,9 @@ def _lines(value: Any) -> list[str]:
     return [p.strip().strip(",") for p in parts if p.strip().strip(",")]
 
 
-def _vrm(value: Any) -> str:
-    v = str(value or "").strip()
-    return f"{v[:4]} {v[4:]}" if len(v) == 7 and " " not in v else v
+def _vrm(case: CaseFile) -> str:
+    """The registration exactly as the notice prints it, else the usual formatting."""
+    return display_reg({"vrm_display": case.get("vrm_display"), "vrm": case.get("vrm")}) or ""
 
 
 def _uk_date(d: date) -> str:
@@ -40,7 +43,8 @@ def _uk_date(d: date) -> str:
 def letter_document(case: CaseFile, on: Optional[date] = None) -> dict:
     """Structured letterhead for the UI and the PDF."""
     keeper = str(case.get("keeper_name") or "").strip()
-    from_lines = ([keeper] if keeper else []) + _lines(case.get("keeper_address"))
+    keeper_address = _lines(case.get("keeper_address"))
+    from_lines = [keeper or PLACEHOLDER_NAME] + (keeper_address or [PLACEHOLDER_ADDRESS])
     operator = str(case.get("operator_name") or "").strip()
     address = _lines(case.get("operator_address"))
     # Live: the printed address often starts with the operator's own name
@@ -53,21 +57,21 @@ def letter_document(case: CaseFile, on: Optional[date] = None) -> dict:
     if len(address) == 1 and address[0].count(",") >= 2:
         address = _lines(address[0].split(":", 1)[-1] if address[0].lower().startswith(
             ("registered office", "address")) else address[0])
-    to_lines = ([operator] if operator else []) + address
-    pcn, vrm = str(case.get("pcn_number") or "").strip(), _vrm(case.get("vrm"))
-    subject = "Re: Parking Charge Notice " + (pcn or "[PCN number]")
+    to_lines = [operator or PLACEHOLDER_OPERATOR] + (address or [PLACEHOLDER_OPERATOR_ADDRESS])
+    pcn, vrm = str(case.get("pcn_number") or "").strip(), _vrm(case)
+    subject = "Re: Parking Charge Notice " + (pcn or PLACEHOLDER_PCN)
     if vrm:
         subject += f", vehicle {vrm}"
     return {
-        "from_lines": from_lines or [FROM_PLACEHOLDER],
-        "from_complete": bool(keeper and len(from_lines) > 1),
-        "to_lines": to_lines if len(to_lines) > 1 else (to_lines + [TO_PLACEHOLDER]),
-        "to_complete": len(to_lines) > 1,
+        "from_lines": from_lines,
+        "from_complete": bool(keeper and keeper_address),
+        "to_lines": to_lines,
+        "to_complete": bool(operator and address),
         "date": _uk_date(on or date.today()),
         "subject": subject,
         "salutation": SALUTATION,
         "sign_off": SIGN_OFF,
-        "signature": keeper or "",
+        "signature": keeper or PLACEHOLDER_NAME,
     }
 
 

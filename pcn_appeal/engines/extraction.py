@@ -459,6 +459,12 @@ class ExtractionEngine:
             status = FactStatus.EXTRACTED if conf >= CONFIDENCE_THRESHOLD else FactStatus.UNCERTAIN  # EX-02
             src = FactSource(SourceKind.DOCUMENT, f"{f.get('evidence_id')}#p{f.get('page', 1)}")
             case.put(Fact(f"F-{name}", name, val, status, src, conf))
+            if name == "vrm":
+                # Two fields: the normalised registration drives every comparison; the
+                # registration exactly as the notice prints it is what a letter shows.
+                shown = " ".join(str(f["value"]).split())
+                if shown:
+                    case.put(Fact("F-vrm_display", "vrm_display", shown, status, src, conf))
             if status == FactStatus.UNCERTAIN:
                 flags.append(f"uncertain:{name}")
 

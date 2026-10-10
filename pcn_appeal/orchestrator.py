@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from .drafting.drafter import LLMDrafter, TemplateDrafter
+from .drafting.drafter import LLMDrafter, TemplateDrafter, with_fixed_frame
 from .engines.account import assess_material_account  # thin path retained for tests
 from .semantics.resolver import SemanticCaseResolver
 from .engines.analysis import AnalysisEngine
@@ -160,7 +160,9 @@ class AppealPipeline:
         # fallback and still builds case-specific REC paragraphs from the pack.
         self.drafter = drafter or LLMDrafter(llm)
         self.fallback = TemplateDrafter(self.kg)
-        self.validation = ValidationEngine(judge, kg=self.kg)
+        from .letter_frame import ALLOWED_NEXT_STEPS
+        self.validation = ValidationEngine(judge, kg=self.kg, enforce_frame=True,
+                                           allowed_next_step=ALLOWED_NEXT_STEPS)
         # P6: sentence grounding and the draft-level checks (DV-*), run before
         # the VAL-* engine; and the optional second-model judge, shadow only.
         self.draft_validation = DraftValidationEngine(kg=self.kg)
@@ -887,6 +889,9 @@ class AppealPipeline:
                 })
                 break
 
+            # The frame (opening, driver sentence, the one request to cancel) is code,
+            # whoever drafted: the model's own opening and closing are replaced by it.
+            draft = with_fixed_frame(draft, pack)
             late_blocks = self._with_late_appeal(case, draft, pack)
             if late_blocks:
                 case.audit.append({"event": "late_appeal_wording", "attempt": attempt,
@@ -1320,10 +1325,13 @@ class AppealPipeline:
             return []
         text = draft.plain_text()
         added, parts = [], []
-        pcn, vrm = facts.get("pcn_number"), facts.get("vrm")
-        if pcn and not _contains_token(text, _ident(pcn)):
+        from .letter_frame import display_reg, loose_pattern
+        pcn, vrm = facts.get("pcn_number"), display_reg(facts)
+        # Present in any spacing counts as present: the letter prints the registration as
+        # the notice does ("AB12 CDE"), which a token match on "AB12CDE" would miss.
+        if pcn and not (loose_pattern(str(pcn)).search(text) if loose_pattern(str(pcn)) else False)                 and not _contains_token(text, _ident(pcn)):
             parts.append((f"This appeal concerns Parking Charge Notice {pcn}.", "pcn_number"))
-        if vrm and not _contains_token(text, _ident(vrm)):
+        if vrm and not (loose_pattern(vrm, r"\s*").search(text) if loose_pattern(vrm, r"\s*") else False)                 and not _contains_token(text, _ident(vrm)):
             parts.append((f"The vehicle concerned is registration {vrm}.", "vrm"))
         for sentence, name in parts:
             refs = [pack.fact_refs[name]] if name in pack.fact_refs else []
@@ -1425,13 +1433,9 @@ class AppealPipeline:
             for bid in closing_ids:
                 if not _append(bid):
                     return []
-            if "clear response addressing" not in text.lower():
-                _append("PP-END-002")
-        elif not _CANCEL_REQUEST.search(text):
-            for bid in ("PP-END-001", "PP-END-002"):
-                if not _append(bid):
-                    return []
         else:
+            # The one request to cancel is the fixed frame's (letter_frame.py); no
+            # approved closing block is added on top of it, so there is only one.
             return []
 
         if not closing:

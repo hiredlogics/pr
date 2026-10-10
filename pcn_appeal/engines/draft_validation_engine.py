@@ -118,6 +118,9 @@ ATTRIBUTED = _R(
     rf"given by|provided by|received from|supplied by|reported by)\s+{_KEEPER}\b"
     rf"|\b(?:is|are|has been|have been) (?:reported|said|understood|informed|told|advised)\b"
     rf"|\bI (?:am|have been) (?:told|informed|instructed|advised)\b"
+    # The letter is in the first person: what the keeper says is attributed with "I".
+    rf"|\bI (?:understand|say|state|submit|believe|recall|am aware|was told)\b"
+    rf"|\bmy (?:understanding|recollection|account|information) is\b"
     rf"|\b{_KEEPER} (?:was|is) (?:told|informed|advised)\b")
 
 ENCLOSED = _R(r"\b(enclosed|attached|enclosure|appended|exhibit)\b")

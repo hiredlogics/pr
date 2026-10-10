@@ -19,6 +19,7 @@ from ..kg.graph import KnowledgeGraph
 from .. import prompts
 from ..llm import LLMClient
 from .context import DraftContext, fill_placeholder_text
+from ..letter_frame import apply_fixed_frame
 from ..models import Draft, DraftSentence, RetrievalPack
 from ..routes import Route
 
@@ -165,7 +166,9 @@ _KEEPER_ATTR = re.compile(
     r"understands|believes|recalls|contends|maintains|advises|asserts)\b"
     r"|\baccording to (?:the\s+)?(?:registered\s+)?keeper\b"
     r"|\bthe account (?:given|provided) by (?:the\s+)?(?:registered\s+)?keeper\b"
-    r"|\bthe account is (?:therefore )?that\b",
+    r"|\bthe account is (?:therefore )?that\b"
+    r"|\bI (?:understand|say|state|submit|believe|recall|am aware|am told|am informed|was told)\b"
+    r"|\bmy (?:understanding|recollection|account|information) is\b",
     re.I,
 )
 
@@ -296,6 +299,17 @@ def drafting_payload(pack: RetrievalPack) -> dict:
     return DraftContext.from_pack(pack).to_payload()
 
 
+def with_fixed_frame(draft: Draft, pack: RetrievalPack) -> Draft:
+    """The code-written opening and closing around the model's ground paragraphs.
+
+    Nothing is framed when the model returned no ground: that is a hold, not a letter.
+    """
+    if draft.no_ground_reason or not draft.paragraphs:
+        return draft
+    recipient = (pack.case_context or {}).get("writer_capacity") == "LETTER_RECIPIENT"
+    return apply_fixed_frame(draft, pack.verified_facts or {}, pack.fact_refs or {}, recipient)
+
+
 def rewrite_contract(payload: dict) -> dict:
     """What a retry may and may not change.
 
@@ -413,7 +427,7 @@ class LLMDrafter:
         draft = assemble_structured_draft(
             case_id, out, attempt, self._model(), prompts.version("drafting"),
             draft_plan=payload.get("draft_plan"))
-        return apply_locked_plan_particulars(draft, pack)
+        return apply_locked_plan_particulars(with_fixed_frame(draft, pack), pack)
 
     def regenerate_sections(self, case_id: str, pack: RetrievalPack, draft: Draft,
                             section_ids: list[str], feedback: Optional[list[str]] = None,
@@ -523,7 +537,7 @@ class LLMDrafter:
         result = Draft(case_id, merged, attempt, model=self._model(),
                        prompt_version=prompts.version("drafting"),
                        section_ownership=ownership)
-        return apply_locked_plan_particulars(result, pack)
+        return apply_locked_plan_particulars(with_fixed_frame(result, pack), pack)
 
 
 class TemplateDrafter:

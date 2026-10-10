@@ -23,7 +23,7 @@ EXPECTED_VERSIONS = {
     "semantic_extraction": 4,
     "extraction": 12,             # operator_address for the letter's "To" block
     "case_analysis": 9,
-    "drafting": 20,               # v20: the fidelity contract (any ground inherits it)
+    "drafting": 21,               # v21: the model writes only the ground paragraphs; the frame is code
     "validation": 3,
     "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,

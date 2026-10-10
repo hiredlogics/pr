@@ -21,7 +21,7 @@ CUSTOMER = "CUSTOMER"
 EVIDENCE = "EVIDENCE"
 
 DOCUMENT_OWNED = frozenset({
-    "pcn_number", "vrm", "operator_name", "operator_ata",
+    "pcn_number", "vrm", "vrm_display", "operator_name", "operator_ata",
     "parking_event_date", "notice_issue_date", "ntd_date", "ntk_date",
     "contravention_date", "entry_time", "exit_time",
     "charge_amount", "reduced_amount", "alleged_breach",
