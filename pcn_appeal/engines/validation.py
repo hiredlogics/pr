@@ -348,35 +348,44 @@ def _is_justified_customer_quote(quote: str, ctx: dict) -> bool:
     return False
 
 
-def _customer_prose_pasted(source: str, letter: str, facts: dict,
-                           justified_fps: Optional[list] = None) -> bool:
-    """True when a meaningful multi-word customer phrase is copied into the letter.
+def _pasted_phrases(source: str, letter: str, facts: dict,
+                    justified_fps: Optional[list] = None) -> list[str]:
+    """The runs of the customer's own words that were copied into the letter.
 
-    Not a blanket word-overlap ban: short shared tokens and canonical identifiers
-    (PCN, VRM, dates, amounts) that also appear in verified_facts are ignored.
-    Overlap that is only the text of a justified customer quotation is ignored.
+    Empty when none was. A whole informal sentence pasted comes back as that sentence;
+    otherwise each six-word window of the source found in the letter. Not a blanket
+    word-overlap ban: short shared tokens and canonical identifiers (PCN, VRM, dates,
+    amounts) that also appear in verified_facts are ignored, and so is overlap that is
+    only the text of a justified customer quotation.
     """
     src_fp = _copy_fingerprint(source)
     letter_fp = _copy_fingerprint(letter)
     if not src_fp or not letter_fp:
-        return False
+        return []
     justified_fps = [j for j in (justified_fps or []) if j]
     # Full informal sentence pasted (unless that sentence is itself a justified quote).
     if src_fp in letter_fp and len(src_fp.split()) >= 5:
         if not any(src_fp == j or src_fp in j or j in src_fp for j in justified_fps):
-            return True
+            return [src_fp]
     protected = set(justified_fps)
     for name in _IDENTIFIER_FACT_NAMES:
         val = facts.get(name)
         fp = _copy_fingerprint(str(val or ""))
         if fp:
             protected.add(fp)
+    out = []
     for phrase in _phrase_windows(src_fp, min_words=6):
         if any(phrase == p or phrase in p or p in phrase for p in protected):
             continue
         if phrase in letter_fp:
-            return True
-    return False
+            out.append(phrase)
+    return out
+
+
+def _customer_prose_pasted(source: str, letter: str, facts: dict,
+                           justified_fps: Optional[list] = None) -> bool:
+    """True when a meaningful multi-word customer phrase is copied into the letter."""
+    return bool(_pasted_phrases(source, letter, facts, justified_fps))
 
 
 class ValidationEngine:
@@ -600,10 +609,28 @@ class ValidationEngine:
             # the quotation itself — but not other informal wording.
             return False
 
+        flagged: set[str] = set()
         for src in (ctx.get("customer_source_texts") or []):
             if _covered_by_justified_quote(src):
                 continue
-            if _customer_prose_pasted(src, full, facts, justified_fps=justified_fps):
+            phrases = _pasted_phrases(src, full, facts, justified_fps=justified_fps)
+            if not phrases:
+                continue
+            # Name the SENTENCE and the words that were copied. A message that only says
+            # "rewrite professionally" gave the drafter nothing to fix, and the same copy
+            # came back on every retry; a named sentence can also be dropped on its own
+            # as a last resort instead of failing the whole letter.
+            named = False
+            for s in draft.sentences():
+                sfp = _copy_fingerprint(s.text)
+                hit = next((p for p in phrases if sfp and p in sfp), None)
+                if hit and s.text not in flagged:
+                    flagged.add(s.text)
+                    named = True
+                    block("VAL-CUSTOMER-COPY",
+                          f"Reuses the customer's own words ('{hit}'); say it in different "
+                          "words - change the subject, the order and the vocabulary", s.text)
+            if not named and not flagged:
                 block("VAL-CUSTOMER-COPY",
                       "Draft pastes customer free-text wording; rewrite professionally "
                       "from structured facts / material_account_propositions",
