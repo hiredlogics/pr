@@ -17,6 +17,7 @@ OUTCOME_NEEDS_DOCUMENTS = "NEEDS_DOCUMENTS"
 OUTCOME_NEEDS_FACTS = "NEEDS_FACTS"
 OUTCOME_SCOPE = "SCOPE_INELIGIBLE"
 OUTCOME_CLASSIFICATION = "CLASSIFICATION_FAILED"
+OUTCOME_HELD_FOR_REVIEW = "HELD_FOR_REVIEW"
 
 CUSTOMER_COPY = {
     OUTCOME_NO_SUPPORTED_GROUNDS: {
@@ -64,6 +65,25 @@ CUSTOMER_COPY = {
         "next": "Try continuing this case. If it keeps failing, contact support with your case reference.",
         "cta": "Continue this case",
         "can_continue": True,
+    },
+    # Drafting ran out of retries: letters were written and each one was refused by our own
+    # checks. Not a processing error (retrying the same case does the same thing) and not a
+    # finding about the case. Saying so, and not offering a button that reruns the loop.
+    OUTCOME_HELD_FOR_REVIEW: {
+        "title": "We could not finish your letter automatically",
+        "lede": (
+            "We wrote draft letters for your appeal, but none of them passed our own "
+            "accuracy checks, so we have not given you one. That is not a judgment on the "
+            "strength of your case. Your answers are saved, and this case has been held "
+            "for review by our team."
+        ),
+        "next": (
+            "You do not need to resubmit anything. If your appeal deadline is close, you "
+            "can still appeal to the operator in your own words, using the method on your "
+            "notice."
+        ),
+        "cta": "",
+        "can_continue": False,
     },
     OUTCOME_NEEDS_DOCUMENTS: {
         "title": "Please check that your pages match",
@@ -176,6 +196,13 @@ def classify_hold(case, pack, validation, draft=None) -> dict[str, Any]:
 
     if "draft_error" in events:
         return _pack(OUTCOME_PROCESSING_ERROR, case, detail="draft_error")
+
+    # Every draft was written and refused by our own checks: held for review, and a
+    # plain "continue" would only run the same loop again.
+    if "drafting_exhausted" in events:
+        detail = next((a.get("issues") for a in reversed(audit)
+                       if a.get("event") == "drafting_exhausted"), None)
+        return _pack(OUTCOME_HELD_FOR_REVIEW, case, detail={"issues": detail})
 
     # P11.1: release identity incomplete — internal gate; customer sees processing hold.
     if "release_metadata_incomplete" in events:

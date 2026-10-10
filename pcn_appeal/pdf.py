@@ -179,7 +179,9 @@ _TEMPLATE = """<!doctype html>
   <div class="addresses">
     <div class="block">
       <div class="label">From</div>
-      {% if keeper_name or keeper_address %}
+      {% if from_lines %}
+        {% for line in from_lines %}<div{% if line.startswith('[') %} class="placeholder"{% endif %}>{{ line }}</div>{% endfor %}
+      {% elif keeper_name or keeper_address %}
         {% if keeper_name %}<div>{{ keeper_name }}</div>{% endif %}
         {% for line in keeper_address_lines %}<div>{{ line }}</div>{% endfor %}
       {% else %}
@@ -189,7 +191,7 @@ _TEMPLATE = """<!doctype html>
     <div class="block">
       <div class="label">To</div>
       {% if to_lines %}
-        {% for line in to_lines %}<div>{{ line }}</div>{% endfor %}
+        {% for line in to_lines %}<div{% if line.startswith('[') %} class="placeholder"{% endif %}>{{ line }}</div>{% endfor %}
       {% else %}
         {{ operator_name or '[Parking operator name and address]' | e }}
       {% endif %}
@@ -197,7 +199,7 @@ _TEMPLATE = """<!doctype html>
   </div>
 
   <div class="subject">
-    Re: {{ pcn_label }}{{ pcn_number or '[PCN number]' }}{% if vrm %} &mdash; {{ vrm }}{% endif %}
+    {% if subject %}{{ subject }}{% else %}Re: {{ pcn_label }}{{ pcn_number or '[PCN number]' }}{% if vrm %} &mdash; {{ vrm }}{% endif %}{% endif %}
   </div>
 
   <div class="body">
@@ -258,6 +260,10 @@ def render_letter_pdf(draft: Draft, pack: RetrievalPack, case_id: str,
         brand_footer=BRAND_FOOTER,
         today=date.today().strftime("%d %B %Y"),
         operator_name=facts.get("operator_name"),
+        # The frame is the letterhead's, as on the page: every block present, a visible
+        # placeholder for anything not read, the registration as the notice prints it.
+        from_lines=(letterhead or {}).get("from_lines") or [],
+        subject=(letterhead or {}).get("subject"),
         to_lines=(letterhead or {}).get("to_lines") or [],
         salutation=(letterhead or {}).get("salutation"),
         sign_off=(letterhead or {}).get("sign_off"),

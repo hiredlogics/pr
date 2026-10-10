@@ -414,10 +414,16 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # proof instead, so the account has no section here to be expressed in.
         calculated_ground = (any(f.get("legal_module_id") in group for f in findings)
                              or bool(facts.get("default_keeper_appeal")))
-        ctx_atoms = list(bundle_atoms) + (
-            _rows(ctx.get("narrative_atoms"))
-            if not bundle_atoms and len(groups) == 1 and not calculated_ground
-            else [])
+        # Atoms the case offers because this is the only section are STAND-INS: the drafter
+        # is told to express them where they bear on the ground, but nothing makes the
+        # letter fail for leaving one out - only the atoms the ground's own support bundle
+        # carries are required. (Required for everything, a ground about authorisation
+        # failed whenever the letter did not also retell the delay and the broken machine.)
+        standin_atoms = [dict(a, standin=True) if isinstance(a, dict) else a
+                         for a in (_rows(ctx.get("narrative_atoms"))
+                                   if not bundle_atoms and len(groups) == 1 and not calculated_ground
+                                   else [])]
+        ctx_atoms = list(bundle_atoms) + standin_atoms
         dep = values.get("departure_reason")
         if not dep:
             for a in ctx_atoms:
@@ -497,11 +503,11 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # statutory-timing paragraph it has nothing to do with.
         ctx_events: list[dict] = []
         if not bundle_events and len(groups) == 1 and not calculated_ground:
-            ctx_events = (
+            # Stand-ins, as with the atoms above: advisory to the drafter, not enforced.
+            ctx_events = [dict(e, standin=True) if isinstance(e, dict) else e for e in (
                 _rows(ctx.get("supporting_events"))
                 or _rows(ctx.get("material_events"))
-                or _rows(ctx.get("customer_reported_events"))
-            )
+                or _rows(ctx.get("customer_reported_events")))]
         supporting_events: list[dict] = []
         seen_events: set[str] = set()
         for ev in list(bundle_events) + list(ctx_events):

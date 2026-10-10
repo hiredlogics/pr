@@ -39,8 +39,12 @@ prompts:
   #   notice's allegation and any earlier clarification answers, and may ask
   #   ONE plain question only for a genuine ambiguity. The arrays and their
   #   rules are unchanged.
+  # v4 -> v5: propositions and descriptions are restated, not lifted. Live, an atom carried
+  # "the payment machine near the entrance" through verbatim from the customer's text, the
+  # drafter reused it, and VAL-CUSTOMER-COPY refused the letter. Specific detail still survives;
+  # only the customer's exact runs of words do not.
   semantic_extraction:
-    version: 4
+    version: 5
     body: |-
       You extract factual meaning from a UK private-parking customer's free-text
       account. Reason from MEANING, not keywords or phrase lists.
@@ -146,6 +150,11 @@ prompts:
           Never omit one of these keys.
         - concepts[]: use ONLY ids in allowed_concepts / concept_definitions.
           Never invent ontology concept ids.
+        - RESTATE, DO NOT COPY. In every proposition and description, keep the specific object,
+          purpose, reason and order, but in YOUR words: never reuse a run of six or more
+          consecutive words from the customer's text. source_text is the only place verbatim words
+          belong. ("The customer reports the pay machine by the gate was out of order", not "the
+          payment machine near the entrance was not working".)
         - PRESERVE THE MOST SPECIFIC SOURCE-SUPPORTED MATERIAL DETAIL.
           Normalization means professional factual wording, NOT abstraction. Do
           not replace a concrete activity, object, reason, temporal
@@ -477,8 +486,16 @@ prompts:
   # paragraphs - first person throughout, no "the keeper states" - and never the opening,
   # the driver sentence, the request to cancel or the sign-off. Banned phrases, exact copy
   # of identifiers, and a word budget are stated here and enforced by VAL-TEMPLATE.
+  # v22: three live corrections to v21.
+  #   - a fact WE calculated (fact_basis DERIVED) was written as "the notice records ...":
+  #     v19-v21 told the model to state calculated facts "as what the notice shows".
+  #     "The notice shows / records / states" is now for fact_basis DOCUMENT only; a
+  #     DERIVED fact is "the calculation shows" or stated plainly (VAL-ATTRIBUTION).
+  #   - the model lifted six-word runs from the customer's account ("the car park was very
+  #     busy"), which VAL-CUSTOMER-COPY refuses; the rule is now stated to the model.
+  #   - the stale "the keeper's account" wording is gone from the rule about derived facts.
   drafting:
-    version: 21
+    version: 22
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -496,8 +513,15 @@ prompts:
       - Attribute only customer_reported_facts to the keeper, in the first person: "I understand that ...",
         "I am informed that ...", "I say that ...". Never "the keeper states", "the keeper's account" or
         "according to the keeper".
-        document_established_facts and calculated facts are the notice's or the calculation's, never
-        anyone's account; state them as what the notice shows.
+        document_established_facts are what the notice prints; calculated (DERIVED) facts are what
+        the system worked out, never anyone's account and never the notice's.
+      - ATTRIBUTION BY BASIS. fact_basis says what each fact is. Write "the notice shows / records /
+        states ..." ONLY for a fact whose basis is DOCUMENT (printed on the notice). A DERIVED fact
+        (a duration, an overstay, a grace-period finding, anything we calculated) is written "the
+        calculation shows ..." or "on the times shown on the notice, ...", or simply stated plainly.
+        Never credit the notice with a conclusion the notice does not contain: for example the notice
+        prints the times and the permitted period, and it is the calculation that finds the overstay
+        falls within the grace period.
       - You are a RENDERER. Input is draft_plan (one DraftSection per supported ground, or an
         explicit permitted merge) plus approved case metadata for letter formatting. You convert
         each DraftSection into prose. You do NOT choose grounds, remove grounds, add legal grounds,
@@ -522,6 +546,10 @@ prompts:
           calendar date.
         * Keep the ground paragraphs under 300 words in total, so the whole letter is under 400.
           Plain, firm, polite English; short paragraphs; no legal jargon beyond the approved wording.
+        * NEVER REUSE THE CUSTOMER'S OWN WORDS. No run of six or more consecutive words may be copied
+          from material_account_propositions, atoms or any customer wording you can see ("the car
+          park was very busy" is a copy). Say it afresh: change the subject, the order and the
+          vocabulary ("the site was extremely crowded on arrival"), keeping every fact and its detail.
         * Do not repeat the same point, and never ask for cancellation: the system adds the one request.
         * Never mention camera, ANPR or "VRM matching" unless the notice relies on ANPR, and never
           mention a permit unless the allegation is about one.
@@ -991,8 +1019,12 @@ prompts:
   # there before it reports anything. v2 saw only a summary of it and reported the
   # verified legal calculation, the keeper's own account and the approved closing as
   # "unsupported", which held every live letter.
+  # v4: the stale "the keeper's account is that ..." wording is gone (letters are in the first
+  # person now: "I understand that ..."), and misattribution now covers a fact WE calculated
+  # (fact_basis DERIVED) credited to the notice - "the notice records that ... falls within the
+  # grace period" passed v3 because only keeper-account-as-notice-finding was named.
   appeal_quality:
-    version: 3
+    version: 4
     body: |-
       You judge the QUALITY of a finished private-parking appeal letter. The letter has already
       passed deterministic legal validation, so do not re-litigate the law.
@@ -1009,10 +1041,11 @@ prompts:
       SUPPORT IS FOUND IN case_package. Before you list ANY sentence under a finding, look for
       its support in all of these and list it only if none of them supports it:
         - a verified legal finding and its calculation (dates, deadlines, days late) is supported;
-        - a statement attributed to the keeper ("the keeper's account is that ...") is supported
-          when it matches material_account_propositions, customer_reported_facts, draft_plan
-          supporting_events / material_atoms or customer_account_facts - paraphrase is not
-          strengthening, and attribution to the keeper is the correct, cautious form;
+        - a statement attributed to the keeper in the first person ("I understand that ...", "I
+          am informed that ...") is supported when it matches material_account_propositions,
+          customer_reported_facts, draft_plan supporting_events / material_atoms or
+          customer_account_facts - paraphrase is not strengthening, and first-person attribution
+          is the correct, cautious form;
         - the opening, closing and conclusion wording the drafter was instructed to write
           (draft_plan closing_requirements, context_chunks, the approved Schedule 4 conclusion
           when a verified PoFA finding exists) is supported and is not an ungrounded argument;
@@ -1058,7 +1091,12 @@ prompts:
                                   as a valid permit; a retail site as customer-only)
         misattributed_statements  a statement credited to the wrong source: the keeper's account
                                   presented as the notice's finding, the notice's allegation as the
-                                  keeper's admission, or anything written as if the driver spoke
+                                  keeper's admission, anything written as if the driver spoke, or a
+                                  fact whose fact_basis is DERIVED (calculated by us: a duration, an
+                                  overstay, a grace-period finding) credited to the notice - "the
+                                  notice records that the overstay is within the grace period" is
+                                  wrong; "the calculation shows ..." or a plain statement is right.
+                                  "The notice shows / records / states" is only for fact_basis DOCUMENT.
         removed_supported_facts   a material fact the plan and verified_facts support that the letter
                                   leaves out where its ground needs it
         weakened_customer_facts   customer facts flattened into generic wording

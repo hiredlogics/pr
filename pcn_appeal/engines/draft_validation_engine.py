@@ -543,7 +543,7 @@ class DraftValidationEngine:
                 if not atoms:
                     atoms = list(getattr(section, "material_atoms", None) or [])
                 missing_atoms = []
-                for a in atoms[:6]:
+                for a in [x for x in atoms if not (isinstance(x, dict) and x.get("standin"))][:6]:
                     if not isinstance(a, dict):
                         continue
                     if a.get("polarity") in ("NEGATED", "UNCERTAIN"):
@@ -577,7 +577,8 @@ class DraftValidationEngine:
                 # carries. An event the plan marks material is part of the
                 # ground's meaning: paraphrase is expected, omission is not.
                 missing_events = []
-                for ev in list(getattr(section, "supporting_events", None) or [])[:6]:
+                for ev in [x for x in (getattr(section, "supporting_events", None) or [])
+                           if not (isinstance(x, dict) and x.get("standin"))][:6]:
                     if not isinstance(ev, dict):
                         continue
                     if ev.get("material") is False:

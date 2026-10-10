@@ -846,6 +846,9 @@ def _stop_payload(case: CaseFile) -> dict:
 def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
               skip: bool = False) -> dict:
     case: CaseFile = rec["case"]
+    held = _held_for_review(case) if not answers and not skip else None
+    if held is not None:
+        return held
     try:
         result = rec["pipe"].auto_appeal(case, narrative, answers, skip_remaining=skip)
     except (ValueError, TypeError) as exc:                 # bad choice / non-int answer
@@ -870,27 +873,67 @@ def _run_auto(rec: dict[str, Any], narrative: str, answers: Optional[dict],
     out = result.output
     payload["evidence_list"] = out.evidence_list
     if out.state == CaseState.RELEASED:
-        # Plain-English route labels summarising what this letter argues. Only a
-        # released letter gets them: on a held case they described grounds the
-        # customer never received, which read as a letter that had been written.
-        payload["grounds"] = _ground_labels(out.pack)
-        payload["letter"] = out.letter
-        # The validated body above, plus what a posted letter needs around it.
-        from .letterhead import full_letter, letter_document
-        doc = letter_document(case)
-        payload["letter_document"] = doc
-        payload["letter_full"] = full_letter(out.letter, doc)
-        # Live: a released late appeal never showed its customer notice.
-        payload.update(_outcome_fields(out))
-        # the plain-text field above is what validation checked; this is the
-        # same letter laid out as a document a customer can actually send
-        payload["letter_pdf_url"] = f"/cases/{result.case_id}/letter.pdf"
+        payload.update(_released_fields(case, out))
     else:
         # Held cases: say *why* we stopped. Validator rule names and module IDs
         # stay on GET /cases/{id}/trace (admin/audit), not the customer payload.
         payload.update(_outcome_fields(out))
         payload.update(_held_questions(rec["case"], out))
     return payload
+
+
+def _held_for_review(case: CaseFile) -> Optional[dict]:
+    """The held-for-review hold again, without rerunning the drafting loop.
+
+    A case whose drafting ran out of retries stays held until the customer gives us
+    something new. "Continue this case" with nothing new used to run the same loop and
+    fail the same way, three drafts at a time; now it returns the same honest hold.
+    """
+    from .orchestrator import answers_digest
+    if case.state != CaseState.VALIDATION_FAILED:
+        return None
+    event = next((a for a in reversed(case.current_run_audit() or case.audit)
+                  if a.get("event") == "drafting_exhausted"), None)
+    if event is None or event.get("answers_digest") != answers_digest(case):
+        return None
+    from .engines import outcome
+    hold = outcome.classify_hold(case, None, None)
+    if hold.get("outcome") != outcome.OUTCOME_HELD_FOR_REVIEW:
+        return None
+    payload = {"case_id": case.case_id, "state": case.state.value, "route": case.route,
+               "flags": [], "questions": [], "skipped_questions": [],
+               "outcome": hold["outcome"], "outcome_title": hold["outcome_title"],
+               "outcome_message": hold["outcome_message"], "outcome_next": hold["outcome_next"],
+               "can_continue": False}
+    return payload
+
+
+def _released_fields(case: CaseFile, out) -> dict:
+    """Everything a customer needs from a released letter, in ONE place.
+
+    The validated body (`letter`) is only the middle of a posted letter. The page and the
+    PDF draw the rest - From / To, date, Re: line, "Dear Sir or Madam", sign-off, name,
+    with a placeholder for anything not read - from `letter_document`, and the copy button
+    uses `letter_full`. A path that returned `letter` without them showed a bare body (the
+    step-by-step endpoint did, for any case finished through it), so every released
+    payload is built here and no path can leave them out.
+    """
+    from .letterhead import full_letter, letter_document
+    doc = letter_document(case)
+    fields = {
+        # Plain-English route labels summarising what this letter argues. Only a
+        # released letter gets them: on a held case they described grounds the
+        # customer never received, which read as a letter that had been written.
+        "grounds": _ground_labels(out.pack),
+        "letter": out.letter,
+        "letter_document": doc,
+        "letter_full": full_letter(out.letter, doc),
+        # the same letter laid out as a document a customer can actually send
+        "letter_pdf_url": f"/cases/{case.case_id}/letter.pdf",
+    }
+    # Live: a released late appeal never showed its customer notice.
+    fields.update(_outcome_fields(out))
+    return fields
 
 
 def _held_questions(case: CaseFile, out) -> dict:
@@ -1291,9 +1334,7 @@ def confirm(case_id: str, body: ConfirmIn):
                "flags": _customer_flags(rec.get("flags") or []), "questions": [],
                "skipped_questions": [], "evidence_list": out.evidence_list}
     if out.state == CaseState.RELEASED:
-        payload["grounds"] = _ground_labels(out.pack)      # see /auto_appeal
-        payload["letter"] = out.letter
-        payload["letter_pdf_url"] = f"/cases/{case.case_id}/letter.pdf"
+        payload.update(_released_fields(case, out))        # see /auto_appeal
     else:
         payload.update(_outcome_fields(out))
         payload.update(_held_questions(case, out))

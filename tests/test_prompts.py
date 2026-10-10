@@ -20,14 +20,14 @@ from pcn_appeal.models import Draft, DraftSentence, RetrievalPack
 # number the audit log has already attributed to the old ones. Updating this map
 # is how a review pass declares it meant to.
 EXPECTED_VERSIONS = {
-    "semantic_extraction": 4,
+    "semantic_extraction": 5,           # v5: restate, do not copy
     "extraction": 12,             # operator_address for the letter's "To" block
     "case_analysis": 9,
-    "drafting": 21,               # v21: the model writes only the ground paragraphs; the frame is code
+    "drafting": 22,               # v22: calculated facts are not the notice's; no reuse of the customer's words
     "validation": 3,
     "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,
-    "appeal_quality": 3,          # v3: judged against the drafter's whole case package
+    "appeal_quality": 4,          # v4: first-person attribution; a calculation credited to the notice
 }
 
 # Each rule as the terms that show it is still stated, not the sentence that

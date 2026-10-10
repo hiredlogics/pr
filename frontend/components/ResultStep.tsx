@@ -328,9 +328,12 @@ export default function ResultStep({
 
           {data.notices && <CustomerNotices notices={data.notices} />}
 
+          {/* The page draws From / To / Re: / salutation / sign-off from letter_document. If a
+              response ever arrives without it, fall back to the postable letter_full (which
+              carries the same frame as text) rather than showing a bare body. */}
           <LetterPreview
             caseId={data.case_id}
-            letter={data.letter as string}
+            letter={(data.letter_document ? data.letter : (data.letter_full ?? data.letter)) as string}
             doc={data.letter_document}
           />
         </div>

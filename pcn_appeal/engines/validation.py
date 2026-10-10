@@ -36,6 +36,8 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-INVENTED a permit/bay/ticket identifier that is not a verified fact
   VAL-CALC     a stated day-count that contradicts a verified finding calculation
   VAL-ORPHAN-SUPPORT support/conclusion modules without a substantive ground
+  VAL-ATTRIBUTION a fact the system calculated (basis DERIVED) credited to the notice ("the notice
+               records that ...") - attribution_check.py
   VAL-TEMPLATE the fixed letter frame (driver sentence, one request to cancel, PCN / registration /
                postcode copied exactly) and style rules (no banned phrases, first person) -
                letter_template_check.py, enforced by the pipeline
@@ -49,7 +51,7 @@ from typing import Optional
 
 from .. import prompts
 from ..customer_safe import internal_ids
-from . import assertion_strength
+from . import assertion_strength, attribution_check
 from ..legal import code_versions
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
@@ -65,7 +67,7 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-7"  # VAL-7: VAL-TEMPLATE (fixed letter frame + style); VAL-6: VAL-STRENGTH
+VERSION = "VAL-8"  # VAL-8: VAL-ATTRIBUTION (a calculation is not the notice's); VAL-7: VAL-TEMPLATE; VAL-6: VAL-STRENGTH
 # VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
 # VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
@@ -480,6 +482,13 @@ class ValidationEngine:
                 block("VAL-EQ", "Equality ground without triggering facts", t)
             for g in assertion_strength.violations(t, pack):
                 block("VAL-STRENGTH", g.message, t)
+            claim = (attribution_check.credited_to_notice(t, s.fact_refs, pack)
+                     or attribution_check.unprinted_claim(t, pack))
+            if claim:
+                block("VAL-ATTRIBUTION",
+                      f"Credits the notice with something it does not contain ({claim}); say it "
+                      "plainly or write 'the calculation shows ...' - 'the notice shows / records' "
+                      "is only for the times, figures and wording the notice itself prints", t)
             if ANPR_GENERIC.search(t) and not facts.get("anpr_discrepancy"):
                 block("VAL-ANPR", "Generic calibration allegation without factual trigger", t)
             if CONTRADICTION_CLAIM.search(t) and not facts.get("independent_evidence_contradicts"):

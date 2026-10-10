@@ -1039,6 +1039,12 @@ class AppealPipeline:
             # Exhausted validation retries: keep VALIDATION_FAILED. Collapsing into
             # MANUAL_REVIEW made technical holds look like a merits judgment.
             case.state = CaseState.VALIDATION_FAILED
+            # Say so on the record: the customer is told the case is held for review (not
+            # "try again"), and a later "continue" with nothing new is not rerun.
+            case.audit.append({
+                "event": "drafting_exhausted", "attempts": attempt,
+                "issues": sorted({i.rule for i in result.issues}),
+                "answers_digest": answers_digest(case)})
         return _with_outcome(
             AppealOutput(case.state, None, pack, draft, result, self._evidence_list(case)),
             case)
@@ -1579,6 +1585,15 @@ def uk_dates(text: str) -> str:
             return m.group(0)
         return f"{d} {calendar.month_name[mo]} {y}"
     return _ISO_DATE.sub(fmt, text or "")
+
+
+def answers_digest(case: CaseFile) -> str:
+    """What the customer has told us, as a short fingerprint: a held case is only
+    rerun when this changes (a new answer, a skip), never on a bare 'continue'."""
+    import hashlib
+    import json
+    held = {k: v for k, v in (case.raw_answers or {}).items() if not str(k).startswith("_")}
+    return hashlib.sha1(json.dumps(held, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
 def render(draft: Draft) -> str:
