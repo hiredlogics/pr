@@ -159,16 +159,24 @@ class TheJudgeJudgesWritingNotLaw(unittest.TestCase):
         self.assertEqual(out["status"], "ERROR")
         self.assertFalse(out["blocking"])
 
-    def test_it_never_blocks_a_release_yet(self):
-        """Introduced the way the shadow judge was: recorded, not acted on,
-        until the client has seen its agreement rate."""
-        llm = _StubLLM({"scores": {**GOOD, "case_specificity": 1},
-                        "explains_why_cancelled": False, "sendable_for_any_pcn": True})
-        self.assertFalse(QualityJudge(llm).review(draft(self.BAD), pack())["blocking"])
+    def test_a_hard_finding_blocks_but_a_low_score_alone_does_not(self):
+        """It enforces now (the client's drafting-fidelity brief), within limits: a
+        hard finding blocks release, while a score short of its threshold is
+        rewritten but never held for style on its own."""
+        hard = _StubLLM({"scores": {**GOOD, "case_specificity": 1},
+                         "explains_why_cancelled": False, "sendable_for_any_pcn": True})
+        self.assertTrue(QualityJudge(hard).review(draft(self.BAD), pack())["blocking"])
+        soft = _StubLLM({"scores": {**GOOD, "persuasiveness": 3, "legal_ground_alignment": 8},
+                         "explains_why_cancelled": True, "sendable_for_any_pcn": False})
+        review = QualityJudge(soft).review(draft(self.SPECIFIC), pack())
+        self.assertEqual(review["status"], REWRITE)
+        self.assertFalse(review["blocking"])
 
-    def test_it_is_off_unless_asked_for(self):
+    def test_it_is_off_unless_asked_for_or_the_provider_is_live(self):
         self.assertFalse(enabled(False))
         self.assertTrue(enabled(True))
+        self.assertFalse(enabled())                       # no provider named
+        self.assertFalse(enabled(llm=_StubLLM({})))       # a test double is not live
 
 
 class ThePipelineActuallyCallsIt(unittest.TestCase):

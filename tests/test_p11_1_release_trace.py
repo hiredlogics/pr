@@ -14,9 +14,41 @@ from pcn_appeal.release_trace import (
     build_release_trace,
     classify_case_row,
     gate_before_release,
+    gather_release_metadata,
     missing_release_keys,
     release_allowed,
 )
+
+
+class PipelineReleaseIdentity(unittest.TestCase):
+    def test_records_the_case_client_without_creating_a_default_client(self):
+        from types import SimpleNamespace
+        from pcn_appeal.llm import FakeLLM
+        from pcn_appeal.integrity.ai_log import audited
+
+        client = FakeLLM({})
+        client.models = {"drafting": "case-drafting-model"}
+        pipe = SimpleNamespace(llm=audited(client), kg=SimpleNamespace(
+            release_id="kb-test", release_digest="digest"))
+        case = CaseFile("release-client")
+        case.ai_calls = [
+            {"task": "extraction", "model": "case-extraction-model", "status": "SUCCESS"},
+            {"task": "drafting", "model": "failed-model", "status": "ERROR"},
+        ]
+        with patch("pcn_appeal.llm.default_client", side_effect=RuntimeError("unavailable")), \
+                patch("pcn_appeal.release_trace._db_case_stamp", return_value={}):
+            meta = gather_release_metadata(case, pipe)
+        self.assertEqual(meta["llm_provider"], "FakeLLM")
+        self.assertEqual(meta["model_versions"], {
+            "drafting": "case-drafting-model", "extraction": "case-extraction-model"})
+
+    def test_missing_client_and_models_still_block_release(self):
+        from types import SimpleNamespace
+        pipe = SimpleNamespace(kg=SimpleNamespace(release_id="kb-test"))
+        with patch("pcn_appeal.release_trace._db_case_stamp", return_value={}):
+            meta = gather_release_metadata(CaseFile("missing-client"), pipe)
+        self.assertIn("llm_provider", missing_release_keys(meta))
+        self.assertIn("model_versions", missing_release_keys(meta))
 
 
 def _complete_meta(**overrides):

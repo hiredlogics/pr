@@ -67,6 +67,7 @@ Internal contract of an approved question:
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
@@ -83,6 +84,19 @@ from .module_eligibility import (BLOCKED as ME_BLOCKED, REJECTED as ME_REJECTED,
                                  decide, evaluate_module_id)
 
 APPROVED, REJECTED = "APPROVED", "REJECTED"
+
+
+def deterministic() -> bool:
+    """Whether question selection is a function of the case alone (DETERMINISTIC_QUESTIONS).
+
+    On: the case's own gates are decided before a model's proposals, a fact's answer
+    type is the KB's, equal questions are ordered by fact, and a model's question
+    about a route the plan already argues is refused - so the same facts, grounds
+    and missing facts give the same next question however a model words or orders
+    its proposals. Off (the default): the model's proposals steer, as they always
+    did. Read per call, so a test or a deploy can switch it without a restart.
+    """
+    return (os.getenv("DETERMINISTIC_QUESTIONS") or "").strip().lower() in ("1", "true", "yes", "on")
 
 # Where a candidate came from. Only the sources marked as an issue below may
 # stand on something other than a KB module (R1).
@@ -312,7 +326,8 @@ class QuestionAuthority:
             out.rows.append(self._row(case, r, REJECTED, r.get("reason", "rejected"), round_no,
                                       stage="analysis_precheck"))
 
-        for cand in candidates:
+        det = deterministic()
+        for cand in (self._canonical_candidates(candidates) if det else candidates):
             cand = dict(cand or {})
             fact = canonical(str(cand.get("fact") or "").strip())
             text = str(cand.get("text") or "").strip()
@@ -321,6 +336,9 @@ class QuestionAuthority:
                                                   seen_facts, seen_texts)
             if verdict == APPROVED:
                 q = self._question(case, cand, extra)
+                # Only a question nothing in the case calls for but a model's proposal
+                # is "the model's": it is asked after every one the case itself calls for.
+                q["_model"] = det and (cand.get("source") or MODEL) == MODEL
                 out.approved.append(q)
                 seen_facts.add(fact)
                 seen_texts.add(_norm(text))
@@ -328,7 +346,10 @@ class QuestionAuthority:
             else:
                 out.rows.append(self._row(case, cand, REJECTED, reason, round_no))
 
-        out.approved.sort(key=lambda q: q["_rank"])
+        # A total order: nothing about candidate order, wording or where a candidate
+        # came from can decide between two questions that are otherwise equal.
+        out.approved.sort(key=(lambda q: (q["_model"], q["_rank"], q["fact"])) if det
+                          else (lambda q: q["_rank"]))
         for i, q in enumerate(out.approved):
             q["priority"] = i + 1
         out.shown = out.approved[:max(0, show)]
@@ -342,12 +363,62 @@ class QuestionAuthority:
                     row["reason"] += "; held for a later round (one question at a time)"
         for q in out.approved:
             q.pop("_rank", None)
+            q.pop("_model", None)
 
         case.audit.append({"event": "question_round", "round": round_no,
                            "approved": len(out.approved), "shown": [q["fact"] for q in out.shown],
                            "rejected": sum(1 for r in out.rows if r["decision"] == REJECTED)})
         for row in out.rows:
             case.audit.append({"event": "question_review", **row})
+        return out
+
+    # ---------------------------------------------------------- canonical pool
+    def _canonical_candidates(self, candidates: Iterable[dict]) -> list[dict]:
+        """The candidates this round decides, made independent of the model.
+
+        The same missing fact reaches the authority from several places (a KB gate,
+        the case-analysis model) in different words and, for the model, with a type
+        it chose. Left alone, which one is decided first, and under what answer
+        space, depended on the model, so two runs over the same case could ask
+        different questions.
+
+          * a KB gate's version of a fact is decided before a model's, and the model's
+            repeat is then refused as a duplicate (it stays in the trace);
+          * a fact the KB has a question for has the KB's answer type and options
+            whoever proposed it (that is what decides whether an answer could matter).
+            Wording stays the proposer's; integrity sources are never touched: they are
+            about this case's documents, not about a fact's meaning;
+          * order is by source (integrity, unlock, gate, model) then fact, so the
+            list is the same however the sources returned it.
+        """
+        def source_order(c):
+            s = (c or {}).get("source") or MODEL
+            return (0 if s in INTEGRITY_SOURCES else 1 if s in UNLOCK_SOURCES
+                    else 2 if s == KB_GATE else 3 if s == HYPOTHESIS else 4)
+
+        # Stable within a source: the order a source produced them in is its own (the
+        # gates' is a function of the case); `review` ranks by fact in the end.
+        ranked = sorted((dict(c or {}) for c in candidates), key=source_order)
+        out: list[dict] = []
+        taken: set[str] = set()
+        for c in ranked:
+            fact = canonical(str(c.get("fact") or "").strip())
+            src = c.get("source") or MODEL
+            if src in INTEGRITY_SOURCES or src in UNLOCK_SOURCES or src == HYPOTHESIS:
+                out.append(c)
+                continue
+            # A repeat of a fact stays in the list, in the same canonical shape, so the
+            # authority rejects it as a duplicate and the trace says so; it cannot be
+            # approved on its own wording or type if the first version was not.
+            taken.add(fact)
+            shape = self.kg.question_for(fact) or {}
+            if shape.get("type"):
+                # The answer space is the KB's; the wording stays the proposer's, so a
+                # reworded duplicate is still recognised as one (same-wording dedupe).
+                c = dict(c, type=shape["type"])
+                if shape.get("options"):
+                    c["options"] = list(shape["options"])
+            out.append(c)
         return out
 
     # ------------------------------------------------------------- decide
@@ -467,6 +538,19 @@ class QuestionAuthority:
                               f"{', '.join(sorted({str(getattr(m.route, 'value', m.route)) for m in related}))}"
                               ), None
 
+        # A model's proposal about a route the plan already argues cannot change the
+        # appeal: a second module of the same route restates the first. (The case's own
+        # gates already apply this rule; a model's candidate is held to it too.)
+        if deterministic() and (cand.get("source") or MODEL) == MODEL and self._selected:
+            argued = {str(getattr(self.kg.modules[s].route, "value", self.kg.modules[s].route))
+                      for s in self._selected if s in self.kg.modules}
+            open_routes = [m for m in fitting
+                           if str(getattr(m.route, "value", m.route)) not in argued]
+            if not open_routes:
+                return REJECTED, ("R5: the route this would bear on is already argued; "
+                                  "a second module of it restates the first"), None
+            fitting = open_routes
+
         ctx = self._round(case)
         decided: dict[str, str] = {}          # module -> why it is not asked about
         found: list[tuple[Any, Effect, int]] = []
@@ -502,9 +586,21 @@ class QuestionAuthority:
             # P8 follow-up: within a tier, a ground the notice itself points at
             # (a supermarket overstay -> genuine customer, grace) is asked
             # before a generic thin-account gate, since rounds are limited.
+            # then: what the notice points at; a KB gate before a model's proposal
+            # (the gate is a function of the case, the proposal is not); the
+            # strongest module; least effort. `review` ends the order with the fact.
+            if not deterministic():
+                return (tier, -(2 if effect.decisive else 1),
+                        1 if (cand.get("source") == KB_GATE and not cand.get("notice_pointed"))
+                        else 0, -m.strength,
+                        EFFORT.get(cand.get("type"), 3))
             return (tier, -(2 if effect.decisive else 1),
-                    1 if (cand.get("source") == KB_GATE and not cand.get("notice_pointed"))
-                    else 0, -m.strength,
+                    # what the customer's own account raised comes first (the analysis
+                    # marks it prio 1), then what the notice or the case's signals point at
+                    0 if cand.get("prio") == 1 else 1,
+                    0 if (cand.get("notice_pointed") or m.module_id in ctx.pointed) else 1,
+                    0 if cand.get("source") in (KB_GATE, HYPOTHESIS) else 1,
+                    -m.strength,
                     EFFORT.get(cand.get("type"), 3))
         found.sort(key=rank)
         best, effect, tier = found[0]
@@ -626,13 +722,19 @@ class QuestionAuthority:
         `fact` per possible answer. A yes/no or a choice is evaluated on the value
         itself; free text or a number only says "some answer", so each condition
         is taken both ways (an `is`/`exists` condition holds, `missing` does not)."""
-        qtype = cand.get("type") or (self.kg.question_for(fact) or {}).get("type") or "text"
+        # The KB's own shape of the question decides what answers are possible; a
+        # model's choice of "text" or "bool" for the same fact must not change whether
+        # the fact is material.
+        shape = self.kg.question_for(fact) or {}
+        qtype = ((shape.get("type") or cand.get("type")) if deterministic()
+                 else (cand.get("type") or shape.get("type"))) or "text"
         held = frozenset(u for u in unreliable if u != fact)
         values: list[Any] = []
         if qtype == "bool":
             values = [True, False]
         elif qtype == "choice":
-            options = cand.get("options") or (self.kg.question_for(fact) or {}).get("options") or []
+            options = ((shape.get("options") or cand.get("options")) if deterministic()
+                       else (cand.get("options") or shape.get("options"))) or []
             values = [str(o) for o in options] if len(options) >= 2 else []
         if values:
             out = []
@@ -777,6 +879,26 @@ class _Round:
                                     if not f.usable)
         self.view = effective_view(facts)
         self._out: dict = {}
+        self._pointed = None
+
+    @property
+    def pointed(self) -> frozenset:
+        """Modules the case's own signals point at: a curated SUPPORTS edge from a
+        signal that holds on these facts (the allegation is about payment, so the
+        payment grounds; about the length of stay, so grace and consideration).
+        A function of the facts and the KB's relations graph alone."""
+        if self._pointed is None:
+            from .knowledge_matcher import signals
+            from ..kg.relations import SUPPORTS
+            graph = self.kg.relations
+            sig = signals(graph, self.view)
+            held = {f"{k}={v['value']}" for k, v in sig.items()}
+            self._pointed = frozenset(
+                m.module_id for m in self.kg.active_modules()
+                if any(e.relationship_type == SUPPORTS and e.target_id == m.module_id
+                       and e.source_type == "SIGNAL" and e.source_id in held
+                       for e in graph.edges_of(m.module_id)))
+        return self._pointed
 
     def outcome(self, module_id: str):
         if module_id not in self._out:

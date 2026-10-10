@@ -76,6 +76,7 @@ facts:
   recovery_attended: [QUESTION]
   resident_status: [QUESTION]
   restricted_bay_alleged: [SYSTEM]
+  allegation_class: [SYSTEM]
   shopping_purchase_confirmed: [EVIDENCE]
   short_presence_before_acceptance: [DERIVED, QUESTION]
   signage_issue_raised: [QUESTION]

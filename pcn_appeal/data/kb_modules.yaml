@@ -1401,7 +1401,7 @@ modules:
         - {contains: [alleged_breach, "kiosk"]}
         - {contains: [alleged_breach, "ticket machine"]}
         - {contains: [alleged_breach, "pay and display"]}
-        - {contains: [alleged_breach, "permit"]}
+        - {eq: [allegation_class, PERMIT]}   # the allegation is about a permit (allegation.py)
     do_not_use_when: {always: false}
     core_proposition: >
       Where the allegation turns on a site validation, voucher, kiosk or similar

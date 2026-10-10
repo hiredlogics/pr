@@ -9,6 +9,7 @@ signals/API calls that resume the workflow; LLM steps are retried idempotently.
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -165,13 +166,19 @@ class AppealPipeline:
         self.draft_validation = DraftValidationEngine(kg=self.kg)
         self.shadow = (shadow_judge.ShadowJudge(judge or llm)
                        if shadow_judge.enabled(shadow_judge_enabled) else None)
-        # Appeal quality judge (client brief 2026-10-09 §8): scores a letter
-        # that already passed the validators for case specificity and fidelity,
-        # so a template that would suit any charge is caught. No authority over
-        # the law - it cannot add or remove a ground - and not blocking yet, on
-        # the same basis the shadow judge was introduced.
+        # Appeal quality judge (client brief 2026-10-09 §8): reads a letter that
+        # already passed the validators for fidelity and case specificity, so a
+        # template that would suit any charge, or a fact quietly strengthened,
+        # is caught. It has no authority over the law - it cannot add or remove
+        # a ground. It records its verdict on every letter. It enforces - a REWRITE
+        # sends the same case back to the drafter, and a hard finding that survives
+        # the rewrites holds the letter (drafting/quality_judge.py) - only when
+        # QUALITY_JUDGE_ENFORCE=1. Live, enforcing held 4 of 5 sound letters (airport
+        # drop-off, driver letter): a model judge is not yet reliable enough to be a
+        # release gate, so by default the deterministic validators alone decide.
         self.quality = (quality_judge.QualityJudge(judge or llm)
-                        if quality_judge.enabled(quality_judge_enabled) else None)
+                        if quality_judge.enabled(quality_judge_enabled, llm) else None)
+        self.quality_enforcing = (os.getenv("QUALITY_JUDGE_ENFORCE") or "0").strip().lower()             in ("1", "true", "yes", "on")
         # P5: the only authority over which claims a letter argues. Analysis,
         # reassessment and ground recovery propose; this decides and locks.
         self.claim_authority = ClaimPlanBuilder(self.kg, self.reasoning)
@@ -831,6 +838,7 @@ class AppealPipeline:
         attempt = 0
         section_retries = 0
         MAX_SECTION_RETRIES = 2
+        quality_rewrites = 0
         # P6: what the drafter is given, as ids and a digest (no text).
         ctx_audit = DraftContext.from_pack(pack).audit()
         case.audit.append({"event": "draft_context", **ctx_audit})
@@ -907,6 +915,38 @@ class AppealPipeline:
                 })
             case.audit.append({"event": "validation", "attempt": attempt, "passed": result.passed,
                                "issues": [i.rule for i in result.issues]})
+            quality = None
+            if result.passed:
+                # The deterministic validators have decided what may be said. The
+                # quality judge now reads how faithfully and specifically it was
+                # said, and a REWRITE goes back over the SAME locked case.
+                quality = self._quality_check(case, draft, pack, attempt)
+                if (quality is not None and self.quality_enforcing
+                        and quality["status"] == quality_judge.REWRITE):
+                    if quality_rewrites < quality_judge.MAX_REWRITES:
+                        quality_rewrites += 1
+                        feedback = [_CLAIM_ID.sub("an unapproved claim", f)
+                                    for f in quality.get("feedback") or []]
+                        case.audit.append({"event": "quality_rewrite", "attempt": attempt,
+                                           "rewrite": quality_rewrites,
+                                           "findings": len(feedback)})
+                        attempt -= 1        # a rewrite of the same case is not a new attempt
+                        continue
+                    if quality.get("blocking"):
+                        # Hard findings survived every rewrite: the letter is held,
+                        # not released, and the reason is recorded against it.
+                        result = ValidationResult(False, list(result.issues) + [
+                            ValidationIssue(
+                                "VAL-QUALITY", "BLOCK",
+                                "Quality review found: " + "; ".join(
+                                    quality_judge.hard_findings(quality))[:600])])
+                        version = self._record_version(case, plan, draft, result, dv, pack,
+                                                       released=False, quality=quality)
+                        case.state = CaseState.VALIDATION_FAILED
+                        break
+                    # Scores short of a threshold with no hard finding: rewritten
+                    # as far as the budget allows, and released with the verdict
+                    # on the record rather than withheld for style.
             if result.passed:
                 hold = self._release_gate(case, result, pack, draft)
                 if hold is not None:
@@ -914,7 +954,7 @@ class AppealPipeline:
                                          released=False)
                     return hold
                 version = self._record_version(case, plan, draft, result, dv, pack,
-                                               released=True)
+                                               released=True, quality=quality)
                 case.state = CaseState.RELEASED
                 return _with_outcome(
                     AppealOutput(case.state, render(draft), pack, draft, result,
@@ -1033,8 +1073,30 @@ class AppealPipeline:
         case.audit.append({"event": "draft_validation", **dv.summary()})
         return merge_validation(self.validation.validate(draft, pack), dv), dv
 
+    def _quality_check(self, case: CaseFile, draft: Draft, pack, attempt: int):
+        """The quality judge's read of a draft that passed validation, recorded.
+
+        None when the judge is off. An unreachable judge returns its ERROR review,
+        which the caller treats as no verdict: the validators already decided what
+        may be said, and the audit shows the quality read did not happen.
+        """
+        if self.quality is None:
+            return None
+        q = self.quality.review(draft, pack, case)
+        case.audit.append({
+            "event": "appeal_quality", "attempt": attempt, "status": q["status"],
+            "scores": q.get("scores"),
+            "sendable_for_any_pcn": q.get("sendable_for_any_pcn"),
+            "omitted_grounds": q.get("omitted_grounds"),
+            "hard_findings": {k: q.get(k) for k in quality_judge.HARD_FLAGS if q.get(k)},
+            "summary": q.get("summary"), "error": q.get("error"),
+            "blocking": bool(q.get("blocking")) and self.quality_enforcing,
+            "enforcing": self.quality_enforcing})
+        return q
+
     def _record_version(self, case: CaseFile, plan, draft: Draft, result, dv, pack,
-                        released: bool, parent: Optional[str] = None) -> dict:
+                        released: bool, parent: Optional[str] = None,
+                        quality: Optional[dict] = None) -> dict:
         """Store the draft as an immutable version tied to the claim plan. A draft
         that is going out is also read by the observing judges - the shadow judge
         and the appeal quality judge - whose verdicts are recorded and never
@@ -1044,7 +1106,8 @@ class AppealPipeline:
             judge = self.shadow.review(draft, pack)
             case.audit.append({"event": "shadow_judge", "status": judge["status"],
                                "reasons": judge.get("reasons"), "blocking": False})
-        if released and self.quality is not None:
+        if released and self.quality is not None and quality is None:
+            # Not read on the way here (a trimmed or late release): read it now.
             q = self.quality.review(draft, pack, case)
             case.audit.append({"event": "appeal_quality", "status": q["status"],
                                "scores": q.get("scores"),

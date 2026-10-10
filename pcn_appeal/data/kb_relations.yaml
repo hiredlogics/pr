@@ -36,36 +36,18 @@ signals:
     default: UNKNOWN
 
   allegation_class:
-    description: What kind of term the notice says was broken.
+    description: >
+      What kind of term the notice says was broken. Read from the `allegation_class`
+      fact, which is the one meaning-based classification of the allegation
+      (pcn_appeal/allegation.py) - not re-derived here from substrings of the
+      wording, which is how two phrasings of one allegation came to be classed
+      differently.
     values:
-      - value: PROHIBITION
-        when: {any: [
-          {contains: [alleged_breach, "no parking"]}, {contains: [alleged_breach, "no-parking"]},
-          {contains: [alleged_breach, "no stopping"]}, {contains: [alleged_breach, "no waiting"]},
-          {contains: [alleged_breach, "prohibited"]}, {contains: [alleged_breach, "yellow line"]},
-          {contains: [alleged_breach, "hatched"]}, {contains: [alleged_breach, "keep clear"]},
-          {contains: [alleged_breach, "fire lane"]}, {contains: [alleged_breach, "emergency access"]},
-          {contains: [alleged_breach, "footway"]}, {contains: [alleged_breach, "pavement"]},
-          {contains: [alleged_breach, "obstruct"]}, {contains: [alleged_breach, "not a parking"]},
-          {contains: [alleged_breach, "not a designated"]}]}
-      - value: RESTRICTED_BAY
-        when: {any: [
-          {is: restricted_bay_alleged},
-          {contains: [alleged_breach, "parent and child"]}, {contains: [alleged_breach, "parent & child"]},
-          {contains: [alleged_breach, "disabled bay"]}, {contains: [alleged_breach, "blue badge"]},
-          {contains: [alleged_breach, "ev bay"]}, {contains: [alleged_breach, "electric vehicle"]},
-          {contains: [alleged_breach, "reserved"]}, {contains: [alleged_breach, "loading bay"]}]}
-      - value: OVERSTAY
-        when: {any: [
-          {contains: [alleged_breach, "overstay"]}, {contains: [alleged_breach, "exceed"]},
-          {contains: [alleged_breach, "maximum stay"]}, {contains: [alleged_breach, "max stay"]},
-          {contains: [alleged_breach, "longer than"]}, {contains: [alleged_breach, "time limit"]}]}
-      - value: PERMIT
-        when: {any: [{contains: [alleged_breach, "permit"]}, {contains: [alleged_breach, "authoris"]}]}
-      - value: PAYMENT
-        when: {any: [
-          {contains: [alleged_breach, "pay"]}, {contains: [alleged_breach, "ticket"]},
-          {contains: [alleged_breach, "tariff"]}, {contains: [alleged_breach, "validat"]}]}
+      - {value: PROHIBITION, when: {eq: [allegation_class, PROHIBITION]}}
+      - {value: RESTRICTED_BAY, when: {eq: [allegation_class, RESTRICTED_BAY]}}
+      - {value: OVERSTAY, when: {eq: [allegation_class, OVERSTAY]}}
+      - {value: PERMIT, when: {eq: [allegation_class, PERMIT]}}
+      - {value: PAYMENT, when: {eq: [allegation_class, PAYMENT]}}
     default: UNCLASSIFIED
 
 edges:
@@ -122,6 +104,7 @@ depends_on:
   observation_window_min: [observation_time, event_time]
   total_recorded_duration_min: [entry_time, exit_time]
   restricted_bay_alleged: [alleged_breach]
+  allegation_class: [alleged_breach, restricted_bay_alleged]
   # PoFA / jurisdiction calculators
   jurisdiction: [site_postcode]
   pofa_route: [notice_route]

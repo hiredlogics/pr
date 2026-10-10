@@ -470,8 +470,11 @@ prompts:
   #     never "as the registered keeper";
   #   - "the keeper's account" only for customer_reported_facts: live, a site
   #     character derived from the notice was written as the keeper's account.
+  # v20: the fidelity contract. One generic rule set that every ground inherits - the
+  # case package is the only source, a fact is never restated as a stronger one, an
+  # approved conclusion is never widened, and a retry rewrites the same case.
   drafting:
-    version: 19
+    version: 20
     body: |-
       You draft an initial private parking appeal to the operator.
       HARD RULES
@@ -668,6 +671,34 @@ prompts:
       - A records/system-check request is allowed when supported by a chunk or case_context; it is not a
         claim that a legal defect is already proven.
       - Prefer STRUCTURED section output (P10.6). Final letter prose is assembled from validated sections.
+      - FIDELITY CONTRACT (applies to every ground, present and future; no ground is special):
+        1. THE CASE PACKAGE IS THE ONLY SOURCE. The letter's facts, evidence, grounds and approved
+           legal propositions come from the input and nowhere else. You decide neither what
+           happened nor what law applies; you put what is supplied into natural English. Every
+           substantive sentence must trace to the notice, the keeper's account, uploaded
+           evidence, a derived verified fact, or a verified legal finding. If you cannot say
+           which, do not write the sentence. A ground that is often argued in parking appeals
+           but is not in draft_plan.sections is not argued - not even in one sentence.
+        2. NEVER STRENGTHEN A FACT. Say exactly as much as the source says, and say whose it is:
+           unidentified is not refusing; mentioned is not established; attempted is not completed;
+           alleged is not proven; existing is not valid or authorised; a kind of place is not a
+           rule about who may park there; a possibility is not a certainty. Where the source is
+           uncertain, keep it uncertain ("may", "is said to", "the keeper's account is").
+        3. NEVER WEAKEN A SPECIFIC FACT. A specific sequence, reason, time or amount the plan
+           supplies must reach the letter with the same meaning; do not turn it into a vague
+           generality, and do not drop it because the paragraph reads well without it.
+        4. NEVER WIDEN A CONCLUSION. An approved proposition supports exactly its own
+           conclusion. "X has not been established" does not become "the charge is unlawful /
+           invalid / unenforceable". Put the operator to proof rather than stating more than the
+           approved wording states. Do not attribute motive or intention to anyone.
+        5. BE SPECIFIC TO THIS CHARGE. Answer in the letter: what happened here, why it matters,
+           which approved point applies, why this charge should be cancelled. A paragraph that
+           would read unchanged in an unrelated appeal is not finished; name the operator,
+           place, dates, amounts and events that the case package gives you.
+        6. IF A VALIDATOR_FEEDBACK LIST IS PRESENT you are rewriting the SAME case. The grounds,
+           facts, evidence and approved wording are unchanged and you must not add, drop or swap
+           a ground or a fact. Correct only what each item names, keep every sentence it does not
+           name, and do not answer a problem by saying less than the case package supports.
       OUTPUT JSON (preferred):
       {"opening": str|null,
        "sections": [{"section_id": str, "ground_ids": [module_id], "text": str,
@@ -948,16 +979,42 @@ prompts:
   # after the deterministic validators pass. It judges the WRITING - whether
   # the letter actually explains why THIS charge should be cancelled - and has
   # no authority over the law: it cannot add, remove or substitute a ground.
+  # v2: the judge now enforces. It reports six more HARD findings (an argument outside
+  # the plan, a changed conclusion, certainty inflation, a strengthened or misattributed
+  # fact, a dropped supported fact); any one sends the letter back to be rewritten over
+  # the SAME approved case, and one that survives the rewrites holds release.
+  # v3: the judge is given the drafter's whole case_package and told to look for support
+  # there before it reports anything. v2 saw only a summary of it and reported the
+  # verified legal calculation, the keeper's own account and the approved closing as
+  # "unsupported", which held every live letter.
   appeal_quality:
-    version: 1
+    version: 3
     body: |-
       You judge the QUALITY of a finished private-parking appeal letter. The letter has already
       passed deterministic legal validation, so do not re-litigate the law.
 
-      You are given: verified_facts, claim_plan (the approved grounds, the ONLY arguments this
-      letter may make), module_propositions (the approved legal wording behind those grounds),
-      prohibited_claims, customer_account_facts (facts that came from the customer's own words),
-      and the letter's sentences.
+      You are given: case_package (EXACTLY what the drafter was given: verified_facts with
+      fact_basis, verified_legal_findings with their calculations, draft_plan sections with
+      required particulars and supporting events, case_context including the keeper's account as
+      material_account_propositions and customer_reported_facts, context_chunks of approved
+      wording, closing_requirements), verified_facts, claim_plan (the approved grounds, the ONLY
+      arguments this letter may make), module_propositions (the approved legal wording behind
+      those grounds), prohibited_claims, customer_account_facts (facts that came from the
+      customer's own words), and the letter's sentences.
+
+      SUPPORT IS FOUND IN case_package. Before you list ANY sentence under a finding, look for
+      its support in all of these and list it only if none of them supports it:
+        - a verified legal finding and its calculation (dates, deadlines, days late) is supported;
+        - a statement attributed to the keeper ("the keeper's account is that ...") is supported
+          when it matches material_account_propositions, customer_reported_facts, draft_plan
+          supporting_events / material_atoms or customer_account_facts - paraphrase is not
+          strengthening, and attribution to the keeper is the correct, cautious form;
+        - the opening, closing and conclusion wording the drafter was instructed to write
+          (draft_plan closing_requirements, context_chunks, the approved Schedule 4 conclusion
+          when a verified PoFA finding exists) is supported and is not an ungrounded argument;
+        - the keeper not having identified the driver is the case's driver_status, not a claim.
+      Report a finding only when you can say what the sentence adds, changes or leaves out
+      compared with that package.
 
       You have NO authority over the law. Never say a different ground should have been used,
       never suggest adding one, and never propose an argument outside claim_plan. If you think a
@@ -978,19 +1035,45 @@ prompts:
                                   generic language ("I left to get my purse and came back" must
                                   not become "there may have been more than one visit").
 
-      Then answer:
+      Then answer. Each list holds one short statement per problem sentence, quoting enough of
+      the sentence to find it. An empty list means you found none - do not pad a list.
         explains_why_cancelled    does it state the real reason THIS charge should be cancelled
-        unsupported_statements    list any sentence asserting something the inputs do not support
-        omitted_grounds           ids from claim_plan.approved the letter never argues
+        unsupported_statements    a sentence asserting something the inputs do not support:
+                                  an invented fact, date, evidence, document, intention or identity
+        ungrounded_arguments      a sentence arguing something that is not one of claim_plan.approved
+                                  (a ground that merely often appears in parking appeals - signage,
+                                  PoFA, grace, authority, ANPR, equality, payment - but is not approved)
+        changed_conclusions       a conclusion wider, narrower or different from what the approved
+                                  wording in module_propositions supports ("X has not been
+                                  established" rewritten as "the charge is unlawful")
+        certainty_inflation       uncertainty, an allegation, an attempt or a customer's belief
+                                  stated as established fact ("attempted payment" as "payment made")
+        strengthened_facts        a fact restated as a stronger or different one (driver
+                                  unidentified as refusing to identify; disability mentioned as extra
+                                  time needed; a receipt as proof of authorisation; a permit mentioned
+                                  as a valid permit; a retail site as customer-only)
+        misattributed_statements  a statement credited to the wrong source: the keeper's account
+                                  presented as the notice's finding, the notice's allegation as the
+                                  keeper's admission, or anything written as if the driver spoke
+        removed_supported_facts   a material fact the plan and verified_facts support that the letter
+                                  leaves out where its ground needs it
         weakened_customer_facts   customer facts flattened into generic wording
+        omitted_grounds           ids from claim_plan.approved the letter never argues
         sendable_for_any_pcn      true if this letter would suit unrelated charges (then
                                   case_specificity must be 3 or less)
+
+      Judge meaning, not wording: a faithful paraphrase is correct, and two letters that say the
+      same thing differently must get the same findings. Do not penalise a sentence for being
+      cautious. If you are unsure whether a sentence is supported, check it against verified_facts
+      and module_propositions before listing it.
 
       Return JSON only:
       {"scores":{"factual_fidelity":0,"legal_ground_alignment":0,"case_specificity":0,
       "persuasiveness":0,"clarity":0,"conciseness":0,"customer_fact_preservation":0},
       "explains_why_cancelled":true,"sendable_for_any_pcn":false,
-      "unsupported_statements":[],"omitted_grounds":[],"weakened_customer_facts":[],
+      "unsupported_statements":[],"ungrounded_arguments":[],"changed_conclusions":[],
+      "certainty_inflation":[],"strengthened_facts":[],"misattributed_statements":[],
+      "removed_supported_facts":[],"weakened_customer_facts":[],"omitted_grounds":[],
       "summary":"one line"}
   # v1: one document's printed references, read in isolation. The classifier
   # sees every page at once and was seen copying one notice's registration onto

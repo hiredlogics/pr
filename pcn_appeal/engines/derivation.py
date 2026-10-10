@@ -32,6 +32,7 @@ from typing import Any, Optional
 
 import yaml
 
+from .. import allegation
 from ..legal import code_versions
 from ..models import CaseFile, Fact, FactSource, FactStatus, SourceKind
 
@@ -120,6 +121,11 @@ def establishable_by(path: str = str(PRODUCERS_PATH)) -> dict[str, tuple[str, ..
             for fact, qs in (data.get("establishable_by") or {}).items()}
 
 
+# Breach classes whose meaning allegation.py owns (the others are matched by the
+# patterns in derivation_rules.yaml alone).
+_CLASSIFIER_OWNED = frozenset({"OVERSTAY", "PERMIT"})
+
+
 def classify_breach(text: Any, rules: Optional[dict] = None) -> Optional[str]:
     """alleged_breach wording -> breach class, or None when nothing matches."""
     if not text:
@@ -127,6 +133,10 @@ def classify_breach(text: Any, rules: Optional[dict] = None) -> Optional[str]:
     rules = rules or load_rules()
     for kind, patterns in rules["breach_types"]:
         if any(p.search(str(text)) for p in patterns):
+            return kind
+        # The classes the allegation classifier owns are read from it, so a notice
+        # worded differently is the same class here as in the relations graph.
+        if kind in _CLASSIFIER_OWNED and allegation.has(text, kind):
             return kind
     return None
 

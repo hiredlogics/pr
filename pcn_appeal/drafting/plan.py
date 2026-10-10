@@ -409,7 +409,11 @@ def build_draft_plan(pack, case_id: str = "") -> DraftPlan:
         # is not where the keeper's errand belongs. A ground licensed by a
         # verified legal finding is a calculated defect, argued independently
         # of the account, so no case-level stand-in reaches it either.
-        calculated_ground = any(f.get("legal_module_id") in group for f in findings)
+        # The same holds for the default keeper appeal: it is written only because no
+        # ground resting on the account was established, and puts the operator to
+        # proof instead, so the account has no section here to be expressed in.
+        calculated_ground = (any(f.get("legal_module_id") in group for f in findings)
+                             or bool(facts.get("default_keeper_appeal")))
         ctx_atoms = list(bundle_atoms) + (
             _rows(ctx.get("narrative_atoms"))
             if not bundle_atoms and len(groups) == 1 and not calculated_ground

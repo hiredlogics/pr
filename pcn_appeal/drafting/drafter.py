@@ -296,6 +296,32 @@ def drafting_payload(pack: RetrievalPack) -> dict:
     return DraftContext.from_pack(pack).to_payload()
 
 
+def rewrite_contract(payload: dict) -> dict:
+    """What a retry may and may not change.
+
+    A rewrite exists to fix what the validators or the quality judge named. It is
+    handed the very same case package - nothing in `payload` differs from the first
+    attempt - and this block says so in terms the drafter cannot mistake for an
+    invitation to re-plan: the section/ground set is fixed, and the feedback is a
+    list of defects in the wording, not a reason to argue something else. The
+    grounds are listed so a retry that quietly swaps one for another can be seen
+    against the contract; VAL-PLAN refuses it either way.
+    """
+    sections = (payload.get("draft_plan") or {}).get("sections") or []
+    return {
+        "same_case": True,
+        "locked_section_ids": [s.get("section_id") for s in sections if s.get("section_id")],
+        "locked_ground_ids": sorted({g for s in sections for g in (s.get("ground_ids") or [])}),
+        "may_change": "the wording of the sentences validator_feedback names",
+        "may_not_change": ["which grounds are argued", "which facts are stated",
+                           "what any fact or approved conclusion means",
+                           "who a statement is attributed to"],
+        "instruction": ("Rewrite the SAME case. Keep every sentence the feedback does not name. "
+                        "Fix each named problem by stating exactly what the case package "
+                        "supports, no more and no less."),
+    }
+
+
 def _sentence_from_dict(s: dict) -> DraftSentence:
     return DraftSentence(
         text=str(s.get("text") or ""),
@@ -381,6 +407,7 @@ class LLMDrafter:
         payload = drafting_payload(pack)
         if feedback:
             payload["validator_feedback"] = feedback
+            payload["rewrite_contract"] = rewrite_contract(payload)
         out = self.llm.complete_json(task="drafting", system=prompts.system("drafting"),
                                      user=json.dumps(payload, default=str))
         draft = assemble_structured_draft(
@@ -431,6 +458,8 @@ class LLMDrafter:
             ],
             "validator_feedback": list(feedback or []),
         }
+        if feedback:
+            regen_payload["rewrite_contract"] = rewrite_contract(regen_payload)
         out = self.llm.complete_json(task="drafting", system=prompts.system("drafting"),
                                      user=json.dumps(regen_payload, default=str))
         new_by_id = {s.get("section_id"): s for s in (out.get("sections") or [])

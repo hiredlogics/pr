@@ -32,7 +32,7 @@ breach_types:
     patterns: ['no\s+valid\s+(parking\s+)?(session|ticket|payment|pay)', 'without\s+(making\s+)?(a\s+)?valid\s+payment',
                'not\s+paid', 'failed\s+to\s+(make|purchase|pay)', 'no\s+payment', 'insufficient\s+(time|payment)']
   - type: PERMIT
-    patterns: ['permit', 'not\s+authori[sz]ed', 'residents?\s+only', 'without\s+(a\s+)?valid\s+permit']
+    patterns: ['not\s+authori[sz]ed', 'residents?\s+only', 'without\s+(a\s+)?valid\s+permit']   # + the permit noun: allegation.py
   - type: RESTRICTED_BAY
     patterns: ['disabled\s+bay', 'parent\s*(and|&)\s*child', 'ev\s+bay', 'loading\s+bay', 'marked\s+bay', 'outside\s+(of\s+)?(a\s+)?bay']
 

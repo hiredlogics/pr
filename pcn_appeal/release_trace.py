@@ -60,12 +60,19 @@ def gather_release_metadata(case: CaseFile, pipeline) -> dict[str, Any]:
     from .engines.claim_plan_authority import BUILDER_VERSION
     from .engines.draft_validation_engine import VERSION as DV
     from .engines.validation import VERSION as VAL
-    from .llm import probe
+    from .manifest import provider_of
     from .module_roles import MODULE_ROLE_VERSION
     from .semantics.ontology import ONTOLOGY_VERSION
 
     kg = getattr(pipeline, "kg", None)
-    info = probe()
+    # The release identifies the client that did the work. Creating a fresh
+    # default client here can report a different provider or fail after the
+    # case's own client has already drafted successfully.
+    client = getattr(pipeline, "llm", None)
+    models = dict(getattr(client, "models", None) or {})
+    for call in case.ai_calls:
+        if call.get("status") == "SUCCESS" and call.get("task") and call.get("model"):
+            models[call["task"]] = call["model"]
     meta = {
         "commit_sha": version.commit(),
         "kb_release_id": getattr(kg, "release_id", None) or _db_kb_release(case.case_id),
@@ -77,8 +84,8 @@ def gather_release_metadata(case: CaseFile, pipeline) -> dict[str, Any]:
         "validation_version": VAL,
         "draft_validation_version": DV,
         "prompt_versions": dict(prompts.versions()),
-        "llm_provider": info.get("provider"),
-        "model_versions": dict(info.get("models") or {}),
+        "llm_provider": provider_of(client) if client is not None else None,
+        "model_versions": models,
         "frontend_version": getattr(case, "frontend_version", None),
         "route": getattr(case, "route", None),
         "document_type": getattr(case, "document_type", None),

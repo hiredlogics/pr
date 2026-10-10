@@ -221,11 +221,12 @@ def _allegations(case) -> dict:
     text = str(raw or "").strip()
     low = text.lower()
     canonical = "UNKNOWN"
-    if any(k in low for k in ("overstay", "maximum stay", "time limit", "exceeded")):
+    from ..allegation import has as _alleges
+    if _alleges(text, "OVERSTAY"):
         canonical = "OVERSTAY"
     elif any(k in low for k in ("parent", "child", "family")):
         canonical = "PARENT_CHILD_BAY"
-    elif any(k in low for k in ("permit", "authoris", "authoriz")):
+    elif _alleges(text, "PERMIT"):
         canonical = "PERMIT"
     elif any(k in low for k in ("payment", "pay and display", "ticket")):
         canonical = "PAYMENT"

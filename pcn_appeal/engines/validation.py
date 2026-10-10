@@ -36,6 +36,8 @@ Rule pack (KB section 17 + gaps found in review)
   VAL-INVENTED a permit/bay/ticket identifier that is not a verified fact
   VAL-CALC     a stated day-count that contradicts a verified finding calculation
   VAL-ORPHAN-SUPPORT support/conclusion modules without a substantive ground
+  VAL-STRENGTH a sentence asserting more than the case state establishes (a weaker fact
+               restated as a stronger one; an approved conclusion widened) - assertion_strength.py
 """
 from __future__ import annotations
 
@@ -44,6 +46,7 @@ from typing import Optional
 
 from .. import prompts
 from ..customer_safe import internal_ids
+from . import assertion_strength
 from ..legal import code_versions
 from ..llm import LLMClient
 from ..models import Draft, RetrievalPack, ValidationIssue, ValidationResult
@@ -59,7 +62,7 @@ R = lambda p: re.compile(p, re.I)  # noqa: E731
 # the same version no matter which rules had actually run. Bump it whenever a
 # rule above is added, removed or changed in what it blocks - the stored value is
 # how a past release decision is explained, so a stale one misattributes it.
-VERSION = "VAL-5"  # VAL-5: P10.3 — VAL-ORPHAN-SUPPORT (support-only packs)
+VERSION = "VAL-6"  # VAL-6: VAL-STRENGTH (a fact is never restated as a stronger one)
 # VAL-3: VAL-PLAN - every argument must be in the locked Claim Plan
 # VAL-2: VAL-LEAK also refuses every customer_safe.INTERNAL_ID shape
 
@@ -452,6 +455,8 @@ class ValidationEngine:
                 block("VAL-BREAK", "Breakdown presented as automatic", t)
             if EQ_TERMS.search(t) and not facts.get("disability_extra_time"):
                 block("VAL-EQ", "Equality ground without triggering facts", t)
+            for g in assertion_strength.violations(t, pack):
+                block("VAL-STRENGTH", g.message, t)
             if ANPR_GENERIC.search(t) and not facts.get("anpr_discrepancy"):
                 block("VAL-ANPR", "Generic calibration allegation without factual trigger", t)
             if CONTRADICTION_CLAIM.search(t) and not facts.get("independent_evidence_contradicts"):

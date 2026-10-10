@@ -710,6 +710,18 @@ def build_identity_state(
     conflicts: list[dict] = []
     for name in CRITICAL_FIELDS:
         rec = reconcile_field(name, observations.get(name) or [], revision=revision)
+        # A covering letter can expose a second PCN even when the identity
+        # reader only considers the notice. Agreement on the notice must not
+        # silently undo that cross-document conflict; the customer must settle it.
+        if name == "pcn_number" and case.get("pcn_conflict"):
+            node = case.facts.get(name)
+            customer_settled = (node is not None and node.usable
+                                and node.source.kind == SourceKind.ANSWER
+                                and node.status in (FactStatus.CONFIRMED,
+                                                    FactStatus.CORRECTED,
+                                                    FactStatus.ANSWERED))
+            if not customer_settled:
+                rec.status = STATUS_CONFLICT
         setattr(state, name, rec)
         state.field_status[name] = rec.status
         if rec.status == STATUS_CONFLICT:

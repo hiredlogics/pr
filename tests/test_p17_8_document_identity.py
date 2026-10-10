@@ -80,6 +80,30 @@ class CanonicalizationTests(unittest.TestCase):
         self.assertNotEqual(canonicalize("pcn_number", "123456789O"), "1234567890")
 
 
+class CrossDocumentConflictTests(unittest.TestCase):
+    def test_a_verified_notice_read_does_not_clear_the_covering_letter_conflict(self):
+        case = _case_with_identity(pcn_number="1234567890", vrm="AB12CDE")
+        case.put(Fact("F-pcn_conflict", "pcn_conflict", True, FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "pcn_cross_check")))
+        state = establish_document_identity(case)
+        self.assertEqual(state.field_status["pcn_number"], STATUS_CONFLICT)
+        self.assertEqual(case.facts["pcn_number"].status, FactStatus.UNCERTAIN)
+        ExtractionEngine(FakeLLM({})).confirm(case, {}, ["pcn_number"])
+        self.assertTrue(case.get("pcn_conflict"))
+        self.assertEqual(case.facts["pcn_number"].status, FactStatus.UNCERTAIN)
+
+    def test_an_explicit_customer_correction_can_settle_the_conflict(self):
+        case = _case_with_identity(pcn_number="1234567890", vrm="AB12CDE")
+        case.put(Fact("F-pcn_conflict", "pcn_conflict", True, FactStatus.DERIVED,
+                      FactSource(SourceKind.CALCULATION, "pcn_cross_check")))
+        establish_document_identity(case)
+        ExtractionEngine(FakeLLM({})).confirm(case, {"pcn_number": "1234567890"}, [])
+        self.assertFalse(case.get("pcn_conflict"))
+        self.assertEqual(case.facts["pcn_number"].status, FactStatus.CORRECTED)
+        self.assertEqual(load_identity_state(case)["field_status"]["pcn_number"],
+                         STATUS_VERIFIED)
+
+
 class ReconcileTests(unittest.TestCase):
     def test_A_agree_verified(self):
         rows = [

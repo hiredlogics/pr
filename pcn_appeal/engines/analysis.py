@@ -63,7 +63,8 @@ QUESTION_TYPES = {"bool", "int", "choice", "text"}
 # and lets an answer overwrite a calculation.
 INTERNAL_FACTS = {
     "account_contradicts_allegation", "material_account_proposition",
-    "material_account_propositions", "restricted_bay_alleged", "observation_window_min",
+    "material_account_propositions", "restricted_bay_alleged", "allegation_class",
+    "observation_window_min",
     "total_recorded_duration_min", "duration_min", "jurisdiction", "code_version",
     "notice_route", "notice_sides_complete", "pcn_conflict", "pcn_candidates",
     "authority_challenge_proportionate", "independent_evidence_contradicts",
@@ -109,8 +110,26 @@ def _customer_sourced(case: CaseFile, fact: str) -> bool:
     return bool(f and f.source.kind in (SourceKind.ANSWER, SourceKind.CUSTOMER_FREE_TEXT))
 
 
+def _route_exclusive(kg: KnowledgeGraph, module: KBModule, names: set) -> bool:
+    """Whether every fact in `names` gates this module's route and no other.
+
+    The customer saying a payment was made gates the payment AND the keying route, so
+    it does not say which topic they raised; asking what kind of keying error occurred
+    of someone who only said they paid is fishing. A fact belonging to one route
+    alone does (the account says the vehicle was immobilised: that is the breakdown
+    route, and nothing else's)."""
+    route = str(getattr(module.route, "value", module.route) or "")
+    for fact in names:
+        routes = {str(getattr(m.route, "value", m.route) or "")
+                  for m in kg.active_modules() if fact in (kg.gating_facts(m.module_id) or set())}
+        if routes != {route}:
+            return False
+    return True
+
+
 def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
-                          facts: dict[str, Any], hints="all") -> list[tuple[str, set]]:
+                          facts: dict[str, Any], hints="all",
+                          account: bool = False) -> list[tuple[str, set]]:
     """Claim grounds the documents point at, with the facts still to ask.
 
     A module qualifies when its use_when is UNKNOWN (not FALSE), at least one of
@@ -118,6 +137,12 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
     supply (document, evidence or derivation), its do_not_use_when is not TRUE,
     and every still-unknown gate fact has a question in the bank. Strongest
     module first, so the question cap keeps the questions that matter most.
+
+    `account=True` lets the customer's own account point at a ground as well (a
+    condition already TRUE on an answer or on what the narrative established): the
+    account says the vehicle was immobilised, so what caused it is the next fact a
+    breakdown ground needs. Same gate, same facts, no model: the questions a case
+    needs are a function of what it already holds, not of what a model proposes.
     """
     from ..module_roles import can_be_claim_ground
     from ..rules.dsl import evaluate3
@@ -156,7 +181,8 @@ def document_pointed_gaps(kg: KnowledgeGraph, case: CaseFile,
         pointed = any(
             not (isinstance(c, dict) and set(c) == {"exists"})
             and evaluate3(c, facts) is True
-            and not all(_customer_sourced(case, f) for f in _facts_in(c))
+            and (not all(_customer_sourced(case, f) for f in _facts_in(c))
+                 or (account and _route_exclusive(kg, m, _facts_in(c))))
             for c in _conditions(uw)
         )
         if not pointed:
@@ -467,10 +493,24 @@ class AnalysisEngine:
                     f"reassessment unavailable ({type(exc).__name__}); "
                     f"keeping first finalized plan")
 
-        asking = list(raw.get("questions") or []) + self._unlocking_questions(case, result, facts)
         # Candidates only: the Question Authority (orchestrator._reanalyse)
         # decides which, if any, the customer sees. Zero is a valid outcome.
-        result.questions = self._safe_questions(case, asking, result)
+        #
+        # Case-derived gates establish the question pool. A model can propose
+        # wording for those facts, but cannot introduce an unrelated hypothetical
+        # topic and spend the limited rounds on it.
+        gate_qs = self._safe_questions(case, self._unlocking_questions(case, result, facts), result)
+        model_qs = self._safe_questions(case, list(raw.get("questions") or []), result)
+        have = {x["fact"] for x in gate_qs}
+        result.questions = list(gate_qs)
+        for question in model_qs:
+            if question["fact"] in have:
+                # Keep repeats for the authority's duplicate audit; the gate is
+                # decided first and supplies the approved answer space.
+                result.questions.append(question)
+            else:
+                self._drop(result, question["fact"], question["text"],
+                           "not in the case-derived question pool")
 
         from .claim_plan_authority import latest_locked
         previous = latest_locked(case)
@@ -907,7 +947,8 @@ class AnalysisEngine:
         out: list[dict] = []
         seen_facts: set[str] = set()
 
-        def _add(mid: str, facts_to_ask: set[str], why: str, prio: int = 0) -> None:
+        def _add(mid: str, facts_to_ask: set[str], why: str, prio: int = 0,
+                 from_model: bool = False) -> None:
             module = self.kg.modules.get(mid)
             if module is None:
                 return
@@ -932,11 +973,15 @@ class AnalysisEngine:
                     "related_module": mid,
                     "unlocks": [mid],
                     "kb_gated": True,
-                    "source": "kb_gate",
+                    # A gate of a ground the MODEL proposed is only as determined as that
+                    # proposal; it is ranked with the model's questions, after the gates
+                    # the case's own facts point at.
+                    "source": "case_analysis" if from_model else "kb_gate",
                     # The notice itself points at this ground (P8): the
                     # Question Authority asks these before generic gates.
                     "notice_pointed": prio == 2,
                     "_prio": prio,
+                    "prio": prio,
                 })
 
         # 1) Original path: proposed-but-suppressed grounds.
@@ -945,7 +990,8 @@ class AnalysisEngine:
             if module is None:
                 continue
             need = self.kg.gating_facts(mid) | set(module.required_facts or [])
-            _add(mid, need, f"gates {mid}, which analysis proposed for this case")
+            _add(mid, need, f"gates {mid}, which analysis proposed for this case",
+                 prio=5, from_model=True)
 
         # 1b) P8 document-pointed grounds (before the generic thin-account gates,
         #     so the question cap never cuts what the notice itself points at). A claim ground whose gate is already
@@ -964,6 +1010,26 @@ class AnalysisEngine:
             _add(mid, missing, f"the notice partly satisfies {mid}; "
                                f"{', '.join(sorted(missing))} decides it",
                  prio=2 if mid in strong else 4)
+
+        # 1c) Grounds the customer's own account points at, whether or not the model
+        #     selected them: the facts they still need are asked by the gate, in the
+        #     bank's wording, so the next question does not depend on which of them a
+        #     model happened to propose this run. Includes grounds already selected,
+        #     which still lack facts of their own.
+        argued = {str(getattr(m.route, "value", m.route) or "")
+                  for sel in (result.module_ids or [])
+                  if (m := self.kg.modules.get(sel)) is not None}
+        by_notice = {mid for mid, _ in document_pointed_gaps(self.kg, case, facts)}
+        for mid, missing in document_pointed_gaps(self.kg, case, facts, account=True):
+            if mid in by_notice:
+                continue                      # the notice points at it: asked by (1b)
+            gm = self.kg.modules.get(mid)
+            # A route already argued needs nothing more from the customer: a second module
+            # of it restates the first (the same rule the account pass below applies).
+            if gm is not None and str(getattr(gm.route, "value", gm.route) or "") in argued:
+                continue
+            _add(mid, missing, f"the account points at {mid}; "
+                               f"{', '.join(sorted(missing))} decides it", prio=1)
 
         # 2) Thin-account path: only primary ACCOUNT_GATES on unresolved /
         #    candidate claim grounds. If the resolver window is empty, still
@@ -1204,6 +1270,8 @@ class AnalysisEngine:
                 question["kb_gated"] = True
             if (entry or {}).get("notice_pointed"):
                 question["notice_pointed"] = True
+            if (entry or {}).get("prio") is not None:
+                question["prio"] = int((entry or {})["prio"])
             if (entry or {}).get("material_because"):
                 question["material_reason"] = str(entry["material_because"])
             out.append(question)

@@ -23,11 +23,11 @@ EXPECTED_VERSIONS = {
     "semantic_extraction": 4,
     "extraction": 12,             # operator_address for the letter's "To" block
     "case_analysis": 9,
-    "drafting": 19,               # writer capacity; "keeper's account" scope
+    "drafting": 20,               # v20: the fidelity contract (any ground inherits it)
     "validation": 3,
     "classification": 3,          # P8: DRIVER_LETTER stage
     "page_references": 2,
-    "appeal_quality": 1,          # client brief 2026-10-09 §8: the quality judge
+    "appeal_quality": 3,          # v3: judged against the drafter's whole case package
 }
 
 # Each rule as the terms that show it is still stated, not the sentence that
@@ -57,6 +57,13 @@ DRAFTING_RULES = {
     "critical identity conflict is not resolved by the drafter": [
         r"release-critical document identity", r"blocked before drafting",
     ],
+    # v20: the generic contract. Terms, not sentences, as with every rule above.
+    "a fact is never restated as a stronger one": [
+        r"FIDELITY CONTRACT", r"NEVER STRENGTHEN A FACT", r"unidentified is not refusing",
+        r"attempted is not completed",
+    ],
+    "an approved conclusion is never widened": [r"NEVER WIDEN A CONCLUSION", r"has not been established"],
+    "a retry rewrites the same case": [r"validator_feedback", r"SAME case", r"must not add, drop or swap"],
 }
 
 CASE_ANALYSIS_RULES = {

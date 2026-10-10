@@ -431,6 +431,12 @@ class CaseFile:
         view = {k: f.value for k, f in self.facts.items() if f.usable}
         view["driver_status"] = self.driver_status.value
         view["evidence_kinds"] = sorted({e.kind for e in self.evidence.values() if e.uploaded})
+        # The allegation's CLASS, one meaning-based answer (allegation.py) that every
+        # rule reads instead of re-parsing the wording with its own substrings.
+        from .allegation import classify
+        cls = classify(view.get("alleged_breach"), bool(view.get("restricted_bay_alleged")))
+        if cls is not None:
+            view["allegation_class"] = cls
         return view
 
 
