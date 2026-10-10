@@ -435,10 +435,13 @@ class TheLetterReachesItsConclusionOnce(unittest.TestCase):
         self.assertEqual([k[:60] for k, n in seen.items() if n > 1], [])
 
     def test_the_closing_is_short_and_last(self):
-        from pcn_appeal.orchestrator import _CANCEL_REQUEST
-        last = self.paras[-1]
-        self.assertEqual(len(last), 1, f"closing is {len(last)} sentences: {last}")
-        self.assertTrue(_CANCEL_REQUEST.search(last[0]), last)
+        # The closing is the fixed frame's (letter_frame.py): the one request to cancel,
+        # then the one next-step sentence - two sentences, and nothing after them.
+        from pcn_appeal import letter_frame
+        last = [s.text if hasattr(s, "text") else s for s in self.paras[-1]]
+        self.assertEqual(len(last), 2, f"closing is {len(last)} sentences: {last}")
+        self.assertTrue(letter_frame.CANCEL_REQUEST.search(last[0]), last)
+        self.assertEqual(last[1], letter_frame.CLOSING_NEXT_STEP)
 
     def test_the_statutory_conclusion_comes_before_the_closing(self):
         """Not after it: the letter asked to cancel and then carried on."""

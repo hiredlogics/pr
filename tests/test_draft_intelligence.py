@@ -246,9 +246,11 @@ class CustomerLanguage(unittest.TestCase):
     def test_the_prompt_teaches_the_attribution_rule(self):
         from pcn_appeal import prompts
         body = prompts.system("drafting")
-        self.assertIn("The keeper's account is that", body)
+        # The letter is in the first person (v21): what the customer said is attributed
+        # with "I understand that ...", never "the keeper's account".
+        self.assertIn("I understand that", body)
         self.assertIn("CUSTOMER_ACCOUNT", body)
-        self.assertGreaterEqual(prompts.version("drafting"), 11)
+        self.assertGreaterEqual(prompts.version("drafting"), 21)
 
 
 class ParentChildCase(unittest.TestCase):
